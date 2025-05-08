@@ -5,8 +5,6 @@ const MOUSE_LEFT = 0;
 const MOUSE_MIDDLE = 1;
 const MOUSE_RIGHT = 2;
 
-const HEX_NUM = 5;
-
 const HexMap = () => {
     
     const [dragging, setDragging] = useState(false);
@@ -16,10 +14,10 @@ const HexMap = () => {
     const hexagons = [];
 
     // Generate a simple hex grid
-    for (let q = -HEX_NUM; q <= HEX_NUM; q++) {
-        for (let r = -HEX_NUM; r <= HEX_NUM; r++) {
+    for (let q = -5; q <= 5; q++) {
+        for (let r = -5; r <= 5; r++) {
             const s = -q - r;
-            if (Math.abs(s) <= HEX_NUM) {
+            if (Math.abs(s) <= 5) {
             hexagons.push({ q, r, s });
       }
     }
