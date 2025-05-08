@@ -171,16 +171,9 @@ const HexMap = () => {
         touchAction: 'none',
         background: 'blue',
       }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-          transformOrigin: '0 0',
-        }}
       >
-
           <HexGrid width={CANVAS_SIZE} height={CANVAS_SIZE}>
+          <g transform={`translate(${offset.x}, ${offset.y}) scale(${scale})`}>
             <Layout size={{ x: HEX_SIZE, y: HEX_SIZE }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
               {hexagons.map(({ q, r, s }, i) => {
                 const key = `${q},${r},${s}`;
@@ -207,9 +200,9 @@ const HexMap = () => {
                 );
               })}
             </Layout>
+            </g>
           </HexGrid>
         </div>
-      </div>
   );
 };
 
