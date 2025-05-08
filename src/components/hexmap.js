@@ -8,8 +8,11 @@ const MOUSE_MIDDLE = 1;
 const MOUSE_RIGHT = 2
 
 // hexes. HEX_NUM is how many hexes are there in one direction away from the central hex - basically the radius
-const HEX_NUM = 30;
+const HEX_NUM = 25;
 const HEX_SIZE = 1;
+
+// canvas size
+const CANVAS_SIZE = window.innerHeight * 3;
 
 // zoom settings
 const ZOOM_INTENSITY = 0.05;
@@ -43,8 +46,8 @@ const HexMap = () => {
     if (containerRef.current) {
       const container = containerRef.current;
       const initialOffset = {
-        x: container.clientWidth / 2 - 2000 / 2,
-        y: container.clientHeight / 2 - 2000 / 2,
+        x: container.clientWidth / 2 - CANVAS_SIZE / 2,
+        y: container.clientHeight / 2 - CANVAS_SIZE / 2,
       };
       setOffset(initialOffset);
     }
@@ -177,7 +180,7 @@ const HexMap = () => {
         }}
       >
 
-          <HexGrid width={3000} height={3000}>
+          <HexGrid width={CANVAS_SIZE} height={CANVAS_SIZE}>
             <Layout size={{ x: HEX_SIZE, y: HEX_SIZE }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
               {hexagons.map(({ q, r, s }, i) => {
                 const key = `${q},${r},${s}`;
