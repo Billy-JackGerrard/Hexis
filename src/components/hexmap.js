@@ -18,7 +18,7 @@ const HexMap = () => {
       }
     }
   }
-
+  //poop
   const handleMouseDown = (e) => {
     if (e.button === 1) { // Left mouse button
       setDragging(true);
