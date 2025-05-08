@@ -47,8 +47,8 @@ const HexMap = () => {
   useEffect(() => {
     if (containerRef.current) {
       const initialOffset = {
-        x: canvasSize.width / 2 - (canvasSize.width * 3) / 2,
-        y: canvasSize.height / 2 - (canvasSize.height * 3) / 2,
+        x: 0, //canvasSize.width / 2 - (canvasSize.width * 3) / 2,
+        y: 0, //canvasSize.height / 2 - (canvasSize.height * 3) / 2,
       };
       setOffset(initialOffset);
     }
@@ -192,7 +192,7 @@ const HexMap = () => {
         background: 'blue',
       }}
       >
-          <HexGrid width={canvasSize.width * 3} height={canvasSize.height * 3}>
+          <HexGrid width={canvasSize.width} height={canvasSize.height}>
           <g transform={`translate(${offset.x}, ${offset.y}) scale(${scale})`}>
             <Layout size={{ x: HEX_SIZE, y: HEX_SIZE }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
               {hexagons.map(({ q, r, s }, i) => {
