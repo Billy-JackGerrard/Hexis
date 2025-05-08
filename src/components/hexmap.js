@@ -198,13 +198,12 @@ const HexMap = () => {
                             ? 'tomato'
                             : isHovered
                               ? 'gold'
-                              : hexInfo[`${q},${r},${s}`].type === BASE
+                              : hexInfo[key].type === BASE
                                 ? 'purple'
-                                : hexInfo[`${q},${r},${s}`].type === LAND
+                                : hexInfo[key].type === LAND
                                   ? 'green'
                                   : 'grey'
-,
-                    }}
+                                         }}
                   />
                 );
               })}
