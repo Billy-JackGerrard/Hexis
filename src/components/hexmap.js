@@ -107,9 +107,12 @@ const HexMap = () => {
   const handleMouseMove = useCallback((e) => {
     if (dragging) {
       dragMovedRef.current = true;
-      const dx = e.clientX - startPosRef.current.x;
-      const dy = e.clientY - startPosRef.current.y;
-      setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      const dx = (e.clientX - startPosRef.current.x);
+      const dy = (e.clientY - startPosRef.current.y);
+      setOffset((prev) => ({
+        x: prev.x + dx,
+        y: prev.y + dy,
+      }));
       startPosRef.current = { x: e.clientX, y: e.clientY };
     }
   }, [dragging]);
@@ -135,14 +138,15 @@ const HexMap = () => {
       const ratio = clampedScale / scale;
   
       const newOffset = {
-        x: offset.x - mouseX * (ratio - 1),
-        y: offset.y - mouseY * (ratio - 1),
+        x: (offset.x - mouseX) * ratio + mouseX,
+        y: (offset.y - mouseY) * ratio + mouseY,
       };
-      
+  
       setScale(clampedScale);
       setOffset(newOffset);
     }
   }, [scale, offset]);
+  
   
   
 
@@ -159,9 +163,13 @@ const HexMap = () => {
     if (dragging && e.touches.length === 1) {
       dragMovedRef.current = true;
       const touch = e.touches[0];
-      const dx = touch.clientX - startPosRef.current.x;
-      const dy = touch.clientY - startPosRef.current.y;
-      setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      const dx = (e.clientX - startPosRef.current.x);
+      const dy = (e.clientY - startPosRef.current.y);
+      setOffset((prev) => ({
+        x: prev.x + dx,
+        y: prev.y + dy,
+      }));
+
       startPosRef.current = { x: touch.clientX, y: touch.clientY };
     }
   }, [dragging]);
