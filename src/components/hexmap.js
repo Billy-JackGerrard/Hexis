@@ -11,9 +11,6 @@ const MOUSE_RIGHT = 2
 const HEX_NUM = 25;
 const HEX_SIZE = 1;
 
-// canvas size
-const CANVAS_SIZE = window.innerHeight * 3;
-
 // zoom settings
 const ZOOM_INTENSITY = 0.05;
 const MIN_SCALE = 0.5;
@@ -40,17 +37,37 @@ const HexMap = () => {
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
+  const [canvasSize, setCanvasSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+  
+
   // trying to centre the screen on load
   useEffect(() => {
     if (containerRef.current) {
-      const container = containerRef.current;
       const initialOffset = {
-        x: container.clientWidth / 2 - CANVAS_SIZE / 2,
-        y: container.clientHeight / 2 - CANVAS_SIZE / 2,
+        x: canvasSize.width / 2 - (canvasSize.width * 3) / 2,
+        y: canvasSize.height / 2 - (canvasSize.height * 3) / 2,
       };
       setOffset(initialOffset);
     }
+  }, [canvasSize]);
+
+  // in case the window size changes (eg minimising)
+  useEffect(() => {
+    const handleResize = () => {
+      setCanvasSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+  
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
+  
+  
 
   const { hexagons, hexInfo} = useMemo(() => {
     const hexArray = [];
@@ -173,7 +190,7 @@ const HexMap = () => {
         background: 'blue',
       }}
       >
-          <HexGrid width={CANVAS_SIZE} height={CANVAS_SIZE}>
+          <HexGrid width={canvasSize.width * 3} height={canvasSize.height * 3}>
           <g transform={`translate(${offset.x}, ${offset.y}) scale(${scale})`}>
             <Layout size={{ x: HEX_SIZE, y: HEX_SIZE }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
               {hexagons.map(({ q, r, s }, i) => {
