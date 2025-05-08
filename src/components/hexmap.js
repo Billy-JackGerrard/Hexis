@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 
 const MOUSE_LEFT = 0;
@@ -10,11 +10,22 @@ const MAX_SCALE = 3;
 const HexMap = () => {
   const [dragging, setDragging] = useState(false);
   const startPosRef = useRef({ x: 0, y: 0 });
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  
+  const containerRef = useRef(null);
+  
+  const [offset, setOffset] = useState({x: 0, y: 0,});
+
+  useLayoutEffect(() => {
+    if (containerRef.current) {
+      const { offsetWidth, offsetHeight } = containerRef.current;
+      setOffset({ x: offsetWidth / 2, y: offsetHeight / 2 });
+    }
+  }, []);
+  
   const [scale, setScale] = useState(1);
   const [transformOrigin, setTransformOrigin] = useState('0 0');
-  const containerRef = useRef(null);
-  const lastPosRef = useRef({ x: 0, y: 0 });
+  const dragMovedRef = useRef(false);
+
 
   const [hoveredHex, setHoveredHex] = useState(null);
   const [clickedHex, setClickedHex] = useState(null);
@@ -35,6 +46,8 @@ const HexMap = () => {
   const handleMouseDown = useCallback((e) => {
     if (e.button === MOUSE_LEFT) {
       setDragging(true);
+      dragMovedRef.current = false;
+      startPosRef.current = { x: e.clientX, y: e.clientY };
       startPosRef.current = { x: e.clientX, y: e.clientY };
       e.preventDefault();
     }
@@ -42,6 +55,7 @@ const HexMap = () => {
 
   const handleMouseMove = useCallback((e) => {
     if (dragging) {
+      dragMovedRef.current = true;
       const dx = e.clientX - startPosRef.current.x;
       const dy = e.clientY - startPosRef.current.y;
       setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
@@ -85,12 +99,14 @@ const HexMap = () => {
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       setDragging(true);
+      dragMovedRef.current = false;
       startPosRef.current = { x: touch.clientX, y: touch.clientY };
     }
   }, []);
 
   const handleTouchMove = useCallback((e) => {
     if (dragging && e.touches.length === 1) {
+      dragMovedRef.current = true;
       const touch = e.touches[0];
       const dx = touch.clientX - startPosRef.current.x;
       const dy = touch.clientY - startPosRef.current.y;
@@ -149,7 +165,11 @@ const HexMap = () => {
                     s={s}
                     onMouseEnter={() => setHoveredHex(key)}
                     onMouseLeave={() => setHoveredHex(null)}
-                    onClick={() => setClickedHex(key)}
+                    onClick={() => {
+                      if (!dragMovedRef.current) {
+                        setClickedHex(key);
+                      }
+                    }}
                     style={{
                       fill: isClicked ? 'tomato' : isHovered ? 'gold' : 'lightgrey',
                     }}
