@@ -71,7 +71,7 @@ const HexMap = () => {
 
   const { hexagons, hexInfo} = useMemo(() => {
     const hexArray = [];
-    let info = {};
+    const info = {};
 
     for (let q = -HEX_NUM; q <= HEX_NUM; q++) {
       for (let r = -HEX_NUM; r <= HEX_NUM; r++) {
@@ -79,7 +79,8 @@ const HexMap = () => {
         if (Math.abs(s) <= HEX_NUM) {
           hexArray.push({ q, r, s });
         }
-        let key = q.toString() + r.toString() + s.toString();
+        const key = `${q},${r},${s}`;
+        
         info[key] = {
           coords: {q:q, r:r, s:s},
           terrain: "null",
@@ -91,6 +92,7 @@ const HexMap = () => {
     }
     return {hexagons: hexArray, hexInfo: info};
   }, []);
+
 
   const handleMouseDown = useCallback((e) => {
     if (e.button === MOUSE_LEFT) {
@@ -195,9 +197,9 @@ const HexMap = () => {
             <Layout size={{ x: HEX_SIZE, y: HEX_SIZE }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
               {hexagons.map(({ q, r, s }, i) => {
                 const key = `${q},${r},${s}`;
+                
                 const isHovered = hoveredHex === key;
                 const isClicked = clickedHex === key;
-                
                 return (
                   <Hexagon
                     key={key}
