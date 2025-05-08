@@ -7,8 +7,9 @@ const MOUSE_LEFT = 0;
 const MOUSE_MIDDLE = 1;
 const MOUSE_RIGHT = 2
 
-// number of hexes in one direction away from the central hex - basically the radius
-const HEX_NUM = 20;
+// hexes. HEX_NUM is how many hexes are there in one direction away from the central hex - basically the radius
+const HEX_NUM = 30;
+const HEX_SIZE = 1;
 
 // zoom settings
 const ZOOM_INTENSITY = 0.05;
@@ -22,6 +23,9 @@ const OBSTACLE = 2;
 
 
 const HexMap = () => {
+
+  // initialisation
+
   const [dragging, setDragging] = useState(false);
   
   const [scale, setScale] = useState(1);
@@ -34,6 +38,8 @@ const HexMap = () => {
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
+
+  // trying to ensure default screen being centred on the middle hex
   function hexToPixel(q, r, size, flat) {
     const sqrt3 = Math.sqrt(3);
     const x = flat
@@ -45,38 +51,21 @@ const HexMap = () => {
     return { x, y };
   }
 
-  useLayoutEffect(() => {
-    if (containerRef.current) {
-      const { offsetWidth, offsetHeight } = containerRef.current;
+  // useLayoutEffect(() => {
+  //   if (containerRef.current) {
+  //     const { offsetWidth, offsetHeight } = containerRef.current;
 
-      setOffset({
-        x: offsetWidth / 2 - Math.sqrt(3),
-        y: offsetHeight / 2,
-      });
-    }
-  }, []);
-
+  //     setOffset({
+  //       x: offsetWidth / 2 - Math.sqrt(3),
+  //       y: offsetHeight / 2,
+  //     });
+  //   }
+  // }, []);
   
-
-
-  function hexToPixel(q, r, size, flat) {
-    const sqrt3 = Math.sqrt(3);
-    const x = flat
-      ? size * (3/2 * q)
-      : size * sqrt3 * (q + r / 2);
-    const y = flat
-      ? size * sqrt3 * (r + q / 2)
-      : size * (3/2 * r);
-    return { x, y };
-  }
-
-  
-
 
   const hexagons = useMemo(() => {
     const hexArray = [];
-    var hexDictArray = [];
-    //const fs = require('fs'); // needed for adding hexDictArray to the json file
+    const hexDictArray = [];
 
     for (let q = -HEX_NUM; q <= HEX_NUM; q++) {
       for (let r = -HEX_NUM; r <= HEX_NUM; r++) {
@@ -85,15 +74,14 @@ const HexMap = () => {
           hexArray.push({ q, r, s });
         }
         const hexDict = {
-          coords: {q:q, r:r, s:s}, //q,r, and s coords in a dict
+          coords: {q:q, r:r, s:s},
           terrain: "null",
-          type: [Math.abs(q), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, //all edge tiles are obstacles, other tiles are land tiles
+          type: [Math.abs(q), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, // all edge tiles are obstacles, other tiles are land tiles
           resources: {wood: 0, stone: 0, water: 0, food: 0} // add more if necessary
         };
         hexDictArray.push(hexDict);
       }
     }
-    //fs.writeFileSync('tiles.json', JSON.stringify(hexDictArray, null, 2))
     return hexArray;
   }, []);
 
@@ -187,6 +175,9 @@ const HexMap = () => {
         width: '100vw',
         height: '100vh',
         cursor: dragging ? 'grabbing' : 'grab',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         overflow: 'hidden',
         position: 'relative',
         userSelect: 'none',
@@ -206,7 +197,7 @@ const HexMap = () => {
           }}
         >
           <HexGrid width={2000} height={2000}>
-            <Layout size={{ x: 1, y: 1 }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
+            <Layout size={{ x: HEX_SIZE, y: HEX_SIZE }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
               {hexagons.map(({ q, r, s }, i) => {
                 const key = `${q},${r},${s}`;
                 const isHovered = hoveredHex === key;
