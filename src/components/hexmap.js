@@ -12,7 +12,7 @@ const HEX_NUM = 25;
 const HEX_SIZE = 1;
 
 // zoom settings
-const ZOOM_INTENSITY = 0.01;
+const ZOOM_INTENSITY = 0.05;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 
@@ -133,18 +133,9 @@ const HexMap = () => {
     const wheel = e.deltaY < 0 ? 1 : -1;
     const newScale = scale + wheel * ZOOM_INTENSITY;
     const clampedScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
-  
-    if (clampedScale !== scale) {
-      const ratio = clampedScale / scale;
-  
-      const newOffset = {
-        x: (offset.x - mouseX) * ratio + mouseX,
-        y: (offset.y - mouseY) * ratio + mouseY,
-      };
-  
-      setScale(clampedScale);
-      setOffset(newOffset);
-    }
+   
+    if (clampedScale !== scale) {setScale(clampedScale)};
+
   }, [scale, offset]);
   
   
@@ -163,8 +154,8 @@ const HexMap = () => {
     if (dragging && e.touches.length === 1) {
       dragMovedRef.current = true;
       const touch = e.touches[0];
-      const dx = (e.clientX - startPosRef.current.x);
-      const dy = (e.clientY - startPosRef.current.y);
+      const dx = (touch.clientX - startPosRef.current.x);
+      const dy = (touch.clientY - startPosRef.current.y);
       setOffset((prev) => ({
         x: prev.x + dx,
         y: prev.y + dy,
@@ -235,7 +226,7 @@ const HexMap = () => {
                                 : hexInfo[key].type === LAND
                                   ? 'green'
                                   : 'grey'
-                                         }}
+                    }}
                   />
                 );
               })}
