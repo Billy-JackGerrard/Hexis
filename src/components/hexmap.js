@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 
 const MOUSE_LEFT = 0;
-const HEX_NUM = 10;
+const HEX_NUM = 20;
 const ZOOM_INTENSITY = 0.05;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
