@@ -12,7 +12,7 @@ const HEX_NUM = 25;
 const HEX_SIZE = 1;
 
 // zoom settings
-const ZOOM_INTENSITY = 0.05;
+const ZOOM_INTENSITY = 0.01;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 
