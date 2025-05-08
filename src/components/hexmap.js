@@ -63,13 +63,13 @@ const HexMap = () => {
         if (Math.abs(s) <= HEX_NUM) {
           hexArray.push({ q, r, s });
         }
-        const hexDict = {
+        hexInfo[$q$r$s] = {
           coords: {q:q, r:r, s:s},
           terrain: "null",
           type: [Math.abs(q), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, // all edge tiles are obstacles, other tiles are land tiles
           resources: {wood: 0, stone: 0, water: 0, food: 0} // add more if necessary
         };
-        hexInfo[$q$r$s] = hexDict; //add a new item to hexInfo, key="qrs" (the 3 coords next to one another)
+        
       }
     }
     return hexArray;
