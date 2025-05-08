@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 
+const MOUSE_LEFT = 0;
+const MOUSE_MIDDLE = 1;
+const MOUSE_RIGHT = 2;
+
 const HexMap = () => {
     
     const [dragging, setDragging] = useState(false);
@@ -20,7 +24,7 @@ const HexMap = () => {
   }
   //poop
   const handleMouseDown = (e) => {
-    if (e.button === 1) { // Left mouse button
+    if (e.button === MOUSE_LEFT) {
       setDragging(true);
       setStartPos({ x: e.clientX, y: e.clientY });
       e.preventDefault(); // Prevent context menu
