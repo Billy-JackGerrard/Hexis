@@ -166,7 +166,7 @@ const HexMap = () => {
         position: 'relative',
         userSelect: 'none',
         touchAction: 'none',
-        background: 'black',
+        background: 'blue',
       }}
     >
       <div
@@ -177,7 +177,7 @@ const HexMap = () => {
         }}
       >
 
-          <HexGrid width={2000} height={2000}>
+          <HexGrid width={3000} height={3000}>
             <Layout size={{ x: HEX_SIZE, y: HEX_SIZE }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
               {hexagons.map(({ q, r, s }, i) => {
                 const key = `${q},${r},${s}`;
