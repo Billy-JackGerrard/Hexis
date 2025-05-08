@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 
 const MOUSE_LEFT = 0;
@@ -12,21 +12,26 @@ const HexMap = () => {
   const startPosRef = useRef({ x: 0, y: 0 });
   
   const containerRef = useRef(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
   
-  const [offset, setOffset] = useState({x: 0, y: 0,});
-
   useLayoutEffect(() => {
     if (containerRef.current) {
       const { offsetWidth, offsetHeight } = containerRef.current;
-      setOffset({ x: offsetWidth / 2, y: offsetHeight / 2 });
+      const initialOffsetX = offsetWidth / 2;
+      const initialOffsetY = offsetHeight / 2;
+  
+      // Add tweak to manually push grid into view if needed
+      // E.g., if your grid center is at (0, 0) and it’s not visible,
+      // adjust this with testing — this is often trial-and-error
+      setOffset({
+        x: initialOffsetX - 690,  // tweak these values
+        y: initialOffsetY - 690
+      });
     }
   }, []);
   
-  const [scale, setScale] = useState(1);
-  const [transformOrigin, setTransformOrigin] = useState('0 0');
   const dragMovedRef = useRef(false);
-
-
+  const [scale, setScale] = useState(1);
   const [hoveredHex, setHoveredHex] = useState(null);
   const [clickedHex, setClickedHex] = useState(null);
 
@@ -87,7 +92,7 @@ const HexMap = () => {
         x: offset.x - mouseX * (ratio - 1),
         y: offset.y - mouseY * (ratio - 1),
       };
-  
+      
       setScale(clampedScale);
       setOffset(newOffset);
     }
@@ -148,7 +153,7 @@ const HexMap = () => {
         <div
           style={{
             transform: `scale(${scale})`,
-            transformOrigin: transformOrigin,
+            transformOrigin: '0 0',
           }}
         >
           <HexGrid width={2000} height={2000}>
