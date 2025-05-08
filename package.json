@@ -8,6 +8,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "fs": "^0.0.1-security",
     "hexgrid": "^0.0.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -17,7 +18,7 @@
   },
   "engines": {
     "node": "18.x"
-  },  
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
