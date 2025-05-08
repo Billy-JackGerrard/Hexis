@@ -39,7 +39,6 @@ const HexMap = () => {
   const startPosRef = useRef({ x: 0, y: 0 });
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  let hexInfo = {};
 
   // trying to centre the screen on load
   useEffect(() => {
@@ -53,9 +52,9 @@ const HexMap = () => {
     }
   }, []);
 
-  const hexagons = useMemo(() => {
+  const { hexagons, hexInfo} = useMemo(() => {
     const hexArray = [];
-    
+    let info = {};
 
     for (let q = -HEX_NUM; q <= HEX_NUM; q++) {
       for (let r = -HEX_NUM; r <= HEX_NUM; r++) {
@@ -63,7 +62,7 @@ const HexMap = () => {
         if (Math.abs(s) <= HEX_NUM) {
           hexArray.push({ q, r, s });
         }
-        hexInfo[`$q$r$s`] = {
+        info[`$q$r$s`] = {
           coords: {q:q, r:r, s:s},
           terrain: "null",
           type: [Math.abs(q), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, // all edge tiles are obstacles, other tiles are land tiles
@@ -72,7 +71,7 @@ const HexMap = () => {
         
       }
     }
-    return hexArray;
+    return {hexagons: hexArray, hexInfo: info};
   }, []);
 
   const handleMouseDown = useCallback((e) => {
