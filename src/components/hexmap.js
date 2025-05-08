@@ -62,7 +62,8 @@ const HexMap = () => {
         if (Math.abs(s) <= HEX_NUM) {
           hexArray.push({ q, r, s });
         }
-        info[`$q,$r,$s`] = {
+        let key = q.toString() + r.toString() + s.toString();
+        info[key] = {
           coords: {q:q, r:r, s:s},
           terrain: "null",
           type: [Math.abs(q), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, // all edge tiles are obstacles, other tiles are land tiles
