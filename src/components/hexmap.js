@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 
 
@@ -21,7 +21,6 @@ const LAND = 0;
 const BASE = 1;
 const OBSTACLE = 2;
 
-
 const HexMap = () => {
 
   // initialisation
@@ -37,6 +36,19 @@ const HexMap = () => {
   const startPosRef = useRef({ x: 0, y: 0 });
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+
+  // trying to centre the screen on load
+  useEffect(() => {
+    if (containerRef.current) {
+      const container = containerRef.current;
+      const initialOffset = {
+        x: container.clientWidth / 2 - 2000 / 2,
+        y: container.clientHeight / 2 - 2000 / 2,
+      };
+      setOffset(initialOffset);
+    }
+  }, []);
 
   const hexagons = useMemo(() => {
     const hexArray = [];
@@ -150,13 +162,11 @@ const HexMap = () => {
         width: '100vw',
         height: '100vh',
         cursor: dragging ? 'grabbing' : 'grab',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         overflow: 'hidden',
         position: 'relative',
         userSelect: 'none',
         touchAction: 'none',
+        background: 'black',
       }}
     >
       <div
