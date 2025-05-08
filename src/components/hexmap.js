@@ -150,6 +150,7 @@ const HexMap = () => {
     setDragging(false);
   }, []);
 
+  
   return (
     <div
       ref={containerRef}
