@@ -43,16 +43,16 @@ const HexMap = () => {
   });
   
 
-  // trying to centre the screen on load
-  useEffect(() => {
-    if (containerRef.current) {
-      const initialOffset = {
-        x: 0, //canvasSize.width / 2 - (canvasSize.width * 3) / 2,
-        y: 0, //canvasSize.height / 2 - (canvasSize.height * 3) / 2,
-      };
-      setOffset(initialOffset);
-    }
-  }, [canvasSize]);
+  // // trying to centre the screen on load
+  // useEffect(() => {
+  //   if (containerRef.current) {
+  //     const initialOffset = {
+  //       x: 0, //canvasSize.width / 2 - (canvasSize.width * 3) / 2,
+  //       y: 0, //canvasSize.height / 2 - (canvasSize.height * 3) / 2,
+  //     };
+  //     setOffset(initialOffset);
+  //   }
+  // }, [canvasSize]);
 
   // in case the window size changes (eg minimising)
   useEffect(() => {
@@ -107,8 +107,8 @@ const HexMap = () => {
   const handleMouseMove = useCallback((e) => {
     if (dragging) {
       dragMovedRef.current = true;
-      const dx = (e.clientX - startPosRef.current.x);
-      const dy = (e.clientY - startPosRef.current.y);
+      const dx = (e.clientX - startPosRef.current.x) / scale;
+      const dy = (e.clientY - startPosRef.current.y) / scale;
       setOffset((prev) => ({
         x: prev.x + dx,
         y: prev.y + dy,
@@ -116,6 +116,7 @@ const HexMap = () => {
       startPosRef.current = { x: e.clientX, y: e.clientY };
     }
   }, [dragging]);
+  
 
   const handleMouseUp = useCallback(() => {
     setDragging(false);
@@ -125,6 +126,7 @@ const HexMap = () => {
   // Zoom function
   const handleWheel = useCallback((e) => {
     e.preventDefault();
+    if (!containerRef.current) return;
   
     const rect = containerRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
@@ -133,10 +135,19 @@ const HexMap = () => {
     const wheel = e.deltaY < 0 ? 1 : -1;
     const newScale = scale + wheel * ZOOM_INTENSITY;
     const clampedScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
-   
-    if (clampedScale !== scale) {setScale(clampedScale)};
 
-  }, [scale, offset]);
+    if (clampedScale === scale) return;
+  
+    const scaleFactor = clampedScale / scale;
+  
+    // Adjust offset so zoom stays centered on the mouse
+    setOffset((prev) => ({
+      x: mouseX - (mouseX - prev.x) * scaleFactor,
+      y: mouseY - (mouseY - prev.y) * scaleFactor,
+    }));
+  
+    setScale(clampedScale);
+  }, [scale]);
   
   
   
@@ -154,16 +165,16 @@ const HexMap = () => {
     if (dragging && e.touches.length === 1) {
       dragMovedRef.current = true;
       const touch = e.touches[0];
-      const dx = (touch.clientX - startPosRef.current.x);
-      const dy = (touch.clientY - startPosRef.current.y);
+      const dx = (touch.clientX - startPosRef.current.x) / scale;
+      const dy = (touch.clientY - startPosRef.current.y) / scale;
       setOffset((prev) => ({
         x: prev.x + dx,
         y: prev.y + dy,
       }));
-
       startPosRef.current = { x: touch.clientX, y: touch.clientY };
     }
   }, [dragging]);
+  
 
   const handleTouchEnd = useCallback(() => {
     setDragging(false);
