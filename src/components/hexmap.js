@@ -12,6 +12,7 @@ const HexMap = () => {
     const [dragging, setDragging] = useState(false);
     const [startPos, setStartPos] = useState({ x: 0, y: 0 });
     const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [scale, setScale] = useState(1);
 
     const hexagons = [];
 
@@ -49,6 +50,16 @@ const HexMap = () => {
     setDragging(false);
   };
 
+  const handleWheel = (e) => {
+    e.preventDefault(); // Prevent default scroll
+    const zoomIntensity = 0.1;
+    const newScale = e.deltaY < 0 ? scale + zoomIntensity : scale - zoomIntensity;
+  
+    // Clamp zoom level between 0.5x and 3x
+    setScale(Math.min(3, Math.max(0.5, newScale)));
+  };
+  
+
     // Add event listeners when component mounts
     useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
@@ -64,12 +75,14 @@ const HexMap = () => {
 
     return (
         <div
+          onWheel={handleWheel}
           style={{
             width: '100vw',
             height: '100vh',
             cursor: dragging ? 'grabbing' : 'grab',
             overflow: 'hidden',
             position: 'relative',
+            userSelect: 'none',
           }}
         >
           <HexGrid width={2000} height={2000} style={{ position: 'absolute', top: offset.y, left: offset.x }}>
