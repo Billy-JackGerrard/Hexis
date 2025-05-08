@@ -90,8 +90,8 @@ const HexMap = () => {
     e.preventDefault();
   
     const rect = containerRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left - offset.x;
-    const mouseY = e.clientY - rect.top - offset.y;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
   
     const wheel = e.deltaY < 0 ? 1 : -1;
     const newScale = scale + wheel * ZOOM_INTENSITY;
