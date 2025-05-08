@@ -87,7 +87,7 @@ const HexMap = () => {
         const hexDict = {
           coords: {q:q, r:r, s:s}, //q,r, and s coords in a dict
           terrain: "null",
-          type: [Math.abs(p), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, //all edge tiles are obstacles, other tiles are land tiles
+          type: [Math.abs(q), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, //all edge tiles are obstacles, other tiles are land tiles
           resources: {wood: 0, stone: 0, water: 0, food: 0} // add more if necessary
         };
         hexDictArray.push(hexDict);
