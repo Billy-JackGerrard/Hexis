@@ -197,12 +197,12 @@ const HexMap = () => {
                       fill: isClicked
                             ? 'tomato'
                             : isHovered
-                            ? 'gold'
-                            : hexInfo[`${q},${r},${s}`].type === BASE
-                            ? 'purple'
-                            : hexInfo[`${q},${r},${s}`].type === LAND
-                            ? 'green'
-                            : 'grey'
+                              ? 'gold'
+                              : hexInfo[`${q},${r},${s}`].type === BASE
+                                ? 'purple'
+                                : hexInfo[`${q},${r},${s}`].type === LAND
+                                  ? 'green'
+                                  : 'grey'
 ,
                     }}
                   />
