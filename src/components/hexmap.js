@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 
 
@@ -37,31 +37,6 @@ const HexMap = () => {
   const startPosRef = useRef({ x: 0, y: 0 });
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-
-
-  // trying to ensure default screen being centred on the middle hex
-  function hexToPixel(q, r, size, flat) {
-    const sqrt3 = Math.sqrt(3);
-    const x = flat
-      ? size * (3/2 * q)
-      : size * sqrt3 * (q + r / 2);
-    const y = flat
-      ? size * sqrt3 * (r + q / 2)
-      : size * (3/2 * r);
-    return { x, y };
-  }
-
-  // useLayoutEffect(() => {
-  //   if (containerRef.current) {
-  //     const { offsetWidth, offsetHeight } = containerRef.current;
-
-  //     setOffset({
-  //       x: offsetWidth / 2 - Math.sqrt(3),
-  //       y: offsetHeight / 2,
-  //     });
-  //   }
-  // }, []);
-  
 
   const hexagons = useMemo(() => {
     const hexArray = [];
@@ -187,15 +162,11 @@ const HexMap = () => {
       <div
         style={{
           position: 'absolute',
-          transform: `translate(${offset.x}px, ${offset.y}px)`,
+          transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+          transformOrigin: '0 0',
         }}
       >
-        <div
-          style={{
-            transform: `scale(${scale})`,
-            transformOrigin: '0 0',
-          }}
-        >
+
           <HexGrid width={2000} height={2000}>
             <Layout size={{ x: HEX_SIZE, y: HEX_SIZE }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
               {hexagons.map(({ q, r, s }, i) => {
@@ -225,7 +196,6 @@ const HexMap = () => {
           </HexGrid>
         </div>
       </div>
-    </div>
   );
 };
 
