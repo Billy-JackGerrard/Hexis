@@ -76,7 +76,7 @@ const HexMap = () => {
   const hexagons = useMemo(() => {
     const hexArray = [];
     var hexDictArray = [];
-    const fs = require('fs'); // needed for adding hexDictArray to the json file
+    //const fs = require('fs'); // needed for adding hexDictArray to the json file
 
     for (let q = -HEX_NUM; q <= HEX_NUM; q++) {
       for (let r = -HEX_NUM; r <= HEX_NUM; r++) {
@@ -93,7 +93,7 @@ const HexMap = () => {
         hexDictArray.push(hexDict);
       }
     }
-    fs.writeFileSync('tiles.json', JSON.stringify(hexDictArray, null, 2))
+    //fs.writeFileSync('tiles.json', JSON.stringify(hexDictArray, null, 2))
     return hexArray;
   }, []);
 
