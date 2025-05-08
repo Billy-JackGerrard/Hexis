@@ -1,17 +1,23 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 
 const MOUSE_LEFT = 0;
 const HEX_NUM = 10;
-const zoomIntensity = 0.05;
+const ZOOM_INTENSITY = 0.05;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 3;
 
 const HexMap = () => {
   const [dragging, setDragging] = useState(false);
-  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const startPosRef = useRef({ x: 0, y: 0 });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-
   const [scale, setScale] = useState(1);
   const [transformOrigin, setTransformOrigin] = useState('0 0');
+  const containerRef = useRef(null);
+  const lastPosRef = useRef({ x: 0, y: 0 });
+
+  const [hoveredHex, setHoveredHex] = useState(null);
+  const [clickedHex, setClickedHex] = useState(null);
 
   const hexagons = useMemo(() => {
     const h = [];
@@ -29,22 +35,19 @@ const HexMap = () => {
   const handleMouseDown = useCallback((e) => {
     if (e.button === MOUSE_LEFT) {
       setDragging(true);
-      setStartPos({ x: e.clientX, y: e.clientY });
+      startPosRef.current = { x: e.clientX, y: e.clientY };
       e.preventDefault();
     }
   }, []);
 
   const handleMouseMove = useCallback((e) => {
     if (dragging) {
-      const dx = e.clientX - startPos.x;
-      const dy = e.clientY - startPos.y;
-      setOffset((prev) => ({
-        x: prev.x + dx,
-        y: prev.y + dy,
-      }));
-      setStartPos({ x: e.clientX, y: e.clientY });
+      const dx = e.clientX - startPosRef.current.x;
+      const dy = e.clientY - startPosRef.current.y;
+      setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      startPosRef.current = { x: e.clientX, y: e.clientY };
     }
-  }, [dragging, startPos]);
+  }, [dragging]);
 
   const handleMouseUp = useCallback(() => {
     setDragging(false);
@@ -52,33 +55,62 @@ const HexMap = () => {
 
   const handleWheel = useCallback((e) => {
     e.preventDefault();
-    const newScale = e.deltaY < 0 ? scale + zoomIntensity : scale - zoomIntensity;
-
-    // Minimum and maximum zooming
-    const clampedScale = Math.min(3, Math.max(0.5, newScale));
-
-    // Only update transform origin if scale change
+  
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left - offset.x;
+    const mouseY = e.clientY - rect.top - offset.y;
+  
+    const wheel = e.deltaY < 0 ? 1 : -1;
+    const newScale = scale + wheel * ZOOM_INTENSITY;
+    const clampedScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
+  
     if (clampedScale !== scale) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      setTransformOrigin(`${mouseX}px ${mouseY}px`);
+      const ratio = clampedScale / scale;
+  
+      const newOffset = {
+        x: offset.x - mouseX * (ratio - 1),
+        y: offset.y - mouseY * (ratio - 1),
+      };
+  
       setScale(clampedScale);
+      setOffset(newOffset);
     }
+  }, [scale, offset]);
+  
+  
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    setTransformOrigin(`${mouseX}px ${mouseY}px`);
-  }, [scale]);
+  const handleTouchStart = useCallback((e) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setDragging(true);
+      startPosRef.current = { x: touch.clientX, y: touch.clientY };
+    }
+  }, []);
 
+  const handleTouchMove = useCallback((e) => {
+    if (dragging && e.touches.length === 1) {
+      const touch = e.touches[0];
+      const dx = touch.clientX - startPosRef.current.x;
+      const dy = touch.clientY - startPosRef.current.y;
+      setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      startPosRef.current = { x: touch.clientX, y: touch.clientY };
+    }
+  }, [dragging]);
+
+  const handleTouchEnd = useCallback(() => {
+    setDragging(false);
+  }, []);
 
   return (
     <div
+      ref={containerRef}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{
         width: '100vw',
         height: '100vh',
@@ -86,6 +118,7 @@ const HexMap = () => {
         overflow: 'hidden',
         position: 'relative',
         userSelect: 'none',
+        touchAction: 'none',
       }}
     >
       <div
@@ -98,14 +131,32 @@ const HexMap = () => {
           style={{
             transform: `scale(${scale})`,
             transformOrigin: transformOrigin,
-            transition: `transform ${zoomIntensity}s ease`,
+            transition: `transform ${ZOOM_INTENSITY}s ease`,
           }}
         >
           <HexGrid width={2000} height={2000}>
-            <Layout size={{ x: 1, y: 1 }} flat={false} spacing={1.1} origin={{ x: 0, y: 0 }}>
-              {hexagons.map(({ q, r, s }, i) => (
-                <Hexagon key={i} q={q} r={r} s={s} />
-              ))}
+            <Layout size={{ x: 1, y: 1 }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
+              {hexagons.map(({ q, r, s }, i) => {
+                const key = `${q},${r},${s}`;
+                const isHovered = hoveredHex === key;
+                const isClicked = clickedHex === key;
+                return (
+                  <Hexagon
+                    key={key}
+                    q={q}
+                    r={r}
+                    s={s}
+                    onMouseEnter={() => setHoveredHex(key)}
+                    onMouseLeave={() => setHoveredHex(null)}
+                    onClick={() => setClickedHex(key)}
+                    style={{
+                      fill: isClicked ? 'tomato' : isHovered ? 'gold' : 'lightgrey',
+                      stroke: 'black',
+                      strokeWidth: 0.1,
+                    }}
+                  />
+                );
+              })}
             </Layout>
           </HexGrid>
         </div>
