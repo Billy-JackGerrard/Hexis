@@ -3,6 +3,7 @@ import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 
 const MOUSE_LEFT = 0;
 const HEX_NUM = 10;
+const zoomIntensity = 0.05;
 
 const HexMap = () => {
   const [dragging, setDragging] = useState(false);
@@ -51,15 +52,26 @@ const HexMap = () => {
 
   const handleWheel = useCallback((e) => {
     e.preventDefault();
-    const zoomIntensity = 0.1;
     const newScale = e.deltaY < 0 ? scale + zoomIntensity : scale - zoomIntensity;
-    setScale(Math.min(3, Math.max(0.5, newScale)));
+
+    // Minimum and maximum zooming
+    const clampedScale = Math.min(3, Math.max(0.5, newScale));
+
+    // Only update transform origin if scale change
+    if (clampedScale !== scale) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      setTransformOrigin(`${mouseX}px ${mouseY}px`);
+      setScale(clampedScale);
+    }
 
     const rect = e.currentTarget.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     setTransformOrigin(`${mouseX}px ${mouseY}px`);
   }, [scale]);
+
 
   return (
     <div
@@ -86,11 +98,11 @@ const HexMap = () => {
           style={{
             transform: `scale(${scale})`,
             transformOrigin: transformOrigin,
-            transition: 'transform 0.1s ease',
+            transition: `transform ${zoomIntensity}s ease`,
           }}
         >
           <HexGrid width={2000} height={2000}>
-            <Layout size={{ x: 2, y: 2 }} flat={false} spacing={1.1} origin={{ x: 0, y: 0 }}>
+            <Layout size={{ x: 1, y: 1 }} flat={false} spacing={1.1} origin={{ x: 0, y: 0 }}>
               {hexagons.map(({ q, r, s }, i) => (
                 <Hexagon key={i} q={q} r={r} s={s} />
               ))}
