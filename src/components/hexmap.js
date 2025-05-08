@@ -84,7 +84,7 @@ const HexMap = () => {
         info[key] = {
           coords: {q:q, r:r, s:s},
           terrain: "null",
-          type: [Math.abs(q), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, // all edge tiles are obstacles, other tiles are land tiles
+          type: [Math.abs(q), Math.abs(r), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, // all edge tiles are obstacles, other tiles are land tiles
           resources: {wood: 0, stone: 0, water: 0, food: 0} // add more if necessary
         };
         
@@ -206,9 +206,11 @@ const HexMap = () => {
                     q={q}
                     r={r}
                     s={s}
+                    
                     onMouseEnter={() => setHoveredHex(key)}
                     onMouseLeave={() => setHoveredHex(null)}
                     onClick={() => {
+                      console.log(key);
                       if (!dragMovedRef.current) {
                         setClickedHex(key);
                       }
