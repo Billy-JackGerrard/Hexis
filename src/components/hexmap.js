@@ -52,7 +52,7 @@ const HexMap = () => {
 
   const hexagons = useMemo(() => {
     const hexArray = [];
-    const hexDictArray = [];
+    let hexInfo = {};
 
     for (let q = -HEX_NUM; q <= HEX_NUM; q++) {
       for (let r = -HEX_NUM; r <= HEX_NUM; r++) {
@@ -66,7 +66,7 @@ const HexMap = () => {
           type: [Math.abs(q), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, // all edge tiles are obstacles, other tiles are land tiles
           resources: {wood: 0, stone: 0, water: 0, food: 0} // add more if necessary
         };
-        hexDictArray.push(hexDict);
+        hexInfo[$q$r$s] = hexDict; //add a new item to hexInfo, key="qrs" (the 3 coords next to one another)
       }
     }
     return hexArray;
