@@ -179,6 +179,7 @@ const HexMap = () => {
                 const key = `${q},${r},${s}`;
                 const isHovered = hoveredHex === key;
                 const isClicked = clickedHex === key;
+                
                 return (
                   <Hexagon
                     key={key}
@@ -192,6 +193,7 @@ const HexMap = () => {
                         setClickedHex(key);
                       }
                     }}
+                    
                     style={{
                       //if clicked, tomato colour. if hovered, gold colour. else colour depends on tile type (purple for base, green for land, grey for obstacle)
                       fill: isClicked
