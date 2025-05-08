@@ -7,6 +7,8 @@ const ZOOM_INTENSITY = 0.05;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 
+const LAND=0,BASE=1,OBSTACLE=2;
+
 const HexMap = () => {
   const [dragging, setDragging] = useState(false);
   const startPosRef = useRef({ x: 0, y: 0 });
@@ -36,16 +38,27 @@ const HexMap = () => {
   const [clickedHex, setClickedHex] = useState(null);
 
   const hexagons = useMemo(() => {
-    const h = [];
+    const hexArray = [];
+    var hexDictArray = [];
+    const fs = require('fs'); // needed for adding hexDictArray to the json file
+
     for (let q = -HEX_NUM; q <= HEX_NUM; q++) {
       for (let r = -HEX_NUM; r <= HEX_NUM; r++) {
         const s = -q - r;
         if (Math.abs(s) <= HEX_NUM) {
-          h.push({ q, r, s });
+          hexArray.push({ q, r, s });
         }
+        const hexDict = {
+          coords: {q:q, r:r, s:s}, //q,r, and s coords in a dict
+          terrain: "null",
+          type: [Math.abs(p), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, //all edge tiles are obstacles, other tiles are land tiles
+          resources: {wood: 0, stone: 0, water: 0, food: 0} // add more if necessary
+        };
+        hexDictArray.push(hexDict);
       }
     }
-    return h;
+    fs.writeFileSync('tiles.json', JSON.stringify(hexDictArray, null, 2))
+    return hexArray;
   }, []);
 
   const handleMouseDown = useCallback((e) => {
