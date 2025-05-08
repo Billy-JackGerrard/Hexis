@@ -53,6 +53,8 @@ const HexMap = () => {
     setDragging(false);
   }, []);
 
+
+  // Zoom function
   const handleWheel = useCallback((e) => {
     e.preventDefault();
   
@@ -131,7 +133,6 @@ const HexMap = () => {
           style={{
             transform: `scale(${scale})`,
             transformOrigin: transformOrigin,
-            transition: `transform ${ZOOM_INTENSITY}s ease`,
           }}
         >
           <HexGrid width={2000} height={2000}>
@@ -151,8 +152,6 @@ const HexMap = () => {
                     onClick={() => setClickedHex(key)}
                     style={{
                       fill: isClicked ? 'tomato' : isHovered ? 'gold' : 'lightgrey',
-                      stroke: 'black',
-                      strokeWidth: 0.1,
                     }}
                   />
                 );
