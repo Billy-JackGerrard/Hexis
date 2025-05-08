@@ -1,7 +1,7 @@
 import './App.css';
 
 import React from 'react';
-import HexMap from './HexMap';
+import HexMap from '/components/HexMap';
 
 function App() {
   return <HexMap />;
