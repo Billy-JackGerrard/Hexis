@@ -20,7 +20,7 @@ const HexMap = () => {
   }
 
   const handleMouseDown = (e) => {
-    if (e.button === 2) { // Right mouse button
+    if (e.button === 1) { // Left mouse button
       setDragging(true);
       setStartPos({ x: e.clientX, y: e.clientY });
       e.preventDefault(); // Prevent context menu
