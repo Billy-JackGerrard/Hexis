@@ -194,7 +194,16 @@ const HexMap = () => {
                     }}
                     style={{
                       //if clicked, tomato colour. if hovered, gold colour. else colour depends on tile type (purple for base, green for land, grey for obstacle)
-                      fill: isClicked ? 'tomato' : isHovered ? 'gold' : (hexInfo[`$q,$r,$s`].type === BASE ? 'purple' : hexInfo[`$q,$r,$s`].type === LAND ? 'green' : 'grey'),
+                      fill: isClicked
+                            ? 'tomato'
+                            : isHovered
+                            ? 'gold'
+                            : hexInfo[`${q},${r},${s}`].type === BASE
+                            ? 'purple'
+                            : hexInfo[`${q},${r},${s}`].type === LAND
+                            ? 'green'
+                            : 'grey'
+,
                     }}
                   />
                 );
