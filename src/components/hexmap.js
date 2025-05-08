@@ -63,7 +63,7 @@ const HexMap = () => {
         if (Math.abs(s) <= HEX_NUM) {
           hexArray.push({ q, r, s });
         }
-        hexInfo['$q$r$s'] = {
+        hexInfo[`$q$r$s`] = {
           coords: {q:q, r:r, s:s},
           terrain: "null",
           type: [Math.abs(q), Math.abs(q), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, // all edge tiles are obstacles, other tiles are land tiles
@@ -194,7 +194,7 @@ const HexMap = () => {
                     }}
                     style={{
                       //if clicked, tomato colour. if hovered, gold colour. else colour depends on tile type (purple for base, green for land, grey for obstacle)
-                      fill: isClicked ? 'tomato' : isHovered ? 'gold' : (hexInfo['$q$r$s'].type === 'BASE' ? 'purple' : hexInfo['$q$r$s'].type === 'LAND' ? 'green' : 'grey'),
+                      fill: isClicked ? 'tomato' : isHovered ? 'gold' : (hexInfo[`$q$r$s`].type === BASE ? 'purple' : hexInfo[`$q$r$s`].type === LAND ? 'green' : 'grey'),
                     }}
                   />
                 );
