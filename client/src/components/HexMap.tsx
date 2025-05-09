@@ -8,16 +8,22 @@ import { Hex, HexType } from '../types/game';
 const HEX_NUM = 20; // Grid radius
 const HEX_SIZE = 1.5; // Visual size of hexes
 const CANVAS_SIZE_MULTIPLIER = 1; // Responsive scaling
+const MAX_ZOOM = 3; // Maximum zoom level
+const MIN_ZOOM = 0.5; // Minimum zoom level
+
+// Calculate grid boundaries based on your hex layout
+const GRID_WIDTH = HEX_NUM * 2 * HEX_SIZE * 1.5; // Approximate width in SVG units
+const GRID_HEIGHT = HEX_NUM * 2 * HEX_SIZE * Math.sqrt(3); // Approximate height
+
 
 // interface for HexMap component
-
 interface HexMapProps {
     hexagons: Record<string, Hex>;
   }
 
 
 const HexMap: React.FC<HexMapProps> = () => {
-    
+
   // Refs and State
   const viewerRef = useRef<ReactSVGPanZoom>(null);
   const [currentTool, setCurrentTool] = useState<Tool>('auto');
@@ -27,6 +33,36 @@ const HexMap: React.FC<HexMapProps> = () => {
 
   // Zustand Store
   const { hexagons, setGameState } = useGameStore();
+
+//   // Initialize default viewer value on mount
+//   useEffect(() => {
+//     if (viewerRef.current) {
+//       const defaultValue = viewerRef.current.getDefaultValue();
+//       setViewerValue(defaultValue);
+//     }
+//   }, []);
+  
+  // Viewer - adding constraint to prevent panning and zooming out of bounds
+  const handleChangeValue = (newValue: Value) => {
+    // Calculate visible area based on current zoom
+    const visibleWidth = window.innerWidth / newValue.a;
+    const visibleHeight = window.innerHeight / newValue.a;
+    
+    // Calculate max pan based on grid size and visible area
+    const maxPanX = Math.max(0, (GRID_WIDTH - visibleWidth) / 2);
+    const maxPanY = Math.max(0, (GRID_HEIGHT - visibleHeight) / 2);
+    
+    // Constrain panning
+    newValue.e = Math.max(-maxPanX, Math.min(maxPanX, newValue.e));
+    newValue.f = Math.max(-maxPanY, Math.min(maxPanY, newValue.f));
+    
+    // Constrain zoom
+    newValue.a = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newValue.a));
+    newValue.d = newValue.a; // Maintain aspect ratio
+    
+    setViewerValue(newValue);
+  };
+
 
   // Initialize Hex Grid
   useEffect(() => {
@@ -84,10 +120,10 @@ const HexMap: React.FC<HexMapProps> = () => {
         tool={currentTool}
         onChangeTool={setCurrentTool}
         detectAutoPan={true}
-        scaleFactorMin={0.5}
-        scaleFactorMax={5}
+        scaleFactorMin={MIN_ZOOM}
+        scaleFactorMax={MAX_ZOOM}
         miniatureProps={{
-            position: 'none',
+            position: 'left',
             background: 'transparent',
             width: 100,
             height: 100,
@@ -96,7 +132,7 @@ const HexMap: React.FC<HexMapProps> = () => {
         <svg
           width={window.innerWidth * CANVAS_SIZE_MULTIPLIER}
           height={window.innerHeight * CANVAS_SIZE_MULTIPLIER}
-          style={{ overflow: 'visible', display: 'block' }}
+          style={{ overflow: 'hidden', display: 'block' }}
         >
           <HexGrid
             width={window.innerWidth * CANVAS_SIZE_MULTIPLIER}
@@ -121,7 +157,7 @@ const HexMap: React.FC<HexMapProps> = () => {
                   onMouseEnter={() => setHoveredHex(key)}
                   onMouseLeave={() => setHoveredHex(null)}
                   style={{
-                    fill: clickedHex === key ? 'gold' : hexagons[key].colour,
+                    fill: clickedHex === key ? 'tomato' : hexagons[key].colour,
                     stroke: hoveredHex === key ? 'white' : 'none',
                     strokeWidth: '2px',
                     transition: 'fill 0.2s ease'
