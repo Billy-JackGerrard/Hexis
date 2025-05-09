@@ -41,18 +41,6 @@ const HexMap = () => {
     width: window.innerWidth,
     height: window.innerHeight,
   });
-  
-
-  // // trying to centre the screen on load
-  // useEffect(() => {
-  //   if (containerRef.current) {
-  //     const initialOffset = {
-  //       x: 0, //canvasSize.width / 2 - (canvasSize.width * 3) / 2,
-  //       y: 0, //canvasSize.height / 2 - (canvasSize.height * 3) / 2,
-  //     };
-  //     setOffset(initialOffset);
-  //   }
-  // }, [canvasSize]);
 
   // in case the window size changes (eg minimising)
   useEffect(() => {
@@ -98,8 +86,10 @@ const HexMap = () => {
     if (e.button === MOUSE_LEFT) {
       setDragging(true);
       dragMovedRef.current = false;
-      startPosRef.current = { x: e.clientX, y: e.clientY };
-      startPosRef.current = { x: e.clientX, y: e.clientY };
+      startPosRef.current = { 
+        x: e.clientX, 
+        y: e.clientY,
+      };
       e.preventDefault();
     }
   }, []);
@@ -107,11 +97,10 @@ const HexMap = () => {
   const handleMouseMove = useCallback((e) => {
     if (dragging) {
       dragMovedRef.current = true;
-      const dx = (e.clientX - startPosRef.current.x) / scale;
-      const dy = (e.clientY - startPosRef.current.y) / scale;
+      setClickedHex(null);
       setOffset((prev) => ({
-        x: prev.x + dx,
-        y: prev.y + dy,
+        x: prev.x + (e.clientX - startPosRef.current.x),
+        y: prev.y + (e.clientY - startPosRef.current.y),
       }));
       startPosRef.current = { x: e.clientX, y: e.clientY };
     }
@@ -123,62 +112,61 @@ const HexMap = () => {
   }, []);
 
 
-  // Zoom function
-  const handleWheel = useCallback((e) => {
-    e.preventDefault();
-    if (!containerRef.current) return;
+  // // Zoom function
+  // const handleWheel = useCallback((e) => {
+  //   e.preventDefault();
+  //   if (!containerRef.current) return;
   
-    const rect = containerRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+  //   const mouseX = e.clientX;
+  //   const mouseY = e.clientY;
   
-    const wheel = e.deltaY < 0 ? 1 : -1;
-    const newScale = scale + wheel * ZOOM_INTENSITY;
-    const clampedScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
-
-    if (clampedScale === scale) return;
+  //   const wheel = e.deltaY < 0 ? 1 : -1;
+  //   const newScale = scale + wheel * ZOOM_INTENSITY;
+  //   const clampedScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
   
-    const scaleFactor = clampedScale / scale;
+  //   if (clampedScale === scale) return;
   
-    // Adjust offset so zoom stays centered on the mouse
-    setOffset((prev) => ({
-      x: mouseX - (mouseX - prev.x) * scaleFactor,
-      y: mouseY - (mouseY - prev.y) * scaleFactor,
-    }));
+  //   // Calculate new offset to zoom toward mouse position
+  //   const zoomFactor = clampedScale / scale;
+  //   setOffset({
+  //     x: mouseX - (mouseX - offset.x),// * zoomFactor,
+  //     y: mouseY - (mouseY - offset.y)// * zoomFactor,
+  //   });
+  //   setScale(clampedScale);
+  // }, [scale, offset]);
   
-    setScale(clampedScale);
-  }, [scale]);
   
   
   
 
-  const handleTouchStart = useCallback((e) => {
-    if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      setDragging(true);
-      dragMovedRef.current = false;
-      startPosRef.current = { x: touch.clientX, y: touch.clientY };
-    }
-  }, []);
+  // const handleTouchStart = useCallback((e) => {
+  //   if (e.touches.length === 1) {
+  //     const touch = e.touches[0];
+  //     setDragging(true);
+  //     dragMovedRef.current = false;
+  //     startPosRef.current = { x: touch.clientX, y: touch.clientY };
+  //   }
+  // }, []);
 
-  const handleTouchMove = useCallback((e) => {
-    if (dragging && e.touches.length === 1) {
-      dragMovedRef.current = true;
-      const touch = e.touches[0];
-      const dx = (touch.clientX - startPosRef.current.x) / scale;
-      const dy = (touch.clientY - startPosRef.current.y) / scale;
-      setOffset((prev) => ({
-        x: prev.x + dx,
-        y: prev.y + dy,
-      }));
-      startPosRef.current = { x: touch.clientX, y: touch.clientY };
-    }
-  }, [dragging]);
+  // const handleTouchMove = useCallback((e) => {
+  //   if (dragging && e.touches.length === 1) {
+  //     dragMovedRef.current = true;
+  //     setClickedHex(null); // Deselect clicked hex on drag
+  //     const touch = e.touches[0];
+  //     const dx = (touch.clientX - startPosRef.current.x) / scale;
+  //     const dy = (touch.clientY - startPosRef.current.y) / scale;
+  //     setOffset((prev) => ({
+  //       x: prev.x + dx,
+  //       y: prev.y + dy,
+  //     }));
+  //     startPosRef.current = { x: touch.clientX, y: touch.clientY };
+  //   }
+  // }, [dragging]);
   
 
-  const handleTouchEnd = useCallback(() => {
-    setDragging(false);
-  }, []);
+  // const handleTouchEnd = useCallback(() => {
+  //   setDragging(false);
+  // }, []);
 
 
   return (
@@ -187,10 +175,11 @@ const HexMap = () => {
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onMouseLeave={handleMouseUp}
+      //onWheel={handleWheel}
+      // onTouchStart={handleTouchStart}
+      // onTouchMove={handleTouchMove}
+      // onTouchEnd={handleTouchEnd}
       style={{
         width: '100vw',
         height: '100vh',
@@ -202,9 +191,19 @@ const HexMap = () => {
         background: 'blue',
       }}
       >
+        <div
+        style={{
+          position: 'absolute',
+          transform: `translate(${offset.x}px, ${offset.y}px)`, // scale(${scale})
+        }}
+      >
           <HexGrid width={canvasSize.width} height={canvasSize.height}>
-          <g transform={`translate(${offset.x}, ${offset.y}) scale(${scale})`}>
-            <Layout size={{ x: HEX_SIZE, y: HEX_SIZE }} flat={false} spacing={1} origin={{ x: 0, y: 0 }}>
+          <Layout
+            size={{ x: HEX_SIZE, y: HEX_SIZE }}
+            flat={false}
+            spacing={1}
+            origin={{ x: 0, y: 0}}
+          >
               {hexagons.map(({ q, r, s }, i) => {
                 const key = `${q},${r},${s}`;
                 
@@ -220,7 +219,6 @@ const HexMap = () => {
                     onMouseEnter={() => setHoveredHex(key)}
                     onMouseLeave={() => setHoveredHex(null)}
                     onClick={() => {
-                      console.log(key);
                       if (!dragMovedRef.current) {
                         setClickedHex(key);
                       }
@@ -242,8 +240,8 @@ const HexMap = () => {
                 );
               })}
             </Layout>
-            </g>
           </HexGrid>
+          </div>
         </div>
   );
 };
