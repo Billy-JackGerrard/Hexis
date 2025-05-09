@@ -4,6 +4,14 @@ import { UncontrolledReactSVGPanZoom, Value } from 'react-svg-pan-zoom';
 import { useGameStore } from '../store/useGameStore';
 import { Hex, HexType } from '../types/game';
 
+
+// TO DO
+// Move reset button to the toolbar at the top right
+// disable panning out of bounds
+// disable the click mode and the drag mode
+// enlarge the map so when loaded, the map is bigger than the viewport
+// be able to unclick a hex
+
 // Constants
 const HEX_NUM = 20;
 const HEX_SIZE = 1.5;
