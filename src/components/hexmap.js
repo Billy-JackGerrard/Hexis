@@ -2,14 +2,24 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 
 
+// TODO
+// zoom/scroll function
+// touch screen compatible (inc zoom function)
+// add bound for offset so you have a limit on how far you can scroll from the centre
+// more efficient way of rendering - only render visible hexagons, dont need to re render each hexagon everytime one is clicked, etc
+
+
+
+// easy access variables defined here - feel free to change to customise your experience
+
 // mouse buttons numbers
 const MOUSE_LEFT = 0;
 const MOUSE_MIDDLE = 1;
 const MOUSE_RIGHT = 2
 
 // hexes. HEX_NUM is how many hexes are there in one direction away from the central hex - basically the radius
-const HEX_NUM = 25;
-const HEX_SIZE = 1;
+const HEX_NUM = 20;
+const HEX_SIZE = 2;
 
 // zoom settings
 const ZOOM_INTENSITY = 0.05;
@@ -20,6 +30,9 @@ const MAX_SCALE = 3;
 const LAND = 0;
 const BASE = 1;
 const OBSTACLE = 2;
+
+
+// main function
 
 const HexMap = () => {
 
@@ -34,12 +47,11 @@ const HexMap = () => {
   const dragMovedRef = useRef(false);
   const containerRef = useRef(null);
   const startPosRef = useRef({ x: 0, y: 0 });
-
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const offsetRef = useRef({ x: 0, y: 0 });
 
   const [canvasSize, setCanvasSize] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight,
+    width: window.innerWidth * 3,
+    height: window.innerHeight * 3,
   });
 
   // in case the window size changes (eg minimising)
@@ -50,13 +62,12 @@ const HexMap = () => {
         height: window.innerHeight,
       });
     };
-  
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  
 
+  // creating the hexes, putting them in hexagons. making a dictionary (hexInfo) with all the info of each hex
   const { hexagons, hexInfo} = useMemo(() => {
     const hexArray = [];
     const info = {};
@@ -81,7 +92,8 @@ const HexMap = () => {
     return {hexagons: hexArray, hexInfo: info};
   }, []);
 
-
+  
+  // when left button on the  mouse is pressed, enable dragging and store start position of the mouse
   const handleMouseDown = useCallback((e) => {
     if (e.button === MOUSE_LEFT) {
       setDragging(true);
@@ -94,21 +106,29 @@ const HexMap = () => {
     }
   }, []);
 
+  // when mouse is moved, checks if mouse is pressed (dragging) then move the map
   const handleMouseMove = useCallback((e) => {
     if (dragging) {
       dragMovedRef.current = true;
       setClickedHex(null);
-      setOffset((prev) => ({
-        x: prev.x + (e.clientX - startPosRef.current.x),
-        y: prev.y + (e.clientY - startPosRef.current.y),
-      }));
+
+      offsetRef.current = {
+        x: offsetRef.current.x + e.clientX - startPosRef.current.x,
+        y: offsetRef.current.y + e.clientY - startPosRef.current.y,
+      };
+
+      // setOffset((prev) => ({
+      //   x: prev.x + (e.clientX - startPosRef.current.x),
+      //   y: prev.y + (e.clientY - startPosRef.current.y),
+      // }));
       startPosRef.current = { x: e.clientX, y: e.clientY };
     }
   }, [dragging]);
   
-
-  const handleMouseUp = useCallback(() => {
-    setDragging(false);
+  // when mouse is no longer pressed, disable dragging 
+  const handleMouseUp = useCallback((e) => {
+      setDragging(false);
+      dragMovedRef.current = false;
   }, []);
 
 
@@ -194,7 +214,7 @@ const HexMap = () => {
         <div
         style={{
           position: 'absolute',
-          transform: `translate(${offset.x}px, ${offset.y}px)`, // scale(${scale})
+          transform: `translate(${offsetRef.current.x}px, ${offsetRef.current.y}px)`, // scale(${scale})
         }}
       >
           <HexGrid width={canvasSize.width} height={canvasSize.height}>
@@ -219,6 +239,7 @@ const HexMap = () => {
                     onMouseEnter={() => setHoveredHex(key)}
                     onMouseLeave={() => setHoveredHex(null)}
                     onClick={() => {
+                      console.log(key);
                       if (!dragMovedRef.current) {
                         setClickedHex(key);
                       }
