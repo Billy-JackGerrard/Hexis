@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 import { ReactSVGPanZoom } from "react-svg-pan-zoom";
+import { Hex } from '../types'; 
 
 
 // easy access variables defined here - feel free to change to customise your experience
@@ -17,9 +18,15 @@ const BASE = 1;
 const OBSTACLE = 2;
 
 
+
+interface HexMapProps {
+  hexagons: Record<string, Hex>;
+}
+
+
 // main function
 
-const HexMap = () => {
+const HexMap: React.FC<HexMapProps> = () => {
 
   // initialisation
   
@@ -75,13 +82,18 @@ const HexMap = () => {
         }
         const key = `${q},${r},${s}`;
         
+        // Determine the tile type - all edge tiles are obstacles, other tiles are land tiles
+        const type = [Math.abs(q), Math.abs(r), Math.abs(s)].includes(Math.abs(HEX_NUM)) 
+        ? OBSTACLE
+        : LAND;
+
         info[key] = {
           coords: {q:q, r:r, s:s},
           terrain: "null",
-          type: [Math.abs(q), Math.abs(r), Math.abs(s)].includes(Math.abs(HEX_NUM)) ? OBSTACLE : LAND, // all edge tiles are obstacles, other tiles are land tiles
-          resources: {wood: 0, stone: 0, water: 0, food: 0} // add more if necessary
+          type: type,
+          resources: {wood: 0, stone: 0, water: 0, food: 0}, // add more if necessary
+          colour: type == LAND ? 'green' : 'gray'
         };
-        
       }
     }
     return {hexagons: hexArray, hexInfo: info};
@@ -126,35 +138,21 @@ const HexMap = () => {
             >
               {hexagons.map(({ q, r, s }, i) => {
                 const key = `${q},${r},${s}`;
-                
-                const isHovered = hoveredHex === key;
-                const isClicked = clickedHex === key;
-                
+
                 return (
                   <Hexagon
                     key={key}
                     q={q}
                     r={r}
                     s={s}
-                    
-                    onMouseEnter={() => setHoveredHex(key)}
-                    onMouseLeave={() => setHoveredHex(null)}
+
                     onClick={() => {
                       console.log(key);
                       setClickedHex(key);
                     }}
                     
                     style={{
-                      //if clicked, tomato colour. if hovered, gold colour. else colour depends on tile type (purple for base, green for land, grey for obstacle)
-                      fill: isClicked
-                            ? 'tomato'
-                            : isHovered
-                              ? 'gold'
-                              : hexInfo[key].type === BASE
-                                ? 'purple'
-                                : hexInfo[key].type === LAND
-                                  ? 'green'
-                                  : 'grey'
+                      fill: clickedHex === key ? 'gold' : hexInfo[key].colour
                     }}
                   />
                 );
