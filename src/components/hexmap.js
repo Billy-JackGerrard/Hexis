@@ -129,6 +129,7 @@ const HexMap = () => {
                 
                 const isHovered = hoveredHex === key;
                 const isClicked = clickedHex === key;
+                
                 return (
                   <Hexagon
                     key={key}
