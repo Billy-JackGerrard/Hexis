@@ -8,7 +8,7 @@ import { ReactSVGPanZoom } from "react-svg-pan-zoom";
 // hex and canvas settings. HEX_NUM is how many hexes are there in one direction away from the central hex - basically the radius
 const HEX_NUM = 20;
 const HEX_SIZE = 1.5;
-const CANVAS_SIZE_MULTIPLIER = 1;
+const CANVAS_SIZE_MULTIPLIER = 2;
 const MIN_CANVAS_SIZE = 0;
 
 // tile types
@@ -28,17 +28,20 @@ const HexMap = () => {
   const [hoveredHex, setHoveredHex] = useState(null);
   const [clickedHex, setClickedHex] = useState(null);
 
+  const dragMovedRef = useRef(false);
+
+
+  useEffect(() => {
+    if (Viewer.current) {
+      Viewer.current.fitToViewer()
+    }
+  }, []);
+  
+
   // viewer is what the user sees - whats actually on the screen
   const [viewerSize, setViewerSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
-  });
-
-  // Set the initial zoom and position values
-  const [viewerValue, setViewerValue] = useState({
-    x: 0,        // initial x position
-    y: 0,        // initial y position
-    scale: 1,     // initial zoom level (scale)
   });
   
   // in case the window size changes (eg minimising)
@@ -52,12 +55,6 @@ const HexMap = () => {
   
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (Viewer.current) {
-      Viewer.current.fitToViewer()
-    }
   }, []);
 
   
@@ -95,26 +92,12 @@ const HexMap = () => {
         width={viewerSize.width}
         height={viewerSize.height}
         ref={Viewer}
-        value={viewerValue}  // Set the initial value (zoom and position)
-        onChangeValue={setViewerValue}  // Handle zoom and pan changes
-        tool="auto"  // Automatically handle zooming and panning
+        tool="auto"
         detectAutoPan={true}
-        background="blue"
-        minScale={0.5}  // Minimum zoom level
-        maxScale={5}    // Maximum zoom level
-        miniatureProps={{
-          miniaturePosition: "none", // replace this with your previous miniaturePosition prop
-          miniatureBackground: "transparent", // or any color you prefer
-          miniatureWidth: 100, // you can adjust the width as needed
-          miniatureHeight: 100, // you can adjust the height as needed
-        }}
+        miniaturePosition="none"
       >
-        <svg
-          width={viewerSize.width}
-          height={viewerSize.height}
-          style={{ overflow: 'visible', display: 'block' }}
-        >
-          <HexGrid width={viewerSize.width * CANVAS_SIZE_MULTIPLIER} height={viewerSize.height * CANVAS_SIZE_MULTIPLIER}>
+        <svg width={2000} height={1500}>
+          <HexGrid width={3000} height={3000}>
             <Layout
               size={{ x: HEX_SIZE, y: HEX_SIZE }}
               flat={false}
@@ -140,7 +123,9 @@ const HexMap = () => {
                     onMouseLeave={() => setHoveredHex(null)}
                     onClick={() => {
                       console.log(key);
-                      setClickedHex(key);
+                      if (!dragMovedRef.current) {
+                        setClickedHex(key);
+                      }
                     }}
                     
                     style={{
