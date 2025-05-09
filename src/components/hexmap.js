@@ -7,7 +7,7 @@ import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 // touch screen compatible (inc zoom function)
 // add bound for offset so you have a limit on how far you can scroll from the centre
 // more efficient way of rendering - only render visible hexagons, dont need to re render each hexagon everytime one is clicked, etc
-
+// possible to split this file into multiple files?
 
 
 // easy access variables defined here - feel free to change to customise your experience
@@ -17,9 +17,11 @@ const MOUSE_LEFT = 0;
 const MOUSE_MIDDLE = 1;
 const MOUSE_RIGHT = 2
 
-// hexes. HEX_NUM is how many hexes are there in one direction away from the central hex - basically the radius
+// hex and canvas settings. HEX_NUM is how many hexes are there in one direction away from the central hex - basically the radius
 const HEX_NUM = 20;
-const HEX_SIZE = 2;
+const HEX_SIZE = 1.5;
+const CANVAS_SIZE_MULTIPLIER = 2;
+const MIN_CANVAS_SIZE = 0;
 
 // zoom settings
 const ZOOM_INTENSITY = 0.05;
@@ -50,16 +52,17 @@ const HexMap = () => {
   const offsetRef = useRef({ x: 0, y: 0 });
 
   const [canvasSize, setCanvasSize] = useState({
-    width: window.innerWidth * 3,
-    height: window.innerHeight * 3,
+    width: Math.max(window.innerWidth * CANVAS_SIZE_MULTIPLIER, MIN_CANVAS_SIZE),
+    height: Math.max(window.innerHeight * CANVAS_SIZE_MULTIPLIER, MIN_CANVAS_SIZE),
   });
+  
 
   // in case the window size changes (eg minimising)
   useEffect(() => {
     const handleResize = () => {
       setCanvasSize({
         width: window.innerWidth,
-        height: window.innerHeight,
+        height: window.innerWidth,
       });
     };
     window.addEventListener('resize', handleResize);
@@ -116,11 +119,6 @@ const HexMap = () => {
         x: offsetRef.current.x + e.clientX - startPosRef.current.x,
         y: offsetRef.current.y + e.clientY - startPosRef.current.y,
       };
-
-      // setOffset((prev) => ({
-      //   x: prev.x + (e.clientX - startPosRef.current.x),
-      //   y: prev.y + (e.clientY - startPosRef.current.y),
-      // }));
       startPosRef.current = { x: e.clientX, y: e.clientY };
     }
   }, [dragging]);
@@ -222,7 +220,10 @@ const HexMap = () => {
             size={{ x: HEX_SIZE, y: HEX_SIZE }}
             flat={false}
             spacing={1}
-            origin={{ x: 0, y: 0}}
+            origin={{
+              x: 0,
+              y: 0,
+            }}            
           >
               {hexagons.map(({ q, r, s }, i) => {
                 const key = `${q},${r},${s}`;
