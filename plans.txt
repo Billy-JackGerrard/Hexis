@@ -1,16 +1,36 @@
 
 
 
+After clicking start:
+Your home base is randomly set to one of the designated starting spots. You cannot be too close to another player's home base.
 
 
-Laurie's ideas:
-    every hex has a building. if you want empty hexes to exist, you simply create a new type of building that does nothing,
+
+Idea's:
+- central tiles have more valuable resources
+
+- You're first base is a home base has a 'palace' which must be protected. If the palace tile is destroyed, you're out
+and the person who killed you gets the base, but the palace remains destroyed.
+all other bases have a headquarters which, if destroyed, destroys the base and the person who destroyed it gets the base.
+
+
+Laurie's ideas (optional):
+- very hex has a building. if you want empty hexes to exist, you simply create a new type of building that does nothing,
 allowing for new 'empty' hexes to be added to a base.
-    every hex on a base has an hp. once that hp reaches 0, the hex is reverted back to an unclaimed tile,
+- every hex on a base has an hp. once that hp reaches 0, the hex is reverted back to an unclaimed tile,
 unless that hex is surrounded by base hexes with the same owner, then all buildings on that hex are destroyed
-    'wall' tile does not exist. visually, there is a wall on the edges of the outer hexes on the base, but functionally they do nothing.
+    
+- 'wall' tile does not exist. visually, there is a wall on the edges of the outer hexes on the base, but functionally they do nothing.
 you can demolish buildings and get some of the resources back.
-
+    
+- each building has an 'action'. When activated, it takes a certain amount of time to complete. e.g, a mine may take 5 seconds
+to produce one iron. Some actions are automatic, e.g a mine produces one iron every 5 seconds without having to be activated,
+but a barracks may need to be told what troop to produce. Some actions have a cost, e.g a barracks may require 5 iron to
+make a certain troop.
+    
+- Palace tile produces some of each resource
+- Bases with a palace (home bases) have a small % reduction in the time taken to complete the action (the workers have a
+moral boost when working so close to their king/queen).
 
 
 
