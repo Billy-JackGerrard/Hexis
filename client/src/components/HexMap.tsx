@@ -14,12 +14,14 @@ import { Hex, HexType } from '../types/game';
 
 // Constants
 const HEX_NUM = 20;
-const HEX_SIZE = 1.5;
-const CANVAS_SIZE_MULTIPLIER = 1;
+const HEX_SIZE = 2;
+const CANVAS_SIZE_MULTIPLIER = 2;
 const MAX_ZOOM = 3;
 const MIN_ZOOM = 0.5;
-const GRID_WIDTH = HEX_NUM * 2 * HEX_SIZE * 1.5;
-const GRID_HEIGHT = HEX_NUM * 2 * HEX_SIZE * Math.sqrt(3);
+const HEX_HORIZONTAL_SPACING = HEX_SIZE * 2 * 0.75;
+const HEX_VERTICAL_SPACING = HEX_SIZE * Math.sqrt(3);
+const GRID_WIDTH = (HEX_NUM * 2 + 1) * HEX_HORIZONTAL_SPACING;
+const GRID_HEIGHT = (HEX_NUM * 2 + 1) * HEX_VERTICAL_SPACING;
 
 interface HexMapProps {
   hexagons: Record<string, Hex>;
@@ -61,17 +63,31 @@ const HexMap: React.FC<HexMapProps> = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+
+
   // Constrain panning to grid boundaries
   const handleChangeValue = (newValue: Value) => {
+
+    // 1. Calculate visible area in SVG units
     const visibleWidth = window.innerWidth / newValue.a;
     const visibleHeight = window.innerHeight / newValue.a;
-    const maxPanX = Math.max(0, (GRID_WIDTH * 1.1 - visibleWidth) / 2);
-    const maxPanY = Math.max(0, (GRID_HEIGHT * 1.1 - visibleHeight) / 2);
+
+    // 2. Calculate effective grid boundaries (accounting for center origin)
+    const gridLeft = -GRID_WIDTH/2;
+    const gridRight = GRID_WIDTH/2;
+    const gridTop = -GRID_HEIGHT/2; 
+    const gridBottom = GRID_HEIGHT/2;
+
+    // 3. Calculate min/max translation (e,f) to keep viewport within grid
+    const minX = gridLeft + visibleWidth/2;
+    const maxX = gridRight - visibleWidth/2;
+    const minY = gridTop + visibleHeight/2;
+    const maxY = gridBottom - visibleHeight/2;
 
     return {
       ...newValue,
-      e: Math.max(-maxPanX, Math.min(maxPanX, newValue.e)),
-      f: Math.max(-maxPanY, Math.min(maxPanY, newValue.f))
+      e: Math.max(minX, Math.min(maxX, newValue.e)),
+      f: Math.max(minY, Math.min(maxY, newValue.f))
     };
   };
 
@@ -105,11 +121,12 @@ const HexMap: React.FC<HexMapProps> = () => {
         <svg
           width={window.innerWidth * CANVAS_SIZE_MULTIPLIER}
           height={window.innerHeight * CANVAS_SIZE_MULTIPLIER}
-          style={{ overflow: 'hidden', display: 'block' }}
+          style={{ overflow: 'visible', display: 'block'}}
         >
           <HexGrid
             width={window.innerWidth * CANVAS_SIZE_MULTIPLIER}
             height={window.innerHeight * CANVAS_SIZE_MULTIPLIER}
+            color='blue'
           >
             <Layout
               size={{ x: HEX_SIZE, y: HEX_SIZE }}
@@ -136,6 +153,34 @@ const HexMap: React.FC<HexMapProps> = () => {
               ))}
             </Layout>
           </HexGrid>
+
+          {/* 1. HexGrid boundary (SVG coordinates) */}
+          <rect
+            x={-GRID_WIDTH/2}
+            y={-GRID_HEIGHT/2}
+            width={GRID_WIDTH}
+            height={GRID_HEIGHT}
+            fill="none"
+            stroke="red"
+            strokeWidth={10}
+            strokeDasharray="20,10"
+          />
+              
+          {/* 2. SVG viewport boundary (pixel coordinates) */}
+          <rect
+            x={-window.innerWidth/2}
+            y={-window.innerHeight/2}
+            width={window.innerWidth}
+            height={window.innerHeight}
+            fill="none"
+            stroke="blue"
+            strokeWidth={5}
+          />
+
+          {/* 3. Center crosshair */}
+          <line x1={-50} y1={0} x2={50} y2={0} stroke="green" strokeWidth={1} />
+          <line x1={0} y1={-50} x2={0} y2={50} stroke="green" strokeWidth={1} />
+
         </svg>
       </UncontrolledReactSVGPanZoom>
 
@@ -152,7 +197,19 @@ const HexMap: React.FC<HexMapProps> = () => {
       >
         Reset View
       </button>
+
+      {/* This is for testing  */}
+      <rect 
+        x={-GRID_WIDTH/2}
+        y={-GRID_HEIGHT/2}
+        width={GRID_WIDTH}
+        height={GRID_HEIGHT}
+        fill="none"
+        stroke="red"
+        strokeWidth="10"
+      />
     </div>
+    
   );
 };
 
