@@ -17,7 +17,7 @@ you can demolish buildings and get some of the resources back.
 
 BJ: dunno where to put this code, so just popped it here for now til i figure out which file it should be in
 
-getNeighbors(): HexCoordinates  [] {
+    getNeighbors(coords: HexCoordinates): HexCoordinates  [] {
         const directions = [
             { q: 1, r: 0, s: -1 },  // right
             { q: 1, r: -1, s: 0 },   // top-right
@@ -28,12 +28,12 @@ getNeighbors(): HexCoordinates  [] {
         ];
 
         return directions.map(dir => ({
-            q: this.coords.q + dir.q,
-            r: this.coords.r + dir.r,
-            s: this.coords.s + dir.s,
+            q: coords.q + dir.q,
+            r: coords.r + dir.r,
+            s: coords.s + dir.s,
         }));
     }
   
-    isTraversable(): boolean {
-      return this.purpose === HexPurposeOptions.LAND;
+    isTraversable(terrain: Terrain): boolean {
+      return ["grassland"].includes(terrain);
     }
