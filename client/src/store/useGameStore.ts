@@ -1,10 +1,19 @@
 import { create } from 'zustand';
-import { GameState } from "../types"
+import { Hex, calcKey } from "../types";
+
+interface GameState {
+  grid: Record<string, Hex>;
+  addHex: (hex: Hex) => void;
+}
 
 export const useGameStore = create<GameState>((set) => ({
-  // Initial state
-  hexagons: {},
+  grid: {},
   
-  // Action to update state
-  setGameState: (state) => set((prevState) => ({ ...prevState, ...state })),
+  addHex: (hex: Hex) => set((state) => ({
+    grid: { 
+      ...state.grid, 
+      [calcKey(hex.coords)]: hex
+    }
+  })),
+  
 }));

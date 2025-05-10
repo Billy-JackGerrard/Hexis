@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 import { ReactSVGPanZoom, Value, Tool, TOOL_NONE } from 'react-svg-pan-zoom';
 import { useGameStore } from '../store/useGameStore';
-import { Hex, HexType } from '../types/game';
+import { Hex, HexType } from '../types/hex';
 
 // Constants (component-specific, related to rendering)
 const HEX_NUM = 20; // Grid radius
