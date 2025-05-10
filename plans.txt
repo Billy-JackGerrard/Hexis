@@ -11,7 +11,10 @@ Plans:
 
 - Your first base is a home base and has a 'palace' which must be protected. If the palace tile is destroyed, you're out
 and the person who killed you gets the base, but the palace remains destroyed.
-all other bases have a headquarters which, if destroyed, destroys the base and the person who destroyed it gets the base.
+all other bases have a headquarters which, if destroyed, destroys the base (and the person who destroyed it gets the base ???)
+
+
+
 
 
 Laurie's ideas (optional):

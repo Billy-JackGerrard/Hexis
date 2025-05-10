@@ -1,13 +1,12 @@
 import React from 'react';
 import HexGrid from './components/HexMap';
-import { useGameStore } from './store/useGameStore';
+import { generateHexGrid } from './game/systems/HexGrid';
 
 const App: React.FC = () => {
-  const { hexagons } = useGameStore();
+  generateHexGrid(20);
 
   return (
     <div className="app">
-      <HexGrid hexagons={hexagons} />
     </div>
   );
 };

@@ -1,25 +1,26 @@
-
-import { useGameStore } from "../../store/useGameStore";
-import { HexCoordinates, Terrain } from "../../types";
+import { createGameState } from "../../store/gameState";
+import { HexCoordinates, Terrain, Hex } from "../../types";
 
 
 export function generateHexGrid(radius: number) {
-
-  const { addHex } = useGameStore.getState();
+    const hexes: Hex[] = [];
     
     for (let q = -radius; q <= radius; q++) {
         for (let r = -radius; r <= radius; r++) {
             const s = -q - r;
             if (Math.abs(s) > radius) continue;
 
-            const coords = {q, r, s};
-
-            addHex({
-                coords: coords,
+            const coords = { q, r, s };
+            
+            hexes.push({
+                coords,
                 terrain: generateTerrain(coords, radius),
+                // Add other default hex properties here if needed
             });
         }
     }
+    
+    return createGameState(hexes);
 }
 
 
