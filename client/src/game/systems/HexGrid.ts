@@ -17,7 +17,7 @@ export function generateHexGrid(radius: number) {
             addHex({
                 coords: coords,
                 terrain: generateTerrain(coords, radius),
-            );
+            });
         }
     }
 }
