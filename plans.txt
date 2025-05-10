@@ -10,3 +10,30 @@ allowing for new 'empty' hexes to be added to a base.
 unless that hex is surrounded by base hexes with the same owner, then all buildings on that hex are destroyed
     'wall' tile does not exist. visually, there is a wall on the edges of the outer hexes on the base, but functionally they do nothing.
 you can demolish buildings and get some of the resources back.
+
+
+
+
+
+BJ: dunno where to put this code, so just popped it here for now til i figure out which file it should be in
+
+getNeighbors(): HexCoordinates  [] {
+        const directions = [
+            { q: 1, r: 0, s: -1 },  // right
+            { q: 1, r: -1, s: 0 },   // top-right
+            { q: 0, r: -1, s: 1 },   // top-left
+            { q: -1, r: 0, s: 1 },   // left
+            { q: -1, r: 1, s: 0 },   // bottom-left
+            { q: 0, r: 1, s: -1 },   // bottom-right
+        ];
+
+        return directions.map(dir => ({
+            q: this.coords.q + dir.q,
+            r: this.coords.r + dir.r,
+            s: this.coords.s + dir.s,
+        }));
+    }
+  
+    isTraversable(): boolean {
+      return this.purpose === HexPurposeOptions.LAND;
+    }
