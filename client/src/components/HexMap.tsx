@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { HexGrid, Layout, Hexagon } from 'react-hexgrid';
 import { UncontrolledReactSVGPanZoom, Value } from 'react-svg-pan-zoom';
-import { useGameStore } from '../store/gameState';
+import { useGameStore } from '../states/gameState';
 import { Hex, HexType } from '../types';
 
 

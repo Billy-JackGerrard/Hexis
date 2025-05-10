@@ -1,4 +1,4 @@
-import { createGameState } from "../../store/gameState";
+import { createGameState } from "../../states/gameState";
 import { HexCoordinates, Terrain, Hex } from "../../types";
 
 
