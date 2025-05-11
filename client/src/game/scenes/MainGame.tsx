@@ -21,18 +21,8 @@ export const MainGameScene = () => {
     const grid = useStore(store, (state) => state.grid);
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(20, 1fr)' }}>
-        {Object.entries(grid).map(([key, hex]) => (
-          <div
-            key={key}
-            style={{
-              width: 30,
-              height: 30,
-              border: '1px solid black'
-            }}
-          >
-          </div>
-        ))}
+      <div >
+        <p>Poop</p>
       </div>
     );
 
