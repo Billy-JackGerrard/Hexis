@@ -5,8 +5,9 @@ export interface BaseInterface {
     playerId: string,
     homeBase: boolean,
     buildingCoords: string[], // array of hex coordinates - string is in the form "q,r,s" which is the same as the key in the hex object
-    
-    productionRates: Record<Resource, number>; // Cache of total production rates. it's here not in player in case player loses the base
 
+    // total production rates across all buildings. it's here not in player in case player loses the base
+    productionRates: Record<Resource, number>; 
+    
     headquartersLevel: number; // Level of the headquarters building
 }

@@ -42,11 +42,7 @@ if there are balancing issues.
 
 
 
-BJ's ideas:
-
-- Base?
-if all hexes have buildings and their own health, how do we group them together to be a base?
-just via the baseId? or should there be a class/state for base too? if a state, could include it in gameState
+BJ's notes:
 
 - expansion?
 how does one expand a base? do they have to buy an adjacent, empty tile next to them?
@@ -57,32 +53,25 @@ is there a limit? what about different types of terrain? can they buy a mountain
 food? do we need food? ive added in a farm building
 population? calculate pop based on housing? require pop for upgrading HQ & palace?
 HQ & palace can't be built, they come with the base automatically.
-what do we get when palace is upgraded? more troops and buildings unlocked?
 why not have both headquarters and palace in home base?
+palace is for unlocking troops/buildings across all bases,
+headquarters is for the maximum level of buildings in that base
 
-have a look at types/building and also data/buildings
+have a look at types/building and also data/buildings.json
 
-building types?
-- one to make troops
-- one to unlock more troops
-- one to upgrade troops?
-should these buildings be combined? how so?
-different buildings for different unit types (ie land, air, navy)??
+should i move buildings.json into types/building ?
+would mean we can use the types and therefore it wont break if there's a typo in the json file,
+plus we dont have to import & convert the json file
 
-
-player:
-have a look at types/player
-im not sure what to do with it, should it be a class?
-im assuming it shouldnt be passed around in gameState,
-but it could still be a state or a class, so that it could be updated with stuff like addResource
-
+if you want to do some stuff, you could do a similar thing to what ive done with buildings, but with troops?
+ie go to types/troops and make a template (interface) for what info a troop should store, then go onto the metadata stuff 
 
 
 LATER:
-to think about later;
+to think about later:
 
 - account:
-an account has perks on it, and has a list of unlocked troops maybe? (like btd6, the troops but also the card things that give permanent upgrades)
+an account has perks on it, and has a list of unlocked troops/buildings maybe? (like btd6, the troops but also the card things that give permanent upgrades)
 
 
 
