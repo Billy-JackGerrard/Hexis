@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { GameLoop } from '../engine/gameLoop';
-import { generateHexGrid } from '../systems/HexGrid';
-import { createGameStore } from '../../states/gameStore';
+import { gameStore } from '../../stores/gameStore';
 import { useStore } from 'zustand';
 
 export const MainGameScene = () => {
 
     // creating the gameStore. only done once, at the start
-    const [store] = useState(() => {  
-      const hexes = generateHexGrid(20);
-      return createGameStore(hexes);
+    const [store] = useState(() => {
+      return gameStore;
     });
     
     // starting the loop

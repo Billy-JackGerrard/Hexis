@@ -1,7 +1,16 @@
 import { HexCoordinates, Terrain, Hex } from "../../types";
 
 
-export function generateHexGrid(radius: number) {
+
+export function generateGrid() {
+
+    const RADIUS = 25; // this is the radius of the hex grid; the number of hexes from the middle
+    return generateHexGrid(RADIUS);
+}
+
+
+
+function generateHexGrid(radius: number) {
     const hexes: Hex[] = [];
     
     for (let q = -radius; q <= radius; q++) {

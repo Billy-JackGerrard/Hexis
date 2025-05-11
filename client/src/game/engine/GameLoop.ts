@@ -1,5 +1,5 @@
 import { StoreApi } from 'zustand';
-import { GameStore } from '../../states/gameStore';
+import { GameStore } from '../../stores/gameStore';
 
 export class GameLoop {
   private store: StoreApi<GameStore>;
