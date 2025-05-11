@@ -1,8 +1,12 @@
-import { BuildingType } from './building';
+import { Resource } from "./resource";
 
-export interface Base {
-    baseId: string,
+export interface BaseInterface {
+    readonly id: string,
     playerId: string,
     homeBase: boolean,
-    buildingsBuilt: BuildingType[],
+    buildingCoords: string[], // array of hex coordinates - string is in the form "q,r,s" which is the same as the key in the hex object
+    
+    productionRates: Record<Resource, number>; // Cache of total production rates. it's here not in player in case player loses the base
+
+    headquartersLevel: number; // Level of the headquarters building
 }

@@ -1,9 +1,9 @@
 
 
 export type Resource =
-    | 'iron'
     | 'wood'
     | 'food'
+    | 'iron'
     | 'energy'
     | 'gold'
 ;

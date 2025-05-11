@@ -1,8 +1,9 @@
 {
-    "null": {
+    "empty": {
       "displayName": "Empty",
       "description": "An empty construction site",
       "maxLevel": 0,
+      "palaceLevelRequired": 0,
       "baseHealth": 0,
       "healthPerLevel": 0,
       "buildCost": {},
@@ -11,11 +12,12 @@
     "palace": {
       "displayName": "Royal Palace",
       "description": "The heart of your civilization. If destroyed, you lose the game. Unlocks new troops and buildings.",
-      "maxLevel": 10,
+      "maxLevel": 5,
+      "palaceLevelRequired": 0,
       "baseHealth": 2000,
       "healthPerLevel": 1000,
-      "buildCost": {"food": 200, "gold": 15},
-      "upgradeCostMultiplier": 2.0,
+      "buildCost": {"food": 50, "gold": 15},
+      "upgradeCostMultiplier": 3,
       "placement": {
         "allowedTerrain": ["grassland", "hill"]
       }
@@ -24,6 +26,7 @@
       "displayName": "Headquarters",
       "description": "Central command of a base. Limits maximum level of other buildings.",
       "maxLevel": 5,
+      "palaceLevelRequired": 0,
       "baseHealth": 500,
       "healthPerLevel": 100,
       "buildCost": { "food": 100, "gold": 10 },
@@ -36,6 +39,7 @@
       "displayName": "Farm",
       "description": "Produces food. More efficient near water.",
       "maxLevel": 5,
+      "palaceLevelRequired": 1,
       "baseHealth": 150,
       "healthPerLevel": 30,
       "buildCost": { "wood": 40 },
@@ -57,6 +61,7 @@
         "displayName": "Sawmill",
         "description": "Extracts wood. Not very productive unless near a forest.",
         "maxLevel": 5,
+        "palaceLevelRequired": 1,
         "baseHealth": 180,
         "healthPerLevel": 30,
         "buildCost": { "iron": 15, "food": 30},
@@ -78,6 +83,7 @@
       "displayName": "Iron Mine",
       "description": "Extracts iron ore. More productive near mountains and hills.",
       "maxLevel": 5,
+      "palaceLevelRequired": 1,
       "baseHealth": 200,
       "healthPerLevel": 30,
       "buildCost": { "wood": 40, "food": 20},
@@ -104,6 +110,7 @@
       "displayName": "Windmill",
       "description": "Generates clean energy. More productive near hills and on windy days.",
       "maxLevel": 3,
+      "palaceLevelRequired": 2,
       "baseHealth": 120,
       "healthPerLevel": 20,
       "buildCost": { "wood": 80, "iron": 20, "food": 10},
@@ -125,6 +132,7 @@
       "displayName": "Housing",
       "description": "Increases population capacity. Requires food to sustain.",
       "maxLevel": 1,
+      "palaceLevelRequired": 1,
       "baseHealth": 100,
       "healthPerLevel": 20,
       "buildCost": { "wood": 40, "food": 50 },
@@ -136,10 +144,11 @@
     "turret": {
       "displayName": "Gun Turret",
       "description": "Basic defensive structure with rapid fire bullets.",
-      "maxLevel": 12,
+      "maxLevel": 6,
+      "palaceLevelRequired": 3,
       "baseHealth": 300,
       "healthPerLevel": 50,
-      "buildCost": { "iron": 150 },
+      "buildCost": { "iron": 80 },
       "upgradeCostMultiplier": 1.6,
       "combatStats": {
         "baseDamage": 20,
@@ -157,9 +166,10 @@
       "displayName": "Missile Silo",
       "description": "Advanced defense with long range and area of effect explosions.",
       "maxLevel": 3,
+      "palaceLevelRequired": 4,
       "baseHealth": 300,
       "healthPerLevel": 50,
-      "buildCost": { "iron": 250 },
+      "buildCost": { "iron": 120 },
       "upgradeCostMultiplier": 2.0,
       "combatStats": {
         "baseDamage": 50,
@@ -177,6 +187,7 @@
       "displayName": "Vehicle Factory",
       "description": "Produces land vehicles.",
       "maxLevel": 3,
+      "palaceLevelRequired": 2,
       "baseHealth": 300,
       "healthPerLevel": 80,
       "buildCost": { "iron": 200, "energy": 100, "gold": 150 },

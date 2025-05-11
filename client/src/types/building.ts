@@ -5,7 +5,7 @@ import { Resource } from './resource';
  * All available building types in the game
  */
 export type BuildingType =
-  | null // nothing / not yet built
+  | "empty" // nothing / not yet built
   | 'palace' // important building; only exists in home base. cant be built; only upgraded; is there from the start. if destroyed, you lose.
   | 'headquarters' // in all bases as the first/founding building, determines maximum level of other buildings. cant be built, only upgraded, as it comes with the base when a base is founded/taken
   | 'farm' // produces food
@@ -21,18 +21,20 @@ export type BuildingType =
 
 
 export interface Building {
-    id: string;
-    type: BuildingType;
+    readonly id: string;
+    readonly type: BuildingType;
     level: number;
     health: number;
     lastAttack?: number; // timestamp for combat cooldown
   }
   
-export interface BuildingMetadata {
+
+interface BuildingMetadata {
     // Basic Info
     displayName: string;
     description: string;
     maxLevel: number;
+    palaceLevelRequired: number; // level of palace required to build this building
     
     // Health
     baseHealth: number;
@@ -67,4 +69,11 @@ export interface BuildingMetadata {
         bonus: number; // e.g. 1.2 means +20% production (multiplied by 1.2)
       }[];
     };
-  }
+}
+
+
+
+// possibly add validation here
+
+import metadata from '../data/buildings.json';
+export const BUILDINGS_METADATA = metadata as Record<BuildingType, BuildingMetadata>;

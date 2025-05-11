@@ -1,17 +1,14 @@
 // Define a type for a hex
 
-// export type HexId = `${number},${number},${number}`;
-
 import { Building } from "./building";
-import { Resource } from "./resource";
 
-// helper function for getting key - probably wrong file to put this
+// helper function for getting key
 export function calcKey(coords: HexCoordinates) {
   return `${coords.q},${coords.r},${coords.s}`;
 }
 
 
-// terrain and resources types
+// terrain types
 export type Terrain =
     | 'grassland'
     | 'forest'
@@ -30,8 +27,7 @@ export interface HexCoordinates {
 
 
 export interface Hex {
-  coords: HexCoordinates;
-  terrain: Terrain;
+  readonly coords: HexCoordinates;
+  readonly terrain: Terrain;
   base?: { baseId: string; building: Building}
-  resource?: { type: Resource; quantity: number }
 }
