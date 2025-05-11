@@ -7,6 +7,7 @@ export default defineConfig({
     port: 3000,  // Set your preferred port
     open: true   // Automatically open browser
   },
+  publicDir: 'public',
   build: {
     outDir: 'dist',
     emptyOutDir: true
