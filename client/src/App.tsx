@@ -6,7 +6,6 @@ const App = () => {
     <div>
       <h1>Hex Game</h1>
       < MainGameScene />
-      < SpeedInsights />
     </div>
   );
 };
