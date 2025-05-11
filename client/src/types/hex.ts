@@ -2,10 +2,8 @@
 
 // export type HexId = `${number},${number},${number}`;
 
-import { Building } from './building';
-
-
-
+import { Building } from "./building";
+import { Resource } from "./resource";
 
 // helper function for getting key - probably wrong file to put this
 export function calcKey(coords: HexCoordinates) {
@@ -13,6 +11,16 @@ export function calcKey(coords: HexCoordinates) {
 }
 
 
+// terrain and resources types
+export type Terrain =
+    | 'grassland'
+    | 'forest'
+    | 'water'
+    | 'hill'
+    | 'mountain'
+    | 'desert'
+    // | 'swamp'
+    ;
 
 export interface HexCoordinates {
   q: number;
@@ -20,24 +28,6 @@ export interface HexCoordinates {
   s: number;
 }
 
-// TODO
-// sort these out later, all terrains resources buildings etc
-
-export type Terrain =
-    | 'grassland'
-    // | 'desert'
-    | 'water'
-    | 'mountain'
-    // | 'forest'
-    // | 'swamp'
-    ;
-
-export type Resource =
-    | 'iron'
-    | 'wood'
-    | 'energy'
-    | 'food'
-    ;
 
 export interface Hex {
   coords: HexCoordinates;
@@ -45,4 +35,3 @@ export interface Hex {
   base?: { baseId: string; building: Building}
   resource?: { type: Resource; quantity: number }
 }
-

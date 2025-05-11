@@ -42,6 +42,58 @@ if there are balancing issues.
 
 
 
+BJ's ideas:
+
+- Base?
+if all hexes have buildings and their own health, how do we group them together to be a base?
+just via the baseId? or should there be a class/state for base too? if a state, could include it in gameState
+
+- expansion?
+how does one expand a base? do they have to buy an adjacent, empty tile next to them?
+or do they directly buy a building on an adjacent tile?
+is there a limit? what about different types of terrain? can they buy a mountain tile?
+
+- buildings
+food? do we need food? ive added in a farm building
+population? calculate pop based on housing? require pop for upgrading HQ & palace?
+HQ & palace can't be built, they come with the base automatically.
+what do we get when palace is upgraded? more troops and buildings unlocked?
+why not have both headquarters and palace in home base?
+
+have a look at types/building and also data/buildings
+
+building types?
+- one to make troops
+- one to unlock more troops
+- one to upgrade troops?
+should these buildings be combined? how so?
+different buildings for different unit types (ie land, air, navy)??
+
+
+player:
+have a look at types/player
+im not sure what to do with it, should it be a class?
+im assuming it shouldnt be passed around in gameState,
+but it could still be a state or a class, so that it could be updated with stuff like addResource
+
+
+
+LATER:
+to think about later;
+
+- account:
+an account has perks on it, and has a list of unlocked troops maybe? (like btd6, the troops but also the card things that give permanent upgrades)
+
+
+
+
+
+
+
+
+
+
+
 
 BJ: dunno where to put this code, so just popped it here for now til i figure out which file it should be in
 
