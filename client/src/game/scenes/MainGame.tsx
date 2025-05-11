@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GameLoop } from '../engine/gameLoop';
 import { gameStore } from '../../stores/gameStore';
 import { useStore } from 'zustand';
@@ -21,8 +21,18 @@ export const MainGameScene = () => {
     const grid = useStore(store, (state) => state.grid);
 
     return (
-      <div >
-        <p>Poop</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(20, 1fr)' }}>
+        /{Object.entries(grid).map(([key, hex]) => (
+          <div
+            key={key}
+            style={{
+              width: 30,
+              height: 30,
+              border: '1px solid black'
+            }}
+          >
+          </div>
+        ))}
       </div>
     );
 
