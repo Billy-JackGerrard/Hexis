@@ -1,12 +1,11 @@
 import React from 'react';
-import { MainGameScene } from './game/scenes/MainGame';
+import { MainGameScene } from './game/scenes/mainGame';
 
-const App: React.FC = () => {
-
-
-
+const App = () => {
   return (
-    <div className="app">
+    <div>
+      <h1>Hex Game</h1>
+      <MainGameScene />
     </div>
   );
 };

@@ -1,42 +1,40 @@
-import { GameState } from "../../states/gameState";
+import { StoreApi } from 'zustand';
+import { GameStore } from '../../states/gameStore';
 
-interface Loop {
-  state: GameState,
-}
-export class GameLoop implements Loop{
+export class GameLoop {
+  private store: StoreApi<GameStore>;
+  private animationFrameId: number | null = null;
+  private lastTime: number = 0;
 
-    public state : GameState;
-    private lastTime: number = 0;
-    private animationFrameId: number | null = null;
+  constructor(store: StoreApi<GameStore>) {
+    this.store = store;
+  }
 
-    constructor(state: GameState) {
-      this.state = state
-    }
+  public start() {
+    this.lastTime = performance.now();
+    this.animationFrameId = requestAnimationFrame(this.loop);
+  }
 
-    private loop = (time: number) => {
-      const deltaTime = time - this.lastTime;
-      this.lastTime = time;
-
-      this.update(deltaTime);
-      this.animationFrameId = requestAnimationFrame(this.loop);
-    };
-
-    start() {
-      // initialise
-      this.lastTime = performance.now();
-
-      // start the actual loop
-      this.animationFrameId = requestAnimationFrame(this.loop);
-    }
-
-    stop() {
-      if (this.animationFrameId !== null) {
-        cancelAnimationFrame(this.animationFrameId);
-        this.animationFrameId = null;
-      }
-    }
-
-    private update(deltaTime: number) {
-
+  public stop() {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
     }
   }
+
+  private loop = (currentTime: number) => {
+    const deltaTime = (currentTime - this.lastTime) / 1000; // seconds
+    this.lastTime = currentTime;
+
+    this.update(deltaTime);
+    this.animationFrameId = requestAnimationFrame(this.loop);
+  };
+
+
+  private update(deltaTime: number) {
+    const state = this.store.getState();
+    
+    // game logic here
+
+  }
+}
