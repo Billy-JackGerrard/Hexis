@@ -1,9 +1,9 @@
 import React from 'react';
-import HexGrid from './components/HexMap';
-import { generateHexGrid } from './game/systems/HexGrid';
+import { MainGameScene } from './game/scenes/MainGame';
 
 const App: React.FC = () => {
-  generateHexGrid(20);
+
+
 
   return (
     <div className="app">

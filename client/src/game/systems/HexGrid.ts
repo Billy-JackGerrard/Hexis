@@ -1,4 +1,3 @@
-import { createGameState } from "../../states/gameState";
 import { HexCoordinates, Terrain, Hex } from "../../types";
 
 
@@ -20,7 +19,7 @@ export function generateHexGrid(radius: number) {
         }
     }
     
-    return createGameState(hexes);
+    return hexes;
 }
 
 
