@@ -49,27 +49,62 @@ how does one expand a base? do they have to buy an adjacent, empty tile next to 
 or do they directly buy a building on an adjacent tile?
 is there a limit? what about different types of terrain? can they buy a mountain tile?
 
+
 - buildings
-food? do we need food? ive added in a farm building
 population? calculate pop based on housing? require pop for upgrading HQ & palace?
 HQ & palace can't be built, they come with the base automatically.
-why not have both headquarters and palace in home base?
-palace is for unlocking troops/buildings across all bases,
+
+palace is for unlocking troops/buildings across all bases, (only one palace exists per person, on their home base)
 headquarters is for the maximum level of buildings in that base
+if palace is destroyed then the player is kicked out, even if they have other bases (too unfair?)
+if HQ is defeated but palace remains, the player loses that base but not kicked out (unless they don't have any other bases)
+the base itself, until the player is defeated (either by taking all of their other bases, or by destroying the palace),
+can't be taken by another player.
+the player can regain their home base if the palace still exists by sending some troops there from another base and paying to rebuild the HQ
 
 have a look at types/building and also data/buildings.json
 
 should i move buildings.json into types/building ?
 would mean we can use the types and therefore it wont break if there's a typo in the json file,
-plus we dont have to import & convert the json file
+plus we don't have to import & convert the json file
 
 if you want to do some stuff, you could do a similar thing to what ive done with buildings, but with troops?
 ie go to types/troops and make a template (interface) for what info a troop should store, then go onto the metadata stuff 
-- dont forget to include a category that determines if a troop is infantry, land vehicle, etc
+- don't forget to include a category that determines if a troop is infantry, land vehicle, etc
 make attack speed/damage be optional because maybe not all troops will be able to attack
 (ie spy, transport vehicle, infiltration, vehicles that create fog of war, etc)
 
+
+
+- base
+able to build a base? i don't think so
+maybe all bases already exist at certain locations, but aren't owned (or maybe 'overrun with barbarians')
+if a player successfully attacks a base (either owned and unowned) and destroys the HQ,
+they can send in troops (maybe a special troop for this - settlers/founders/etc) and rebuild the HQ
+(could pay for this, or the cost is represented by producing the special troop), then they get the base, along with all buildings that weren't destroyed
+if they destroy the palace, the target player is kicked out, and that base reverts to an ordinary base. 
+
+if we're doing it like this, then maybe all non home base have a special perk to encourage more strategy
+ie one base could be called "Mines of Moria" and its always near a mountain range.
+some troops produced in this base gain the benefit of "Mithril" which increases base health?
+if so, do we define these buffs in resource file or what?
+also bases would all have predefined names?
+ie every game, there's always a "Mines of Moria"?
+player can pick what their home base is called?
+
+in the ui, over a base is their name then underneath says "Owned by ..." or "<Player>'s Home Base" if its a home base ?
+
+
+- resources
+unique/rare resources?
+
+
 - troops
+can a troop get a buff or debuff? maybe from nearby buildings/troops or terrain that they're on (eg forest = slow)
+
+can troops group together like in civilization?
+but maybe some troops cant?
+
 i think having infantry is a good idea.
 but should we have both infantry and land vehicles?
 like start with infantry then as you level up, unlock some vehicles too.
