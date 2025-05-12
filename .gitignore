@@ -2,13 +2,14 @@
 node_modules/
 
 # --- Build Artifacts ---
-/dist/
-dist/                # Vite's output folder
+/dist/                # Vite's output folder
+dist/
 .vercel/             # Vercel build cache
 .vite/               # Vite cache
 
 # --- Environment Files ---
-.env                 # Contains secrets!
+/.env                 # Contains secrets!
+.env
 
 # --- IDE/Settings ---
 .vscode/
