@@ -1,14 +1,10 @@
-import { StoreApi } from 'zustand';
-import { GameStore } from '../../stores/gameStore';
+import { useGameStore } from '../../stores/gameStore';
 
 export class GameLoop {
-  private store: StoreApi<GameStore>;
   private animationFrameId: number | null = null;
   private lastTime: number = 0;
 
-  constructor(store: StoreApi<GameStore>) {
-    this.store = store;
-  }
+  constructor() {}
 
   public start() {
     this.lastTime = performance.now();
@@ -19,6 +15,7 @@ export class GameLoop {
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
+      this.lastTime = 0;
     }
   }
 
@@ -32,9 +29,13 @@ export class GameLoop {
 
 
   private update(deltaTime: number) {
-    const state = this.store.getState();
     
-    // game logic here
+    // TODO: change this to be a selector, to reduce re-renders. the actual selector depends on the game logic implemented below
+    // const hex = useGameStore(state => state.grid[calcKey(coords)]);
+
+
+
+    // TODO: game logic here
 
   }
 }
