@@ -1,6 +1,6 @@
 import { Base, Player, Resource } from "../../types";
 import { useStore } from 'zustand';
-import { gameStore } from "../../stores/gameStore";
+import { useGameStore } from "../../stores/gameStore";
 
 function collectResources(player: Player) {
 
@@ -11,7 +11,7 @@ function collectResources(player: Player) {
     const minutesPassed = (currentTime - player.lastCollectionTime) / 60000; 
     
     // get all bases of the player
-    const bases = useStore(gameStore, (state) => state.bases);
+    const bases = useStore(useGameStore, (state) => state.bases);
     const totalProductionRate: Partial<Record<Resource, number>> = {};
     
     // Iterate through each base that belongs to the player and add up the production rates

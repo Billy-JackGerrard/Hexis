@@ -1,15 +1,9 @@
 import { Player, Resource, BuildingType, TroopType, BUILDINGS_METADATA } from '../../types';
-
+import { STARTING_RESOURCES } from '../../data/config';
 
 export class PlayerEntity implements Player {
     
-    public readonly resources: Record<Resource, number> = {
-        wood: 50,
-        food: 50,
-        iron: 20,
-        energy: 0,
-        gold: 50,
-      };
+    public readonly resources: Record<Resource, number> = STARTING_RESOURCES
     public bases: string[] = []; // Array of base IDs
     public palaceLevel: number = 0;
     public lastCollectionTime: number = Date.now();

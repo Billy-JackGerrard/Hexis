@@ -7,7 +7,9 @@ export interface Troop {
     readonly id: string;
     readonly type: TroopType;
     health: number;
-    lastAttack: number; // timestamp for combat cooldown
+    lastAttack: number; // timestamp for combat cool down
+    // do we include stuff like max health, speed, damage etc here?
+    // they're all defined in the meta data but this troop specifically could be changed by a buff or debuff, etc
 }
 
 
