@@ -2,6 +2,7 @@
 node_modules/
 
 # --- Build Artifacts ---
+/dist/
 dist/                # Vite's output folder
 .vercel/             # Vercel build cache
 .vite/               # Vite cache
