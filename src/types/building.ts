@@ -15,6 +15,7 @@ export type BuildingType =
   | 'house' // increases population, quantity and maximum level is also dependent on food
   | 'turret' // defensive structure. can shoot bullets - has damage, range and attack speed but they're all level dependent. where do i implement this?
   | 'missile' // defensive structure. can shoot missile - has damage, range and attack speed, same as turret. this one does area damage.
+  | 'barracks' // produces infantry
   | 'factory' // produces vehicles
   ;
   
@@ -26,16 +27,19 @@ export interface Building {
     readonly type: BuildingType;
     level: number;
     health: number;
-    lastAttack?: number; // timestamp for combat cooldown
+    lastAttack?: number; // timestamp for combat cool down
   }
   
 
-interface BuildingMetadata {
+export interface BuildingMetadata {
     // Basic Info
     displayName: string;
     description: string;
     maxLevel: number;
+
+    // Building Requirements
     palaceLevelRequired: number; // level of palace required to build this building
+    allowedTerrain: Terrain[];
     
     // Health
     baseHealth: number;
@@ -46,7 +50,7 @@ interface BuildingMetadata {
     upgradeCostMultiplier: number; // e.g., 1.5 = 50% more per level
     
     // Combat (only for turrets/missiles)
-    combatStats?: {
+    attack?: {
       baseDamage: number;
       damagePerLevel: number;
       baseRange: number; // in what measurements?
@@ -60,21 +64,9 @@ interface BuildingMetadata {
       resource: Resource;
       baseRate: number; // Units per minute
       ratePerLevel: number; // increase of baseRate per level
-    };
-    
-    // Placement Rules
-    placement?: {
-      allowedTerrain: Terrain[];
-      adjacencyBonus?: {
+      adjacencyBonus: { // e.g. +20% production if adjacent to a hill
         type: Terrain;
         bonus: number; // e.g. 1.2 means +20% production (multiplied by 1.2)
       }[];
     };
 }
-
-
-
-// possibly add validation here
-
-import metadata from '../data/buildings.json';
-export const BUILDINGS_METADATA = metadata as Record<BuildingType, BuildingMetadata>;

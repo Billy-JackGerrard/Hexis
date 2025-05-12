@@ -1,7 +1,5 @@
 troops!
 
-barracks building (and increase palace level for factory as vehicles come later)
-
 fix gameLoop
 
 menu screen
@@ -21,6 +19,12 @@ TODO.txt
 README.md - this one is what people will first see,
 so explain what this is and point to the website as well as the game docs which explain how the game works,
 and also point to howToRun.txt if they wanna deploy themselves
+
+
+
+Terrain; need to add different terrains to generateTerrain in systems/grid
+at the moment its just grassland with mountains at the edges
+
 
 
 UI:

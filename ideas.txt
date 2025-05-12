@@ -51,22 +51,23 @@ is there a limit? what about different types of terrain? can they buy a mountain
 
 
 - buildings
+
+should buildings have an upkeep cost; every minute they'll cost something?
+
 population? calculate pop based on housing? require pop for upgrading HQ & palace?
 HQ & palace can't be built, they come with the base automatically.
 
 palace is for unlocking troops/buildings across all bases, (only one palace exists per person, on their home base)
-headquarters is for the maximum level of buildings in that base
+headquarters is for the maximum level of buildings in that base, as well as how many of each building
 if palace is destroyed then the player is kicked out, even if they have other bases (too unfair?)
 if HQ is defeated but palace remains, the player loses that base but not kicked out (unless they don't have any other bases)
 the base itself, until the player is defeated (either by taking all of their other bases, or by destroying the palace),
 can't be taken by another player.
 the player can regain their home base if the palace still exists by sending some troops there from another base and paying to rebuild the HQ
 
-have a look at types/building and also data/buildings.json
 
-should i move buildings.json into types/building ?
-would mean we can use the types and therefore it wont break if there's a typo in the json file,
-plus we don't have to import & convert the json file
+have a look at types/building and also data/buildings
+
 
 if you want to do some stuff, you could do a similar thing to what ive done with buildings, but with troops?
 ie go to types/troops and make a template (interface) for what info a troop should store, then go onto the metadata stuff 
@@ -77,8 +78,8 @@ make attack speed/damage be optional because maybe not all troops will be able t
 
 
 - base
-able to build a base? i don't think so
-maybe all bases already exist at certain locations, but aren't owned (or maybe 'overrun with barbarians')
+
+some bases already exist at certain locations, but aren't owned (maybe 'overrun with barbarians')
 if a player successfully attacks a base (either owned and unowned) and destroys the HQ,
 they can send in troops (maybe a special troop for this - settlers/founders/etc) and rebuild the HQ
 (could pay for this, or the cost is represented by producing the special troop), then they get the base, along with all buildings that weren't destroyed
@@ -92,7 +93,16 @@ also bases would all have predefined names?
 ie every game, there's always a "Mines of Moria"?
 player can pick what their home base is called?
 
-in the ui, over a base is their name then underneath says "Owned by ..." or "<Player>'s Home Base" if its a home base ?
+possibly one of the parks is a special troop category, eg air?
+actually, yes this may be a good idea to implement air troops as they're too strong to be in a normal base
+but, to reduce too much power being in certain bases,
+a base can have a special building that produces air troops, but only one troop type, ie
+
+base "Rebel Alliance" has a special building (only one!) called 'Hangar' and it can produce an air troop called "X-Wing Starfighter"
+base "Northern Air Temple" has 'Sanctuary' which can produce 'Glider" which is a scouting troop (cant attack), and "Hot Air Balloon", which can't attack air troops, and is slow
+to limit people from unlocking these troops too early, the buildings (eg hangar and Sanctuary) has to be rebuilt (plus upgraded for hot air balloon) which costs a LOT
+
+in the ui, over a base is their name and underneath says "Owned by ..." or "<Player>'s Home Base" if its a home base ?
 
 
 - resources
@@ -101,6 +111,7 @@ unique/rare resources?
 
 - troops
 can a troop get a buff or debuff? maybe from nearby buildings/troops or terrain that they're on (eg forest = slow)
+air troops? naval? what buildings for those? or a special base eg helibase?
 
 can troops group together like in civilization?
 but maybe some troops cant?
