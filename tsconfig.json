@@ -13,5 +13,5 @@
     "isolatedModules": true,                   // needed for Vite and fast refresh
     "noEmit": true                             // don’t actually compile .ts files
   },
-  "include": ["client/src"]                            // what folders to include
+  "include": ["src"]                            // what folders to include
 }

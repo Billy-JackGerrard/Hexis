@@ -8,7 +8,7 @@ export default defineConfig({
     open: true   // Automatically open browser
   },
   build: {
-    outDir: 'dist',
+    outDir: 'build',  // Output folder for build
     emptyOutDir: true
   }
 })
