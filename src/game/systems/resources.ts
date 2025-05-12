@@ -1,8 +1,8 @@
-import { Base, PlayerInterface, Resource } from "../../types";
+import { Base, Player, Resource } from "../../types";
 import { useStore } from 'zustand';
 import { gameStore } from "../../stores/gameStore";
 
-function collectResources(player: PlayerInterface) {
+function collectResources(player: Player) {
 
     // Get current time in milliseconds
     const currentTime = Date.now();
