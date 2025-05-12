@@ -2,7 +2,7 @@ import { Resource } from "./resource";
 import { BuildingType } from "./building";
 import { TroopType } from "./troop";
 
-export interface PlayerInterface {
+export interface Player {
     readonly id: string,
     username: string,
     resources: {

@@ -1,11 +1,4 @@
-// Define a type for a hex
-
 import { Building } from "./building";
-
-// helper function for getting key
-export function calcKey(coords: HexCoordinates) {
-  return `${coords.q},${coords.r},${coords.s}`;
-}
 
 
 // terrain types
@@ -30,4 +23,6 @@ export interface Hex {
   readonly coords: HexCoordinates;
   readonly terrain: Terrain;
   base?: { baseId: string; building: Building}
+  // baseId is the id of the base that owns this hex
+  // building is the building that is on this hex
 }

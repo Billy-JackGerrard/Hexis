@@ -1,7 +1,7 @@
-import { PlayerInterface, Resource, BuildingType, TroopType, BUILDINGS_METADATA } from '../../types';
+import { Player, Resource, BuildingType, TroopType, BUILDINGS_METADATA } from '../../types';
 
 
-export class Player implements PlayerInterface {
+export class PlayerEntity implements Player {
     
     public readonly resources: Record<Resource, number> = {
         wood: 50,

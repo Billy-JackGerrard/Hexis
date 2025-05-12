@@ -1,4 +1,4 @@
-import { BaseInterface, PlayerInterface, Resource } from "../../types";
+import { Base, PlayerInterface, Resource } from "../../types";
 import { useStore } from 'zustand';
 import { gameStore } from "../../stores/gameStore";
 
@@ -15,7 +15,7 @@ function collectResources(player: PlayerInterface) {
     const totalProductionRate: Partial<Record<Resource, number>> = {};
     
     // Iterate through each base that belongs to the player and add up the production rates
-    Object.values(bases).forEach((base: BaseInterface) => {
+    Object.values(bases).forEach((base: Base) => {
 
         // Check if the base belongs to the player
         if (base.playerId === player.id) {

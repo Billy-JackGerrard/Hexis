@@ -22,6 +22,7 @@ export type BuildingType =
 
 export interface Building {
     readonly id: string;
+    readonly baseId: string; // id of the base that owns this building
     readonly type: BuildingType;
     level: number;
     health: number;

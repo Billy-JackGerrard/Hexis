@@ -1,6 +1,6 @@
 import { Resource } from "./resource";
 
-export interface BaseInterface {
+export interface Base {
     readonly id: string,
     playerId: string,
     homeBase: boolean,
