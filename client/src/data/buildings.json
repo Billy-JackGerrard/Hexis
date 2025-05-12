@@ -1,0 +1,199 @@
+{
+    "empty": {
+      "displayName": "Empty",
+      "description": "An empty construction site",
+      "maxLevel": 0,
+      "palaceLevelRequired": 0,
+      "baseHealth": 0,
+      "healthPerLevel": 0,
+      "buildCost": {},
+      "upgradeCostMultiplier": 0
+    },
+    "palace": {
+      "displayName": "Royal Palace",
+      "description": "The heart of your civilization. If destroyed, you lose the game. Unlocks new troops and buildings.",
+      "maxLevel": 5,
+      "palaceLevelRequired": 0,
+      "baseHealth": 2000,
+      "healthPerLevel": 1000,
+      "buildCost": {"food": 50, "gold": 15},
+      "upgradeCostMultiplier": 3,
+      "placement": {
+        "allowedTerrain": ["grassland", "hill"]
+      }
+    },
+    "headquarters": {
+      "displayName": "Headquarters",
+      "description": "Central command of a base. Limits maximum level of other buildings.",
+      "maxLevel": 5,
+      "palaceLevelRequired": 0,
+      "baseHealth": 500,
+      "healthPerLevel": 100,
+      "buildCost": { "food": 100, "gold": 10 },
+      "upgradeCostMultiplier": 1.8,
+      "placement": {
+        "allowedTerrain": ["grassland", "desert"]
+      }
+    },
+    "farm": {
+      "displayName": "Farm",
+      "description": "Produces food. More efficient near water.",
+      "maxLevel": 5,
+      "palaceLevelRequired": 1,
+      "baseHealth": 150,
+      "healthPerLevel": 30,
+      "buildCost": { "wood": 40 },
+      "upgradeCostMultiplier": 1.4,
+      "production": {
+        "resource": "food",
+        "baseRate": 12,
+        "ratePerLevel": 5
+      },
+      "placement": {
+        "allowedTerrain": ["grassland"],
+        "adjacencyBonus": [{
+          "type": "water",
+          "bonus": 1.5
+        }]
+      }
+    },
+    "sawmill": {
+        "displayName": "Sawmill",
+        "description": "Extracts wood. Not very productive unless near a forest.",
+        "maxLevel": 5,
+        "palaceLevelRequired": 1,
+        "baseHealth": 180,
+        "healthPerLevel": 30,
+        "buildCost": { "iron": 15, "food": 30},
+        "upgradeCostMultiplier": 1.7,
+        "production": {
+            "resource": "wood",
+            "baseRate": 3,
+            "ratePerLevel": 1
+          },
+        "placement": {
+            "allowedTerrain": ["grassland", "forest"],
+            "adjacencyBonus": [{
+                "type": "forest",
+                "bonus": 5
+            }]
+        }  
+    },
+    "mine": {
+      "displayName": "Iron Mine",
+      "description": "Extracts iron ore. More productive near mountains and hills.",
+      "maxLevel": 5,
+      "palaceLevelRequired": 1,
+      "baseHealth": 200,
+      "healthPerLevel": 30,
+      "buildCost": { "wood": 40, "food": 20},
+      "upgradeCostMultiplier": 1.5,
+      "production": {
+        "resource": "iron",
+        "baseRate": 7,
+        "ratePerLevel": 4
+      },
+      "placement": {
+        "allowedTerrain": ["grassland"],
+        "adjacencyBonus": [{
+          "type": "mountain",
+          "bonus": 1.8
+        },
+        {
+            "type": "hill",
+            "bonus": 1.2
+        }
+        ]  
+      }
+    },
+    "windmill": {
+      "displayName": "Windmill",
+      "description": "Generates clean energy. More productive near hills and on windy days.",
+      "maxLevel": 3,
+      "palaceLevelRequired": 2,
+      "baseHealth": 120,
+      "healthPerLevel": 20,
+      "buildCost": { "wood": 80, "iron": 20, "food": 10},
+      "upgradeCostMultiplier": 1.6,
+      "production": {
+        "resource": "energy",
+        "baseRate": 15,
+        "ratePerLevel": 6
+      },
+      "placement": {
+        "allowedTerrain": ["grassland", "hill"],
+        "adjacencyBonus": [{
+            "type": "hill",
+            "bonus": 1.4
+        }]
+      }
+    },
+    "house": {
+      "displayName": "Housing",
+      "description": "Increases population capacity. Requires food to sustain.",
+      "maxLevel": 1,
+      "palaceLevelRequired": 1,
+      "baseHealth": 100,
+      "healthPerLevel": 20,
+      "buildCost": { "wood": 40, "food": 50 },
+      "upgradeCostMultiplier": 1.2,
+      "placement": {
+        "allowedTerrain": ["grassland", "desert"]
+      }
+    },
+    "turret": {
+      "displayName": "Gun Turret",
+      "description": "Basic defensive structure with rapid fire bullets.",
+      "maxLevel": 6,
+      "palaceLevelRequired": 3,
+      "baseHealth": 300,
+      "healthPerLevel": 50,
+      "buildCost": { "iron": 80 },
+      "upgradeCostMultiplier": 1.6,
+      "combatStats": {
+        "baseDamage": 20,
+        "damagePerLevel": 10,
+        "baseRange": 3,
+        "rangePerLevel": 0.1,
+        "reloadTime": 1,
+        "isAOE": false
+      },
+      "placement": {
+        "allowedTerrain": ["grassland", "desert", "hills"]
+      }
+    },
+    "missile": {
+      "displayName": "Missile Silo",
+      "description": "Advanced defense with long range and area of effect explosions.",
+      "maxLevel": 3,
+      "palaceLevelRequired": 4,
+      "baseHealth": 300,
+      "healthPerLevel": 50,
+      "buildCost": { "iron": 120 },
+      "upgradeCostMultiplier": 2.0,
+      "combatStats": {
+        "baseDamage": 50,
+        "damagePerLevel": 25,
+        "baseRange": 5,
+        "rangePerLevel": 0.5,
+        "reloadTime": 4,
+        "isAOE": true
+      },
+      "placement": {
+        "allowedTerrain": ["grassland", "desert", "hills"]
+      }
+    },
+    "factory": {
+      "displayName": "Vehicle Factory",
+      "description": "Produces land vehicles.",
+      "maxLevel": 3,
+      "palaceLevelRequired": 2,
+      "baseHealth": 300,
+      "healthPerLevel": 80,
+      "buildCost": { "iron": 200, "energy": 100, "gold": 150 },
+      "upgradeCostMultiplier": 1.8,
+      "placement": {
+        "allowedTerrain": ["grassland", "desert"]
+      }
+    }
+}
