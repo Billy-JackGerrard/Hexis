@@ -4,7 +4,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 const App = () => {
   return (
     <div>
-      <h1>Hex Game</h1>
+      <h1>Stupid Game</h1>
       < MainGameScene />
       < SpeedInsights />
     </div>
