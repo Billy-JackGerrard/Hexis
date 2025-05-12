@@ -8,6 +8,13 @@ menu screen
 
 pause screen (automatically toggled when leaving/rejoining the tab)
 
+possibly get something in rendering so only visible hexes are rendered?
+plus need to make sure if one hex updates, the entire grid shouldn't rerender,
+only that hex, and even then only if its on the visible screen.
+logic problem: the UI of a hex would rarely change - base info of a hex would change, yes, but what it looks like wouldn't really change?
+building/troop icons? are they part of a hex's UI?
+hex has building info on it, so if that changes i guess it would have to rerender, but hopefully only that hex?
+
 write stuff into
 GAME_DOCUMENTATION.txt
 TODO.txt
@@ -21,7 +28,6 @@ actually make a start;
 sort out HTML
 get the grid down
 zooming/panning with bounds/limits
-possibly get something in rendering so only visible hexes are rendered?
 work out the perfect size and quantity of hexes
 minimap
 toolbar
