@@ -1,6 +1,8 @@
 troops!
 
-fix gameLoop
+set everything to be readonly in building and troop type files
+
+maybe add the `default` keyword to important files like game store, game loop etc etc
 
 menu screen
 

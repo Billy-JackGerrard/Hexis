@@ -20,14 +20,14 @@ export interface Troop {
 
 // these aren't done:
 
-type TroopCategory =
+export type TroopCategory =
     | 'infantry'
     | 'vehicle'
     // | 'aircraft'
     // | 'naval'
     // | 'special';
 
-interface TroopCategoryMetadata {
+export interface TroopCategoryMetadata {
     displayName: string;
     description: string;
     terrainMoveCosts: { // what terrains can this troop move on and what are the costs
@@ -37,7 +37,7 @@ interface TroopCategoryMetadata {
     moveCostResource: Resource; // what resource is used to move this troop (either energy or food, or maybe both?)
 }
 
-interface TroopMetadata {
+export interface TroopMetadata {
 
     // Basic Info
     displayName: string;

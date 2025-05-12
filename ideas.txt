@@ -129,12 +129,21 @@ while infantry will take ages to arrive there. this means if someone only has in
 combat could go haywire. its harder to send backup troops if they're infantry because they'll take ages to arrive.
 same for retreating, cars can catch up easily.
 player with vehicles can also just make and send them over to intercept any infantry going to another base or whatever,
-while infantry player struggles with defense as infantry takes ages to travel between bases
+while infantry player struggles with defence as infantry takes ages to travel between bases
 
 solution: very high resource cost and time to make vehicles compared to infantry (ie require iron as opposed to food),
 and let one of the first vehicles unlocked be a transport vehicle - like a ship in civilization; it can carry infantry
 this vehicle needs to also be cheap and quick to build compared to other vehicles?
 thoughts?
+
+
+
+- tech:
+civilization and similar games have a tech tree. is this a good idea? if so, what techs should we have?
+instead of the palace or HQ (or maybe just entirely scrap the whole palace idea and only have HQs) unlocking troops/buildings,
+a tech tree could do it too. this would give more strategy to the game by making people think about not just resources and war but also science
+would have to have a new building too - some kind of lab or university for producing science or whatever.
+science would be a resource that you spend in the tech tree? or each science building researches something you pick and it takes some time to complete?
 
 
 
@@ -145,4 +154,3 @@ to think about later:
 
 - account:
 an account has perks on it, and has a list of unlocked troops/buildings maybe? (like btd6, the troops but also the card things that give permanent upgrades)
-

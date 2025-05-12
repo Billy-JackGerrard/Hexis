@@ -1,5 +1,5 @@
-import { Player, Resource, BuildingType, TroopType, BUILDINGS_METADATA } from '../../types';
-import { STARTING_RESOURCES } from '../../data/config';
+import { Player, Resource, BuildingType, TroopType } from '../../types';
+import { STARTING_RESOURCES, BUILDINGS_METADATA } from '../../data';
 
 export class PlayerEntity implements Player {
     

@@ -20,8 +20,10 @@ export default function MainGame() {
 
   return (
     <div>
-      <h1>Hex Strategy Game</h1>
-      {/* Render hexes or map here, passing updateHexBuilding to child components if needed */}
+      
+
+
+
     </div>
   );
 }
