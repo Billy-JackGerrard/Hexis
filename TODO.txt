@@ -4,6 +4,14 @@ set everything to be readonly in building and troop type files
 
 maybe add the `default` keyword to important files like game store, game loop etc etc
 
+use canvas for UI, more efficient than SVG, but with pixiJS
+but maybe use SVG for menu or tech tree etc
+
+add move interface and move queue,
+so we can add handle collisions etc
+
+POSSIBLY make it 2.5D? 
+
 menu screen
 
 pause screen (automatically toggled when leaving/rejoining the tab)
@@ -26,6 +34,8 @@ and also point to howToRun.txt if they wanna deploy themselves
 
 Terrain; need to add different terrains to generateTerrain in systems/grid
 at the moment its just grassland with mountains at the edges
+
+also need to add terrain colour - enum probably
 
 
 

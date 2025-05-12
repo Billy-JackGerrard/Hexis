@@ -137,6 +137,9 @@ this vehicle needs to also be cheap and quick to build compared to other vehicle
 thoughts?
 
 
+- fog of war
+should this be implemented?
+if so how? each player class has a list of visible hexes?
 
 - tech:
 civilization and similar games have a tech tree. is this a good idea? if so, what techs should we have?

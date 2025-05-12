@@ -9,12 +9,12 @@ let radius: number;
 
 
 export function generateGrid() {
-    return generateHexGrid(GRID_RADIUS);
+    return generateHexes(GRID_RADIUS);
 }
 
 
 
-function generateHexGrid(gridRadius: number) {
+function generateHexes(gridRadius: number) {
     radius = gridRadius;
     const hexes: Hex[] = [];
     
