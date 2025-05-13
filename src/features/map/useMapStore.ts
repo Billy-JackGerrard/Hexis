@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 interface MapState {
-  hexes: Hex[];
+  hexes: [];
 }
 
 export const useMapStore = create<MapState>((set) => ({
