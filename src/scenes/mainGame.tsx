@@ -1,25 +1,24 @@
 
 // src/scenes/mainGame.tsx
 import { useEffect, useRef } from 'react'
-import { initializePixi } from '../engine/rendering/initializePixiJS'
-import { generateMap } from '@/engine/game-mechanics/generateMap'
+// import { initializePixi } from '../rendering/'
+import generateMapData from '../game-mechanics/generateMapData'
 
 export default function MainGame() {
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // initialise the game loop
-  useEffect(() => {
-    const game = new GameLoop();
-    game.start();
-    return () => game.stop();
-  }, []);
+  // // initialise the game loop
+  // useEffect(() => {
+  //   const game = new GameLoop();
+  //   game.start();
+  //   return () => game.stop();
+  // }, []);
 
   // Initialize PixiJS and generate the map
   useEffect(() => {
     if (!containerRef.current) return
 
-    const app = initializePixi(containerRef.current)
-    const map = generateMap(app)
+    const map = generateMapData() 
 
     return () => {
       app.destroy(true, { children: true }) // Clean up
