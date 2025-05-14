@@ -1,4 +1,4 @@
-// This file is gunna be big. Might be worth splitting it up into multiple files later.
+// This file is gunna be big. Might be worth splitting it up into multiple files/functions later.
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 import * as honeycomb from 'honeycomb-grid';
@@ -53,7 +53,7 @@ export default async function createMap(container: HTMLElement) {
         // Draw hex
         graphics.fill({ color: getHexColor(hex), alpha: 1 });
         graphics.poly(hex.corners);
-        graphics.stroke({ width: 1, color: 0xFFFFFF });
+        graphics.stroke({ width: 0, color: 0xFFFFFF });
 
         // Update bounds
         hex.corners.forEach(corner => {
@@ -64,6 +64,9 @@ export default async function createMap(container: HTMLElement) {
         });
     });
 
+    
+    const padding = HEXAGON_SIZE * 2;
+
     // assigning bounds
     const bounds = {
         left: minX,
@@ -73,7 +76,6 @@ export default async function createMap(container: HTMLElement) {
         width: maxX - minX,
         height: maxY - minY
     };
-    const padding = 0;// HEXAGON_SIZE * 2;
     
     // create viewport, ie what the user sees
     const viewport = new Viewport({
@@ -103,9 +105,7 @@ export default async function createMap(container: HTMLElement) {
 
     console.log('Viewport world size:', viewport.worldWidth, viewport.worldHeight);
     console.log('Viewport center:', viewport.center);
-
     console.log('Grid bounds:', bounds);
-    console.log('Grid size:', grid.size);
     
 
 
@@ -121,33 +121,6 @@ export default async function createMap(container: HTMLElement) {
     }
     
 }
-
-
-
-
-
-function renderMap(viewport: Viewport, grid: honeycomb.Grid<honeycomb.Hex>): void {
-    const graphics = new PIXI.Graphics();
-    viewport.addChild(graphics);
-    
-    graphics.stroke({ // this is what's in between the hexes
-        width: 0,
-        color: 0xFFFFFF,
-        alpha: 1 // transparency
-    });
-    
-    grid.forEach((hex) => {
-        const corners = hex.corners.map(corner => ({
-            x: corner.x + hex.x,
-            y: corner.y + hex.y
-        }));
-
-        // Basic styling - consider making this configurable
-        graphics.fill({ color: getHexColor(hex), alpha: 1 });
-        graphics.poly(corners);
-    });
-}
-
 
 // Replace with terrain images etc
 function getHexColor(hex: honeycomb.Hex): number {

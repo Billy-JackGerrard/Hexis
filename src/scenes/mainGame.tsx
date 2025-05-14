@@ -13,5 +13,5 @@ export default function MainGame() {
       
   }, [])
   
-    return <div ref={containerRef} style={{ width: '100vw', height: '100vh' }} />
+    return <div ref={containerRef} style={{ width: '100vw', height: '100vh', overflow: 'hidden' }} />
 }
