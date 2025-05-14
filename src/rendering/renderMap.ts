@@ -4,25 +4,25 @@ import { Viewport } from 'pixi-viewport';
 import * as honeycomb from 'honeycomb-grid';
 import { Hex } from '../game-mechanics/hex/types';
 
-export default async function renderMap() {
+export default async function renderMap(container: HTMLElement) {
 
     // Initialize PixiJS application (correct for v8) and add it to the DOM
     const app = new PIXI.Application();
     await app.init({
         resizeTo: window,
-        backgroundColor: 0x0a0a0a,
+        backgroundColor: 0x233345, // blue background
         antialias: true,
         resolution: window.devicePixelRatio || 1,
     });
-    document.body.appendChild(app.canvas);
+    container.appendChild(app.canvas);
 
     // Create viewport for scrolling/zooming
     const viewport = new Viewport({
         events: app.renderer.events,
         screenWidth: app.screen.width,
         screenHeight: app.screen.height,
-        worldWidth: 2000,
-        worldHeight: 2000,
+        worldWidth: 5000,
+        worldHeight: 5000,
     });
     app.stage.addChild(viewport);
     viewport.drag().pinch().wheel().decelerate();
