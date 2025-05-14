@@ -2,10 +2,11 @@
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 import * as honeycomb from 'honeycomb-grid';
-import { Hex } from '../game-mechanics/hex/types';
 
 
 export default async function createMap(container: HTMLElement) {
+    
+    container.innerHTML = ''; // Clear the container before adding the map
 
     // Initialize PixiJS application (correct for v8) and add it to the DOM
     const app = new PIXI.Application();
@@ -26,7 +27,7 @@ export default async function createMap(container: HTMLElement) {
         worldHeight: 5000,
     });
     app.stage.addChild(viewport);
-    viewport.drag().pinch().wheel().decelerate();
+    viewport.drag().pinch().decelerate(); // .wheel()
 
     
 
@@ -58,7 +59,12 @@ export default async function createMap(container: HTMLElement) {
     if (!centerHex) throw new Error('Center hex not found');
     viewport.moveCenter(centerHex.x, centerHex.y);
 
-    return 
+    return {
+        destroy: () => {
+            app.destroy(true, { children: true });
+            container.innerHTML = ''
+        }
+    }
     
 }
 
