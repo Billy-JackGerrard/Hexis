@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from 'react-dom/client';
-import mainGame from './scenes/mainGame';
+import MainGame from './scenes/mainGame';
 // import './index.css'; // Global styles
 
 
@@ -8,6 +8,6 @@ import mainGame from './scenes/mainGame';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <mainGame/>
+        <MainGame />
     </React.StrictMode>
   );

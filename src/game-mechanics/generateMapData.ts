@@ -1,39 +1,24 @@
-
-export default function generateMapData() {
-}
-
-
-
 // import { HexCoordinates, Terrain, Hex } from "../../types";
-// import { GRID_RADIUS } from "../../data/config";
+import { GRID_RADIUS } from "../data/config";
+import { Hex } from "../game-mechanics/hex/types";
 
 
+// Hexes generation
 
-// Grid generation
+export default function generateHexes() {
 
-let radius: number;
-
-
-export function generateGrid() {
-    return generateHexes(GRID_RADIUS);
-}
-
-
-
-function generateHexes(gridRadius: number) {
-    radius = gridRadius;
     const hexes: Hex[] = [];
     
-    for (let q = -radius; q <= radius; q++) {
-        for (let r = -radius; r <= radius; r++) {
+    for (let q = -GRID_RADIUS; q <= GRID_RADIUS; q++) {
+        for (let r = -GRID_RADIUS; r <= GRID_RADIUS; r++) {
             const s = -q - r;
-            if (Math.abs(s) > radius) continue;
+            if (Math.abs(s) > GRID_RADIUS) continue;
 
             const coords = { q, r, s };
             
             hexes.push({
                 coords,
-                terrain: generateTerrain(coords),
+                // terrain: generateTerrain(coords),
                 // Add other default hex properties here if needed
             });
         }
@@ -42,6 +27,7 @@ function generateHexes(gridRadius: number) {
     return hexes;
 }
 
+/**
 // gets a terrain type based on the hex's coordinates
 function generateTerrain(coords: HexCoordinates) : Terrain {
 
@@ -61,52 +47,5 @@ function isEdgeHex(coords: HexCoordinates) : boolean {
 }
 
 
+*/
 
-
-// Hex neighbour calculation
-
-
-const directions = [
-    { q: 1, r: 0, s: -1 },  // right
-    { q: 1, r: -1, s: 0 },   // top-right
-    { q: 0, r: -1, s: 1 },   // top-left
-    { q: -1, r: 0, s: 1 },   // left
-    { q: -1, r: 1, s: 0 },   // bottom-left
-    { q: 0, r: 1, s: -1 },   // bottom-right
-];
-
-
-/**
- * 
- * @param coords 
- * @returns Coordinates of the 6 neighbouring hexes, in an array
- */
-export function getHexNeighbours(coords: HexCoordinates): HexCoordinates[] {
-
-    if (!radius) throw new Error("Grid radius not set. Please call generateGrid() first.");
-    // or change code to set radius to be GRID_RADIUS or something
-
-    return directions
-        .map(dir => {
-
-            const neighbour = {
-            q: coords.q + dir.q,
-            r: coords.r + dir.r,
-            s: coords.s + dir.s,
-            };
-
-            if (neighbour.q + neighbour.r + neighbour.s !== 0) {
-                throw new Error(`Invalid cube coordinates: ${JSON.stringify(neighbour)}`);
-                
-            } else if (
-                Math.abs(neighbour.q) > GRID_RADIUS ||
-                Math.abs(neighbour.r) > GRID_RADIUS ||
-                Math.abs(neighbour.s) > GRID_RADIUS
-              ) {
-                return null;
-              }
-            
-            return neighbour;
-        })
-        .filter((n): n is HexCoordinates => n !== null);;
-}
