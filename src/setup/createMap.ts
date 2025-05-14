@@ -4,7 +4,8 @@ import { Viewport } from 'pixi-viewport';
 import * as honeycomb from 'honeycomb-grid';
 import { Hex } from '../game-mechanics/hex/types';
 
-export default async function renderMap(container: HTMLElement) {
+
+export default async function createMap(container: HTMLElement) {
 
     // Initialize PixiJS application (correct for v8) and add it to the DOM
     const app = new PIXI.Application();
@@ -39,26 +40,15 @@ export default async function renderMap(container: HTMLElement) {
         }),
         // defining the grid shape and size
         honeycomb.rectangle({
-            width: 10,
-            height: 10 }))
+            width: 20,
+            height: 20,
+        }))
+            
 
 
 
     // Create hex graphics
-    const graphics = new PIXI.Graphics();
-    viewport.addChild(graphics);
-    graphics.stroke({ width: 1, color: 0xFFFFFF });
-
-    grid.forEach((h) => {
-
-        const corners = h.corners.map(corner => ({
-            x: corner.x + h.x,
-            y: corner.y + h.y
-        }));
-
-        graphics.fill({color: 0x233345, alpha: 1});
-        graphics.poly(corners);
-    });
+    renderMap(viewport, grid);
 
 
 
@@ -70,4 +60,37 @@ export default async function renderMap(container: HTMLElement) {
 
     return 
     
+}
+
+
+
+
+
+
+
+
+
+
+function renderMap(viewport: Viewport, grid: honeycomb.Grid<honeycomb.Hex>): void {
+    const graphics = new PIXI.Graphics();
+    viewport.addChild(graphics);
+    
+    grid.forEach((hex) => {
+        const corners = hex.corners.map(corner => ({
+            x: corner.x + hex.x,
+            y: corner.y + hex.y
+        }));
+
+        // Basic styling - consider making this configurable
+        graphics.stroke({ width: 1, color: 0xFFFFFF, alpha: 1 });
+        graphics.fill({ color: getHexColor(hex), alpha: 1 });
+        graphics.poly(corners);
+    });
+}
+
+
+// Replace with terrain images etc
+function getHexColor(hex: honeycomb.Hex): number {
+    // Add your biome/terrain logic here
+    return 0x233345; // Default color
 }

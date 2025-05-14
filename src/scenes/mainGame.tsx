@@ -1,8 +1,6 @@
 
-// src/scenes/mainGame.tsx
 import { useEffect, useRef } from 'react'
-import renderMap from '../rendering/renderMap'
-// import generateMap from '../game-mechanics/generateMapData'
+import createMap from '../setup/createMap'
 
 export default function MainGame() {
   
@@ -10,7 +8,7 @@ export default function MainGame() {
   
     useEffect(() => {
       if (!containerRef.current) return
-      renderMap(containerRef.current)
+      createMap(containerRef.current)
     }, [])
   
     return <div ref={containerRef} style={{ width: '100vw', height: '100vh' }} />
