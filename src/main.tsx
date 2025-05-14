@@ -1,4 +1,3 @@
-import React from "react";
 import ReactDOM from 'react-dom/client';
 import MainGame from './scenes/MainGame';
 // import './index.css'; // Global styles
