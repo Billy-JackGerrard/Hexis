@@ -65,7 +65,7 @@ export default async function createMap(container: HTMLElement) {
     });
 
     
-    const padding = HEXAGON_SIZE * 2;
+    const padding = HEXAGON_SIZE * 4;
 
     // assigning bounds
     const bounds = {
@@ -88,10 +88,10 @@ export default async function createMap(container: HTMLElement) {
 
     // Set hard boundaries
     viewport.clamp({
-        left: bounds.left - padding/2,
-        right: bounds.right + padding/2,
-        top: bounds.top - padding/2,
-        bottom: bounds.bottom + padding/2
+        left: bounds.left - padding,
+        right: bounds.right + padding,
+        top: bounds.top - padding,
+        bottom: bounds.bottom + padding
     });
 
     // Center viewport
@@ -104,7 +104,6 @@ export default async function createMap(container: HTMLElement) {
     // debugging
 
     console.log('Viewport world size:', viewport.worldWidth, viewport.worldHeight);
-    console.log('Viewport center:', viewport.center);
     console.log('Grid bounds:', bounds);
     
 
