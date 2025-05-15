@@ -14,11 +14,11 @@ export default async function createMap(container: HTMLElement) {
     
     container.innerHTML = ''; // Clear the container before adding the map
 
-    // Initialize PixiJS application (correct for v8) and add it to the DOM
+    // Initialise PixiJS application (correct for v8) and add it to the DOM
     const app = new PIXI.Application();
     await app.init({
         resizeTo: window,
-        backgroundColor: 0x233345, // blue background
+        backgroundColor: 0x1580ea, // blue background
         antialias: true,
         resolution: window.devicePixelRatio || 1,
     });
@@ -53,7 +53,7 @@ export default async function createMap(container: HTMLElement) {
         // Draw hex
         graphics.fill({ color: getHexColor(hex), alpha: 1 });
         graphics.poly(hex.corners);
-        graphics.stroke({ width: 0, color: 0xFFFFFF });
+        graphics.stroke({ width: 1, color: 0xFFFFFF });
 
         // Update bounds
         hex.corners.forEach(corner => {
