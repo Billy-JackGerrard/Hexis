@@ -6,13 +6,13 @@ import * as honeycomb from 'honeycomb-grid';
 
 
 const HEXAGON_SIZE = 30; // Size of each hexagon
-const HEXAGON_QUANTITY = 40; // Number of hexagons in each direction
+const HEXAGON_QUANTITY = 10; // Number of hexagons in each direction
 
 
 
 export default async function createMap(container: HTMLElement) {
     
-    container.innerHTML = ''; // Clear the container before adding the map
+    // container.innerHTML = ''; // Clear the container before adding the map
 
     // Initialise PixiJS application (correct for v8) and add it to the DOM
     const app = new PIXI.Application();
@@ -65,7 +65,7 @@ export default async function createMap(container: HTMLElement) {
     });
 
     
-    const padding = HEXAGON_SIZE * 4;
+    const padding = HEXAGON_SIZE * 2;
 
     // assigning bounds
     const bounds = {
@@ -82,8 +82,8 @@ export default async function createMap(container: HTMLElement) {
         events: app.renderer.events,
         screenWidth: app.screen.width,
         screenHeight: app.screen.height,
-        worldWidth: bounds.width + padding * 2,
-        worldHeight: bounds.height + padding * 2,
+        worldWidth: bounds.width + padding * 4,
+        worldHeight: bounds.height + padding * 4,
     });
 
     // Set hard boundaries
@@ -102,9 +102,20 @@ export default async function createMap(container: HTMLElement) {
 
 
     // debugging
-
+    console.log({
+        containerClient: { width: container.clientWidth, height: container.clientHeight },
+        containerOffset: { width: container.offsetWidth, height: container.offsetHeight },
+        containerScroll: { width: container.scrollWidth, height: container.scrollHeight },
+        appCanvas: { width: app.canvas.height, height: app.canvas.clientHeight },
+        window: { innerWidth: window.innerWidth, innerHeight: window.innerHeight },
+        screen: { width: app.screen.width, height: app.screen.height },
+        renderer: { width: app.renderer.width, height: app.renderer.height },
+        parentItem: document.getElementById('root')?.parentElement,
+        devicePixelRatio: window.devicePixelRatio
+    });
     console.log('Viewport world size:', viewport.worldWidth, viewport.worldHeight);
     console.log('Grid bounds:', bounds);
+
     
 
 

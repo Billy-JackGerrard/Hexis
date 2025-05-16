@@ -13,5 +13,12 @@ export default function MainGame() {
       
   }, [])
   
-    return <div ref={containerRef} style={{ width: '100vw', height: '100vh', overflow: 'hidden' }} />
+    return <div ref={containerRef} style={{
+      width: '100vw',
+      height: '100vh',
+      display: 'block',
+      overflow: 'auto',
+      position: 'fixed',
+      scrollbarGutter: 'stable'
+    }} />
 }
