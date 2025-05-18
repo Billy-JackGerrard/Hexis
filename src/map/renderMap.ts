@@ -1,8 +1,8 @@
-// This file is gunna be big. Might be worth splitting it up into multiple files/functions later.
+
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 import createGrid from './createGrid';
-import { HEXAGON_SIZE } from '../data/config';
+import { HEXAGON_SIZE, BACKGROUND_COLOUR } from '../data/config';
 import { Terrain } from '../data/types';
 
 
@@ -15,7 +15,7 @@ export default async function renderMap(container: HTMLElement) {
     const app = new PIXI.Application();
     await app.init({
         resizeTo: window,
-        backgroundColor: 0x1580ea, // blue background
+        backgroundColor: BACKGROUND_COLOUR, // blue background
         antialias: true,
         resolution: window.devicePixelRatio || 1,
     });
@@ -23,8 +23,7 @@ export default async function renderMap(container: HTMLElement) {
 
 
     // for rendering
-    const graphics = new PIXI.Graphics();
-            
+    const mapContainer = new PIXI.Container();
 
     // get grid
     const grid = createGrid();
@@ -35,13 +34,25 @@ export default async function renderMap(container: HTMLElement) {
 
     // go through each hexagon in the grid
     grid.forEach(hex => {
-        
-        // Draw hex
-        graphics.fill({ color: getColour(hex.terrain), alpha: 1 });
-        graphics.poly(hex.corners);
-        graphics.stroke({ width: 1, color: 0xFFFFFF });
 
-        // Update bounds
+        
+        // draw hexagon
+        const g = new PIXI.Graphics();
+        g.fill({ color: getColour(hex.terrain) });
+        g.poly(hex.corners);
+        g.stroke({ width: 1, color: 0xFFFFFF });
+        g.eventMode = 'static';
+        g.cursor = 'pointer';
+
+        // add interactivity
+        g.on('pointerdown', () => {
+            console.log('Clicked hex:', hex.q, hex.r, hex.s, hex.terrain);
+        });
+
+        mapContainer.addChild(g);
+                
+
+        // update bounds
         hex.corners.forEach(corner => {
             minX = Math.min(minX, corner.x);
             minY = Math.min(minY, corner.y);
@@ -101,13 +112,14 @@ export default async function renderMap(container: HTMLElement) {
         devicePixelRatio: window.devicePixelRatio
     });
     console.log('Grid bounds:', bounds);
+      
 
     
 
 
     app.stage.addChild(viewport);
     viewport.drag().pinch().decelerate(); // .wheel()
-    viewport.addChild(graphics);
+    viewport.addChild(mapContainer);
 
     return {
         destroy: () => {
@@ -124,11 +136,18 @@ function getColour(terrain: Terrain): number {
     switch (terrain) {
         case 'grass':
             return 0x00FF00; // Green
+        case 'forest':
+            return 0x228B22; // Forest Green
+        case 'hill':
+            return 0x8B4513; // Saddle Brown
+        case 'desert':
+            return 0xFFD700; // Gold
+        case 'water':
+            return 0x0000FF; // Blue
         case 'mountain':
             return 0xA9A9A9; // Grey
         default:
             return 0xFFFFFF; // White
     }
     
-    // return 0x90EE90; // Light green
 }
