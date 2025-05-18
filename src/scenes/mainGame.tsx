@@ -1,6 +1,6 @@
 
 import { useEffect, useRef } from 'react'
-import createMap from '../setup/createMap'
+import renderMap from '../map/renderMap'
 
 export default function MainGame() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -9,7 +9,7 @@ export default function MainGame() {
       if (!containerRef.current) return
 
       // Create the map and store cleanup function
-      const destroy = createMap(containerRef.current)
+      const destroy = renderMap(containerRef.current)
       
   }, [])
   

@@ -1,16 +1,13 @@
 // This file is gunna be big. Might be worth splitting it up into multiple files/functions later.
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
-import * as honeycomb from 'honeycomb-grid';
+import createGrid from './createGrid';
+import { HEXAGON_SIZE } from '../data/config';
+import { Terrain } from '../data/types';
 
 
 
-const HEXAGON_SIZE = 30; // Size of each hexagon
-const HEXAGON_QUANTITY = 10; // Number of hexagons in each direction
-
-
-
-export default async function createMap(container: HTMLElement) {
+export default async function renderMap(container: HTMLElement) {
     
     // container.innerHTML = ''; // Clear the container before adding the map
 
@@ -27,21 +24,10 @@ export default async function createMap(container: HTMLElement) {
 
     // for rendering
     const graphics = new PIXI.Graphics();
-
-    // Create grid
-    const grid = new honeycomb.Grid(
-        // defining the hexagon type and size
-        honeycomb.defineHex({
-            dimensions: HEXAGON_SIZE,
-            orientation: honeycomb.Orientation.POINTY,
-            origin: { x: 0, y: 0 }
-        }),
-        // defining the grid shape and size
-        honeycomb.rectangle({
-            width: HEXAGON_QUANTITY,
-            height: HEXAGON_QUANTITY,
-        }))
             
+
+    // get grid
+    const grid = createGrid();
 
 
     // for calculating bounds
@@ -51,7 +37,7 @@ export default async function createMap(container: HTMLElement) {
     grid.forEach(hex => {
         
         // Draw hex
-        graphics.fill({ color: getHexColor(hex), alpha: 1 });
+        graphics.fill({ color: getColour(hex.terrain), alpha: 1 });
         graphics.poly(hex.corners);
         graphics.stroke({ width: 1, color: 0xFFFFFF });
 
@@ -110,10 +96,10 @@ export default async function createMap(container: HTMLElement) {
         window: { innerWidth: window.innerWidth, innerHeight: window.innerHeight },
         screen: { width: app.screen.width, height: app.screen.height },
         renderer: { width: app.renderer.width, height: app.renderer.height },
+        viewportWorld: { width: viewport.worldWidth, height: viewport.worldHeight },
         parentItem: document.getElementById('root')?.parentElement,
         devicePixelRatio: window.devicePixelRatio
     });
-    console.log('Viewport world size:', viewport.worldWidth, viewport.worldHeight);
     console.log('Grid bounds:', bounds);
 
     
@@ -133,7 +119,16 @@ export default async function createMap(container: HTMLElement) {
 }
 
 // Replace with terrain images etc
-function getHexColor(hex: honeycomb.Hex): number {
-    // Add your biome/terrain logic here
-    return 0x90EE90; // Light green
+function getColour(terrain: Terrain): number {
+    
+    switch (terrain) {
+        case 'grass':
+            return 0x00FF00; // Green
+        case 'mountain':
+            return 0xA9A9A9; // Grey
+        default:
+            return 0xFFFFFF; // White
+    }
+    
+    // return 0x90EE90; // Light green
 }

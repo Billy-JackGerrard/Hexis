@@ -1,6 +1,6 @@
 
-import { GRID_RADIUS } from "../../data/config";
-import { HexCoordinates } from "./types";
+import { GRID_RADIUS } from "../src/data/config.ts";
+import { HexCoordinates } from "../src/data/types.ts";
 
 
 const directions = [
