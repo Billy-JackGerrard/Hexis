@@ -7,6 +7,13 @@
 - Units **hold position and fight** rather than breaking formation to chase fleeing
   enemies — this keeps squad positioning predictable and readable.
 - **Target priority**: nearest enemy in range, by default.
+- **Resolved: a damage-dealt-modifier bonus re-orders that default.** If a troop has
+  a `damageDealtModifiers` entry above 1.0 matching something in range, it prefers
+  that target over an equally-or-nearer plain target — e.g. Grenadier prefers a
+  `Land`-domain vehicle over an equally-near Rifleman. This only changes *which*
+  already-allowed target gets picked first; it never expands `canTarget` or overrides
+  an explicit directed order (see `05-troop-stat-schema.md`'s Damage Modifiers
+  section).
 - **Focus-fire / structure-targeting override**: with a squad selected, clicking
   directly on a specific enemy **troop, squad, building, or wall** issues a
   **directed-target order** (`order: { type: "attack_target", targetId }` — see
@@ -26,10 +33,13 @@
     and attack that specific target.
   - **Siege troops** (schema flag `prioritizeStructures` — see
     `05-troop-stat-schema.md`) invert the *default*: with no explicit order and
-    nothing directly attacking them, they auto-target the nearest Structure
-    (building/wall) over enemy troops, letting a dedicated siege unit beeline for
-    defenses/HQ without a per-target click. Regular troops never do this on their
-    own — they always need the explicit directed order above to attack a structure.
+    nothing directly attacking them, they auto-target the nearest building/wall
+    (Structure OR Defensive) over enemy troops, letting a dedicated siege unit
+    beeline for defenses/HQ without a per-target click. Regular troops never do this
+    on their own — they always need the explicit directed order above to attack a
+    structure. **Basekiller** combines this with a `Defensive` damage bonus, so among
+    in-range structures it further prefers Defensive buildings specifically (see the
+    damage-modifier target-priority rule above).
 - **Vision range and engagement (attack) range are separate** — a unit can see an
   enemy approaching before it's close enough to fight, giving the player a genuine
   reaction window (retreat, reposition, garrison a base, etc.).

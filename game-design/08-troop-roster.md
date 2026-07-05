@@ -20,11 +20,16 @@ not been locked in yet — this is a placeholder structure to fill in next.
 | Barracks | **Grenadier** | Anti-tank infantry, bonus damage vs. `Land`-domain targets (land vehicles specifically — does not apply to Air/Naval vehicles) |
 | Barracks | **Flamethrower** | Bonus damage vs. `Wood`-tagged targets (walls, docks, bridges, Wood Tower) |
 | Barracks | **Sniper** | Stealth unit; also a `detector` (spots other stealthed units at full vision range); `damage_types: [Piercing]` — bypasses target damage-received modifiers; `can_target` omits `Structure` (**cannot target buildings/walls**), a deliberate exception to the usual default (see `05-troop-stat-schema.md`) |
+| Barracks | **Shielder** | Pure tank/meatshield: `can_target: []` (no attack at all), high HP plus a flat `armor` stat (damage reduction per hit, distinct from the multiplier-based damage-received modifiers), slow-moving |
 | Factory | **Ambulance** | Light support vehicle — mobile heal aura (same effect family as Hospital's passive heal); a vehicle rather than infantry so it can keep pace with the army it's healing |
-| Factory | **Transport Carrier** | Light vehicle, little/no attack — carries an infantry squad aboard for fast repositioning, letting cheap Food-upkeep infantry keep up with Fuel-upkeep armies. Can deploy its cargo **mid-battle**, not just while idle |
-| Factory | Further light vehicles (roster TBD) | Only *light* vehicles — heavy tanks require Fort Irongrad. Anti-air is planned as a vehicle/tank role here rather than an infantry unit |
-| Port | Basic navy (roster TBD, small) | Requires water-adjacent tile |
-| — | **Engineer** | Builds Roads, Bridges, Docks. Buildable anywhere including behind enemy lines. Combat stats TBD (likely weak/no combat) |
+| Factory | **Transport Carrier** | Light vehicle, little/no attack — carries an infantry squad aboard for fast repositioning, letting cheap Food-upkeep infantry keep up with Fuel-upkeep armies. Can deploy its cargo **mid-battle**, not just while idle. `cargoCapacity: 1` = one squad (any size), not troop headcount |
+| Factory | **Light Tank** | Generic all-round light vehicle — no damage modifiers vs. anything; the baseline other tank types (Heavy Tank roster, etc.) get balanced against, same role Rifleman plays for infantry |
+| Factory | **Tonk** | Heavier/longer-range sibling to Light Tank — slower attack speed, higher per-hit damage, longer range; slight damage bonus vs. Air and vs. Structure (buildings+walls) |
+| Factory | **Basekiller** | Dedicated siege unit — `prioritizeStructures: true`, large (2.5x) bonus vs. `Defensive`-category buildings specifically (base defenses), cannot target Infantry |
+| Factory | Further light vehicles (roster TBD) | Only *light* vehicles — heavy tanks require Fort Irongrad |
+| Port | **Gunboat** | Generic all-round early-tier warship, no damage modifiers vs. anything. Requires water-adjacent tile |
+| Port | **Landing Craft** | Fully unarmed troop transport, `cargoCapacity: 1` (one Infantry squad). Unlike Transport Carrier/Aircraft Carrier, **cannot** launch cargo mid-combat — must be idle/docked to unload. Requires water-adjacent tile |
+| — | **Engineer** | Builds Roads, Bridges, Docks, Towers. Buildable anywhere including behind enemy lines. Combat stats TBD (likely weak/no combat) |
 | Command Centre | **Commander** | `max_squad_size: 1` (never merges), `max_squads_led: 4`. Only unit that allows combined-arms play. Capital-only. Fairly expensive; has its own combat stats plus a unique buff aura per Commander (small named roster, not one generic unit). Squads assigned to it form a **regiment** (up to 4 squads) that follows it (see `04-combat.md`). Full roster/abilities TBD |
 
 ### Fort Irongrad
@@ -90,18 +95,16 @@ not been locked in yet — this is a placeholder structure to fill in next.
   draws Food upkeep instead, same as ground infantry.
 
 ## Still To Do
-- [x] Named infantry roster (Barracks): Rifleman, Grenadier, Flamethrower, Sniper — full stats still TBD
+- [x] Named infantry roster (Barracks): Rifleman, Grenadier, Flamethrower, Sniper — full stats implemented, see `data/troops/`
 - [ ] Anti-air vehicle/tank (replaces an earlier AA-infantry idea — AA is now planned as a tank role, likely Factory or Fort Irongrad, not Barracks)
 - [ ] Full light vehicle roster (Factory), beyond Ambulance/Transport Carrier
 - [ ] Full basic navy roster (Port)
 - [ ] Wingfighter/Falcon (Sky Fortress) full stat sheet
 - [ ] Full Kraken Point Shipyard roster (ship tiers up to Aircraft Carrier)
-- [ ] Engineer combat stats
+- [x] Engineer combat stats — non-combat (`canTarget: []`), hp 40, cheap/fast to produce; see `data/troops/engineer.json`
 - [ ] Named Commander roster + each Commander's unique buff/ability
 - [ ] Full stat sheet: HP, damage, speed, cost, splash radius, range for every unit
 - [ ] Rock-paper-scissors matchup matrix
 - [ ] Which specific Heavy Tank types are Irongrad-only vs. shared with Winter Forge's
       Hot Forge
-- [ ] Dedicated siege unit(s) — the `prioritize_structures` flag/mechanic is defined
-      (see `05-troop-stat-schema.md`/`04-combat.md`) but no specific troop carries it
-      yet; which building(s) produce it and its full stats are still to be authored
+- [x] Dedicated siege unit(s) — **Basekiller** (Factory), see `data/troops/basekiller.json`. Also introduced the `Defensive` reserved value (split out from `Structure`) for base-defenses-specific targeting/bonuses, and the "damage-modifier bonus = target-priority hint" rule (see `05-troop-stat-schema.md`/`04-combat.md`)

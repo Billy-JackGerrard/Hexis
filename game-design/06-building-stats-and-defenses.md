@@ -36,8 +36,11 @@ instead of simply dying.
   (see `07-data-architecture.md`).
 - **Regeneration**: all buildings and walls **slowly regenerate HP over time** once
   they haven't taken damage recently — a siege that's beaten off doesn't leave
-  permanent scarring the way an outright kill (ruin) does. Regen rate scales with
-  building level like other stats (see Upgrade Data Model below).
+  permanent scarring the way an outright kill (ruin) does. **Resolved: this is a
+  single global rule, not a per-building/per-level stat** — every building and Wall
+  regenerates **5% of its current max HP per 5-second tick** (the same cadence as the
+  resource tick, see `07-data-architecture.md`) while it hasn't taken damage recently.
+  There is no `hpRegenRate` field on individual building definitions.
 - This prevents "grief" destruction from permanently reshaping a base's buildable
   layout, while still making individual buildings valid, meaningful combat targets.
 
@@ -46,8 +49,9 @@ instead of simply dying.
 |---|---|---|
 | HP | number | building's health pool |
 | Damage received modifiers | dict `{tag: multiplier}` | same pattern as troops/walls, e.g. Wood Wall `{Fire: 2.0}` |
-| HP regen rate | number | HP restored per tick once out of combat (no recent incoming damage); scales with level like other stats. Not applicable once a building is already a ruin — a ruin must be rebuilt, not regenerated back |
 | Rebuild cost | number | Flat **50% of original build cost**, same material. Not applicable to Walls or standalone buildings (Road/Bridge/Dock/Tower), which delete outright on destruction (full rebuild cost, any material) rather than ruining. |
+
+HP regen is **not** a per-building stat — see the global 5%-per-5s-tick rule above.
 
 ## Defensive Building Stats (Turret, Missile Launcher, Grenade Tower, Flame Turret, and Walls where relevant)
 These use the same combat-facing fields as troops:
@@ -153,11 +157,30 @@ upgrades a real pacing lever rather than a rubber-stamp:
 - A **steep cost-growth curve** (steeper than the general "cost grows faster than
   stats" default used elsewhere) — since every other building's max level rides on
   HQ level, letting HQ upgrades stay cheap would trivialize the whole ceiling.
+  **Resolved numbers**: base cost **300 Stone + 200 Steel**, cost growth **+35%/level**
+  (steeper than the generic +25%/level default used elsewhere — see `data/buildings/hq.json`).
 - **A minimum population requirement per level** (`minPopulationPerLevel` on the
   `nonProductionUpgradeModel` — see `data/buildings/schema.json`), on top of the
   normal resource cost — a base has to actually be built out (Houses included) before
   its HQ can advance, tying HQ progression to base development rather than pure
-  resource stockpiling.
+  resource stockpiling. **Resolved: this gate scales with level** —
+  `requiredPopulationUsed = 3 * (targetLevel - 1)` (level 2 needs `populationUsed >= 3`,
+  level 3 needs `>= 6`, etc.), rather than a single flat number for every level.
+- **HP**: base **300 at level 1**, growing **+10%/level** (compounding), the standard
+  non-production growth model.
+- **Category**: HQ is its own **`Core`** category (not Support/Defensive/etc. — see
+  `data/buildings/schema.json`) since it doesn't attack, produce, or apply an aura; its
+  only mechanical effects are capture-on-zero-HP and gating every other building's max
+  level at that base.
+- **Population**: **Resolved — HQ does not consume a population slot itself
+  (`populationCost: 0`), and in fact *grants* population capacity, the same way House
+  does**: **+2 capacity per level** (level 1 grants 2, level 2 grants 4, level 3 grants
+  6, and so on — see `02-bases-and-buildings.md`'s Population section). This stacks
+  with whatever Houses contribute at that base. Note the resulting loop: upgrading HQ
+  grants more population capacity, but *advancing* HQ further requires that capacity to
+  already be filled with real buildings (the `minPopulationPerLevel` gate above) — HQ
+  opens room to grow, but the base has to actually use that room before HQ can climb
+  again.
 
 ### Command Centre's Own Upgrade Model
 **Resolved**: the Command Centre is a **second exception** to the standard

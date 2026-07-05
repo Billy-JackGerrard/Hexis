@@ -21,6 +21,7 @@
     },
 
     "hp": { "type": "number", "description": "Damage the unit can take before dying." },
+    "armor": { "type": "number", "default": 0, "description": "Flat damage reduction applied to each incoming hit, after damageReceivedModifiers/Piercing are resolved, floored so a hit always does at least 1 damage. E.g. armor 5 turns a 10-damage hit into 5. Distinct from damageReceivedModifiers (which is a multiplier, not a flat subtraction)." },
     "damage": { "type": "number", "description": "Base damage per attack, before modifiers." },
     "attackSpeed": { "type": "number", "description": "Attacks per time unit." },
     "range": { "type": "number", "description": "Max engagement distance. Separate from visionRange." },
@@ -31,7 +32,7 @@
     "maxSquadSize": { "type": "number", "default": 4, "description": "Max troops of this type that can share one SquadInstance (see game-design/07-data-architecture.md). A freshly produced troop auto-joins the nearest same-type squad below this cap, or forms a new squad of 1. Set to 1 for troops that never merge into squads (Engineer, Commander, Disruptor)." },
     "maxSquadsLed": { "type": "number", "description": "Only relevant for Commander-tagged troops: how many squads this Commander can lead as a regiment (baseline 4 — see game-design/04-combat.md)." },
     "commanderTier": { "type": "string", "enum": ["basic", "rare", "best"], "description": "Only relevant for Commander-tagged troops: which Command Centre level unlocks this Commander (basic at level 1, rare at level 2, best at level 3 — all lower tiers stay unlocked at higher levels). See game-design/02-bases-and-buildings.md's Command Centre & the Commander Cap section and data/buildings/schema.json's commanderProgression." },
-    "prioritizeStructures": { "type": "boolean", "default": false, "description": "Siege-behavior flag: units with this set default-target the nearest Structure (building/wall) over enemy troops when nothing is directly attacking them, instead of the normal nearest-enemy-troop default (see game-design/04-combat.md). Regular troops still need an explicit directed order to attack a non-defensive structure." },
+    "prioritizeStructures": { "type": "boolean", "default": false, "description": "Siege-behavior flag: units with this set default-target the nearest building/wall (Structure OR Defensive) over enemy troops when nothing is directly attacking them, instead of the normal nearest-enemy-troop default (see game-design/04-combat.md). Regular troops still need an explicit directed order to attack a building/wall at all." },
 
     "terrainOverrides": {
       "type": "object",
@@ -46,13 +47,13 @@
     "canTarget": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Domains/tags this unit is allowed to engage, independent of range. Empty array = cannot attack at all (e.g. Engineer, Glider, Disruptor). Reserved value \"Structure\" covers buildings AND walls uniformly (there is no separate \"Building\" vs \"Wall\" target kind) — most combat troops include it by default since sieging structures is core to the conquest win condition; Sniper is a deliberate exception that omits it (see game-design/08-troop-roster.md)."
+      "description": "Domains/tags this unit is allowed to engage, independent of range. Empty array = cannot attack at all (e.g. Engineer, Glider, Disruptor). Reserved value \"Structure\" covers buildings AND walls EXCEPT Defensive-category buildings (there is no separate \"Building\" vs \"Wall\" target kind, but Defensive is split out as its own reserved value — see below) — most combat troops include it by default since sieging structures is core to the conquest win condition; Sniper is a deliberate exception that omits it (see game-design/08-troop-roster.md). Reserved value \"Defensive\" covers Defensive-category buildings specifically (Turret, Missile Launcher, Grenade Tower, Flame/Cold Turret, River Battery, Tower — see data/buildings/schema.json's category field) and must be listed separately from \"Structure\" to be attackable."
     },
 
     "damageDealtModifiers": {
       "type": "object",
       "additionalProperties": { "type": "number" },
-      "description": "{tagOrDomain: multiplier} — bonus/penalty damage dealt vs. targets matching that tag or Domain value (or \"Structure\"). E.g. Grenadier -> {\"Land\": 1.5} applies only to Land-domain (vehicle) targets, not Infantry, Air, or Naval. Missing key defaults to 1.0."
+      "description": "{tagOrDomain: multiplier} — bonus/penalty damage dealt vs. targets matching that tag or Domain value (or the reserved values \"Structure\" / \"Defensive\" — see canTarget above for the split between them). E.g. Grenadier -> {\"Land\": 1.5} applies only to Land-domain (vehicle) targets, not Infantry, Air, or Naval. Basekiller -> {\"Defensive\": 2.5} applies only to Defensive-category buildings, not other Structure targets. Missing key defaults to 1.0."
     },
     "damageReceivedModifiers": {
       "type": "object",
@@ -71,13 +72,15 @@
     "detector": { "type": "boolean", "default": false, "description": "Sees stealthed units at full visionRange, ignoring their revealRange." },
     "revealsOnAttack": { "type": "boolean", "default": false, "description": "If true, attacking breaks this unit's own stealth until a few seconds pass without attacking." },
 
-    "cargoCapacity": { "type": "number", "default": 0, "description": "How many units this troop can carry. 0 = cannot transport." },
+    "cargoCapacity": { "type": "number", "default": 0, "description": "How many SQUADS this troop can carry aboard it (not individual troop headcount) — a boarding squad occupies exactly one slot regardless of its own size. 0 = cannot transport. Capacity sums across every troop in the carrier's own squad (see game-design/07-data-architecture.md's SquadInstance.cargoSquadIds)." },
     "cargoAllowedTags": {
       "type": "array",
       "items": { "type": "string" },
       "description": "Domains/tags this unit is allowed to load as cargo, same mechanism as canTarget."
     },
     "canLaunchCargoMidCombat": { "type": "boolean", "default": false, "description": "If true, cargo can be deployed mid-battle rather than only while idle/docked." },
+
+    "canBuildInfrastructure": { "type": "boolean", "default": false, "description": "If true, this unit can construct standalone Road/Bridge/Dock/Tower (see game-design/01-map-and-terrain.md and game-design/02-bases-and-buildings.md). Only Engineer has this today; the buildable set itself is fixed rather than per-unit, so a boolean is sufficient." },
 
     "auras": {
       "type": "array",

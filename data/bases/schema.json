@@ -4,7 +4,7 @@
   "title": "BaseDef",
   "description": "Static definition for a base TYPE (Capital or a specific Unique base) — the template every live Base instance of this type is created from. See game-design/02-bases-and-buildings.md for base types/reference. Live per-match state (ownerId, hqLevel, hexCoord, buildings, walls, population) is NOT part of this schema — see BaseInstance in game-design/07-data-architecture.md.",
   "type": "object",
-  "required": ["id", "baseType", "isCapital"],
+  "required": ["id", "baseType", "isCapital", "buildableBuildings"],
   "properties": {
     "id": { "type": "string", "description": "Unique identifier for this base type, e.g. \"capital\", \"fort_irongrad\"." },
     "baseType": {
@@ -27,10 +27,10 @@
       "description": "Treehouse buildings may be placed on Forest tiles; Windy Peaks buildings may be placed on Hill tiles. Omitted for every other base type (Plains-only). Individual buildings still declare their own placementRequirement (see data/buildings/schema.json) — this field is a base-level summary of that exception."
     },
 
-    "uniqueBuildings": {
+    "buildableBuildings": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Building ids unique to this base type (e.g. Fort Irongrad -> [\"tank_plant\", \"grenade_tower\"]). Empty/omitted for Capital, which has no specialty building beyond Command Centre."
+      "description": "The COMPLETE, explicit list of building ids this base type can build — every generic building (Farm, Turret, House, etc.) it has access to, plus its own specialty ones (e.g. Fort Irongrad includes \"tank_plant\" and \"grenade_tower\" alongside \"farm\", \"quarry\", \"turret\"...). There is no \"All\" sentinel or implicit generic-building grant here on purpose: each base authors its full roster explicitly so a base-specific exception (e.g. a Unique base that deliberately lacks a normally-generic building) is just an omission from this list, not a special case bolted onto the generic rule. This is the sole source of truth for building-vs-base eligibility — data/buildings/schema.json's building definitions do NOT carry a buildableAt/base-list field of their own, precisely to avoid the same fact being authored (and able to drift) in two places. Standalone buildings (Road, Bridge, Dock, Tower — see isStandalone in data/buildings/schema.json) are never tied to any base and so never appear in this list, even for a base sitting on relevant terrain."
     },
     "initialGarrison": {
       "type": "array",

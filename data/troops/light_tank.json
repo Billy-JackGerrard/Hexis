@@ -1,0 +1,27 @@
+{
+  "id": "light_tank",
+  "name": "Light Tank",
+  "domain": "Land",
+  "tags": ["Vehicle", "Tank"],
+
+  "hp": 200,
+  "damage": 15,
+  "attackSpeed": 1,
+  "range": 4,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 3.0,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "damageDealtModifiers": { "Infantry": 1.2, "Land": 1.6 },
+
+  "cost": { "food": 20, "steel": 30 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 2,
+  "productionTime": 18,
+
+  "notes": "Generic all-round light vehicle, the baseline other tanks get balanced relative to. Good against ground troops."
+}

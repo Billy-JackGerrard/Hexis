@@ -1,0 +1,16 @@
+{
+  "id": "factory",
+  "name": "Factory",
+  "category": "Production",
+  "populationCost": 1,
+
+  "notes": "Shared building type between Capital and Foundry Reach (see game-design/02-bases-and-buildings.md) — base eligibility is authored on each BaseDef's buildableBuildings list, not here. Only light land vehicles — heavy tanks require Fort Irongrad/Winter Forge (see game-design/08-troop-roster.md). Max level is derived as length(productionUpgradeLevels) = 5, one per troop in data/troops/: Tonk, Ambulance, Light Tank, Basekiller, Transport Carrier, in that unlock order. HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 300, "unlocks": "tonk", "cost": { "stone": 800, "steel": 600 } },
+    { "level": 2, "hp": 400, "unlocks": "ambulance", "cost": { "stone": 1200, "steel": 800 } },
+    { "level": 3, "hp": 570, "unlocks": "light_tank", "cost": { "stone": 1500, "steel": 1000 } },
+    { "level": 4, "hp": 800, "unlocks": "basekiller", "cost": { "stone": 2000, "steel": 1200 } },
+    { "level": 5, "hp": 1100, "unlocks": "transport_carrier", "cost": { "stone": 5000, "steel": 2000 } }
+  ]
+}

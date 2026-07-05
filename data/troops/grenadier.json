@@ -1,0 +1,27 @@
+{
+  "id": "grenadier",
+  "name": "Grenadier",
+  "domain": "Infantry",
+  "tags": ["Anti-Tank"],
+
+  "hp": 100,
+  "damage": 8,
+  "attackSpeed": 1,
+  "range": 3,
+  "splashRadius": 1,
+  "visionRange": 8,
+  "speed": 1.1,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Naval", "Structure", "Defensive"],
+
+  "damageDealtModifiers": { "Land": 1.25 },
+
+  "cost": { "food": 20 },
+  "foodUpkeep": 1,
+  "fuelUpkeep": 0,
+  "productionTime": 10,
+
+  "notes": "Splash damage; bonus vs. Land-domain (vehicle) targets only, does not apply to Air/Naval or Infantry. Cannot target Air (deliberate exception to Infantry's default Air-targeting)."
+}

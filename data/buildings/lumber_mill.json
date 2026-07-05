@@ -1,0 +1,29 @@
+{
+  "id": "lumber_mill",
+  "name": "Lumber Mill",
+  "category": "Resource",
+  "populationCost": 1,
+
+  "placementRequirement": {
+    "siteTerrain": "Plains",
+    "adjacentTerrainRequired": "Forest"
+  },
+
+  "notes": "Buildable at any base with a Forest-adjacent tile — no longer exclusive to Treehouse (see game-design/02-bases-and-buildings.md and 03-resources.md). Treehouse's own siteTerrain exception (placing directly on Forest instead of Plains) is authored on Treehouse's BaseDef/terrainException, not here — this definition's siteTerrain/adjacentTerrainRequired covers the generic (non-Treehouse) placement case. Ticks automatically every 5s resource tick, no player input (Resource category). HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 120,
+      "woodOutput": 14
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 10 },
+      "woodOutput": { "mode": "percent", "value": 8 }
+    },
+    "baseCost": {
+      "stone": 40,
+      "steel": 10
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

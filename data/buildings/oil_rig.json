@@ -1,0 +1,24 @@
+{
+  "id": "oil_rig",
+  "name": "Oil Rig",
+  "category": "Resource",
+  "populationCost": 1,
+
+  "notes": "Buildable at all bases with an identical build/upgrade cost everywhere (see game-design/03-resources.md's Oil Rig Notes) — the Capital's -50% production penalty and +50% base-wide bonus are structured resourceModifiers entries on the Capital's BaseDef (data/bases/schema.json), not a variant of this definition. No inherent level cap, only the HQ-level ceiling. Winter Forge's Ice Spire applies a separate friendly_buildings-targeted aura boosting Oil Rig output at that base. Ticks automatically every 5s resource tick, no player input (Resource category). HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 150,
+      "fuelOutput": 10
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 10 },
+      "fuelOutput": { "mode": "percent", "value": 10 }
+    },
+    "baseCost": {
+      "stone": 60,
+      "steel": 30
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

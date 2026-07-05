@@ -1,0 +1,26 @@
+{
+  "id": "engineer",
+  "name": "Engineer",
+  "domain": "Infantry",
+  "tags": ["Support"],
+
+  "hp": 40,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 1.1,
+
+  "maxSquadSize": 1,
+
+  "canTarget": [],
+  "canBuildInfrastructure": true,
+
+  "cost": { "food": 15 },
+  "foodUpkeep": 1,
+  "fuelUpkeep": 0,
+  "productionTime": 8,
+
+  "notes": "Only unit that can build standalone Road/Bridge/Dock/Tower. Buildable anywhere including behind enemy lines. Non-combat: canTarget is empty."
+}

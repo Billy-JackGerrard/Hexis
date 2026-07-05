@@ -1,0 +1,29 @@
+{
+  "id": "harbour",
+  "name": "Harbour",
+  "category": "Resource",
+  "populationCost": 1,
+
+  "placementRequirement": {
+    "siteTerrain": "Plains",
+    "adjacentTerrainRequired": "Water"
+  },
+
+  "notes": "Mechanically a Farm equivalent (Food output), gated behind the same water-adjacency requirement as Port — not a separate production chain (see game-design/02-bases-and-buildings.md). Deliberately steep growth curve vs. Farm's mild one: lower level-1 output but +60%/level compounding, so a maxed-out Harbour eventually out-produces a maxed-out Farm despite the weaker starting point. \"Fishing boats\" are purely visual (boat count scales with level) — no separate boat unit/entity. Requires Wood to build/upgrade, unlike Farm. Ticks automatically every 5s resource tick, no player input (Resource category). HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 130,
+      "foodOutput": 6
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 10 },
+      "foodOutput": { "mode": "percent", "value": 60 }
+    },
+    "baseCost": {
+      "stone": 40,
+      "wood": 20
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

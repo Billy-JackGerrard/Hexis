@@ -1,0 +1,29 @@
+{
+  "id": "landing_craft",
+  "name": "Landing Craft",
+  "domain": "Naval",
+  "tags": ["Ship", "Support"],
+
+  "hp": 150,
+  "damage": 20,
+  "attackSpeed": 0.8,
+  "range": 3,
+  "splashRadius": 0,
+  "visionRange": 10,
+  "speed": 1.8,
+
+  "maxSquadSize": 1,
+
+  "canTarget": ["Infantry", "Land", "Naval"],
+
+  "cargoCapacity": 1,
+  "cargoAllowedTags": ["Infantry"],
+  "canLaunchCargoMidCombat": false,
+
+  "cost": { "food": 20, "steel": 30 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 16,
+
+  "notes": "Fully unarmed, Naval equivalent of Transport Carrier — relies on Gunboat escort. Unlike Transport Carrier/Aircraft Carrier, cannot deploy its boarded Infantry squad mid-combat — must be idle/docked to unload. Fuel upkeep minimal regardless of state, per game-design/03-resources.md."
+}

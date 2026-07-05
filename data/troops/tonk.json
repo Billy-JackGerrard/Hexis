@@ -1,0 +1,27 @@
+{
+  "id": "tonk",
+  "name": "Tonk",
+  "domain": "Land",
+  "tags": ["Vehicle", "Tank"],
+
+  "hp": 200,
+  "damage": 25,
+  "attackSpeed": 0.7,
+  "range": 6,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 2.8,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "damageDealtModifiers": { "Air": 1.6, "Structure": 1.4 },
+
+  "cost": { "food": 20, "steel": 42 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 3,
+  "productionTime": 24,
+
+  "notes": "Heavier, longer-range sibling to Light Tank: slower attack speed, higher per-hit damage, longer range, and slight damage bonuses vs. Air-domain targets and vs. Structure (buildings+walls are a single reserved key per the schema, so this also nudges its damage vs. buildings, not walls alone). Fuel upkeep only while moving, per Land-domain rules."
+}

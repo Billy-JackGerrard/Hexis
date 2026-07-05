@@ -1,0 +1,28 @@
+{
+  "id": "hospital",
+  "name": "Hospital",
+  "category": "Support",
+  "populationCost": 1,
+
+  "notes": "Passive aura, no queue/targeting (see game-design/06-building-stats-and-defenses.md). Buildable at any base. Radius stays flat per level while heal magnitude scales — mirrors Ambulance's heal_over_time aura shape but stronger/wider since Hospital is stationary rather than mobile. No inherent level cap, only the HQ-level ceiling. HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+
+  "auras": [
+    { "radius": 8, "target": "friendly_troops", "effect": "heal_over_time", "magnitude": "6/s" }
+  ],
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 120,
+      "healMagnitude": 6
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 10 },
+      "healMagnitude": { "mode": "percent", "value": 20 }
+    },
+    "baseCost": {
+      "stone": 80,
+      "steel": 30
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

@@ -34,6 +34,12 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 
 ### Core Combat Stats
 - **HP** — how much damage a unit can take before dying.
+- **Armor** (number, default 0) — flat damage reduction applied to each incoming hit,
+  after `damage_received_modifiers`/`Piercing` are resolved, floored so a hit always
+  deals at least 1 damage. Distinct from `damage_received_modifiers`, which is a
+  multiplier rather than a flat subtraction — the two stack (multiplier first, then
+  flat reduction). Introduced for **Shielder** (see `08-troop-roster.md`), a pure
+  tank/meatshield with no attack of its own.
 - **Damage** — base damage per attack, before any modifiers are applied.
 - **Attack speed** — how often it attacks (attacks per time unit).
 - **Range** — max distance at which it can engage a target. Deliberately separate
@@ -66,15 +72,23 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   aircraft" and "some infantry can't hit aircraft" are both expressed with the same
   mechanism, rather than special-cased per unit.
 - **Resolved: `Structure` is a reserved value** usable in `can_target` (and in the
-  damage modifier dictionaries below), covering **buildings and walls uniformly** —
-  there's no separate "Building" vs. "Wall" target kind, since the ability to attack
-  one implies the ability to attack the other. Most combat troops include `Structure`
-  in `can_target` by default, since sieging buildings/HQs is core to the conquest win
-  condition — **Sniper** is a deliberate exception that omits it (see
-  `08-troop-roster.md`). Default (undirected) auto-targeting still only ever picks the
-  nearest enemy **troop** in range, though — attacking a Structure normally requires an
-  explicit directed order (see `04-combat.md`), the one exception being siege troops
-  (below).
+  damage modifier dictionaries below), covering **buildings and walls uniformly,
+  except Defensive-category buildings** — there's no separate "Building" vs. "Wall"
+  target kind, since the ability to attack one implies the ability to attack the
+  other. Most combat troops include `Structure` in `can_target` by default, since
+  sieging buildings/HQs is core to the conquest win condition — **Sniper** is a
+  deliberate exception that omits it (see `08-troop-roster.md`). Default (undirected)
+  auto-targeting still only ever picks the nearest enemy **troop** in range, though —
+  attacking a Structure normally requires an explicit directed order (see
+  `04-combat.md`), the one exception being siege troops (below).
+- **Resolved: `Defensive` is a second reserved value**, split out from `Structure`,
+  covering Defensive-category buildings specifically (Turret, Missile Launcher,
+  Grenade Tower, Flame/Cold Turret, River Battery, Tower — matches
+  `data/buildings/schema.json`'s `category: "Defensive"`). A troop must list
+  `Defensive` separately from `Structure` to be able to target base defenses at all —
+  e.g. **Basekiller** carries `can_target` including `Defensive` but not `Infantry`,
+  and `damage_dealt_modifiers: { Defensive: 2.5 }` for a large bonus specifically vs.
+  base defenses (see `08-troop-roster.md`).
 
 ### Squads & Siege Behavior
 - **max_squad_size** (number, default a common baseline) — how many of this troop
@@ -108,7 +122,18 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   targets (i.e. land vehicles) specifically, which does *not* apply to Air/Naval units
   even if they also happen to carry a `Vehicle` tag, and does not apply to Infantry
   (Infantry is a separate Domain, not part of `Land`). If a target's tags/domain don't
-  match any entry, the multiplier defaults to 1.0 (no bonus/penalty).
+  match any entry, the multiplier defaults to 1.0 (no bonus/penalty). **Basekiller**
+  carries `{Defensive: 2.5}` — a large bonus specifically vs. Defensive-category
+  buildings, using the `Defensive` reserved key split out from `Structure` above.
+- **Resolved: a multiplier entry doubles as a target-priority hint.** If a troop has
+  any `damage_dealt_modifiers` entry above 1.0 for a tag/Domain/reserved value, and a
+  target matching that entry is in range, the troop's default auto-targeting prefers
+  it over the plain nearest-enemy rule — e.g. Grenadier prefers a `Land`-domain target
+  over an equally-near Rifleman, and **Basekiller** (with `prioritizeStructures: true`
+  and a `Defensive` bonus) prefers the nearest Defensive building over any other
+  Structure in range. This only re-orders *which* in-range/allowed target is picked
+  first; it doesn't expand `can_target` or override an explicit directed order (see
+  `04-combat.md`).
 - **Damage received modifiers** (`{tag_or_domain: multiplier}`) — the same idea from
   the receiving end. E.g. a Wood Wall might carry `{Fire: 2.0}`, taking double damage
   from any attacker whose `damage_types` includes `Fire`. A Turret might carry
@@ -176,9 +201,19 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
     enemy territory.
   Aura effects stack with terrain, wall, and other aura bonuses like everything else.
 
+### Construction
+- **can_build_infrastructure** (bool, default false) — if true, this unit can construct
+  standalone Road/Bridge/Dock/Tower (see `01-map-and-terrain.md` and
+  `02-bases-and-buildings.md`). Only **Engineer** has this today; the buildable set
+  itself is fixed rather than per-unit, so a single boolean is sufficient rather than
+  a list like `can_target`/`cargo_allowed_tags`.
+
 ### Transport / Cargo
-- **cargo_capacity** (number, 0 = cannot transport) — how many units this troop can
-  carry aboard it. Confirmed carriers so far: **Aircraft Carrier** (Kraken Point) and
+- **cargo_capacity** (number, 0 = cannot transport) — how many **squads** this troop
+  can carry aboard it, not individual troop headcount — a boarding squad occupies
+  exactly one slot regardless of its own size (see `07-data-architecture.md`'s
+  `SquadInstance.cargoSquadIds`, which capacity is checked against directly).
+  Confirmed carriers so far: **Aircraft Carrier** (Kraken Point) and
   **Transport Carrier** (Capital Factory).
 - **cargo_allowed_tags** (list of Domains/tags) — what it's allowed to load, same
   mechanism as `can_target`. Aircraft Carrier carries `Air`-tagged troops; Transport
@@ -229,6 +264,7 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 | Domain | enum | Infantry / Land / Air / Naval — Land means land *vehicles*; also usable as a modifier-dictionary key, same as tags |
 | Category/Trait tags | list | e.g. `[Vehicle, Tank, Heavy]` |
 | HP | number | |
+| Armor | number | default 0; flat damage reduction per hit, applied after damage_received_modifiers/Piercing, floored at 1 damage; stacks with (doesn't replace) the multiplier-based modifiers |
 | Damage | number | base, before modifiers |
 | Attack speed | number | attacks per time unit |
 | Range | number | separate from vision |
@@ -236,20 +272,21 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 | Vision range | number | separate from engagement range |
 | Speed | number | |
 | Terrain overrides | flags | e.g. `ignores_forest_block` |
-| can_target | list of tags | empty list = non-combat (e.g. Engineer); reserved value `Structure` covers buildings+walls uniformly |
+| can_target | list of tags | empty list = non-combat (e.g. Engineer); reserved value `Structure` covers buildings+walls EXCEPT Defensive-category buildings; reserved value `Defensive` covers those separately and must be listed to be attackable |
 | max_squad_size | number | default common baseline; 1 for troops that never merge (Engineer, Commander, Disruptor) |
 | max_squads_led | number | Commander-tagged troops only; baseline 4 |
 | commander_tier | enum: basic/rare/best | Commander-tagged troops only; which Command Centre level unlocks this Commander (see `02-bases-and-buildings.md`) |
 | prioritize_structures | bool | default false; true = default-targets nearest Structure over troops (siege behavior) |
-| Damage dealt modifiers | dict `{tag_or_domain: multiplier}` | "strong against"; key may be a Domain value (e.g. `Land`), a tag, or a damage type |
+| Damage dealt modifiers | dict `{tag_or_domain: multiplier}` | "strong against"; key may be a Domain value (e.g. `Land`), a tag, a damage type, or `Structure`/`Defensive`; any entry above 1.0 also acts as a target-priority hint (see Damage Modifiers section) |
 | Damage received modifiers | dict `{tag_or_domain: multiplier}` | "weak against"; key may be a Domain value, a tag, or a damage type |
 | damage_types | list | e.g. `[Fire]`, `[Piercing]`; matched against damage received modifiers, except `Piercing` which bypasses them entirely; splash is NOT a damage type (see splash_radius) |
 | stealth | bool | |
 | reveal_range | number | distance at which stealth breaks vs. non-detectors |
 | detector | bool | sees stealth at full vision range |
-| cargo_capacity | number | 0 = cannot transport; e.g. Aircraft Carrier, Transport Carrier |
+| cargo_capacity | number | counts SQUADS, not troop headcount; 0 = cannot transport; e.g. Aircraft Carrier, Transport Carrier |
 | cargo_allowed_tags | list of tags | what it's allowed to load, same mechanism as `can_target` |
 | can_launch_cargo_mid_combat | bool | true for Aircraft Carrier and Transport Carrier — cargo can deploy mid-battle, not just while idle |
+| can_build_infrastructure | bool | default false; true = can construct standalone Road/Bridge/Dock/Tower. Only Engineer has this |
 | auras | list of `{radius, target, filter, effect, magnitude}` | for support units/buildings; `target` = friendly_troops / enemy_troops / friendly_buildings |
 | status_effect_on_hit | object `{type, duration, magnitude?}` | e.g. `{type: freeze, duration: 2s}` — applied to target on hit, alongside damage |
 | Cost | dict per resource | Food/Steel/Stone/Fuel |

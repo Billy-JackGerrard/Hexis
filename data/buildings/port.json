@@ -1,0 +1,18 @@
+{
+  "id": "port",
+  "name": "Port",
+  "category": "Production",
+  "populationCost": 1,
+
+  "placementRequirement": {
+    "siteTerrain": "Plains",
+    "adjacentTerrainRequired": "Water"
+  },
+
+  "notes": "Buildable at any base with a water-adjacent tile (see game-design/02-bases-and-buildings.md). Basic navy roster — Kraken Point's Shipyard builds everything Port can plus larger/advanced ships up to Aircraft Carrier. Max level is derived as length(productionUpgradeLevels) = 2, one per troop currently in the roster (game-design/08-troop-roster.md): Gunboat, Landing Craft, in that unlock order — roster TBD beyond these two, cap grows automatically if more are added. HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 250, "unlocks": "gunboat", "cost": { "stone": 60, "steel": 60 } },
+    { "level": 2, "hp": 288, "unlocks": "landing_craft", "cost": { "stone": 90, "steel": 90 } }
+  ]
+}

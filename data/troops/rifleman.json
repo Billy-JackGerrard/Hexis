@@ -1,0 +1,25 @@
+{
+  "id": "rifleman",
+  "name": "Rifleman",
+  "domain": "Infantry",
+  "tags": ["Basic"],
+
+  "hp": 100,
+  "damage": 10,
+  "attackSpeed": 1,
+  "range": 4,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 1.2,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "cost": { "food": 20 },
+  "foodUpkeep": 1,
+  "fuelUpkeep": 0,
+  "productionTime": 10,
+
+  "notes": "Baseline Infantry unit; other troops are balanced relative to it. Infantry can target Air by default (no bonus damage vs. it) — dedicated anti-air is a separate vehicle/tank role, not a targeting restriction on infantry."
+}

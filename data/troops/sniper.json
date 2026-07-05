@@ -1,0 +1,31 @@
+{
+  "id": "sniper",
+  "name": "Sniper",
+  "domain": "Infantry",
+  "tags": ["Stealth"],
+
+  "hp": 60,
+  "damage": 25,
+  "attackSpeed": 0.5,
+  "range": 12,
+  "splashRadius": 0,
+  "visionRange": 12,
+  "speed": 1.0,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval"],
+
+  "damageTypes": ["Piercing"],
+
+  "stealth": true,
+  "revealRange": 1,
+  "detector": true,
+
+  "cost": { "food": 30 },
+  "foodUpkeep": 1,
+  "fuelUpkeep": 0,
+  "productionTime": 15,
+
+  "notes": "Deliberately omits Structure from canTarget — cannot attack buildings/walls, unlike most combat troops. Piercing bypasses target damageReceivedModifiers entirely."
+}

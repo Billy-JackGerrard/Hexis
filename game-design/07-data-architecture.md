@@ -211,9 +211,11 @@ SquadInstance {
   squad — it has no independent `currentHex`/`path` of its own while boarded (it
   moves with the carrier) and **still counts against the owner's global squad cap**.
   Boarding requires the carrier squad to have free capacity
-  (`sum(cargoCapacity across carrier's member troops) > cargoSquadIds.length`,
-  roughly) and the boarding squad's `troopType` to match the carrier's
-  `cargoAllowedTags`. **If a carrier `SquadInstance` is destroyed (its `memberIds`
+  (`sum(cargoCapacity across carrier's member troops) > cargoSquadIds.length`) and the
+  boarding squad's `troopType` to match the carrier's `cargoAllowedTags`. **Resolved:
+  `cargoCapacity` counts squads, not individual troop headcount** — a boarded squad
+  occupies exactly one slot regardless of its own member count. **If a carrier
+  `SquadInstance` is destroyed (its `memberIds`
   reaches empty) while `cargoSquadIds` is non-empty, every boarded `SquadInstance` and
   all of its `TroopInstance` members are deleted along with it** — cargo does not
   survive the loss of its carrier.
@@ -296,9 +298,17 @@ count is back under the lower cap.
 **Resolved: `BaseDef` (static, per base type — `data/bases/schema.json`) and
 `BaseInstance` (live, per-match) are now separate**, matching the pattern already used
 for troops and buildings. `BaseDef` holds `baseType`, `isCapital`, `terrainException`,
-`uniqueBuildings`, `initialGarrison` (the authored template), and `resourceModifiers`
+`buildableBuildings`, `initialGarrison` (the authored template), and `resourceModifiers`
 (structured production multipliers — see below; replaces an earlier free-text
 `resourceBonus` string).
+- **`buildableBuildings`** is the explicit, complete list of every building id a base
+  type can build — generic buildings (Farm, Turret, House, ...) included, not just its
+  specialty ones. There's deliberately no "buildable at All bases" sentinel anywhere:
+  `data/buildings/schema.json`'s building definitions carry no base-eligibility field
+  of their own, so this list on `BaseDef` is the single source of truth for
+  building-vs-base eligibility (no second copy to drift out of sync), and a Unique base
+  that's a deliberate exception to an otherwise-generic building simply omits it from
+  its own list — no special-case flag needed. See `data/bases/schema.json`.
 `BaseInstance` holds everything that changes during a match:
 ```
 BaseInstance {
@@ -347,10 +357,13 @@ Player {
   is simply "does one player's `ownedBaseIds` cover every `BaseInstance` whose
   `BaseDef.isCapital` is true."
 - **Population** is tracked per-`BaseInstance`, not per-Player: `populationUsed`
-  increments by 1 each time a non-House building is placed and decrements when one is
-  destroyed/ruined; `populationCap` is derived from the level/count of House buildings
-  at that base. A new building placement is only valid if
-  `populationUsed < populationCap` (or the building being placed is a House).
+  increments by 1 each time a non-House, non-HQ building is placed and decrements when
+  one is destroyed/ruined; `populationCap` is derived from the level/count of House
+  buildings at that base **plus HQ's own level-based contribution** (+2 capacity per
+  HQ level — see `02-bases-and-buildings.md`'s Population section and
+  `06-building-stats-and-defenses.md`'s HQ Upgrade Model). A new building placement is
+  only valid if `populationUsed < populationCap` (or the building being placed is a
+  House or HQ, neither of which consumes a slot).
 
 ### Garrisoned Troops Are Not Part Of The Base
 **Resolved: troops are never "in" a `BaseInstance` — a garrison is just squads

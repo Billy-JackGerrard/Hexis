@@ -1,0 +1,26 @@
+{
+  "id": "hq",
+  "name": "HQ",
+  "category": "Core",
+  "isFixed": true,
+  "populationCost": 0,
+
+  "notes": "Pre-seeded only, never freshly built (isFixed). Never ruins: at 0 HP, ownership of the whole base flips to the attacker and HQ resets to full HP under its new owner (capture) — see game-design/02-bases-and-buildings.md and game-design/07-data-architecture.md. HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field. Grants population capacity rather than consuming it: +2 capacity per level, via nonProductionUpgrade.baseStats/statGrowth.populationCapacity below (level N grants 2*N). minPopulationPerLevel is a multiplier, not a flat number: requiredPopulationUsed to reach level N = 3 * (N - 1).",
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 300,
+      "populationCapacity": 2
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 10 },
+      "populationCapacity": { "mode": "flat", "value": 2 }
+    },
+    "baseCost": {
+      "stone": 300,
+      "steel": 200
+    },
+    "costGrowth": { "mode": "percent", "value": 35 },
+    "minPopulationPerLevel": 3
+  }
+}

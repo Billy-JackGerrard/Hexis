@@ -1,0 +1,17 @@
+{
+  "id": "barracks",
+  "name": "Barracks",
+  "category": "Production",
+  "populationCost": 1,
+
+  "notes": "Shared building type between Capital and Treehouse (see game-design/02-bases-and-buildings.md) — same definition, base eligibility is authored on each BaseDef's buildableBuildings list, not here. Max level is derived as length(productionUpgradeLevels) = 5, one per troop in the roster (game-design/08-troop-roster.md): Rifleman, Grenadier, Flamethrower, Sniper, Shielder, in that unlock order. HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 200, "unlocks": "rifleman", "cost": { "stone": 80, "steel": 40 } },
+    { "level": 2, "hp": 230, "unlocks": "grenadier", "cost": { "stone": 120, "steel": 60 } },
+    { "level": 3, "hp": 265, "unlocks": "flamethrower", "cost": { "stone": 180, "steel": 90 } },
+    { "level": 4, "hp": 305, "unlocks": "sniper", "cost": { "stone": 270, "steel": 135 } },
+    { "level": 5, "hp": 351, "unlocks": "shielder", "cost": { "stone": 400, "steel": 200 } },
+    { "level": 6, "hp": 405, "unlocks": "engineer", "cost": { "stone": 600, "steel": 300 } }
+  ]
+}

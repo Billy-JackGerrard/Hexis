@@ -1,0 +1,29 @@
+{
+  "id": "ambulance",
+  "name": "Ambulance",
+  "domain": "Land",
+  "tags": ["Vehicle", "Support"],
+
+  "hp": 150,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 2.8,
+
+  "maxSquadSize": 2,
+
+  "canTarget": [],
+
+  "auras": [
+    { "radius": 3, "target": "friendly_troops", "effect": "heal_over_time", "magnitude": "5/s" }
+  ],
+
+  "cost": { "food": 20, "steel": 15 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 15,
+
+  "notes": "Light support vehicle rather than infantry so it can keep pace with the army it's healing. Fuel upkeep only applies while moving, per Land-domain rules (see game-design/03-resources.md); free while stationary."
+}

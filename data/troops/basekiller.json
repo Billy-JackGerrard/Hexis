@@ -1,0 +1,28 @@
+{
+  "id": "basekiller",
+  "name": "Basekiller",
+  "domain": "Land",
+  "tags": ["Vehicle", "Siege"],
+
+  "hp": 180,
+  "damage": 10,
+  "attackSpeed": 1,
+  "range": 4,
+  "splashRadius": 0,
+  "visionRange": 6,
+  "speed": 2.4,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Land", "Air", "Naval", "Structure", "Defensive"],
+  "prioritizeStructures": true,
+
+  "damageDealtModifiers": { "Defensive": 2.5 },
+
+  "cost": { "food": 25, "steel": 50 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 3,
+  "productionTime": 28,
+
+  "notes": "Dedicated siege unit: prioritizeStructures makes it auto-beeline for the nearest building/wall with no explicit order, and its Defensive bonus (2.5x) further prioritizes base defenses specifically over other structures. Cannot target Infantry."
+}

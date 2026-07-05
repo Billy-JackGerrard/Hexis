@@ -1,0 +1,23 @@
+{
+  "id": "quarry",
+  "name": "Quarry",
+  "category": "Resource",
+  "populationCost": 1,
+
+  "notes": "Pre-seeded at every base alongside HQ and Farm (see game-design/02-bases-and-buildings.md's Base Seeding), but NOT isFixed. Deliberately costs Steel (not Stone) to build/upgrade, cross-wired with Mine costing Stone, to avoid a chicken-and-egg problem where a base's first Mine could never be paid for out of zero starting Steel (see game-design/03-resources.md). Ticks automatically every 5s resource tick, no player input (Resource category). HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 180,
+      "stoneOutput": 12
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 10 },
+      "stoneOutput": { "mode": "percent", "value": 10 }
+    },
+    "baseCost": {
+      "steel": 40
+    },
+    "costGrowth": { "mode": "percent", "value": 30 }
+  }
+}

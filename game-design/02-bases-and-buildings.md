@@ -371,11 +371,17 @@ player input to function or just runs on its own once built:
 
 ## Population
 - **Every building placed at a base consumes 1 population slot**, except **House**,
-  which instead *grants* population capacity (and doesn't consume a slot itself).
+  which instead *grants* population capacity (and doesn't consume a slot itself), and
+  **HQ**, which also doesn't consume a slot and — **resolved** — *also* grants
+  population capacity, the same way House does: **+2 capacity per HQ level** (level 1
+  grants 2, level 2 grants 4, etc. — see `06-building-stats-and-defenses.md`'s HQ
+  Upgrade Model and `data/buildings/hq.json`). A base's total `populationCap` is
+  therefore House contributions **plus** HQ's own level-based contribution, not House
+  alone.
 - If a base's population is at capacity, no further buildings can be placed there —
   **other than House**. Building a House (or upgrading an existing one, which
-  increases its capacity contribution further) is the only way to keep expanding once
-  capped.
+  increases its capacity contribution further), or upgrading HQ, are the ways to keep
+  expanding once capped.
 - Population is tracked **per base** (it's what gates that base's own building count),
   not as a shared player-wide pool — see `03-resources.md` and
   `07-data-architecture.md` for how it's stored and ticked.

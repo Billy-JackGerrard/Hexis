@@ -2,26 +2,21 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "hexis/building.schema.json",
   "title": "Building",
-  "description": "Static definition for a building type. See game-design/06-building-stats-and-defenses.md and game-design/02-bases-and-buildings.md for the design rationale behind each field. Live per-instance state (currentHP, hex, ruinState) is NOT part of this schema — see BuildingInstance/Wall in game-design/07-data-architecture.md.",
+  "description": "Static definition for a building type. See game-design/06-building-stats-and-defenses.md and game-design/02-bases-and-buildings.md for the design rationale behind each field. Live per-instance state (currentHP, hex, ruinState) is NOT part of this schema — see BuildingInstance/Wall in game-design/07-data-architecture.md. HP regeneration is a GLOBAL rule, not a per-building field: every building/wall regenerates 5% of its current max HP per 5-second resource tick while out of combat (see game-design/06-building-stats-and-defenses.md) — there is no hpRegenRate property on this schema.",
   "type": "object",
-  "required": ["id", "name", "category", "buildableAt"],
+  "required": ["id", "name", "category"],
   "properties": {
     "id": { "type": "string", "description": "Unique identifier, e.g. \"turret\", \"tank_plant\"." },
     "name": { "type": "string", "description": "Display name, e.g. \"Turret\"." },
 
     "category": {
       "type": "string",
-      "enum": ["Production", "Resource", "Defensive", "Support", "Infrastructure"],
-      "description": "Determines whether the building needs player input (Production = queue a troop) or just runs on its own once built."
+      "enum": ["Production", "Resource", "Defensive", "Support", "Infrastructure", "Core"],
+      "description": "Determines whether the building needs player input (Production = queue a troop) or just runs on its own once built. \"Core\" is a single-instance category for HQ only — it doesn't attack, produce, or apply an aura; its only mechanical effects are the capture-on-zero-HP rule and gating every other building's max level at that base (see game-design/02-bases-and-buildings.md)."
     },
 
-    "buildableAt": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Base type ids that can build this (or [\"All\"]). Buildings tied to no base (Road, Bridge, Dock, Tower) use [] and rely on isStandalone instead."
-    },
-    "isStandalone": { "type": "boolean", "default": false, "description": "True for Road/Bridge/Dock/Tower — placed anywhere by an Engineer, not tied to a base. Standalone instances carry their own ownerId directly (no baseId to derive ownership from) and, like Walls, do NOT ruin on destruction — a standalone building at 0 HP is deleted permanently, freeing the hex/edge; rebuilding it there is a fresh build at full cost, not a ruin-rebuild. See game-design/07-data-architecture.md." },
-    "isFixed": { "type": "boolean", "default": false, "description": "True for pre-seeded-only buildings (HQ, Ice Spire) that can never be freshly built from a menu, even after capture — only rebuilt if ruined." },
+    "isStandalone": { "type": "boolean", "default": false, "description": "True for Road/Bridge/Dock/Tower — placed anywhere by an Engineer, not tied to a base (never appears in any BaseDef.buildableBuildings list — see data/bases/schema.json). Standalone instances carry their own ownerId directly (no baseId to derive ownership from) and, like Walls, do NOT ruin on destruction — a standalone building at 0 HP is deleted permanently, freeing the hex/edge; rebuilding it there is a fresh build at full cost, not a ruin-rebuild. See game-design/07-data-architecture.md." },
+    "isFixed": { "type": "boolean", "default": false, "description": "True for pre-seeded-only buildings (HQ, Ice Spire) that can never be freshly built from a menu, even after capture — only rebuilt if ruined. They also cannot be demolished." },
 
     "materials": {
       "type": "array",
@@ -46,7 +41,6 @@
     },
 
     "hp": { "type": "number", "description": "Health pool at level 1 (non-production/non-multi-material buildings) or see levels/materialStats otherwise." },
-    "hpRegenRate": { "type": "number", "description": "HP restored per tick once out of combat (no recent incoming damage). Not applicable once ruined." },
     "damageReceivedModifiers": {
       "type": "object",
       "additionalProperties": { "type": "number" },
@@ -177,7 +171,7 @@
         "baseCost": { "type": "object", "additionalProperties": { "type": "number" } },
         "costGrowth": { "$ref": "#/definitions/growthRate", "description": "Upgrade cost growth per level, intentionally faster than stat growth, e.g. {mode: \"percent\", value: 25}." },
         "addsTurretPerLevel": { "type": "boolean", "default": false, "description": "Wood Tower only — each level adds an independently-targeting turret instead of pure stat scaling." },
-        "minPopulationPerLevel": { "type": "number", "description": "Only meaningful for HQ: minimum populationUsed the base must have to upgrade the HQ to this level, on top of the resource cost. Steep cost curve + this population gate is what paces HQ upgrades (see game-design/06-building-stats-and-defenses.md)." }
+        "minPopulationPerLevel": { "type": "number", "description": "Only meaningful for HQ: a multiplier used to compute the population gate for upgrading HQ to level N, on top of the resource cost: requiredPopulationUsed = minPopulationPerLevel * (N - 1). E.g. value 3 means reaching level 2 requires populationUsed >= 3, level 3 requires >= 6, level 4 requires >= 9, and so on. Steep cost curve + this population gate is what paces HQ upgrades (see game-design/06-building-stats-and-defenses.md)." }
       }
     }
   }

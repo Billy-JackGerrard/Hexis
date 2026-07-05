@@ -1,0 +1,26 @@
+{
+  "id": "shielder",
+  "name": "Shielder",
+  "domain": "Infantry",
+  "tags": ["Heavy"],
+
+  "hp": 220,
+  "armor": 5,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 0.8,
+
+  "maxSquadSize": 4,
+
+  "canTarget": [],
+
+  "cost": { "food": 25 },
+  "foodUpkeep": 1,
+  "fuelUpkeep": 0,
+  "productionTime": 12,
+
+  "notes": "Pure tank/meatshield: no attack at all, high HP plus flat armor reduction on every incoming hit. Meant to soak damage in front of squishier squads rather than deal any itself."
+}

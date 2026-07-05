@@ -1,0 +1,23 @@
+{
+  "id": "mine",
+  "name": "Mine",
+  "category": "Resource",
+  "populationCost": 1,
+
+  "notes": "Deliberately costs Stone (not Steel) to build/upgrade, cross-wired with Quarry costing Steel, to avoid a chicken-and-egg problem where a base's first Mine could never be paid for out of zero starting Steel — Stone is available turn one via the seeded Quarry (see game-design/03-resources.md). Ticks automatically every 5s resource tick, no player input (Resource category). HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 160,
+      "steelOutput": 8
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 12 },
+      "steelOutput": { "mode": "percent", "value": 12 }
+    },
+    "baseCost": {
+      "stone": 60
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}
