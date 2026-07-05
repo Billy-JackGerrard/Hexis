@@ -16,16 +16,26 @@ not been locked in yet — this is a placeholder structure to fill in next.
 ### Capital Base
 | Building | Unit(s) | Notes |
 |---|---|---|
-| Barracks | Infantry (roster TBD) | |
-| Factory | Light land vehicles (roster TBD) | Only *light* vehicles — heavy tanks require Fort Irongrad |
+| Barracks | **Rifleman** | Basic, cheap infantry — the default Food-upkeep swarm unit |
+| Barracks | **Grenadier** | Anti-tank infantry, bonus damage vs. `Land`-domain targets (land vehicles specifically — does not apply to Air/Naval vehicles) |
+| Barracks | **Flamethrower** | Bonus damage vs. `Wood`-tagged targets (walls, docks, bridges, Wood Tower) |
+| Barracks | **Sniper** | Stealth unit; also a `detector` (spots other stealthed units at full vision range); `damage_types: [Piercing]` — bypasses target damage-received modifiers; `can_target` omits `Structure` (**cannot target buildings/walls**), a deliberate exception to the usual default (see `05-troop-stat-schema.md`) |
+| Factory | **Ambulance** | Light support vehicle — mobile heal aura (same effect family as Hospital's passive heal); a vehicle rather than infantry so it can keep pace with the army it's healing |
+| Factory | **Transport Carrier** | Light vehicle, little/no attack — carries an infantry squad aboard for fast repositioning, letting cheap Food-upkeep infantry keep up with Fuel-upkeep armies. Can deploy its cargo **mid-battle**, not just while idle |
+| Factory | Further light vehicles (roster TBD) | Only *light* vehicles — heavy tanks require Fort Irongrad. Anti-air is planned as a vehicle/tank role here rather than an infantry unit |
 | Port | Basic navy (roster TBD, small) | Requires water-adjacent tile |
 | — | **Engineer** | Builds Roads, Bridges, Docks. Buildable anywhere including behind enemy lines. Combat stats TBD (likely weak/no combat) |
-| — | **Commander** | Only unit that allows mixed-type squads. Capital-only. Stats TBD |
+| Command Centre | **Commander** | `max_squad_size: 1` (never merges), `max_squads_led: 4`. Only unit that allows combined-arms play. Capital-only. Fairly expensive; has its own combat stats plus a unique buff aura per Commander (small named roster, not one generic unit). Squads assigned to it form a **regiment** (up to 4 squads) that follows it (see `04-combat.md`). Full roster/abilities TBD |
 
 ### Fort Irongrad
 | Building | Unit(s) | Notes |
 |---|---|---|
-| Tank Plant | Heavy Tank | Builds in batches of 3-5. Only source of heavy tanks in the game |
+| Tank Plant | Heavy Tank (full roster) | Builds in batches of 3-5. Most complete source of heavy tanks — Winter Forge's Hot Forge (below) also builds a subset of the same roster, so this is no longer an exclusive monopoly |
+
+### Winter Forge
+| Building | Unit(s) | Notes |
+|---|---|---|
+| Hot Forge | Heavy Tank (partial roster — subset of Tank Plant's list) | First case of a troop type split across more than one production building; exact which tank types land here vs. Irongrad-only is still TBD |
 
 ### Firebase
 | Building | Unit(s) | Notes |
@@ -33,35 +43,65 @@ not been locked in yet — this is a placeholder structure to fill in next.
 | Fire Helipad | Flame Helicopter | Short range, high splash, fire damage |
 | Fire Helipad | Plasma Helicopter | Bigger, slower, longer range, explosive impact damage |
 
-### Air Temple
+### Windy Peaks (renamed from Air Temple)
 | Building | Unit(s) | Notes |
 |---|---|---|
-| Air Factory | Hot Air Balloon | Cheap, high splash, low range, ground/naval targets only, slow |
-| Hangar | 2x plane units | **Names/stats not yet defined** |
+| Wind Sanctuary | Hot Air Balloon | Cheap, high splash, low range, ground/naval targets only, slow. Modest Fuel upkeep |
+| Wind Sanctuary | Glider | Excellent scout — fast, high vision range. **Cannot attack at all** (`can_target: []`). Cheap. Uses **no Fuel** — unpowered, so it draws Food upkeep instead, like infantry |
 
 ### Treehouse
 | Building | Unit(s) | Notes |
 |---|---|---|
-| Barracks | Infantry (shared w/ Capital roster) | |
+| Barracks | Rifleman, Grenadier, Flamethrower, Sniper (shared w/ Capital roster) | |
 | Quad Hangar | Quad-bike | Fast, ignores forest vehicle-block, low armor/damage |
 
 ### Kraken Point
 | Building | Unit(s) | Notes |
 |---|---|---|
-| Shipyard | Full navy roster incl. Aircraft Carrier | Aircraft Carrier can *hold* (not produce) most air troops fuel-free |
+| Shipyard | Full navy roster incl. Aircraft Carrier | Aircraft Carrier can *hold* (not produce) most air troops fuel-free, and can **launch them mid-battle** (not just while idle/docked) |
+
+### Sky Fortress
+| Building | Unit(s) | Notes |
+|---|---|---|
+| Hangar | Wingfighter | Fast, rapid-fire machine guns. Low damage against buildings/walls — anti-troop dogfighter, not a siege unit |
+| Hangar | Falcon | Slower, heavier armored, missile-armed — hits harder per shot, less mobile than Wingfighter |
+
+### Foundry Reach
+| Building | Unit(s) | Notes |
+|---|---|---|
+| Factory | Shared w/ Capital roster (Ambulance, Transport Carrier, further light vehicles TBD) | No unique units — Foundry Reach's identity is its Smeltery, not its troops |
+
+### Signal Ridge
+| Building | Unit(s) | Notes |
+|---|---|---|
+| Covert Works | **Ghost Tank** | Domain: Land · Tags: `[Vehicle, Tank, Stealth]`. `stealth: true`, `reveal_range`: very short (visible to any non-detector unit/building at close range). `detector` units (e.g. Sniper) see it at their normal vision range instead. `reveals_on_attack: true` — firing makes it visible to everyone until a few seconds pass without attacking, then it re-cloaks |
+| Covert Works | **Disruptor** | Domain: Land · Tags: `[Vehicle, Support]`. `can_target: []` (non-combat, like Engineer). Aura: `{radius: X, target: enemy_buildings, filter: "Defensive", effect: suppress_targeting}` — must be escorted into enemy base range to matter; killing it restores suppressed defenses immediately |
+
+### Rivergate
+| Building | Unit(s) | Notes |
+|---|---|---|
+| Ford Yard | **Amphibious Raider** | Domain: Land · Tags: `[Vehicle, Light, Amphibious]` — a **vehicle**, not infantry. Terrain override: `ignores_river_block: true` (fords rivers without a Bridge). Low armor, fast, Fuel upkeep like any land vehicle |
 
 ## Fuel/Maintenance Quick Reference
 - Land vehicles: free while stationary, consume Fuel while moving.
 - Aircraft: heavy Fuel consumption, free while stationed adjacent to a base.
 - Ships: consume very little Fuel regardless of state.
+- **Exception — Glider** (Windy Peaks): unpowered, so it uses **no Fuel at all** and
+  draws Food upkeep instead, same as ground infantry.
 
 ## Still To Do
-- [ ] Full infantry roster (Barracks)
-- [ ] Full light vehicle roster (Factory)
+- [x] Named infantry roster (Barracks): Rifleman, Grenadier, Flamethrower, Sniper — full stats still TBD
+- [ ] Anti-air vehicle/tank (replaces an earlier AA-infantry idea — AA is now planned as a tank role, likely Factory or Fort Irongrad, not Barracks)
+- [ ] Full light vehicle roster (Factory), beyond Ambulance/Transport Carrier
 - [ ] Full basic navy roster (Port)
-- [ ] Air Temple's Hangar plane units (names + stats)
+- [ ] Wingfighter/Falcon (Sky Fortress) full stat sheet
 - [ ] Full Kraken Point Shipyard roster (ship tiers up to Aircraft Carrier)
 - [ ] Engineer combat stats
-- [ ] Commander stats/abilities
+- [ ] Named Commander roster + each Commander's unique buff/ability
 - [ ] Full stat sheet: HP, damage, speed, cost, splash radius, range for every unit
 - [ ] Rock-paper-scissors matchup matrix
+- [ ] Which specific Heavy Tank types are Irongrad-only vs. shared with Winter Forge's
+      Hot Forge
+- [ ] Dedicated siege unit(s) — the `prioritize_structures` flag/mechanic is defined
+      (see `05-troop-stat-schema.md`/`04-combat.md`) but no specific troop carries it
+      yet; which building(s) produce it and its full stats are still to be authored

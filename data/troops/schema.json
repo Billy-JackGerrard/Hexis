@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "hexis/troop.schema.json",
+  "title": "Troop",
+  "description": "Static definition for a troop type. See game-design/05-troop-stat-schema.md and game-design/08-troop-roster.md for the design rationale behind each field. Live per-unit state (currentHP, position, buffs) is NOT part of this schema — see TroopInstance in game-design/07-data-architecture.md.",
+  "type": "object",
+  "required": ["id", "name", "domain", "tags", "hp", "damage", "attackSpeed", "range", "speed", "canTarget", "cost"],
+  "properties": {
+    "id": { "type": "string", "description": "Unique identifier, e.g. \"rifleman\", \"ghost_tank\"." },
+    "name": { "type": "string", "description": "Display name, e.g. \"Rifleman\"." },
+
+    "domain": {
+      "type": "string",
+      "enum": ["Infantry", "Land", "Air", "Naval"],
+      "description": "Which terrain/movement ruleset applies by default before per-unit overrides. \"Land\" means land vehicles specifically — Infantry is its own domain because Forest blocks Land vehicles but not Infantry, and Hills slow Infantry but not vehicles (see game-design/01-map-and-terrain.md). Domain also doubles as a matchable key in damageDealtModifiers/damageReceivedModifiers, same as tags."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Category/trait tags, e.g. [\"Vehicle\", \"Tank\", \"Heavy\"]. Referenced by other units' damage modifier dictionaries."
+    },
+
+    "hp": { "type": "number", "description": "Damage the unit can take before dying." },
+    "damage": { "type": "number", "description": "Base damage per attack, before modifiers." },
+    "attackSpeed": { "type": "number", "description": "Attacks per time unit." },
+    "range": { "type": "number", "description": "Max engagement distance. Separate from visionRange." },
+    "splashRadius": { "type": "number", "default": 0, "description": "0 = single-target; >0 damages a radius around impact." },
+    "visionRange": { "type": "number", "description": "How far the unit can see. Kept separate from range." },
+    "speed": { "type": "number", "description": "Base movement rate, in hexes per SECOND (see game-design/01-map-and-terrain.md's Movement & Positioning section). Per-tick advancement is (speed / terrainCostMultiplier) * tickDuration — terrain cost divides effective speed down, it does not multiply it up." },
+
+    "maxSquadSize": { "type": "number", "default": 4, "description": "Max troops of this type that can share one SquadInstance (see game-design/07-data-architecture.md). A freshly produced troop auto-joins the nearest same-type squad below this cap, or forms a new squad of 1. Set to 1 for troops that never merge into squads (Engineer, Commander, Disruptor)." },
+    "maxSquadsLed": { "type": "number", "description": "Only relevant for Commander-tagged troops: how many squads this Commander can lead as a regiment (baseline 4 — see game-design/04-combat.md)." },
+    "commanderTier": { "type": "string", "enum": ["basic", "rare", "best"], "description": "Only relevant for Commander-tagged troops: which Command Centre level unlocks this Commander (basic at level 1, rare at level 2, best at level 3 — all lower tiers stay unlocked at higher levels). See game-design/02-bases-and-buildings.md's Command Centre & the Commander Cap section and data/buildings/schema.json's commanderProgression." },
+    "prioritizeStructures": { "type": "boolean", "default": false, "description": "Siege-behavior flag: units with this set default-target the nearest Structure (building/wall) over enemy troops when nothing is directly attacking them, instead of the normal nearest-enemy-troop default (see game-design/04-combat.md). Regular troops still need an explicit directed order to attack a non-defensive structure." },
+
+    "terrainOverrides": {
+      "type": "object",
+      "description": "Per-unit exceptions layered on top of the Domain's default terrain rules.",
+      "properties": {
+        "ignoresForestBlock": { "type": "boolean", "default": false },
+        "ignoresRiverBlock": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": { "type": "boolean" }
+    },
+
+    "canTarget": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Domains/tags this unit is allowed to engage, independent of range. Empty array = cannot attack at all (e.g. Engineer, Glider, Disruptor). Reserved value \"Structure\" covers buildings AND walls uniformly (there is no separate \"Building\" vs \"Wall\" target kind) — most combat troops include it by default since sieging structures is core to the conquest win condition; Sniper is a deliberate exception that omits it (see game-design/08-troop-roster.md)."
+    },
+
+    "damageDealtModifiers": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "description": "{tagOrDomain: multiplier} — bonus/penalty damage dealt vs. targets matching that tag or Domain value (or \"Structure\"). E.g. Grenadier -> {\"Land\": 1.5} applies only to Land-domain (vehicle) targets, not Infantry, Air, or Naval. Missing key defaults to 1.0."
+    },
+    "damageReceivedModifiers": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "description": "{tagOrDomain: multiplier} — bonus/penalty damage received from attackers matching that tag, Domain value, or damageType (see damageTypes below). Missing key defaults to 1.0."
+    },
+    "damageTypes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Labels describing the nature of this unit's attack, matched against targets' damageReceivedModifiers exactly like a tag/Domain (e.g. \"Fire\" lets Flamethrower trigger a Wood Wall's {\"Fire\": 2.0} entry). Kept separate from descriptive Category/Trait tags so combat-relevant labels don't get mixed with matchmaking-only ones. Reserved value \"Piercing\" bypasses the target's damageReceivedModifiers entirely (armor-ignoring damage, e.g. Sniper) — it only cancels the target's received-side modifiers, not the attacker's own damageDealtModifiers. Splash is NOT a damage type — it's already fully expressed by splashRadius below."
+    },
+
+    "stealth": { "type": "boolean", "default": false },
+    "revealRange": { "type": "number", "description": "Distance at which a stealthed unit becomes visible to a non-detector. Required if stealth is true." },
+    "detector": { "type": "boolean", "default": false, "description": "Sees stealthed units at full visionRange, ignoring their revealRange." },
+    "revealsOnAttack": { "type": "boolean", "default": false, "description": "If true, attacking breaks this unit's own stealth until a few seconds pass without attacking." },
+
+    "cargoCapacity": { "type": "number", "default": 0, "description": "How many units this troop can carry. 0 = cannot transport." },
+    "cargoAllowedTags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Domains/tags this unit is allowed to load as cargo, same mechanism as canTarget."
+    },
+    "canLaunchCargoMidCombat": { "type": "boolean", "default": false, "description": "If true, cargo can be deployed mid-battle rather than only while idle/docked." },
+
+    "auras": {
+      "type": "array",
+      "description": "Passive effects projected onto nearby units/buildings.",
+      "items": {
+        "type": "object",
+        "required": ["radius", "target", "effect"],
+        "properties": {
+          "radius": { "type": "number" },
+          "target": {
+            "type": "string",
+            "enum": ["friendly_troops", "enemy_troops", "friendly_buildings", "enemy_buildings"]
+          },
+          "filter": { "type": "string", "description": "Optional narrowing, e.g. a specific building type." },
+          "effect": { "type": "string", "description": "e.g. \"damage_reduction\", \"slow\", \"production_boost\", \"suppress_targeting\", \"heal_over_time\"." },
+          "magnitude": { "type": ["number", "string"] }
+        }
+      }
+    },
+
+    "statusEffectOnHit": {
+      "type": "object",
+      "description": "Temporary condition applied to the target on a successful hit, in addition to direct damage.",
+      "properties": {
+        "type": { "type": "string", "description": "e.g. \"freeze\"." },
+        "duration": { "type": ["number", "string"] },
+        "magnitude": { "type": "number" }
+      }
+    },
+
+    "cost": {
+      "type": "object",
+      "description": "One-time production cost, per resource.",
+      "properties": {
+        "food": { "type": "number" },
+        "steel": { "type": "number" },
+        "stone": { "type": "number" },
+        "fuel": { "type": "number" },
+        "wood": { "type": "number" }
+      }
+    },
+    "foodUpkeep": { "type": "number", "default": 0, "description": "Ongoing Food consumption while the unit exists." },
+    "fuelUpkeep": { "type": "number", "default": 0, "description": "Ongoing Fuel consumption; rules vary by Domain (see game-design/03-resources.md)." },
+    "productionTime": { "type": "number", "description": "Training duration, counted down in the producing building's own queue." },
+
+    "notes": { "type": "string", "description": "Free-text design notes, if useful." }
+  },
+  "additionalProperties": false
+}

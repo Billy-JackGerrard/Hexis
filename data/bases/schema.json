@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "hexis/base.schema.json",
+  "title": "BaseDef",
+  "description": "Static definition for a base TYPE (Capital or a specific Unique base) — the template every live Base instance of this type is created from. See game-design/02-bases-and-buildings.md for base types/reference. Live per-match state (ownerId, hqLevel, hexCoord, buildings, walls, population) is NOT part of this schema — see BaseInstance in game-design/07-data-architecture.md.",
+  "type": "object",
+  "required": ["id", "baseType", "isCapital"],
+  "properties": {
+    "id": { "type": "string", "description": "Unique identifier for this base type, e.g. \"capital\", \"fort_irongrad\"." },
+    "baseType": {
+      "type": "string",
+      "enum": [
+        "Capital", "Fort Irongrad", "Firebase", "Windy Peaks", "Treehouse",
+        "Kraken Point", "Sky Fortress", "Winter Forge", "Foundry Reach",
+        "Signal Ridge", "Rivergate"
+      ],
+      "description": "Capital is per-player at match start; all others are Unique — at most one instance of each exists on a given map."
+    },
+    "isCapital": {
+      "type": "boolean",
+      "description": "A player's owned bases can include multiple Capitals simultaneously; the win condition checks whether one player's owned bases cover every Base where isCapital is true."
+    },
+
+    "terrainException": {
+      "type": "string",
+      "enum": ["Forest", "Hill"],
+      "description": "Treehouse buildings may be placed on Forest tiles; Windy Peaks buildings may be placed on Hill tiles. Omitted for every other base type (Plains-only). Individual buildings still declare their own placementRequirement (see data/buildings/schema.json) — this field is a base-level summary of that exception."
+    },
+
+    "uniqueBuildings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Building ids unique to this base type (e.g. Fort Irongrad -> [\"tank_plant\", \"grenade_tower\"]). Empty/omitted for Capital, which has no specialty building beyond Command Centre."
+    },
+    "initialGarrison": {
+      "type": "array",
+      "description": "Only relevant for Unique bases before capture — the template of standing troops present at match start, restricted to unit types this base's own production building(s) can make. Instantiated into real TroopInstance/SquadInstance records at world-gen; this is the authored template, not the live count.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "troopId": { "type": "string" },
+          "count": { "type": "number" }
+        }
+      }
+    },
+
+    "resourceModifiers": {
+      "type": "array",
+      "description": "Structured production multipliers for this base type — replaces an earlier free-text resourceBonus string, which couldn't represent a per-building-type exception. Entries stack multiplicatively, building-scoped first, then base-scoped. E.g. Capital -> [{scope: \"base\", multiplier: 1.5}, {scope: \"building\", buildingType: \"oil_rig\", multiplier: 0.5}], meaning a Capital's Oil Rig nets 1.0 * 0.5 * 1.5 = 0.75x a Unique base's equivalent-level Oil Rig (see game-design/03-resources.md's Oil Rig Notes). Omitted/empty if none.",
+      "items": {
+        "type": "object",
+        "required": ["scope", "multiplier"],
+        "properties": {
+          "scope": { "type": "string", "enum": ["base", "building"], "description": "\"base\" applies to all of this base's resource production; \"building\" applies only to one building type (requires buildingType)." },
+          "buildingType": { "type": "string", "description": "Required when scope is \"building\" — the building id this multiplier applies to, e.g. \"oil_rig\"." },
+          "multiplier": { "type": "number", "description": "e.g. 1.5 for +50%, 0.5 for -50%." }
+        }
+      }
+    },
+
+    "notes": { "type": "string", "description": "Free-text design notes, if useful." }
+  },
+  "additionalProperties": false
+}

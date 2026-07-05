@@ -1,0 +1,184 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "hexis/building.schema.json",
+  "title": "Building",
+  "description": "Static definition for a building type. See game-design/06-building-stats-and-defenses.md and game-design/02-bases-and-buildings.md for the design rationale behind each field. Live per-instance state (currentHP, hex, ruinState) is NOT part of this schema — see BuildingInstance/Wall in game-design/07-data-architecture.md.",
+  "type": "object",
+  "required": ["id", "name", "category", "buildableAt"],
+  "properties": {
+    "id": { "type": "string", "description": "Unique identifier, e.g. \"turret\", \"tank_plant\"." },
+    "name": { "type": "string", "description": "Display name, e.g. \"Turret\"." },
+
+    "category": {
+      "type": "string",
+      "enum": ["Production", "Resource", "Defensive", "Support", "Infrastructure"],
+      "description": "Determines whether the building needs player input (Production = queue a troop) or just runs on its own once built."
+    },
+
+    "buildableAt": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Base type ids that can build this (or [\"All\"]). Buildings tied to no base (Road, Bridge, Dock, Tower) use [] and rely on isStandalone instead."
+    },
+    "isStandalone": { "type": "boolean", "default": false, "description": "True for Road/Bridge/Dock/Tower — placed anywhere by an Engineer, not tied to a base. Standalone instances carry their own ownerId directly (no baseId to derive ownership from) and, like Walls, do NOT ruin on destruction — a standalone building at 0 HP is deleted permanently, freeing the hex/edge; rebuilding it there is a fresh build at full cost, not a ruin-rebuild. See game-design/07-data-architecture.md." },
+    "isFixed": { "type": "boolean", "default": false, "description": "True for pre-seeded-only buildings (HQ, Ice Spire) that can never be freshly built from a menu, even after capture — only rebuilt if ruined." },
+
+    "materials": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["wood", "stone", "steel"] },
+      "description": "Material variants this building supports, if multi-material (Tower, Wall, Dock, Bridge). Each material has its own base_stats/stat_growth/base_cost/cost_growth block, keyed under materialStats."
+    },
+    "materialStats": {
+      "type": "object",
+      "description": "Only present for multi-material buildings. Keyed by material name, each value shaped like the non-production upgrade model below.",
+      "additionalProperties": { "$ref": "#/definitions/nonProductionUpgradeModel" }
+    },
+
+    "populationCost": { "type": "number", "default": 1, "description": "Population slots this building consumes when placed. 0 for House and Walls." },
+
+    "placementRequirement": {
+      "type": "object",
+      "description": "Where this building is allowed to be placed, beyond the base's HQ-radius and two-adjacent-buildings rules. Two independent constraints, since a building's own hex terrain and an adjacency requirement to a *different* terrain are separate concerns (e.g. Port sits on Plains but needs an adjacent Water tile).",
+      "properties": {
+        "siteTerrain": { "type": "string", "enum": ["Plains", "Forest", "Hill"], "default": "Plains", "description": "Terrain the building's own hex must be. Plains for almost everything; Forest for Treehouse's buildings; Hill for Windy Peaks' buildings." },
+        "adjacentTerrainRequired": { "type": "string", "enum": ["Water", "Forest"], "description": "Optional — at least one neighboring hex must satisfy this. \"Water\" is a unified check satisfied by either an Ocean tile or a River tile (there is no separate \"Coast\" terrain and no separate River-adjacency requirement — see game-design/01-map-and-terrain.md). E.g. Port/Shipyard/Harbour require \"Water\"; a non-Treehouse base's Lumber Mill requires \"Forest\"." }
+      }
+    },
+
+    "hp": { "type": "number", "description": "Health pool at level 1 (non-production/non-multi-material buildings) or see levels/materialStats otherwise." },
+    "hpRegenRate": { "type": "number", "description": "HP restored per tick once out of combat (no recent incoming damage). Not applicable once ruined." },
+    "damageReceivedModifiers": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "description": "{tag: multiplier}, e.g. Wood Wall -> {\"Fire\": 2.0}."
+    },
+    "rebuildCost": {
+      "type": "number",
+      "default": 50,
+      "description": "Percent of original build cost required to rebuild from a ruin, same material (e.g. 50 = 50%). Not applicable to Walls or standalone buildings (Road/Bridge/Dock/Tower), which delete outright on destruction instead of ruining."
+    },
+
+    "defensiveStats": {
+      "type": "object",
+      "description": "Only present for Defensive-category buildings (Turret, Missile Launcher, Grenade Tower, Flame Turret, Cold Turret, River Battery, Tower).",
+      "properties": {
+        "damage": { "type": "number" },
+        "attackSpeed": { "type": "number" },
+        "range": { "type": "number" },
+        "splashRadius": { "type": "number", "default": 0 },
+        "canTarget": { "type": "array", "items": { "type": "string" } },
+        "damageTypes": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Same mechanism as troop.schema.json's damageTypes — e.g. Flame Turret (Firebase) carries [\"Fire\"]." },
+        "damageDealtModifiers": { "type": "object", "additionalProperties": { "type": "number" } },
+        "detector": { "type": "boolean", "default": false },
+        "visionRange": { "type": "number" },
+        "statusEffectOnHit": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "duration": { "type": ["number", "string"] },
+            "magnitude": { "type": "number" }
+          }
+        }
+      }
+    },
+
+    "auras": {
+      "type": "array",
+      "description": "Only present for Support-category buildings (Hospital, Ice Spire, Radar Array) that project a passive effect rather than attacking/producing.",
+      "items": {
+        "type": "object",
+        "required": ["radius", "target", "effect"],
+        "properties": {
+          "radius": { "type": "number" },
+          "target": {
+            "type": "string",
+            "enum": ["friendly_troops", "enemy_troops", "friendly_buildings", "enemy_buildings"]
+          },
+          "filter": { "type": "string" },
+          "effect": { "type": "string" },
+          "magnitude": { "type": ["number", "string"] }
+        }
+      }
+    },
+
+    "productionUpgradeLevels": {
+      "type": "array",
+      "description": "Only present for Production-category buildings (except Command Centre — see commanderProgression below). This is the SOLE source of truth for which troop(s) this building produces and at what level: an explicit per-level table, one row per level, ordered. The building's max level is derived as length(productionUpgradeLevels), never stored separately; the ordered troop list is derived as productionUpgradeLevels.map(l => l.unlocks) rather than kept as a separate troopList array, so there's no second copy that can drift out of sync. A troop id may legitimately appear in more than one building's table (e.g. Rifleman unlocks from both Capital's and Treehouse's Barracks).",
+      "items": {
+        "type": "object",
+        "required": ["level", "unlocks", "cost"],
+        "properties": {
+          "level": { "type": "number" },
+          "hp": { "type": "number", "description": "Absolute value at this level, not a delta." },
+          "unlocks": { "type": "string", "description": "Troop id unlocked at this level." },
+          "cost": { "type": "object", "additionalProperties": { "type": "number" } }
+        }
+      }
+    },
+
+    "commanderProgression": {
+      "type": "object",
+      "description": "Only present for Command Centre — replaces productionUpgradeLevels/troopList entirely. Commanders unlock by TIER (all Commanders of a tier become trainable at once), not one troop per level, and Command Centre level also grows the player's maxCommanders cap (see game-design/07-data-architecture.md's Commander Cap section).",
+      "required": ["tierLevels", "postTierGrowth"],
+      "properties": {
+        "tierLevels": {
+          "type": "array",
+          "description": "Explicit per-level table for levels 1-3 — each level unlocks a whole commanderTier at once (see data/troops/schema.json's commanderTier).",
+          "items": {
+            "type": "object",
+            "required": ["level", "unlocksTier", "commanderSlots", "hp", "cost"],
+            "properties": {
+              "level": { "type": "number" },
+              "unlocksTier": { "type": "string", "enum": ["basic", "rare", "best"], "description": "All Commander troops with this commanderTier become trainable at this Command Centre once it reaches this level. Lower tiers already unlocked remain trainable." },
+              "commanderSlots": { "type": "number", "description": "This Command Centre's contribution to the player's maxCommanders cap at this level." },
+              "hp": { "type": "number", "description": "Absolute value at this level, not a delta." },
+              "cost": { "type": "object", "additionalProperties": { "type": "number" } }
+            }
+          }
+        },
+        "postTierGrowth": {
+          "type": "object",
+          "description": "Levels 4+: every tier is already unlocked, so further levels are pure stat/cap growth — no new troops.",
+          "required": ["hpGrowth", "commanderSlotsPerLevel", "costGrowth"],
+          "properties": {
+            "hpGrowth": { "$ref": "#/definitions/growthRate" },
+            "commanderSlotsPerLevel": { "type": "number", "default": 1, "description": "Additional maxCommanders contribution gained per level from level 4 onward." },
+            "costGrowth": { "$ref": "#/definitions/growthRate" }
+          }
+        }
+      }
+    },
+
+    "nonProductionUpgrade": {
+      "$ref": "#/definitions/nonProductionUpgradeModel",
+      "description": "Only present for non-production, non-multi-material buildings (Farm, Quarry, Mine, Oil Rig, Hospital, House, defensive buildings). Uncapped, formula-based growth, bottlenecked only by HQ level."
+    },
+
+    "notes": { "type": "string", "description": "Free-text design notes, if useful." }
+  },
+  "additionalProperties": false,
+
+  "definitions": {
+    "growthRate": {
+      "type": "object",
+      "description": "Structured per-level growth rate — replaces an earlier magic-string format (e.g. \"+10%_per_level\") that the engine would have had to parse out of prose. mode:\"percent\" compounds as base*(1+value/100)^(N-1); mode:\"flat\" adds value*(N-1).",
+      "required": ["mode", "value"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["percent", "flat"] },
+        "value": { "type": "number", "description": "e.g. mode:\"percent\", value:10 means +10% per level; mode:\"flat\", value:0 means no growth." }
+      }
+    },
+    "nonProductionUpgradeModel": {
+      "type": "object",
+      "required": ["baseStats", "statGrowth", "baseCost", "costGrowth"],
+      "properties": {
+        "baseStats": { "type": "object", "additionalProperties": { "type": "number" }, "description": "e.g. {hp: 200, damage: 15, range: 4}." },
+        "statGrowth": { "type": "object", "additionalProperties": { "$ref": "#/definitions/growthRate" }, "description": "Per-stat growth rate per level, e.g. {hp: {mode: \"percent\", value: 10}, range: {mode: \"flat\", value: 0}}." },
+        "baseCost": { "type": "object", "additionalProperties": { "type": "number" } },
+        "costGrowth": { "$ref": "#/definitions/growthRate", "description": "Upgrade cost growth per level, intentionally faster than stat growth, e.g. {mode: \"percent\", value: 25}." },
+        "addsTurretPerLevel": { "type": "boolean", "default": false, "description": "Wood Tower only — each level adds an independently-targeting turret instead of pure stat scaling." },
+        "minPopulationPerLevel": { "type": "number", "description": "Only meaningful for HQ: minimum populationUsed the base must have to upgrade the HQ to this level, on top of the resource cost. Steep cost curve + this population gate is what paces HQ upgrades (see game-design/06-building-stats-and-defenses.md)." }
+      }
+    }
+  }
+}
