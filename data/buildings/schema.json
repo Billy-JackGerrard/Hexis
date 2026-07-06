@@ -195,15 +195,9 @@
         "baseCost": { "type": "object", "additionalProperties": { "type": "number" } },
         "costGrowth": { "$ref": "#/definitions/growthRate", "description": "Upgrade cost growth per level, intentionally faster than stat growth, e.g. {mode: \"percent\", value: 25}." },
         "addsTurretPerLevel": { "type": "boolean", "default": false, "description": "Wood Tower only — each level adds an independently-targeting turret instead of pure stat scaling." },
-        "defensiveStatsOverride": {
-          "type": "object",
-          "description": "Multi-material Defensive buildings only (currently just Tower). Some materials fight differently, not just at different numbers — e.g. Steel Tower loses Air targeting and gains splash, unlike Stone/Wood Tower which just scale damage/hp. Merged key-by-key on top of the building's shared defensiveStats block for this material only; omitted keys inherit the shared defensiveStats value unchanged. This is deliberately NOT the same semantics as the file-level `extends` override (which replaces whole blocks wholesale) — here individual keys merge so a material only needs to restate what actually differs.",
-          "properties": {
-            "canTarget": { "type": "array", "items": { "type": "string" } },
-            "damageTypes": { "type": "array", "items": { "type": "string" } },
-            "splashRadius": { "type": "number" }
-          }
-        },
+        "canTarget": { "type": "array", "items": { "type": "string" }, "description": "Multi-material Defensive buildings only (currently just Tower). Materials can fight differently, not just at different numbers — e.g. Steel Tower loses Air targeting, unlike Stone/Wood Tower. Each material restates its own full canTarget/damageTypes/splashRadius rather than overriding a shared block, matching how baseStats already gives each material its own damage/range/etc. The building-level defensiveStats block still holds the traits that are truly invariant across materials (detector, detectionRange)." },
+        "damageTypes": { "type": "array", "items": { "type": "string" }, "description": "Per-material equivalent of defensiveStats.damageTypes — see canTarget above." },
+        "splashRadius": { "type": "number", "description": "Per-material equivalent of defensiveStats.splashRadius — see canTarget above." },
         "minPopulationPerLevel": { "type": "number", "description": "Only meaningful for HQ: a multiplier used to compute the population gate for upgrading HQ to level N, on top of the resource cost: requiredPopulationUsed = minPopulationPerLevel * (N - 1). E.g. value 3 means reaching level 2 requires populationUsed >= 3, level 3 requires >= 6, level 4 requires >= 9, and so on. Steep cost curve + this population gate is what paces HQ upgrades (see game-design/06-building-stats-and-defenses.md)." }
       }
     }
