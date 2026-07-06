@@ -4,7 +4,7 @@
   "category": "Support",
   "populationCost": 1,
 
-  "notes": "Passive aura, no queue/targeting. Buildable at Capital, Foundry Reach, Sky Fortress, and Camp Cozy (see each base's buildableBuildings list in data/bases/) — not a universal building. Camp Cozy's own BaseDef discounts Hospital's build/upgrade cost via costModifiers (see data/bases/camp_cozy.json), fitting its logistics/support specialty. Radius stays flat per level while heal magnitude scales — mirrors Ambulance's heal_over_time aura shape but stronger/wider since Hospital is stationary rather than mobile.",
+  "notes": "Passive aura, no queue/targeting. Buildable at Capital, Foundry Reach, Sky Fortress, and Camp Cosy (see each base's buildableBuildings list in data/bases/) — not a universal building. Camp Cosy's own BaseDef discounts Hospital's build/upgrade cost via costModifiers (see data/bases/camp_cosy.json), fitting its logistics/support specialty. Radius stays flat per level while heal magnitude scales — mirrors Ambulance's heal_over_time aura shape but stronger/wider since Hospital is stationary rather than mobile.",
 
   "auras": [
     { "radius": 8, "target": "friendly_troops", "effect": "heal_over_time", "magnitude": 6 }

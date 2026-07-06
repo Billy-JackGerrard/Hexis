@@ -4,7 +4,7 @@
   "category": "Defensive",
   "populationCost": 1,
 
-  "notes": "Generic default defense, buildable at every base. Base for every Turret variant (extends: \"turret\" — see cold_turret/emp_turret/flame_turret/grenade_tower/river_battery/wind_spire). Note: defensiveStats.range (4) and nonProductionUpgrade.baseStats.range (5) disagree here — the two are meant to describe the same level-1 value (defensiveStats is the static combat profile, nonProductionUpgrade is what actually grows per level) and should match; needs a decision on which number is correct.",
+  "notes": "Generic default defense, buildable at every base. Base for every Turret variant (extends: \"turret\" — see cold_turret/emp_turret/flame_turret/grenade_tower/river_battery/wind_spire).",
 
   "defensiveStats": {
     "damage": 18,
@@ -20,7 +20,7 @@
     "baseStats": {
       "hp": 250,
       "damage": 18,
-      "range": 5
+      "range": 4
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 12 },

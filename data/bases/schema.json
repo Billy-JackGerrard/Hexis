@@ -12,7 +12,7 @@
       "enum": [
         "Capital", "Fort Irongrad", "Firebase", "Windy Peaks", "Treehouse",
         "Kraken Point", "Sky Fortress", "Winter Forge", "Foundry Reach",
-        "Signal Ridge", "Rivergate", "Camp Cozy"
+        "Signal Ridge", "Rivergate", "Camp Cosy"
       ],
       "description": "Capital is per-player at match start; all others are Unique — at most one instance of each exists on a given map."
     },
@@ -74,7 +74,7 @@
 
     "costModifiers": {
       "type": "array",
-      "description": "Structured build/upgrade COST multipliers for this base type — same shape as resourceModifiers, but discounts what a building costs to build/upgrade here rather than what it produces. Entries stack multiplicatively, building-scoped first, then base-scoped. E.g. Camp Cozy -> [{scope: \"building\", buildingType: \"hospital\", multiplier: 0.75}], meaning Hospital's build cost and every upgrade cost is 25% cheaper at Camp Cozy than elsewhere. Applies to both baseCost and every level's costGrowth-derived upgrade cost on the affected building's def (data/buildings/schema.json). Omitted/empty if none.",
+      "description": "Structured build/upgrade COST multipliers for this base type — same shape as resourceModifiers, but discounts what a building costs to build/upgrade here rather than what it produces. Entries stack multiplicatively, building-scoped first, then base-scoped. E.g. Camp Cosy -> [{scope: \"building\", buildingType: \"hospital\", multiplier: 0.75}], meaning Hospital's build cost and every upgrade cost is 25% cheaper at Camp Cosy than elsewhere. Applies to both baseCost and every level's costGrowth-derived upgrade cost on the affected building's def (data/buildings/schema.json). Omitted/empty if none.",
       "items": {
         "type": "object",
         "required": ["scope", "multiplier"],

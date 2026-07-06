@@ -16,7 +16,7 @@
 
   "canTarget": ["Infantry", "Land", "Naval", "Structure", "Defensive"],
 
-  "damageDealtModifiers": { "Land": 1.25 },
+  "damageDealtModifiers": { "Land": 1.5 },
 
   "cost": { "food": 20 },
   "foodUpkeep": 1,

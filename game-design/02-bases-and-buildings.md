@@ -145,8 +145,8 @@ being destroyed in combat:
 | Oil Rig | Fuel | All (Capital's Oil Rig has -50% production penalty; same cost everywhere, no inherent level cap on either — see `06-building-stats-and-defenses.md`) |
 | House | Population capacity (does not itself consume a population slot) | All — see Population section below |
 | Turret | Defense (generic) | All |
-| Missile Launcher | Defense (generic) | All except Camp Cozy (deliberately lighter on fixed defense — see Camp Cozy below) |
-| Barracks | Infantry | Capital, Treehouse, Firebase, Windy Peaks, Rivergate, Signal Ridge, Camp Cozy |
+| Missile Launcher | Defense (generic) | All except Camp Cosy (deliberately lighter on fixed defense — see Camp Cosy below) |
+| Barracks | Infantry | Capital, Treehouse, Firebase, Windy Peaks, Rivergate, Signal Ridge, Camp Cosy |
 | Factory | Light land vehicles | Capital, Foundry Reach |
 | Port | Navy (basic roster) | Any base with a water-adjacent tile |
 | Tank Plant | Heavy tanks (full roster, builds 3-5 at a time) | Fort Irongrad only |
@@ -159,8 +159,8 @@ being destroyed in combat:
 | Forest Yard | Quad-bike | Treehouse only (forest tiles) |
 | Hangar | Wingfighter, Thunder | Sky Fortress only |
 | Command Centre | Commander | Capital only |
-| Hospital | Support — heals nearby friendly troops slowly (passive aura, no production) | Capital, Foundry Reach, Sky Fortress, Camp Cozy (discounted here — see Camp Cozy below) |
-| Supply Depot | Engineer, Ambulance, Transport Truck, Repair Truck, Mule, Volt Truck (support vehicles, all non-combat) | Camp Cozy only |
+| Hospital | Support — heals nearby friendly troops slowly (passive aura, no production) | Capital, Foundry Reach, Sky Fortress, Camp Cosy (discounted here — see Camp Cosy below) |
+| Supply Depot | Engineer, Ambulance, Transport Truck, Repair Truck, Mule, Volt Truck (support vehicles, all non-combat) | Camp Cosy only |
 | Shipyard (renamed from Harbour) | Full navy incl. Aircraft Carrier; base carries a +50% Harbour production bonus | Kraken Point only |
 | Dock | Ship landing point (no production) | Anywhere adjacent to Ocean or River (sits on the adjoining Plains hex, not on the water tile itself — same siteTerrain/adjacency shape as Port), Engineer-built, not tied to a base. Buildable in Stone or Wood (Wood cheaper, weaker, fire-vulnerable) |
 | Road | Unblocks Forest tiles for land vehicles | Anywhere in Forest, Engineer-built |
@@ -176,8 +176,8 @@ being destroyed in combat:
 | Ford Yard | Amphibious Raider, Submarine | Rivergate only |
 | River Battery | Defense — bonus damage vs. Naval targets | Rivergate only |
 
-- Every base type can build **Turret**; every base except Camp Cozy can also build
-  **Missile Launcher** (Camp Cozy deliberately omits it — see Camp Cozy below). Each
+- Every base type can build **Turret**; every base except Camp Cosy can also build
+  **Missile Launcher** (Camp Cosy deliberately omits it — see Camp Cosy below). Each
   Unique base's specialty defense building is in addition to these.
 - Wood is no longer capture-gated: any base with a Forest-adjacent tile can build its
   own Lumber Mill and produce Wood independently, the same way Port works off water
@@ -409,7 +409,7 @@ Centre's level unlocks a whole tier at once, not one Commander at a time:
   same adjacency rule as Port/Shipyard, so it can't be built somewhere that
   doesn't actually cover the crossing.
 
-### Camp Cozy
+### Camp Cosy
 - Logistics/support specialist — the first Unique base built around sustaining an
   army rather than fighting or producing resources. Sited on Plains, no terrain
   exception.
@@ -418,7 +418,7 @@ Centre's level unlocks a whole tier at once, not one Commander at a time:
   vehicles instead of Infantry), **Mule** (upkeep-reduction aura, easing Food/Fuel
   deficit pressure), and **Volt Truck** (speed + attack-speed boost aura for
   Land/Air/Naval) — a support-vehicle-only roster, distinct from Factory's combat
-  vehicles. All six are non-combat (`canTarget: []`), so Camp Cozy produces no
+  vehicles. All six are non-combat (`canTarget: []`), so Camp Cosy produces no
   defenders of its own from this building.
 - **Barracks** included specifically so the base isn't a total pushover
   garrison-wise, given Supply Depot's roster can't defend it — but deliberately

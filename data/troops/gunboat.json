@@ -16,12 +16,12 @@
 
   "canTarget": ["Infantry", "Land", "Naval", "Structure", "Defensive"],
 
-  "damageDealtModifiers": { "Infantry": 1.4},
+  "damageDealtModifiers": { "Infantry": 1.4, "Air": 1.6},
 
   "cost": { "food": 20, "steel": 15 },
   "foodUpkeep": 0,
   "fuelUpkeep": 0.5,
   "productionTime": 16,
 
-  "notes": "Generic all-round early-tier cheap warship, Port's baseline combat ship. No damage modifiers vs. anything."
+  "notes": "Generic all-round early-tier cheap warship, Port's baseline combat ship. Stronger against infantry and air targets."
 }

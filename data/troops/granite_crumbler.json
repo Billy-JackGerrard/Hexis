@@ -9,13 +9,13 @@
   "damage": 40,
   "attackSpeed": 0.5,
   "range": 8,
-  "splashRadius": 2,
+  "splashRadius": 1,
   "visionRange": 10,
-  "speed": 1.8,
+  "speed": 1.6,
 
   "maxSquadSize": 3,
 
-  "canTarget": ["Land", "Air", "Naval", "Structure", "Defensive"],
+  "canTarget": ["Land", "Naval", "Structure", "Defensive"],
 
   "damageDealtModifiers": { "Structure": 2.0, "Defensive": 1.6},
 
@@ -24,5 +24,5 @@
   "fuelUpkeep": 2,
   "productionTime": 38,
 
-  "notes": "Fort Irongrad Tank Plant exclusive (not shared with Frostworks) — the heavy-tier long-range indirect siege tank, the highest-range and highest-per-hit-damage unit in the roster, with splash from its shell impact. Cannot target Infantry at all (omitted from canTarget) — a big indirect shell isn't built to hunt scattered riflemen, and it gives Infantry a hard counter-role against heavy armor rather than just a damage-modifier penalty. Bonuses vs. Structure (2.0x) and Defensive (1.6x) make it a strong wall/HQ/base-defense cracker and double as target-priority hints per the damage-modifier rule (see game-design/05-troop-stat-schema.md); both Structure and Defensive already auto-aggro by default whenever no enemy troop is in range, same as Basekiller, since the schema's canTarget rule applies uniformly rather than through any unit-specific flag. Slowest heavy tank and highest Fuel upkeep, reflecting its size."
+  "notes": "Fort Irongrad Tank Plant exclusive (not shared with Frostworks) — the heavy-tier long-range indirect siege tank, the highest-range and highest-per-hit-damage unit in the roster, with splash from its shell impact. Cannot target Infantry or Air at all (omitted from canTarget) — a big indirect shell isn't built to hunt scattered riflemen or planes far above it, and it gives Infantry a hard counter-role against heavy armor rather than just a damage-modifier penalty. Bonuses vs. Structure (2.0x) and Defensive (1.6x) make it a strong wall/HQ/base-defense cracker and double as target-priority hints per the damage-modifier rule (see game-design/05-troop-stat-schema.md); both Structure and Defensive already auto-aggro by default whenever no enemy troop is in range, same as Basekiller, since the schema's canTarget rule applies uniformly rather than through any unit-specific flag. Slowest heavy tank and highest Fuel upkeep, reflecting its size."
 }

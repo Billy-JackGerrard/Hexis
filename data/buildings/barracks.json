@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Shared building type between Capital, Treehouse, Firebase, Windy Peaks, Rivergate, Signal Ridge, and Camp Cozy — same definition, base eligibility is authored on each BaseDef's buildableBuildings list, not here. Unlocks, in order: Rifleman, Grenadier, Flamethrower, Shielder, Sniper. Engineer is a Factory unlock, not Barracks — see data/buildings/factory.json.",
+  "notes": "Shared building type between Capital, Treehouse, Firebase, Windy Peaks, Rivergate, Signal Ridge, and Camp Cosy — same definition, base eligibility is authored on each BaseDef's buildableBuildings list, not here. Unlocks, in order: Rifleman, Grenadier, Flamethrower, Shielder, Sniper. Engineer is a Factory unlock, not Barracks — see data/buildings/factory.json.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 200, "unlocks": "rifleman", "cost": { "stone": 80, "steel": 40 } },

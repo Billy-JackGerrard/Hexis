@@ -5,7 +5,7 @@
   "tags": ["Aircraft"],
 
   "hp": 150,
-  "damage": 22,
+  "damage": 26,
   "attackSpeed": 0.8,
   "range": 6,
   "splashRadius": 1,
@@ -20,7 +20,7 @@
 
   "cost": { "food": 20, "steel": 55 },
   "foodUpkeep": 0,
-  "fuelUpkeep": 3,
+  "fuelUpkeep": 3.5,
   "productionTime": 26,
 
   "notes": "Firebase's bigger, slower Fire Helipad unit — longer range and plasma impact rather than Flamecopter's close-in fire spray. Versatile enough to hit Air, unlike Flamecopter. No damage modifiers vs. anything, but weaker against buildings; the hard-hitting generalist counterpart to Flamecopter's Wood-bonus specialization."

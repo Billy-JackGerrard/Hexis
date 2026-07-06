@@ -25,5 +25,5 @@
   "fuelUpkeep": 1,
   "productionTime": 18,
 
-  "notes": "Camp Cozy's Supply Depot exclusive — Ambulance's vehicle-repair counterpart. Aura is Land-only (filter: \"Land\", i.e. Vehicle-domain troops), lower magnitude and pricier than Ambulance's Infantry-only heal, reflecting that keeping a vehicle running is a slower/costlier job than patching up infantry. Non-combat (canTarget: []), like Ambulance/Engineer."
+  "notes": "Camp Cosy's Supply Depot exclusive — Ambulance's vehicle-repair counterpart. Aura is Land-only (filter: \"Land\", i.e. Vehicle-domain troops), lower magnitude and pricier than Ambulance's Infantry-only heal, reflecting that keeping a vehicle running is a slower/costlier job than patching up infantry. Non-combat (canTarget: []), like Ambulance/Engineer."
 }

@@ -5,12 +5,12 @@
   "tags": ["Vehicle", "Tank"],
 
   "hp": 220,
-  "damage": 25,
+  "damage": 20,
   "attackSpeed": 0.7,
   "range": 6,
   "splashRadius": 0,
   "visionRange": 8,
-  "speed": 2.6,
+  "speed": 2.2,
 
   "maxSquadSize": 4,
 

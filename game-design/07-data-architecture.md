@@ -304,8 +304,8 @@ below), `initialGarrison` (the authored garrison-troop template), `resourceModif
 (structured production multipliers — see below; replaces an earlier free-text
 `resourceBonus` string), and `costModifiers` (structured build/upgrade-cost
 multipliers, same shape as `resourceModifiers` but discounting/inflating what a
-building costs rather than what it produces — e.g. Camp Cozy discounts Hospital and
-Wall cost, see `02-bases-and-buildings.md`'s Camp Cozy section and
+building costs rather than what it produces — e.g. Camp Cosy discounts Hospital and
+Wall cost, see `02-bases-and-buildings.md`'s Camp Cosy section and
 `data/bases/schema.json`).
 - **`buildableBuildings`** is the explicit, complete list of every building id a base
   type can build — generic buildings (Farm, Turret, House, ...) included, not just its
@@ -419,8 +419,9 @@ Tile {
 - **Tick interval: every 5 seconds.** At each tick:
   1. Sum production from all owned bases' resource buildings (Farm/Harbour/Quarry/
      Mine/Oil Rig/Lumber Mill, at their current level).
-  2. Subtract upkeep (Food for all troops/bases; Fuel for moving vehicles and
-     un-docked aircraft, per the fuel rules in `03-resources.md`).
+  2. Subtract upkeep (Food for all troops/bases; Fuel for moving vehicles and for
+     aircraft not currently idle at one of the owner's own bases, per the fuel rules
+     in `03-resources.md`).
   3. Apply the net delta to the player's resource pool.
   4. If a resource is in deficit, apply that resource's per-squad drain (one troop
      death per affected squad, per resource tick — see `03-resources.md`).

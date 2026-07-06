@@ -226,7 +226,7 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
     `03-resources.md`) rather than a combat-sustain one like Ambulance's
     `heal_over_time`.
   - `speed_boost` / `attack_speed_boost` — signed percent buffs to movement speed and
-    attack speed respectively. E.g. Camp Cozy's Volt Truck buffs Land/Air/Naval troops
+    attack speed respectively. E.g. Camp Cosy's Volt Truck buffs Land/Air/Naval troops
     (deliberately excluding Infantry) with a big `speed_boost` (40%) and a slight
     `attack_speed_boost` (15%). Since **filter** matches only one Domain/tag value at a
     time, a support unit covering multiple domains carries one aura entry per domain
@@ -263,8 +263,9 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   rather than only when idle/docked. **HMS Cuddles is the one exception** — `false`,
   must be idle/docked to unload.
 - Fuel/upkeep for cargo while stored: aircraft aboard an Aircraft Carrier don't consume
-  Fuel while docked (consistent with the "docked adjacent to a base" Fuel-free rule —
-  a Carrier counts as a mobile dock for this purpose).
+  Fuel while docked — a distinct mechanic from the general "Fuel-free adjacent to an
+  owned base" rule (see `03-resources.md`), not an application of it; the Carrier is
+  the one unit that grants fuel-free storage away from an owned base's footprint.
 - **Resolved: boarding/unloading are explicit orders** (`board` targeting a carrier
   squad; `unload` naming which boarded squad to deploy) — see `04-combat.md`'s Cargo
   section. A boarded squad keeps counting against its owner's global squad cap while

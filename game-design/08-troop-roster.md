@@ -27,7 +27,7 @@ doc records design rationale, not the numbers themselves.
 | Barracks | **Flamethrower** | Bonus damage vs. `Wood`-tagged targets (walls, docks, bridges, Wood Tower) |
 | Barracks | **Sniper** | Stealth unit; also a `detector` (spots other stealthed units at full vision range); `damage_types: [Piercing]` — bypasses target damage-received modifiers; `can_target` omits `Structure` (**cannot target buildings/walls**), a deliberate exception to the usual default (see `05-troop-stat-schema.md`) |
 | Barracks | **Shielder** | Pure tank/meatshield: `can_target: []` (no attack at all), high HP plus a flat `armor` stat (damage reduction per hit, distinct from the multiplier-based damage-received modifiers), slow-moving |
-| Factory | **Ambulance** | Light support vehicle — mobile heal aura, Infantry-only (same effect family as Hospital's passive heal); a vehicle rather than infantry so it can keep pace with the army it's healing. Repair Truck (Camp Cozy's Supply Depot) is its Land-vehicle counterpart |
+| Factory | **Ambulance** | Light support vehicle — mobile heal aura, Infantry-only (same effect family as Hospital's passive heal); a vehicle rather than infantry so it can keep pace with the army it's healing. Repair Truck (Camp Cosy's Supply Depot) is its Land-vehicle counterpart |
 | Factory | **Transport Truck** | Light vehicle, little/no attack — carries an infantry squad aboard for fast repositioning, letting cheap Food-upkeep infantry keep up with Fuel-upkeep armies. Can deploy its cargo **mid-battle**, not just while idle. `cargoCapacity: 1` = one squad (any size), not troop headcount |
 | Factory | **Light Tank** | Generic all-round light vehicle — no damage modifiers vs. anything; the baseline other tank types (Heavy Tank roster, etc.) get balanced against, same role Rifleman plays for infantry |
 | Factory | **Tonk** | Heavier/longer-range sibling to Light Tank — slower attack speed, higher per-hit damage, longer range; slight damage bonus vs. Air and vs. Structure (buildings+walls) |
@@ -102,15 +102,17 @@ doc records design rationale, not the numbers themselves.
 | Ford Yard | **Amphibious Raider** | Domain: Land · Tags: `[Vehicle, Light, Amphibious]` — a **vehicle**, not infantry. Terrain override: `ignores_river_block: true` (fords rivers without a Bridge). Low armor, fast, Fuel upkeep like any land vehicle. Stats implemented, see `data/troops/amphibious_raider.json` |
 | Ford Yard | Submarine (shared w/ Kraken Point Shipyard) | Ford Yard's second unlock, alongside Amphibious Raider — not Destroyer/Tank Carrier/Aircraft Carrier, which stay Shipyard-exclusive. See Kraken Point above |
 
-### Camp Cozy
+### Camp Cosy
 | Building | Unit(s) | Notes |
 |---|---|---|
 | Supply Depot | **Engineer**, **Ambulance**, **Transport Truck**, **Repair Truck**, **Mule**, **Volt Truck** | All non-combat (`can_target: []`) — a support-vehicle-only roster, distinct from Factory's combat vehicles. Engineer/Ambulance/Transport Truck are shared with Factory (see Capital Base above). Repair Truck heals Land vehicles (Ambulance's counterpart, which now heals Infantry only); Mule reduces nearby troops' Food/Fuel upkeep; Volt Truck boosts speed + attack speed for Land/Air/Naval. Stats implemented, see `data/troops/repair_truck.json`, `data/troops/mule.json`, `data/troops/volt_truck.json` |
-| Barracks | Rifleman, Grenadier, Flamethrower, Shielder, Sniper (shared w/ Capital roster) | Camp Cozy's only source of combat troops — Supply Depot's roster can't defend the base at all |
+| Barracks | Rifleman, Grenadier, Flamethrower, Shielder, Sniper (shared w/ Capital roster) | Camp Cosy's only source of combat troops — Supply Depot's roster can't defend the base at all |
 
 ## Fuel/Maintenance Quick Reference
 - Land vehicles: free while stationary, consume Fuel while moving.
-- Aircraft: heavy Fuel consumption, free while stationed adjacent to a base.
+- Aircraft: heavy Fuel consumption, free while not moving and on/adjacent to one of
+  the owner's own bases (any base's footprint — no Hangar/Fire Helipad landing
+  mechanic; see `03-resources.md`).
 - Ships: consume very little Fuel regardless of state.
 - **Exception — Glider** (Windy Peaks): unpowered, so it uses **no Fuel at all** and
   draws Food upkeep instead, same as ground infantry.
@@ -118,7 +120,7 @@ doc records design rationale, not the numbers themselves.
 ## Still To Do
 - [x] Named infantry roster (Barracks): Rifleman, Grenadier, Flamethrower, Shielder, Sniper — full stats implemented, see `data/troops/`
 - [x] Anti-air vehicle/tank — **Rocket Tank** (Fort Irongrad Tank Plant / Winter Forge Frostworks), see `data/troops/rocket_tank.json`
-- [x] Full light/combat vehicle roster (Factory): Engineer, Tonk, Ambulance, Light Tank, Transport Truck, Basekiller — see `data/troops/`. Camp Cozy's Supply Depot additionally fields a dedicated support-vehicle roster (Repair Truck, Mule, Volt Truck alongside shared Engineer/Ambulance/Transport Truck)
+- [x] Full light/combat vehicle roster (Factory): Engineer, Tonk, Ambulance, Light Tank, Transport Truck, Basekiller — see `data/troops/`. Camp Cosy's Supply Depot additionally fields a dedicated support-vehicle roster (Repair Truck, Mule, Volt Truck alongside shared Engineer/Ambulance/Transport Truck)
 - [x] Basic navy roster (Port): Gunboat, HMS Cuddles — see `data/troops/`
 - [x] Wingfighter/Thunder (Sky Fortress) full stat sheet — see `data/troops/wingfighter.json`, `data/troops/thunder.json`
 - [x] Full Kraken Point Shipyard roster (ship tiers up to Aircraft Carrier) — Destroyer, Submarine, Tank Carrier, Aircraft Carrier; see `data/troops/destroyer.json`, `data/troops/submarine.json`, `data/troops/tank_carrier.json`, `data/troops/aircraft_carrier.json`. Cruiser/Battleship tier deliberately deferred

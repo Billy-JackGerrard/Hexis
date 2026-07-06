@@ -1,0 +1,44 @@
+{
+  "id": "camp_cosy",
+  "baseType": "Camp Cosy",
+  "isCapital": false,
+
+  "buildableBuildings": [
+    "hq",
+    "house",
+    "farm",
+    "quarry",
+    "mine",
+    "oil_rig",
+    "lumber_mill",
+    "harbour",
+    "supply_depot",
+    "port",
+    "hospital",
+    "barracks",
+    "turret",
+    "wall"
+  ],
+
+  "costModifiers": [
+    { "scope": "building", "buildingType": "hospital", "multiplier": 0.75 },
+    { "scope": "building", "buildingType": "wall", "multiplier": 0.5 }
+  ],
+
+  "initialBuildings": [
+    { "buildingType": "hq", "count": 1 },
+    { "buildingType": "farm", "count": 1 },
+    { "buildingType": "quarry", "count": 1 },
+    { "buildingType": "turret", "count": 1 },
+    { "buildingType": "supply_depot", "count": 1 },
+    { "buildingType": "wall", "count": 6, "material": "stone" }
+  ],
+
+  "initialGarrison": [
+    { "troopId": "rifleman", "count": 4 },
+    { "troopId": "shielder", "count": 4 },
+    { "troopId": "grenadier", "count": 2 }
+  ],
+
+  "notes": "Logistics/support specialist Unique base — one instance on the map, sited on Plains, no terrain exception. Deliberately NOT a combat-first base: Supply Depot's entire 6-troop roster (Engineer, Ambulance, Transport Truck, Repair Truck, Mule, Volt Truck) is non-combat (damage 0, empty canTarget), so it produces no defenders of its own — Barracks and its Shielder line are included specifically so Camp Cosy isn't a total pushover garrison-wise, but it has no Missile Launcher (Turret + Walls only, deliberately lighter on fixed defense than other Unique bases too). Hospital is buildable here (unlike most bases) at a 25% discount (costModifiers, multiplier 0.75) — reinforcing the sustain identity alongside a 50% Wall cost discount (multiplier 0.5), making it cheap to wall in and keep supplied. Harbour/Port are also buildable given a Water-adjacent site, same caveat as Capital's. No specialty defense building, no resourceModifiers bonus — its whole identity is the cost discounts plus Supply Depot's roster, not raw output or damage."
+}
