@@ -23,8 +23,12 @@ func _init() -> void:
 	_test_building_stats()
 	print("CombatMath")
 	_test_combat_math()
+	print("Terrain.defense_bonus")
+	_test_terrain_defense_bonus()
 	print("CombatTargeting")
 	_test_combat_targeting()
+	print("Stealth/detection")
+	_test_stealth_and_detection()
 	print("CombatResolver")
 	_test_combat_resolver()
 
@@ -116,6 +120,24 @@ func _test_combat_math() -> void:
 	var stack_target := _synthetic_target({"domain": "Land", "damageReceivedModifiers": {"Fire": 2.0}}, "p2", HexCoord.new(1, 0), troops)
 	_check(_approx(CombatMath.resolve_damage(stack_attacker, 10.0, stack_target), 30.0), "dealt 1.5 x received 2.0 x base 10 = 30")
 
+	# terrain defense multiplier (hill defender bonus) folds in as another
+	# received-side multiplier, still respecting the >=1 floor.
+	var hilly := HexGrid.new()
+	hilly.set_terrain(HexCoord.new(1, 0), Terrain.Type.HILLS)
+	var hill_target := CombatTarget.for_squad(_make_squad("p2", "rifleman", HexCoord.new(1, 0), 1, troops), rifleman, troops, hilly)
+	_check(_approx(CombatMath.resolve_damage(rifleman, 10.0, hill_target), 10.0 * Terrain.HILLS_DEFENDER_BONUS), "Hills defense_multiplier reduces a 10 hit to base * HILLS_DEFENDER_BONUS")
+	var flat_target := CombatTarget.for_squad(_make_squad("p2", "rifleman", HexCoord.new(2, 0), 1, troops), rifleman, troops, hilly)
+	_check(_approx(CombatMath.resolve_damage(rifleman, 10.0, flat_target), 10.0), "an unset (Ocean-default) hex has no terrain defense bonus")
+
+## --- Terrain.defense_bonus ------------------------------------------------
+
+func _test_terrain_defense_bonus() -> void:
+	_check(_approx(Terrain.defense_bonus(Terrain.Type.HILLS), Terrain.HILLS_DEFENDER_BONUS), "Hills grants HILLS_DEFENDER_BONUS")
+	_check(_approx(Terrain.defense_bonus(Terrain.Type.PLAINS), 1.0), "Plains grants no defense bonus")
+	_check(_approx(Terrain.defense_bonus(Terrain.Type.FOREST), 1.0), "Forest grants no defense bonus (its bonus is ambush hiding, not damage reduction)")
+	_check(_approx(Terrain.defense_bonus(Terrain.Type.RIVER), 1.0), "River grants no defense bonus")
+	_check(_approx(Terrain.defense_bonus(Terrain.Type.OCEAN), 1.0), "Ocean grants no defense bonus")
+
 ## --- CombatTargeting -----------------------------------------------------
 
 func _test_combat_targeting() -> void:
@@ -191,6 +213,81 @@ func _test_combat_targeting() -> void:
 	var fallback := CombatTargeting.select_target(directed, rifleman, directed_targets)
 	_check(fallback != null and fallback.target_id() == near.id, "directed order falls back to auto once its target dies")
 	_check(directed.order.is_empty(), "dead directed target clears the order")
+
+## --- Stealth/detection ----------------------------------------------------
+
+func _test_stealth_and_detection() -> void:
+	var troops: Dictionary = {}
+	var rifleman: Dictionary = _troop_defs["rifleman"]
+	var ghost_tank: Dictionary = _troop_defs["ghost_tank"]
+
+	# Forest ambush: an Infantry squad standing on Forest is hidden from an
+	# enemy with no detector/proximity, and has no proximity reveal at all.
+	var forest_grid := HexGrid.new()
+	forest_grid.set_terrain(HexCoord.new(1, 0), Terrain.Type.FOREST)
+	var ambusher := _make_squad("p1", "rifleman", HexCoord.new(1, 0), 1, troops)
+	var ambush_target := CombatTarget.for_squad(ambusher, rifleman, troops, forest_grid)
+	_check(ambush_target.is_hidden, "an Infantry squad on a Forest hex is ambush-hidden")
+	var candidates_far := CombatTargeting.candidates(HexCoord.new(5, 0), "p2", 10, rifleman, [ambush_target])
+	_check(candidates_far.is_empty(), "a forest-hidden squad is excluded from an enemy's candidates at range")
+	var candidates_adjacent := CombatTargeting.candidates(HexCoord.new(2, 0), "p2", 10, rifleman, [ambush_target])
+	_check(candidates_adjacent.is_empty(), "forest ambush has no proximity reveal (FOREST_AMBUSH_REVEAL_RANGE = 0)")
+
+	# After attacking, the ambusher's reveal_cooldown_remaining is set and it's
+	# no longer hidden; once elapsed, it re-hides.
+	ambusher.reveal_cooldown_remaining = DetectionSystem.REVEAL_COOLDOWN_SECONDS
+	var revealed_target := CombatTarget.for_squad(ambusher, rifleman, troops, forest_grid)
+	_check(not revealed_target.is_hidden, "an ambusher mid reveal-cooldown (just attacked) is not hidden")
+	ambusher.reveal_cooldown_remaining = 0.0
+	var rehidden_target := CombatTarget.for_squad(ambusher, rifleman, troops, forest_grid)
+	_check(rehidden_target.is_hidden, "the ambusher re-hides once its reveal cooldown expires")
+
+	# A non-Infantry squad on the same Forest hex (Glider, domain Air) is not
+	# ambush-hidden — the bonus is Infantry-only.
+	var glider_on_forest := _make_squad("p1", "glider", HexCoord.new(1, 0), 1, troops)
+	var glider_target := CombatTarget.for_squad(glider_on_forest, _troop_defs["glider"], troops, forest_grid)
+	_check(not glider_target.is_hidden, "a non-Infantry squad on Forest is not ambush-hidden")
+
+	# Authored stealth (Ghost Tank): hidden beyond revealRange, visible within it.
+	# Grid must have registered hexes for DetectionSystem's has_hex() check to
+	# mark any coverage at all (an empty HexGrid.new() has no hexes anywhere).
+	var stealth_grid := HexGrid.new()
+	for coord in HexCoord.range_within(HexCoord.new(0, 0), 15):
+		stealth_grid.set_terrain(coord, Terrain.Type.PLAINS)
+	var ghost := _make_squad("p2", "ghost_tank", HexCoord.new(0, 0), 1, troops)
+	var ghost_target := CombatTarget.for_squad(ghost, ghost_tank, troops, stealth_grid)
+	_check(ghost_target.is_hidden, "Ghost Tank is stealthed regardless of terrain")
+	var far_candidates := CombatTargeting.candidates(HexCoord.new(5, 0), "p1", 10, rifleman, [ghost_target])
+	_check(far_candidates.is_empty(), "Ghost Tank hidden beyond its revealRange with no detector")
+	var near_candidates := CombatTargeting.candidates(HexCoord.new(1, 0), "p1", 10, rifleman, [ghost_target])
+	_check(near_candidates.size() == 1, "Ghost Tank visible within its revealRange (1) even with no detector")
+
+	# A Sniper (detector: true, no detectionRange -> falls back to its full
+	# 12-tile visionRange) reveals the Ghost Tank; a different owner without
+	# their own detector coverage still can't see it.
+	var squads: Array[SquadInstance] = [ghost]
+	var bases: Array[BaseInstance] = []
+	var det_p1: Dictionary = {}
+	DetectionSystem.resolve_tick(squads, bases, stealth_grid, _troop_defs, _building_defs, det_p1)
+	_check(det_p1.is_empty(), "no detector present yet -> no detection coverage")
+
+	var sniper_squad := _make_squad("p1", "sniper", HexCoord.new(0, 0), 1, troops)
+	squads.append(sniper_squad)
+	DetectionSystem.resolve_tick(squads, bases, stealth_grid, _troop_defs, _building_defs, det_p1)
+	_check(DetectionSystem.detected_hexes_for(det_p1, "p1").has(ghost.current_hex.to_key()), "p1's Sniper detector covers the Ghost Tank's hex (full visionRange fallback)")
+	var revealed_candidates := CombatTargeting.candidates(HexCoord.new(5, 0), "p1", 10, rifleman, [ghost_target], det_p1)
+	_check(revealed_candidates.size() == 1, "p1's detector coverage reveals the Ghost Tank to a p1 attacker beyond its revealRange")
+	var other_owner_candidates := CombatTargeting.candidates(HexCoord.new(5, 0), "p3", 10, rifleman, [ghost_target], det_p1)
+	_check(other_owner_candidates.is_empty(), "p1's detection coverage does not leak to a different owner (p3)")
+
+	# Radar Array (base-attached) reveals a stealthed enemy squad within its
+	# vision range for its owner only.
+	var radar_base := _p2_base_with("radar_array", HexCoord.new(0, 0))
+	radar_base.owner_id = "p1"
+	var det_radar: Dictionary = {}
+	DetectionSystem.resolve_tick([ghost], [radar_base], stealth_grid, _troop_defs, _building_defs, det_radar)
+	_check(DetectionSystem.detected_hexes_for(det_radar, "p1").has(ghost.current_hex.to_key()), "Radar Array's detector covers a stealthed enemy squad within its vision range")
+	_check(DetectionSystem.detected_hexes_for(det_radar, "p2").is_empty(), "Radar Array's coverage does not leak to a different owner")
 
 func _p2_base_with(building_type: String, hex: HexCoord) -> BaseInstance:
 	var base := BaseInstance.new("p2base", "capital", "p2", 1, HexCoord.new(0, 0))

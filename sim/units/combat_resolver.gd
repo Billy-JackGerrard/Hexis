@@ -16,14 +16,22 @@
 ## first living member (overflow past a kill is lost); splash hits one member
 ## per other enemy squad in radius (not every stacked member) and never friendly
 ## units; buildings at 0 HP are simply removed (HQ capture-flip and ruin state
-## are deferred). Status effects, auras, stealth, and terrain combat bonuses are
-## out of scope here entirely.
+## are deferred). Status effects and auras are still out of scope here.
+## Terrain defense bonuses and stealth/detection (hill defender bonus, forest
+## ambush, Tower/Radar Array detector) are handled via CombatTarget's
+## defense_multiplier/is_hidden/reveal_range (computed from `grid` at
+## CombatTarget construction time) and the `detections` map DetectionSystem
+## produces — see DetectionSystem for the hidden-state/detector rules
+## themselves; this file only threads `grid`/`detections` through.
 class_name CombatResolver
 extends RefCounted
 
 ## squads: every player's live squads (mutated: dead members/squads pruned).
 ## bases: every player's bases (mutated: destroyed buildings pruned).
 ## troops_by_id: id -> TroopInstance registry (mutated: dead troops removed).
+## detections: owner_id -> {hex_key: true}, as produced by
+## DetectionSystem.resolve_tick() (caller's responsibility, same as `grid`/
+## the vision system's `visions` dict — not recomputed here).
 static func resolve_tick(
 	dt: float,
 	squads: Array[SquadInstance],
@@ -32,39 +40,42 @@ static func resolve_tick(
 	grid: HexGrid,
 	troop_defs: Dictionary,
 	building_defs: Dictionary,
+	detections: Dictionary = {},
 ) -> void:
-	var targets := _build_targets(squads, bases, troops_by_id, troop_defs, building_defs)
+	var targets := _build_targets(squads, bases, troops_by_id, grid, troop_defs, building_defs)
 
 	for squad in squads:
-		_advance_squad(squad, dt, targets, troops_by_id, troop_defs)
+		_advance_squad(squad, dt, targets, troops_by_id, troop_defs, detections)
 
 	for base in bases:
 		for building in base.buildings:
-			_advance_building(building, base.owner_id, dt, targets, troops_by_id, building_defs)
+			_advance_building(building, base.owner_id, dt, targets, troops_by_id, building_defs, detections)
 
 	_prune_dead(squads, bases, troops_by_id)
 
 ## Builds the CombatTarget view over every live squad and combat-tracked
 ## building. Buildings with max_hp 0 (infrastructure stubs, or defs carrying no
-## HP) are not targetable.
-static func _build_targets(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary) -> Array[CombatTarget]:
+## HP) are not targetable. `grid` feeds each CombatTarget's terrain-derived
+## defense_multiplier/is_hidden/reveal_range.
+static func _build_targets(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary) -> Array[CombatTarget]:
 	var targets: Array[CombatTarget] = []
 	for squad in squads:
 		if squad.member_ids.is_empty():
 			continue
-		targets.append(CombatTarget.for_squad(squad, troop_defs.get(squad.troop_type, {}), troops_by_id))
+		targets.append(CombatTarget.for_squad(squad, troop_defs.get(squad.troop_type, {}), troops_by_id, grid))
 	for base in bases:
 		for building in base.buildings:
 			if building.max_hp <= 0.0:
 				continue
-			var target := CombatTarget.for_building(building, building_defs.get(building.building_type, {}), building_defs)
+			var target := CombatTarget.for_building(building, building_defs.get(building.building_type, {}), building_defs, grid)
 			target.owner_id = base.owner_id
 			targets.append(target)
 	return targets
 
-static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary) -> void:
+static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, detections: Dictionary = {}) -> void:
 	if squad.member_ids.is_empty():
 		return
+	squad.reveal_cooldown_remaining = max(0.0, squad.reveal_cooldown_remaining - dt)
 	var def: Dictionary = troop_defs.get(squad.troop_type, {})
 	var attack_speed := float(def.get("attackSpeed", 0.0))
 	# Non-combatants (Engineer/Glider — empty canTarget) and unarmed carriers
@@ -75,21 +86,24 @@ static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[Comba
 	squad.attack_progress += dt * attack_speed
 	# Ready-but-idle: hold at most one banked volley so a unit fires promptly
 	# when an enemy arrives, without stockpiling charge over a long lull.
-	if CombatTargeting.select_target(squad, def, targets) == null:
+	if CombatTargeting.select_target(squad, def, targets, detections) == null:
 		squad.attack_progress = min(squad.attack_progress, 1.0)
 		return
 
 	var base_damage := float(def.get("damage", 0.0))
 	var splash := int(def.get("splashRadius", 0))
 	while squad.attack_progress >= 1.0:
-		var target := CombatTargeting.select_target(squad, def, targets)
+		var target := CombatTargeting.select_target(squad, def, targets, detections)
 		if target == null:
 			break
 		for member_id in _living_members(squad, troops_by_id):
 			_apply_attack(def, base_damage, squad.owner_id, target, targets, troops_by_id, splash)
 		squad.attack_progress -= 1.0
+		# Attacking breaks this squad's own stealth/ambush (revealsOnAttack /
+		# "hidden until engaging") for a cooldown, per DetectionSystem.
+		squad.reveal_cooldown_remaining = DetectionSystem.REVEAL_COOLDOWN_SECONDS
 
-static func _advance_building(building: BuildingInstance, owner_id: String, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, building_defs: Dictionary) -> void:
+static func _advance_building(building: BuildingInstance, owner_id: String, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, building_defs: Dictionary, detections: Dictionary = {}) -> void:
 	if building.max_hp > 0.0 and building.current_hp <= 0.0:
 		return
 	var stats := BuildingStats.defensive_stats(building_defs.get(building.building_type, {}), building_defs)
@@ -106,7 +120,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 	var base_damage := float(stats.get("damage", 0.0))
 	var splash := int(stats.get("splashRadius", 0))
 	while building.attack_progress >= 1.0:
-		var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets)
+		var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections)
 		if target == null:
 			building.attack_progress = min(building.attack_progress, 1.0)
 			return

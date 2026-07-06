@@ -15,6 +15,11 @@ var edge_progress: float = 0.0
 ## edge_progress's "accumulator, not absolute time" treatment. All members
 ## share type/stats, so the squad fires in unison — one attack per living member.
 var attack_progress: float = 0.0
+## Countdown (seconds) while a stealthed/forest-ambushing squad is forcibly
+## visible after attacking; 0 once expired, re-enabling hidden state if the
+## stealth/terrain condition still holds. Mutated only by CombatResolver, the
+## sole actor that knows when this squad actually fired.
+var reveal_cooldown_remaining: float = 0.0
 var commander_id: String = "" ## set if assigned to a Commander's regiment
 var boarded_on_squad_id: String = "" ## set if currently cargo aboard a carrier squad
 var cargo_squad_ids: Array[String] = [] ## only meaningful if troopType's cargoCapacity > 0

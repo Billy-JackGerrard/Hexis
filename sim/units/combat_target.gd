@@ -21,6 +21,17 @@ var is_tier_a: bool
 var damage_received_modifiers: Dictionary = {}
 ## Flat per-hit reduction (troop `armor`; buildings have no armor stat -> 0).
 var armor: float = 0.0
+## Received-damage multiplier from standing on this hex's terrain
+## (Terrain.defense_bonus(), e.g. Hills' defender bonus). Live-computed at
+## construction time from `grid`, never a stored buff. 1.0 with no grid
+## (e.g. a synthetic test target).
+var defense_multiplier: float = 1.0
+## Whether this target is currently hidden (stealth/forest-ambush) from
+## enemies that lack detector coverage or proximity — see DetectionSystem.
+var is_hidden: bool = false
+## Range within which an enemy sees this target despite is_hidden, without
+## needing a detector.
+var reveal_range: float = 0.0
 
 ## Backing references — exactly one is set depending on kind.
 var squad: SquadInstance
@@ -30,7 +41,7 @@ var building: BuildingInstance
 ## member_ids alone would still read as "alive" until _prune_dead runs.
 var _troops: Dictionary = {}
 
-static func for_squad(p_squad: SquadInstance, troop_def: Dictionary, troops_by_id: Dictionary) -> CombatTarget:
+static func for_squad(p_squad: SquadInstance, troop_def: Dictionary, troops_by_id: Dictionary, grid: HexGrid = null) -> CombatTarget:
 	var t := CombatTarget.new()
 	t.kind = Kind.SQUAD
 	t.owner_id = p_squad.owner_id
@@ -44,9 +55,13 @@ static func for_squad(p_squad: SquadInstance, troop_def: Dictionary, troops_by_i
 	t.match_keys = keys
 	t.damage_received_modifiers = troop_def.get("damageReceivedModifiers", {})
 	t.armor = float(troop_def.get("armor", 0.0))
+	if grid != null:
+		t.defense_multiplier = Terrain.defense_bonus(grid.get_terrain(p_squad.current_hex))
+		t.is_hidden = DetectionSystem.is_squad_hidden(p_squad, troop_def, grid)
+		t.reveal_range = DetectionSystem.squad_reveal_range(p_squad, troop_def, grid)
 	return t
 
-static func for_building(p_building: BuildingInstance, building_def: Dictionary, building_defs: Dictionary) -> CombatTarget:
+static func for_building(p_building: BuildingInstance, building_def: Dictionary, building_defs: Dictionary, grid: HexGrid = null) -> CombatTarget:
 	var t := CombatTarget.new()
 	t.kind = Kind.BUILDING
 	# Standalone buildings carry their own ownerId; base buildings derive it from
@@ -61,6 +76,10 @@ static func for_building(p_building: BuildingInstance, building_def: Dictionary,
 	t.match_keys = keys
 	t.is_tier_a = is_defensive
 	t.damage_received_modifiers = BuildingStats.damage_received_modifiers(building_def, p_building.material, building_defs)
+	if grid != null:
+		t.defense_multiplier = Terrain.defense_bonus(grid.get_terrain(p_building.hex))
+		t.is_hidden = BuildingStats.stealth(building_def, building_defs)
+		t.reveal_range = BuildingStats.reveal_range(building_def, building_defs)
 	return t
 
 func target_id() -> String:

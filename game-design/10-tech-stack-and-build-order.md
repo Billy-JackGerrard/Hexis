@@ -114,7 +114,12 @@ writing real UI code does, and it also needs actual game state to bind to.
      recomputed each tick by `VisionSystem.resolve_tick()`
      (`sim/vision/vision_system.gd`) from every live squad's and base
      building's `visionRange`, mirroring `MovementResolver`/`CombatResolver`'s
-     stateless-resolver-over-flat-arrays shape. `explored_hexes` only ever
+     stateless-resolver-over-flat-arrays shape. Scope is deliberately kept to
+     squads + base-attached buildings only, matching `CombatResolver`'s
+     existing boundary (see Deferred below), and this slice deliberately does
+     **not** touch stealth/detection or terrain combat bonuses at all — that's
+     the next item below, which consumes this system's output rather than
+     being part of it. `explored_hexes` only ever
      grows (the "explored but not currently visible" fade); `visible_hexes` is
      fully recomputed every tick. `Terrain.vision_bonus()`
      (`sim/hex/terrain_types.gd`) adds a flat, tunable `PLAINS_VISION_BONUS`
@@ -133,10 +138,40 @@ writing real UI code does, and it also needs actual game state to bind to.
      for a standalone instance to key vision by yet, the same boundary
      `CombatResolver` already stops at; and consuming this system for
      stealth/detection + terrain combat bonuses (the next item below).
-   - [ ] Terrain combat bonuses + stealth/detection: hill defender bonus,
-     forest ambush (attacker hidden until engaging), Tower/Radar Array
-     `detector`/`detectionRange`. Depends on the movement resolver above and
-     the vision item above it.
+   - [x] Terrain combat bonuses + stealth/detection: hill defender bonus
+     (`Terrain.HILLS_DEFENDER_BONUS`/`.defense_bonus()`,
+     `sim/hex/terrain_types.gd` — a received-damage multiplier folded into
+     `CombatMath.resolve_damage()` via `CombatTarget.defense_multiplier`,
+     computed live off the target's hex each tick, same treatment as
+     `vision_bonus()`). Forest ambush unified with the troop/building
+     schema's `stealth`/`revealRange`/`revealsOnAttack`/`detector`/
+     `detectionRange` fields — previously authored in data (Ghost Tank,
+     Submarine, Sniper, Commander Nightfall, Tower, Radar Array, Landmine)
+     but unconsumed by any sim code until now: an Infantry squad standing on
+     Forest is treated as hidden the same way an authored-`stealth` unit is,
+     via `DetectionSystem.is_squad_hidden()`/`.squad_reveal_range()`
+     (`sim/vision/detection_system.gd`), gated in
+     `CombatTargeting.candidates()` against a `reveal_range` proximity check
+     and the `detections` map `DetectionSystem.resolve_tick()` produces
+     (mirrors `VisionSystem`'s shape — recomputed fresh every call, no
+     persistence, unlike `PlayerVision.explored_hexes`). Attacking breaks
+     either kind of hidden state for a cooldown
+     (`SquadInstance.reveal_cooldown_remaining`, decremented/reset by
+     `CombatResolver`). `BuildingStats.detector()`/`.detection_range()`/
+     `.stealth()`/`.reveal_range()` (`sim/instances/building_stats.gd`)
+     resolve Tower/Radar Array/Landmine's schema fields. `tests/test_combat.gd`
+     (extended, 58 checks) + new `tests/test_detection.gd` (16 checks).
+     **Deferred**: standalone detector buildings (Tower) — see the new
+     standalone-building-placement item below, which this depends on; and
+     regiment-wide stealth auras (Commander Nightfall's `grant_stealth` aura),
+     which lands with the aura system.
+   - [ ] Standalone building placement (Engineer-built-anywhere Tower,
+     Landmine, Road, Bridge, Dock): no placement flow exists for
+     `isStandalone` buildings at all today — `BuildingPlacement.can_place()`
+     explicitly rejects them, and `BuildingInstance` has no `owner_id` for a
+     standalone instance to be keyed by owner. Blocks two already-deferred
+     items: `VisionSystem`'s standalone-building vision, and this build's
+     Tower `detector`/`detectionRange` wiring into `DetectionSystem`.
    - [ ] Regiment lock-step movement: a move order on a Commander computes one
      shared path; every squad in the regiment (Commander included) advances
      it in sync, hex-by-hex, at the regiment's slowest-member speed

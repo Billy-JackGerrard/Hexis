@@ -113,3 +113,35 @@ static func damage_received_modifiers(def: Dictionary, material: String, buildin
 	if not material_stats.is_empty():
 		return material_stats.get(material, {}).get("damageReceivedModifiers", {})
 	return resolved.get("damageReceivedModifiers", {})
+
+## Whether this building detects stealthed units (05/07 schema's `detector`).
+## Unlike vision/HP, Tower's detector/detectionRange live directly under
+## defensiveStats (not per-material) — so only two shapes exist here: a
+## Defensive building's defensiveStats.detector (Tower), or a top-level
+## detector (Radar Array).
+static func detector(def: Dictionary, building_defs: Dictionary) -> bool:
+	var resolved := resolve_def(def, building_defs)
+	if bool(resolved.get("defensiveStats", {}).get("detector", false)):
+		return true
+	return bool(resolved.get("detector", false))
+
+## Radius within which this building's detector reveals stealthed units.
+## Falls back to vision_range() when detectionRange is omitted, per schema.
+static func detection_range(def: Dictionary, level: int, material: String, building_defs: Dictionary) -> float:
+	var resolved := resolve_def(def, building_defs)
+	var defensive: Dictionary = resolved.get("defensiveStats", {})
+	if defensive.has("detectionRange"):
+		return float(defensive["detectionRange"])
+	if resolved.has("detectionRange"):
+		return float(resolved["detectionRange"])
+	return vision_range(def, level, material, building_defs)
+
+## Whether this building itself is stealthed (e.g. Landmine) — always a
+## top-level field, even for Defensive-category buildings.
+static func stealth(def: Dictionary, building_defs: Dictionary) -> bool:
+	return bool(resolve_def(def, building_defs).get("stealth", false))
+
+## Range within which an enemy sees this building despite its stealth, without
+## needing a detector.
+static func reveal_range(def: Dictionary, building_defs: Dictionary) -> float:
+	return float(resolve_def(def, building_defs).get("revealRange", 0.0))
