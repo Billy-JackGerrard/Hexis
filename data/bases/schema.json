@@ -12,7 +12,7 @@
       "enum": [
         "Capital", "Fort Irongrad", "Firebase", "Windy Peaks", "Treehouse",
         "Kraken Point", "Sky Fortress", "Winter Forge", "Foundry Reach",
-        "Signal Ridge", "Rivergate"
+        "Signal Ridge", "Rivergate", "Camp Cozy"
       ],
       "description": "Capital is per-player at match start; all others are Unique — at most one instance of each exists on a given map."
     },
@@ -32,6 +32,20 @@
       "items": { "type": "string" },
       "description": "The COMPLETE, explicit list of building ids this base type can build — every generic building (Farm, Turret, House, etc.) it has access to, plus its own specialty ones (e.g. Fort Irongrad includes \"tank_plant\" and \"grenade_tower\" alongside \"farm\", \"quarry\", \"turret\"...). There is no \"All\" sentinel or implicit generic-building grant here on purpose: each base authors its full roster explicitly so a base-specific exception (e.g. a Unique base that deliberately lacks a normally-generic building) is just an omission from this list, not a special case bolted onto the generic rule. This is the sole source of truth for building-vs-base eligibility — data/buildings/schema.json's building definitions do NOT carry a buildableAt/base-list field of their own, precisely to avoid the same fact being authored (and able to drift) in two places. Standalone buildings (Road, Bridge, Dock, Tower — see isStandalone in data/buildings/schema.json) are never tied to any base and so never appear in this list, even for a base sitting on relevant terrain."
     },
+    "initialBuildings": {
+      "type": "array",
+      "description": "Buildings already standing at match start, for EVERY base type including Capital — this is the explicit, self-contained list, so each BaseDef is readable on its own without cross-referencing the design doc. Every base's entry includes at minimum the universal HQ/Farm/Quarry seed (see game-design/02-bases-and-buildings.md's Base Seeding section, which applies unconditionally to all bases). Unique bases additionally list their generic defenses (Turret, Missile Launcher), specialty defense building (e.g. Grenade Tower, Flame Turret), production building(s) (e.g. Tank Plant, Fire Helipad), and walls — see the Initial Garrison (Unique Bases) section; Capital has only the HQ/Farm/Quarry entries since it otherwise starts bare and is built up from scratch. All pre-built instances start at level 1; exact hex placement is a world-gen concern, not authored here. Distinct from initialGarrison below: these ARE part of the base (owned buildings) and DO change hands on capture, unlike garrisoned troops.",
+      "items": {
+        "type": "object",
+        "required": ["buildingType", "count"],
+        "properties": {
+          "buildingType": { "type": "string" },
+          "count": { "type": "number" },
+          "material": { "type": "string", "enum": ["wood", "stone", "steel"], "description": "Only relevant for Wall (or another multi-material building) — which material tier the pre-built instances use." }
+        }
+      }
+    },
+
     "initialGarrison": {
       "type": "array",
       "description": "Only relevant for Unique bases before capture — the template of standing troops present at match start, restricted to unit types this base's own production building(s) can make. Instantiated into real TroopInstance/SquadInstance records at world-gen; this is the authored template, not the live count.",
@@ -54,6 +68,20 @@
           "scope": { "type": "string", "enum": ["base", "building"], "description": "\"base\" applies to all of this base's resource production; \"building\" applies only to one building type (requires buildingType)." },
           "buildingType": { "type": "string", "description": "Required when scope is \"building\" — the building id this multiplier applies to, e.g. \"oil_rig\"." },
           "multiplier": { "type": "number", "description": "e.g. 1.5 for +50%, 0.5 for -50%." }
+        }
+      }
+    },
+
+    "costModifiers": {
+      "type": "array",
+      "description": "Structured build/upgrade COST multipliers for this base type — same shape as resourceModifiers, but discounts what a building costs to build/upgrade here rather than what it produces. Entries stack multiplicatively, building-scoped first, then base-scoped. E.g. Camp Cozy -> [{scope: \"building\", buildingType: \"hospital\", multiplier: 0.75}], meaning Hospital's build cost and every upgrade cost is 25% cheaper at Camp Cozy than elsewhere. Applies to both baseCost and every level's costGrowth-derived upgrade cost on the affected building's def (data/buildings/schema.json). Omitted/empty if none.",
+      "items": {
+        "type": "object",
+        "required": ["scope", "multiplier"],
+        "properties": {
+          "scope": { "type": "string", "enum": ["base", "building"], "description": "\"base\" applies to all of this base's build/upgrade costs; \"building\" applies only to one building type (requires buildingType)." },
+          "buildingType": { "type": "string", "description": "Required when scope is \"building\" — the building id this multiplier applies to, e.g. \"hospital\"." },
+          "multiplier": { "type": "number", "description": "e.g. 0.75 for -25% cost, 1.25 for +25% cost." }
         }
       }
     },

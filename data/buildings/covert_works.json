@@ -1,0 +1,13 @@
+{
+  "id": "covert_works",
+  "name": "Covert Works",
+  "category": "Production",
+  "populationCost": 1,
+
+  "notes": "Signal Ridge only. Unlocks, in order: Ghost Tank, Disruptor.",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 210, "unlocks": "ghost_tank", "cost": { "stone": 100, "steel": 70 } },
+    { "level": 2, "hp": 245, "unlocks": "disruptor", "cost": { "stone": 150, "steel": 110 } }
+  ]
+}

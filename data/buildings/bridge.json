@@ -1,0 +1,30 @@
+{
+  "id": "bridge",
+  "name": "Bridge",
+  "category": "Infrastructure",
+  "isStandalone": true,
+
+  "materials": ["stone", "wood"],
+
+  "placementRequirement": {
+    "siteTerrain": "River"
+  },
+
+  "notes": "Engineer-built, placed anywhere on a River tile (see game-design/01-map-and-terrain.md and game-design/02-bases-and-buildings.md). River is normally impassable to Infantry and Land Vehicles; a Bridge sits directly on that River hex and unblocks it for those two domains only, the same way Road unblocks Forest for Land Vehicles. Naval is unaffected either way — Naval already moves fully freely through River tiles with or without a Bridge present (rivers are navigable from the sea at their mouth with no dock/port required to sail), and Air ignores terrain entirely. There's no literal 'over/under' layering: the hex-grid abstracts River as a single tile whose Infantry/Land passability is what the Bridge flips, independent of the Naval passability rule on that same tile. Public infrastructure once built — usable by any player's troops, not just the builder's owner. Destructible by any troop, but only after clearing defenders on/near it first; like Wall/Tower/Dock/Road it deletes outright on destruction (no ruin), freeing the hex for a full-cost fresh build rather than a discounted ruin-rebuild — rebuildCost does not apply. Not tied to a base, so it doesn't consume a population slot and isn't gated by any HQ level. Buildable in Stone or Wood: Wood is cheaper but weaker and Fire-vulnerable, consistent with the Wood-tier vulnerability used across Wall/Tower/Dock.",
+
+  "materialStats": {
+    "stone": {
+      "baseStats": { "hp": 220 },
+      "statGrowth": { "hp": { "mode": "percent", "value": 10 } },
+      "baseCost": { "stone": 90, "steel": 30 },
+      "costGrowth": { "mode": "percent", "value": 22 }
+    },
+    "wood": {
+      "baseStats": { "hp": 110 },
+      "statGrowth": { "hp": { "mode": "percent", "value": 10 } },
+      "baseCost": { "wood": 45 },
+      "costGrowth": { "mode": "percent", "value": 20 },
+      "damageReceivedModifiers": { "Fire": 2.0 }
+    }
+  }
+}

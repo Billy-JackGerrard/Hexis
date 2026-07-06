@@ -1,6 +1,6 @@
 {
-  "id": "landing_craft",
-  "name": "Landing Craft",
+  "id": "hms_cuddles",
+  "name": "HMS Cuddles",
   "domain": "Naval",
   "tags": ["Ship", "Support"],
 
@@ -10,20 +10,22 @@
   "range": 3,
   "splashRadius": 0,
   "visionRange": 10,
-  "speed": 1.8,
+  "speed": 2.2,
 
   "maxSquadSize": 1,
 
   "canTarget": ["Infantry", "Land", "Naval"],
 
+  "damageDealtModifiers": { "Naval": 1.2 },
+
   "cargoCapacity": 1,
   "cargoAllowedTags": ["Infantry"],
   "canLaunchCargoMidCombat": false,
 
-  "cost": { "food": 20, "steel": 30 },
+  "cost": { "food": 20, "steel": 35 },
   "foodUpkeep": 0,
-  "fuelUpkeep": 1,
+  "fuelUpkeep": 0.5,
   "productionTime": 16,
 
-  "notes": "Fully unarmed, Naval equivalent of Transport Carrier — relies on Gunboat escort. Unlike Transport Carrier/Aircraft Carrier, cannot deploy its boarded Infantry squad mid-combat — must be idle/docked to unload. Fuel upkeep minimal regardless of state, per game-design/03-resources.md."
+  "notes": "Port's Naval troop-transport, lightly armed — unlike Transport Truck, relies partly on its own guns and partly on Gunboat escort. Kraken Point's Shipyard fields the bigger, fully-unarmed multi-squad answer instead: Tank Carrier, which also carries Land vehicles, not just Infantry (see data/troops/tank_carrier.json). Unlike Transport Truck/Aircraft Carrier/Tank Carrier, cannot deploy its boarded Infantry squad mid-combat — must be idle/docked to unload."
 }

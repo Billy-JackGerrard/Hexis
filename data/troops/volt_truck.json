@@ -1,0 +1,34 @@
+{
+  "id": "volt_truck",
+  "name": "Volt Truck",
+  "domain": "Land",
+  "tags": ["Vehicle", "Support"],
+
+  "hp": 140,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 6,
+  "speed": 2.4,
+
+  "maxSquadSize": 2,
+
+  "canTarget": [],
+
+  "auras": [
+    { "radius": 3, "target": "friendly_troops", "filter": "Land", "effect": "speed_boost", "magnitude": 40 },
+    { "radius": 3, "target": "friendly_troops", "filter": "Air", "effect": "speed_boost", "magnitude": 40 },
+    { "radius": 3, "target": "friendly_troops", "filter": "Naval", "effect": "speed_boost", "magnitude": 40 },
+    { "radius": 3, "target": "friendly_troops", "filter": "Land", "effect": "attack_speed_boost", "magnitude": 15 },
+    { "radius": 3, "target": "friendly_troops", "filter": "Air", "effect": "attack_speed_boost", "magnitude": 15 },
+    { "radius": 3, "target": "friendly_troops", "filter": "Naval", "effect": "attack_speed_boost", "magnitude": 15 }
+  ],
+
+  "cost": { "food": 30, "steel": 35 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 20,
+
+  "notes": "Camp Cozy's Supply Depot exclusive — an electrical booster vehicle rather than a healer/economizer like Ambulance/Repair Truck/Mule. Buffs Land, Air, AND Naval domains (deliberately excludes Infantry — nothing to electrically supercharge on foot) with a big speed_boost (40%) and a slight attack_speed_boost (15%). One aura pair per domain since filter matches a single domain/tag at a time (see data/troops/schema.json). Non-combat (canTarget: []), like the rest of the Supply Depot roster."
+}

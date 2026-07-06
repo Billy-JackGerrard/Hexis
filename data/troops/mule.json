@@ -1,0 +1,29 @@
+{
+  "id": "mule",
+  "name": "Mule",
+  "domain": "Land",
+  "tags": ["Vehicle", "Support"],
+
+  "hp": 130,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 6,
+  "speed": 2.4,
+
+  "maxSquadSize": 2,
+
+  "canTarget": [],
+
+  "auras": [
+    { "radius": 3, "target": "friendly_troops", "effect": "upkeep_reduction", "magnitude": 3 }
+  ],
+
+  "cost": { "food": 20, "steel": 20 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 15,
+
+  "notes": "Camp Cozy's Supply Depot exclusive — an economic support vehicle rather than a combat-sustain one like Ambulance. Its aura reduces every nearby friendly troop's foodUpkeep AND fuelUpkeep by a flat 3 each (floored at 0, same flooring convention as armor — see game-design/05-troop-stat-schema.md), easing deficit pressure (game-design/03-resources.md) for an escorted army rather than healing HP. Non-combat (canTarget: []), like Engineer/Disruptor."
+}

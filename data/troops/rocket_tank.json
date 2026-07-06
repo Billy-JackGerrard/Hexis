@@ -1,0 +1,30 @@
+{
+  "id": "rocket_tank",
+  "name": "Rocket Tank",
+  "domain": "Land",
+  "tags": ["Vehicle", "Tank", "Anti-Air"],
+
+  "hp": 260,
+  "armor": 3,
+  "damage": 20,
+  "attackSpeed": 1.1,
+  "range": 6,
+  "splashRadius": 0,
+  "visionRange": 9,
+  "speed": 1.9,
+
+  "maxSquadSize": 3,
+
+  "canTarget": ["Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "damageDealtModifiers": { "Air": 2.0, "Naval": 1.6, "Structure": 0.7 },
+
+  "statusEffectOnHit": { "type": "stun", "duration": 1.5, "chance": 20 },
+
+  "cost": { "food": 25, "steel": 70 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 2,
+  "productionTime": 30,
+
+  "notes": "Fort Irongrad Tank Plant's dedicated AA heavy tank (also built at Winter Forge's Frostworks) — fills the roster's long-open anti-air gap. Cannot target Infantry at all (omitted from canTarget) — rockets are a vehicle/aircraft/ship/structure-killing tool, and this gives Infantry a hard counter-role against heavy armor rather than just a damage-modifier penalty. Big Air (2.0x) and Naval (1.6x) bonuses double as target-priority hints per the damage-modifier rule (see game-design/05-troop-stat-schema.md); penalized vs. Structure (0.7x) since rockets aren't built for sieging. Slight armor (3) reflects its plating, and each hit has a 20% chance to stun (full lockout for duration, then the global fixed -30% move/attack-speed tail — see schema's Status Effects section)."
+}

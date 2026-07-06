@@ -1,0 +1,36 @@
+{
+  "id": "grenade_tower",
+  "name": "Grenade Tower",
+  "category": "Defensive",
+  "populationCost": 1,
+  "extends": "turret",
+
+  "notes": "Fort Irongrad's specialty defense, in addition to the generic Turret/Missile Launcher every base gets. A Turret variant (see \"extends\") — cheap, short range, low per-hit damage, but splash makes it effective against clustered infantry pushes rather than lone heavy targets. No Naval or Air targeting, unlike base Turret — ground-only.",
+
+  "defensiveStats": {
+    "damage": 10,
+    "attackSpeed": 0.9,
+    "range": 3,
+    "splashRadius": 2,
+    "canTarget": ["Infantry", "Land"],
+    "visionRange": 5
+  },
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 180,
+      "damage": 10,
+      "range": 3
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 12 },
+      "damage": { "mode": "percent", "value": 10 },
+      "range": { "mode": "flat", "value": 0.2 }
+    },
+    "baseCost": {
+      "stone": 50,
+      "steel": 20
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

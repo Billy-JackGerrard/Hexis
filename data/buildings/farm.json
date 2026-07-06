@@ -4,7 +4,7 @@
   "category": "Resource",
   "populationCost": 1,
 
-  "notes": "Pre-seeded at every base alongside HQ and Quarry (see game-design/02-bases-and-buildings.md's Base Seeding), but NOT isFixed — unlike HQ/Ice Spire, additional Farms can be freely built after the seeded one is lost/demolished. Ticks automatically every 5s resource tick, no player input (Resource category). HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+  "notes": "Pre-seeded at every base alongside HQ and Quarry, but NOT isFixed — unlike HQ/Ice Spire, additional Farms can be freely built after the seeded one is lost/demolished.",
 
   "nonProductionUpgrade": {
     "baseStats": {

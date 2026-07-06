@@ -1,0 +1,27 @@
+{
+  "id": "plasmacopter",
+  "name": "Plasmacopter",
+  "domain": "Air",
+  "tags": ["Aircraft"],
+
+  "hp": 150,
+  "damage": 22,
+  "attackSpeed": 0.8,
+  "range": 6,
+  "splashRadius": 1,
+  "visionRange": 10,
+  "speed": 1.8,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "damageDealtModifiers": { "Structure": 0.6, "Defensive": 0.8 },
+
+  "cost": { "food": 20, "steel": 55 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 3,
+  "productionTime": 26,
+
+  "notes": "Firebase's bigger, slower Fire Helipad unit — longer range and plasma impact rather than Flamecopter's close-in fire spray. Versatile enough to hit Air, unlike Flamecopter. No damage modifiers vs. anything, but weaker against buildings; the hard-hitting generalist counterpart to Flamecopter's Wood-bonus specialization."
+}

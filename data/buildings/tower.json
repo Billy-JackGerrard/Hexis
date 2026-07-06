@@ -1,0 +1,63 @@
+{
+  "id": "tower",
+  "name": "Tower",
+  "category": "Defensive",
+  "isStandalone": true,
+
+  "materials": ["stone", "wood", "steel"],
+
+  "notes": "Standalone structure, not tied to any base — built anywhere by an Engineer. Doesn't consume a base's population slot since it isn't placed at a base. Clears fog of war at a high vision range independent of its attack range. Three variants play genuinely differently rather than a flat cost/power tradeoff: Stone Tower is high damage/low attack speed, simple stat scaling per level. Wood Tower is low damage/high attack speed, Fire-vulnerable (like Wood Walls/Bridges/Docks), and each upgrade level adds an additional independently-targeting turret instead of scaling its own stats — built for clearing swarms/fast harassers rather than single strong threats. Steel Tower trades away Air targeting entirely and drops damage/range below Stone's, but adds flat armor on top of by far the highest hp of the three, and its hit splashes (splashRadius 2, via defensiveStatsOverride) like a Grenade Tower — it's a bunker for soaking and clearing ground pushes, not a well-rounded defense. Like Walls, a destroyed Tower deletes outright rather than ruining — rebuilding it is a fresh build at full cost, never a discounted ruin-rebuild (so rebuildCost does not apply here). Also the first Defensive building to double as a stealth detector (detector: true, detectionRange: 3) — a much shorter radius than its 12-tile visionRange, since normal fog-of-war clearing and spotting a cloaked Ghost Tank/Submarine are different senses. Unlike Radar Array (Signal Ridge's single, fixed, long-range detector with a map-wide vision bonus), a Tower is cheap, placeable anywhere, and built in numbers — its short detectionRange means it only counters stealth near itself, so a Ghost Tank/Submarine stays viable everywhere except waters/approaches a player has specifically walled and towered. That gives Tower a second purpose worth defending in its own right, rather than just being a generic chokepoint piece. Revealing a stealthed unit exposes it to ANY of the owning player's nearby troops/buildings, not just this Tower's own attack — a lone Tower can lose a straight fight to a full squad (e.g. 4 Light Tanks' combined dps kills a 300hp Stone Tower in seconds), so its job is stripping the stealth for a garrison/Wall/other defenses to finish, not necessarily soloing the kill itself. Against a single stealthed unit its own stats hold up fine (higher HP/damage and longer range than e.g. Light Tank).",
+
+  "defensiveStats": {
+    "canTarget": ["Infantry", "Land", "Air", "Naval"],
+    "damageTypes": [],
+    "detector": true,
+    "detectionRange": 3
+  },
+
+  "materialStats": {
+    "stone": {
+      "baseStats": { "hp": 300, "damage": 24, "attackSpeed": 0.7, "range": 6, "visionRange": 12 },
+      "statGrowth": {
+        "hp": { "mode": "percent", "value": 10 },
+        "damage": { "mode": "percent", "value": 8 },
+        "attackSpeed": { "mode": "flat", "value": 0 },
+        "range": { "mode": "flat", "value": 0 },
+        "visionRange": { "mode": "flat", "value": 0 }
+      },
+      "baseCost": { "stone": 150, "steel": 100 },
+      "costGrowth": { "mode": "percent", "value": 25 }
+    },
+    "wood": {
+      "baseStats": { "hp": 150, "damage": 10, "attackSpeed": 1.6, "range": 5, "visionRange": 12 },
+      "statGrowth": {
+        "hp": { "mode": "percent", "value": 10 },
+        "damage": { "mode": "flat", "value": 0 },
+        "attackSpeed": { "mode": "flat", "value": 0 },
+        "range": { "mode": "flat", "value": 0 },
+        "visionRange": { "mode": "flat", "value": 0 }
+      },
+      "baseCost": { "wood": 80 },
+      "costGrowth": { "mode": "percent", "value": 20 },
+      "addsTurretPerLevel": true,
+      "damageReceivedModifiers": { "Fire": 2.0 }
+    },
+    "steel": {
+      "baseStats": { "hp": 450, "armor": 5, "damage": 14, "attackSpeed": 0.6, "range": 4, "visionRange": 12 },
+      "statGrowth": {
+        "hp": { "mode": "percent", "value": 10 },
+        "armor": { "mode": "flat", "value": 0 },
+        "damage": { "mode": "percent", "value": 8 },
+        "attackSpeed": { "mode": "flat", "value": 0 },
+        "range": { "mode": "flat", "value": 0 },
+        "visionRange": { "mode": "flat", "value": 0 }
+      },
+      "baseCost": { "steel": 200, "stone": 50 },
+      "costGrowth": { "mode": "percent", "value": 25 },
+      "defensiveStatsOverride": {
+        "canTarget": ["Infantry", "Land", "Naval"],
+        "splashRadius": 2
+      }
+    }
+  }
+}

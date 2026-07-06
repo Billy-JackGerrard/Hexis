@@ -1,0 +1,42 @@
+{
+  "id": "treehouse",
+  "baseType": "Treehouse",
+  "isCapital": false,
+  "terrainException": "Forest",
+
+  "buildableBuildings": [
+    "hq",
+    "house",
+    "farm",
+    "quarry",
+    "mine",
+    "oil_rig",
+    "lumber_mill",
+    "forest_yard",
+    "barracks",
+    "turret",
+    "missile_launcher",
+    "wall"
+  ],
+
+  "resourceModifiers": [
+    { "scope": "building", "buildingType": "lumber_mill", "multiplier": 2.0 }
+  ],
+
+  "initialBuildings": [
+    { "buildingType": "hq", "count": 1 },
+    { "buildingType": "farm", "count": 1 },
+    { "buildingType": "quarry", "count": 1 },
+    { "buildingType": "turret", "count": 1 },
+    { "buildingType": "missile_launcher", "count": 1 },
+    { "buildingType": "forest_yard", "count": 1 },
+    { "buildingType": "wall", "count": 6, "material": "stone" }
+  ],
+
+  "initialGarrison": [
+    { "troopId": "quad_bike", "count": 4 },
+    { "troopId": "rifleman", "count": 4 }
+  ],
+
+  "notes": "Forest/infantry/economy specialist Unique base — one instance on the map, found in a large forest biome; ALL of its buildings can be placed directly on Forest tiles (terrainException), not just Lumber Mill. Forest Yard builds Quad-bike (its only unlock — ignores the forest vehicle-block rule); Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Treehouse its own infantry roster too. No specialty defense building — relies on generic Turret/Missile Launcher plus Walls. +100% Wood bonus is a building-scoped resourceModifiers entry on Lumber Mill (multiplier 2.0), not a base-wide bonus, mirroring Foundry Reach's +100% Steel pattern."
+}

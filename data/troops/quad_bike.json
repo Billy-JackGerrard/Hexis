@@ -1,0 +1,29 @@
+{
+  "id": "quad_bike",
+  "name": "Quad-bike",
+  "domain": "Land",
+  "tags": ["Vehicle", "Light"],
+
+  "hp": 85,
+  "damage": 8,
+  "attackSpeed": 1.2,
+  "range": 4,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 3.0,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Structure", "Defensive"],
+
+  "damageDealtModifiers": { "Infantry": 1.4},
+
+  "terrainOverrides": { "ignoresForestBlock": true },
+
+  "cost": { "food": 15, "steel": 15 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 10,
+
+  "notes": "Treehouse's Forest Yard exclusive — fastest land vehicle in the roster, low armor/damage. ignoresForestBlock lets it move through Forest tiles like Infantry, unlike other Land vehicles (see game-design/01-map-and-terrain.md). Cannot target Air or Naval — a light scout/skirmisher, not an anti-air or ship-hunting unit; it can still contest Defensive buildings and plain Structures, just with no bonus damage against either. Cheap, low Fuel upkeep befitting its light-vehicle role."
+}

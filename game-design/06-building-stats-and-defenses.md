@@ -29,7 +29,7 @@ instead of simply dying.
 - **Walls are the exception**: a destroyed Wall doesn't become a ruin — it simply
   **disappears** entirely, freeing its hex-border edge. Rebuilding it there is a full
   fresh build (any material, at normal cost), not a discounted ruin-rebuild.
-- **Standalone buildings (Road, Bridge, Dock, Tower) follow the same rule as Walls**:
+- **Standalone buildings (Road, Bridge, Dock, Tower, Landmine) follow the same rule as Walls**:
   not tied to a base, they carry their own `ownerId` directly rather than deriving
   ownership from a base, and a destroyed standalone building **deletes outright**
   rather than ruining — freeing the hex/edge for a full fresh build at normal cost
@@ -49,7 +49,7 @@ instead of simply dying.
 |---|---|---|
 | HP | number | building's health pool |
 | Damage received modifiers | dict `{tag: multiplier}` | same pattern as troops/walls, e.g. Wood Wall `{Fire: 2.0}` |
-| Rebuild cost | number | Flat **50% of original build cost**, same material. Not applicable to Walls or standalone buildings (Road/Bridge/Dock/Tower), which delete outright on destruction (full rebuild cost, any material) rather than ruining. |
+| Rebuild cost | number | Flat **50% of original build cost**, same material. Not applicable to Walls or standalone buildings (Road/Bridge/Dock/Tower/Landmine), which delete outright on destruction (full rebuild cost, any material) rather than ruining. |
 
 HP regen is **not** a per-building stat — see the global 5%-per-5s-tick rule above.
 
@@ -68,22 +68,23 @@ These use the same combat-facing fields as troops:
 | detector | bool | optional — a defensive building could double as stealth detection |
 | Vision range | number | separate from attack range, same as troops |
 
-## Known Defensive Buildings (stats TBD, structure only for now)
+## Known Defensive Buildings (fully implemented — see data/buildings/*.json)
 
-| Building | Available at | Known character (from earlier design) |
+| Building | Available at | Known character |
 |---|---|---|
 | Turret | All bases | Generic default defense |
-| Missile Launcher | All bases | Generic default defense — likely the anti-air generalist given Grenade Tower/Flame Turret are already ground-specialized |
+| Missile Launcher | All bases | Generic default defense — confirmed anti-air generalist (`damageDealtModifiers: {Air: 1.5}`), since Grenade Tower/Flame Turret are already ground-specialized |
 | Grenade Tower | Fort Irongrad only | Cheap, short range, low damage, splash |
-| Flame Turret (renamed from Flamethrower) | Firebase only | Fire-tagged damage, likely bonus vs Wood-tagged targets/walls |
+| Flame Turret (renamed from Flamethrower) | Firebase only | Fire-tagged damage, bonus vs Wood-tagged targets/walls |
 | Cold Turret | Winter Forge only | Ice bombs, medium-low range, low damage, applies `status_effect_on_hit: {type: freeze}` for a couple seconds — crowd control over raw damage |
+| River Battery | Rivergate only | Turret variant, trades Air targeting for a bonus vs. Naval targets; must be placed adjacent to Water |
+| Wind Spire | Windy Peaks only (hill tiles) | Turret variant, low damage, applies `status_effect_on_hit: {type: knockback}` on every hit, large damage bonus vs. Air |
+| EMP Turret | Signal Ridge only | Turret variant, low damage, applies `status_effect_on_hit: {type: emp}` on every hit — immobilizes Land vehicles, destroys Air troops outright (except empImmune troops: Hot Air Balloon, Glider), no effect on Infantry/Naval beyond direct damage |
 | Walls (Wood/Stone/Steel) | All (Wood requires access to Wood, from any base's Lumber Mill) | Not a "defense" that attacks, but has HP + damage-received modifiers (Wood: weak vs Fire). Disappears on destruction rather than ruining (see Destruction & Ruins above) |
 
-- **Some buildings will act as stealth detectors** — i.e. carry the `detector: true`
-  flag from the troop/building schema, letting them reveal stealthed enemy troops at
-  full vision range regardless of `reveal_range`. Which specific building(s) serve
-  this role is still to be decided (could be a dedicated new building, or a flag added
-  onto an existing defensive building like Turret or Missile Launcher).
+- **Stealth detection is resolved**: Radar Array (Signal Ridge, Support-category)
+  carries the top-level `detector: true` flag; no Defensive building currently doubles
+  as a detector.
 
 ## Support Buildings (Hospital, Ice Spire, House)
 Support buildings reuse the troop schema's **auras** field (`05-troop-stat-schema.md`)
@@ -121,8 +122,9 @@ project a passive effect:
   `05-troop-stat-schema.md`), and upgrades are instant (per `02-bases-and-buildings.md`).
 - **HQ level as a global ceiling**: no building in a base can be upgraded past the
   HQ's current level, regardless of building type.
-- **Troop-production buildings** (Barracks, Factory, Port, Tank Plant, Fire Helipad,
-  Wind Sanctuary, Hangar, Quad Hangar, Shipyard) have a **derived max level**: there's no
+- **Troop-production buildings** (Barracks, Factory, Port, Tank Plant, Frostworks,
+  Fire Helipad, Wind Sanctuary, Hangar, Forest Yard, Shipyard, Covert Works, Ford
+  Yard) have a **derived max level**: there's no
   separate stored cap — the max level is simply `length(troop_list)` for that
   building. Each level unlocks the next troop in the list, in order. This means the
   cap is never a value that can drift out of sync with the roster — add a 4th troop to
@@ -138,8 +140,9 @@ project a passive effect:
     `stat_growth.foodOutput` is tuned much steeper (boat count roughly doubling per
     level) so that a maxed-out Harbour ends up out-producing a maxed-out Farm despite
     the lower starting point — see `02-bases-and-buildings.md`.
-  - **Walls**: each level grants a boost to HP/armor (damage-received modifiers
-    improve, e.g. reducing the Wood-vs-Fire penalty over levels, or just raising flat HP).
+  - **Walls**: each level grants a flat HP boost only — `damageReceivedModifiers`
+    (e.g. Wood's Fire weakness) are fixed per material tier and don't currently
+    improve with level in `data/buildings/wall.json`.
   - **Defensive buildings** (Turret, Missile Launcher, Grenade Tower, Flame Turret):
     each level grants a boost to HP, Damage, and possibly Range.
 - **Effective reachable level** for a production building = `min(HQ level,
@@ -189,7 +192,7 @@ model) — it has a `troopList`-shaped roster of Commanders, but doesn't unlock 
 one-per-level. Instead it uses a dedicated `commanderProgression` shape
 (`data/buildings/schema.json`) with two parts:
 - **`tierLevels`** (explicit per-level table, levels 1-3): each level unlocks a whole
-  Commander **tier** at once (`basic` at 1, `rare` at 2, `best` at 3 — see
+  Commander **tier** at once (`common` at 1, `rare` at 2, `epic` at 3 — see
   `05-troop-stat-schema.md`'s `commander_tier` field), plus an absolute `hp` value and
   a `commanderSlots` contribution toward the player's Commander cap (1 per level here).
 - **`postTierGrowth`** (formula-based, levels 4+): once every tier is unlocked, further
@@ -259,6 +262,26 @@ cost/power tradeoff:
 
 - **Vision**: both variants clear fog of war at a high vision range, independent of
   attack range (consistent with vision ≠ engagement range elsewhere in the design).
+- **Stealth detection**: both variants also carry `detector: true` with a short
+  `detectionRange` of 3 — much shorter than their 12-tile `visionRange`, since normal
+  fog-of-war clearing and spotting a cloaked Ghost Tank/Submarine are treated as
+  different senses. This is deliberately a *short-range, place-and-defend* counter
+  rather than a mobile escort: Tower is cheap and buildable anywhere by an Engineer, so
+  countering stealth this way means walling/towering specific water approaches or
+  chokepoints, not tagging along with a fleet. Unlike Radar Array (Signal Ridge's
+  single, fixed, long-range detector — see below), stealth stays viable everywhere
+  except the specific spots a player has invested Tower coverage in. This also gives
+  Tower a second reason to be defended, beyond being a generic chokepoint piece.
+- **Detection reveals, it doesn't require Tower to land the kill itself**: revealing a
+  stealthed unit exposes it to ANY of the owning player's troops/buildings within that
+  same local radius, not just to Tower's own attack (same as Radar Array below, which
+  has no attack at all — its detector flag would be pointless otherwise). A lone Tower
+  can still lose a straight fight to a full squad (e.g. four Light Tanks' combined dps
+  kills a 300 HP Stone Tower in a few seconds), but that's fine: its job is to strip
+  the stealth so a garrison, Wall, or other nearby defense can finish it, not to
+  out-tank an entire squad alone. Against a single stealthed unit its own stats hold up
+  fine — Stone Tower's 300 HP/24 dmg/range 6 beats a Light Tank's 180 HP/15 dmg/range 4
+  in a straight 1v1.
 - **Wood Tower's role is confirmed as swarm-clearing**: its multiple turrets
   **independently target** (each turret slot picks its own nearest enemy, per the
   standard combat targeting rule), so a max-level Wood Tower can engage several
@@ -276,12 +299,27 @@ Docks and Bridges (in addition to Walls) can now be built in **either Stone or W
   every structure type it touches, rather than introducing a use for it with a
   different profile.
 
-## Open / Unresolved Items
-- Exact HP/damage/range/splash numbers for every defensive building.
-- Whether Missile Launcher is the anti-air generalist (implied, not yet confirmed).
-- Which specific building(s) carry the `detector: true` stealth-detection flag.
-- What a defensive building's own per-level unlocks look like (e.g. does Turret level
-  2/3 just scale stats, or unlock new can_target entries like gaining anti-air?).
+## Resolved (previously Open) Items
+- Exact HP/damage/range/splash numbers for every defensive building are authored in
+  `data/buildings/*.json`.
+- Missile Launcher is confirmed the anti-air generalist (`damageDealtModifiers:
+  {Air: 1.5}`).
+- Radar Array carries the `detector: true` stealth-detection flag (no `detectionRange`
+  override, so it detects at its full, long `visionRange`) and is `isFixed: true` —
+  pre-seeded only, same as HQ/Ice Spire, so its map-wide `globalVisionRangeBonus`
+  can't be stacked by building more than one. Tower is the Defensive building that
+  doubles as a (short-range) detector — see the Tower section above.
+- Defensive buildings use pure stat scaling per level (hp/damage/range via
+  `nonProductionUpgrade`) — no new `can_target` entries unlock at higher levels.
+
+## Known Data Inconsistencies (need a decision, not yet fixed)
+- `data/buildings/turret.json`'s `defensiveStats.range` (4) disagrees with its own
+  `nonProductionUpgrade.baseStats.range` (5) — these two are meant to describe the
+  same level-1 value.
+- `data/buildings/emp_turret.json`'s `defensiveStats` omits `canTarget` entirely; per
+  the `extends` rule in `data/buildings/schema.json` (a variant's `defensiveStats`
+  overrides the base wholesale, not merged key-by-key), this Turret variant may not be
+  able to target anything as authored.
 
 ## Resolved Decisions
 - **Walls never attack** — purely passive HP barriers, no contact/spike damage. This is

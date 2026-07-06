@@ -1,0 +1,27 @@
+{
+  "id": "hot_air_balloon",
+  "name": "Hot Air Balloon",
+  "domain": "Air",
+  "tags": ["Aircraft", "Balloon"],
+
+  "hp": 100,
+  "damage": 20,
+  "attackSpeed": 0.8,
+  "range": 1,
+  "splashRadius": 2,
+  "visionRange": 5,
+  "speed": 0.8,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Naval", "Structure", "Defensive"],
+
+  "empImmune": true,
+
+  "cost": { "food": 15, "steel": 10 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 14,
+
+  "notes": "Cheap high-splash ground bomber; cannot target Air. Slow and hits harder per shot than Firebase's Flamecopter (same splash radius, same ground-only targeting) — the deliberate slow/heavy-hitting counterpart to Flamecopter's fast/lower-damage/Wood-specialist profile, see data/troops/flamecopter.json. Fuel upkeep is modest — lighter than most aircraft, which normally carry heavy Fuel consumption. empImmune: a hot-air envelope has no engine for Signal Ridge's EMP Turret to disable, unlike every other Air-domain unit (see game-design/05-troop-stat-schema.md's Status Effects section)."
+}

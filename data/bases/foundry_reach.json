@@ -1,0 +1,44 @@
+{
+  "id": "foundry_reach",
+  "baseType": "Foundry Reach",
+  "isCapital": false,
+
+  "buildableBuildings": [
+    "hq",
+    "house",
+    "farm",
+    "quarry",
+    "mine",
+    "oil_rig",
+    "lumber_mill",
+    "stone_works",
+    "harbour",
+    "factory",
+    "turret",
+    "missile_launcher",
+    "wall",
+    "hospital"
+  ],
+
+  "resourceModifiers": [
+    { "scope": "building", "buildingType": "mine", "multiplier": 2.0 }
+  ],
+
+  "initialBuildings": [
+    { "buildingType": "hq", "count": 1 },
+    { "buildingType": "farm", "count": 1 },
+    { "buildingType": "quarry", "count": 1 },
+    { "buildingType": "turret", "count": 1 },
+    { "buildingType": "missile_launcher", "count": 1 },
+    { "buildingType": "stone_works", "count": 1 },
+    { "buildingType": "factory", "count": 1 },
+    { "buildingType": "wall", "count": 6, "material": "stone" }
+  ],
+
+  "initialGarrison": [
+    { "troopId": "tonk", "count": 3 },
+    { "troopId": "light_tank", "count": 2 }
+  ],
+
+  "notes": "Economic specialist Unique base — one instance on the map, sited on Plains, no terrain exception. Its one exclusive building is Stone Works (a Quarry-equivalent Resource building with a steeper compounding growth curve, mechanically the Stone counterpart to Harbour's Food pattern). Factory gives it the same roster as Capital; Harbour is only actually placeable if this base's site has a Water-adjacent Plains hex, same caveat as Capital's Harbour/Port. No specialty defense building — relies on generic Turret/Missile Launcher plus Walls (its sole offensive/defensive option beyond those is Factory). +100% Steel bonus is a building-scoped resourceModifiers entry on Mine (multiplier 2.0), stacking with Stone Works' own output to make this base a strong dual resource-economy target."
+}

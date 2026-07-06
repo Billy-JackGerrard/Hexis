@@ -85,7 +85,7 @@ BuildingInstance {
 - **Wall**: when `currentHP` reaches 0, the row is deleted outright (see `Wall` above)
   rather than gaining a `ruinState`.
 
-### Standalone Buildings (Road, Bridge, Dock, Tower) — ownerId, no ruin
+### Standalone Buildings (Road, Bridge, Dock, Tower, Landmine) — ownerId, no ruin
 Unlike a base-attached building, a standalone `BuildingInstance` has `baseId: null`,
 so ownership can't be derived from a Base. Standalone instances instead carry their
 own `ownerId` directly:
@@ -121,7 +121,7 @@ solve, since a ruin still occupies the hex):
 - **Blocked for any building whose def has `isFixed: true`** (HQ, Ice Spire) — since
   these can never be freshly built from a menu, demolishing one would create a
   permanent hole. The action simply isn't offered for them.
-- Applies equally to Walls and standalone buildings (Road/Bridge/Dock/Tower), which
+- Applies equally to Walls and standalone buildings (Road/Bridge/Dock/Tower/Landmine), which
   already delete-outright on combat destruction — demolish just triggers that same
   deletion voluntarily, with the 50%-of-spend refund.
 - See `02-bases-and-buildings.md`'s Demolishing Buildings section for the player-
@@ -241,9 +241,10 @@ SquadInstance {
 - **No per-hex unit cap** — any number of squads/troops can stack on one hex (combat
   scale here is about squads and fronts, not unit-level collision, matching the
   "positioning over micromanagement" pillar).
-- Unlimited stacking means a squad's `order.type: "attack_target"` is what actually
-  directs fire at a **Structure** (building/wall) — see `04-combat.md`'s targeting
-  rules for the default (troops-only) vs. `prioritizeStructures` (siege) behavior.
+- Unlimited stacking means a squad's `order.type: "attack_target"` is how a player
+  commits fire to a *specific* Structure (building/wall) rather than whichever is
+  nearest — see `04-combat.md`'s targeting rules for the full default-vs-directed
+  priority order.
 
 ### 4b. Regiment Instance (Commander-led combined-arms groups of squads)
 ```
@@ -282,7 +283,7 @@ A **separate** player-wide cap, independent of `maxSquads` above, though a Comma
 each Command Centre's current level)`. Per `data/buildings/schema.json`'s
 `commanderProgression`, each owned Command Centre contributes:
 - **1** slot at levels 1-3 (these levels are about unlocking Commander *tiers* —
-  basic/rare/best — not growing the cap; see `02-bases-and-buildings.md`'s Command
+  common/rare/epic — not growing the cap; see `02-bases-and-buildings.md`'s Command
   Centre & the Commander Cap section).
 - **+1 additional slot per level from level 4 onward** (levels 4+ have no further
   tier unlocks, so their only effect is HP growth plus this Commander-cap growth).
@@ -298,9 +299,14 @@ count is back under the lower cap.
 **Resolved: `BaseDef` (static, per base type — `data/bases/schema.json`) and
 `BaseInstance` (live, per-match) are now separate**, matching the pattern already used
 for troops and buildings. `BaseDef` holds `baseType`, `isCapital`, `terrainException`,
-`buildableBuildings`, `initialGarrison` (the authored template), and `resourceModifiers`
+`buildableBuildings`, `initialBuildings` (pre-built buildings for Unique bases — see
+below), `initialGarrison` (the authored garrison-troop template), `resourceModifiers`
 (structured production multipliers — see below; replaces an earlier free-text
-`resourceBonus` string).
+`resourceBonus` string), and `costModifiers` (structured build/upgrade-cost
+multipliers, same shape as `resourceModifiers` but discounting/inflating what a
+building costs rather than what it produces — e.g. Camp Cozy discounts Hospital and
+Wall cost, see `02-bases-and-buildings.md`'s Camp Cozy section and
+`data/bases/schema.json`).
 - **`buildableBuildings`** is the explicit, complete list of every building id a base
   type can build — generic buildings (Farm, Turret, House, ...) included, not just its
   specialty ones. There's deliberately no "buildable at All bases" sentinel anywhere:
@@ -336,20 +342,22 @@ Player {
   everything already built there.
 - Buildings don't carry their own `ownerId` — ownership is derived from the
   `BaseInstance` they belong to (`baseId`). This does **not** extend to standalone
-  buildings (Road/Bridge/Dock/Tower — see section 3) or to troops/squads (see below),
+  buildings (Road/Bridge/Dock/Tower/Landmine — see section 3) or to troops/squads (see below),
   which carry `ownerId` directly.
 - **`resourceModifiers`** (on `BaseDef`) is a structured list, e.g. Capital's entry:
   ```
   resourceModifiers: [
-    { scope: "base", multiplier: 1.5 },                              // Capital's overall +50%
     { scope: "building", buildingType: "oil_rig", multiplier: 0.5 }   // Capital's Oil Rig -50% penalty
   ]
   ```
-  Applied multiplicatively, building-scoped entries first, then base-scoped: a
-  Capital's Oil Rig output ends up at `1.0 * 0.5 * 1.5 = 0.75x` a Unique base's
-  equivalent-level Oil Rig — see `03-resources.md`'s Oil Rig Notes for the worked
-  example. This replaces an earlier free-text `resourceBonus: "+50%..."` string, which
-  couldn't represent a per-building-type exception without prose.
+  Applied multiplicatively, building-scoped entries first, then base-scoped (bases
+  that carry both stack the same way) — see `03-resources.md`'s Oil Rig Notes for the
+  worked example. Note: every current base's `resourceModifiers`/`costModifiers` entry
+  is actually `scope: "building"` (e.g. Foundry Reach's +100% Steel is a
+  `buildingType: "mine"` entry, not base-wide) — `scope: "base"` is supported by the
+  schema but not yet used by any base. This replaces
+  an earlier free-text `resourceBonus: "+50%..."` string, which couldn't represent a
+  per-building-type exception without prose.
 - **`isCapital`** (on `BaseDef`) is set once, at world-gen, and never changes — Capital
   status doesn't transfer or get "designated," it's a permanent property of that
   specific base type (see `00-overview.md`/`02-bases-and-buildings.md`). A player's

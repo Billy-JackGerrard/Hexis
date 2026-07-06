@@ -1,0 +1,40 @@
+{
+  "id": "fort_irongrad",
+  "baseType": "Fort Irongrad",
+  "isCapital": false,
+
+  "buildableBuildings": [
+    "hq",
+    "house",
+    "farm",
+    "quarry",
+    "mine",
+    "oil_rig",
+    "lumber_mill",
+    "tank_plant",
+    "turret",
+    "missile_launcher",
+    "grenade_tower",
+    "wall"
+  ],
+
+  "initialBuildings": [
+    { "buildingType": "hq", "count": 1 },
+    { "buildingType": "farm", "count": 1 },
+    { "buildingType": "quarry", "count": 1 },
+    { "buildingType": "turret", "count": 1 },
+    { "buildingType": "missile_launcher", "count": 1 },
+    { "buildingType": "grenade_tower", "count": 2 },
+    { "buildingType": "tank_plant", "count": 1 },
+    { "buildingType": "wall", "count": 6, "material": "stone" }
+  ],
+
+  "initialGarrison": [
+    { "troopId": "juggernaut", "count": 4 },
+    { "troopId": "rocket_tank", "count": 3 },
+    { "troopId": "granite_crumbler", "count": 2 },
+    { "troopId": "chonky", "count": 2 }
+  ],
+
+  "notes": "Heavy armor specialist Unique base — one instance on the map. Tank Plant builds the full Heavy Tank roster (Juggernaut, Rocket Tank, Granite Crumbler, Chonky); Granite Crumbler and Chonky are Fort Irongrad-exclusive (not built at Winter Forge's Frostworks). Sited on Plains, no terrain exception."
+}

@@ -1,0 +1,29 @@
+{
+  "id": "submarine",
+  "name": "Submarine",
+  "domain": "Naval",
+  "tags": ["Ship", "Stealth"],
+
+  "hp": 140,
+  "damage": 38,
+  "attackSpeed": 0.6,
+  "range": 4,
+  "splashRadius": 0,
+  "visionRange": 6,
+  "speed": 1.8,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Naval"],
+
+  "stealth": true,
+  "revealRange": 1,
+  "revealsOnAttack": true,
+
+  "cost": { "food": 25, "steel": 60 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 28,
+
+  "notes": "naval sibling to Ghost Tank. canTarget is Naval-only: torpedoes can't threaten Land/Infantry/Structure/Air at all, making it a pure ship-hunter and giving surface ships (Gunboat, Destroyer) an uncontested role against everything else. stealth/revealRange/revealsOnAttack work exactly like Ghost Tank — invisible beyond very short range to non-detectors, full visionRange visibility to detector units/buildings (Sniper, Radar Array), and firing breaks its own cloak until a few seconds pass without attacking. High single-hit damage but slow attack speed reflects a torpedo-strike-then-reposition playstyle."
+}

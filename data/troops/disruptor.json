@@ -1,0 +1,29 @@
+{
+  "id": "disruptor",
+  "name": "Disruptor",
+  "domain": "Land",
+  "tags": ["Vehicle", "Support"],
+
+  "hp": 90,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 6,
+  "speed": 2.2,
+
+  "maxSquadSize": 1,
+
+  "canTarget": [],
+
+  "auras": [
+    { "radius": 6, "target": "enemy_buildings", "filter": "Defensive", "effect": "suppress_targeting" }
+  ],
+
+  "cost": { "food": 20, "steel": 45 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 2,
+  "productionTime": 22,
+
+  "notes": "Signal Ridge's Covert Works exclusive electronic-warfare troop, not a building. Non-combat (canTarget: []), like Engineer, and maxSquadSize 1 (never merges), like Engineer/Commander. Its aura suppresses enemy Defensive-category buildings' targeting within radius — must be escorted deep into enemy base range to matter, since it has no attack and modest HP of its own; killing the Disruptor immediately restores the suppressed defenses. No stealth of its own (unlike Ghost Tank) — relies on escort, not concealment, to survive the approach."
+}

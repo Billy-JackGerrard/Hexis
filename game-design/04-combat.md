@@ -14,6 +14,13 @@
   already-allowed target gets picked first; it never expands `canTarget` or overrides
   an explicit directed order (see `05-troop-stat-schema.md`'s Damage Modifiers
   section).
+  - **Resolved: if several in-range targets each match a different qualifying (>1.0)
+    `damageDealtModifiers` entry, the troop prefers whichever target matches its
+    *highest* multiplier**, regardless of distance — e.g. a troop with
+    `{"Defensive": 2.5, "Land": 1.5}` picks a Defensive building over an equally- or
+    even nearer Land vehicle, since 2.5 > 1.5. Distance is only the tie-breaker among
+    targets matching the *same* multiplier (or among targets with no qualifying
+    modifier at all, which fall back to the plain nearest-enemy default).
 - **Focus-fire / structure-targeting override**: with a squad selected, clicking
   directly on a specific enemy **troop, squad, building, or wall** issues a
   **directed-target order** (`order: { type: "attack_target", targetId }` — see
@@ -24,22 +31,31 @@
   auto-resolve combat, and stays consistent with "movement is the only direct lever"
   by treating it as a targeted variant of a click-command rather than a manual attack
   action (see `09-ui-and-controls.md`).
-  - **Resolved: this is also how a siege is directed at a building or the HQ itself.**
-    Default (undirected) auto-targeting only ever picks the **nearest enemy troop**
-    in range — defensive buildings/walls in the way don't get auto-attacked just for
-    standing between a squad and the enemy. To actually clear a path and reach a
-    structure, the player clicks it directly (same mechanic as clicking an enemy
-    troop above), and the squad will fight through whatever's defending it to reach
-    and attack that specific target.
-  - **Siege troops** (schema flag `prioritizeStructures` — see
-    `05-troop-stat-schema.md`) invert the *default*: with no explicit order and
-    nothing directly attacking them, they auto-target the nearest building/wall
-    (Structure OR Defensive) over enemy troops, letting a dedicated siege unit
-    beeline for defenses/HQ without a per-target click. Regular troops never do this
-    on their own — they always need the explicit directed order above to attack a
-    structure. **Basekiller** combines this with a `Defensive` damage bonus, so among
-    in-range structures it further prefers Defensive buildings specifically (see the
-    damage-modifier target-priority rule above).
+  - **Resolved: `Defensive`-category buildings (Turret, Missile Launcher, Grenade
+    Tower, Flame/Cold Turret, River Battery, Tower) are auto-targeted by default, the
+    same as an enemy troop — no explicit order needed.** This applies to any troop
+    that lists `Defensive` in its `canTarget` (see `05-troop-stat-schema.md`). The
+    reasoning: Defensive buildings actively shoot at troops in range, so troops
+    fighting back against them is the same "auto-resolve combat" default as fighting
+    back against an enemy squad. If both an enemy troop and a Defensive building are
+    in range, normal nearest-target/damage-modifier-priority rules above decide which
+    is engaged first — a unit with a `Defensive` damage bonus (e.g. Basekiller)
+    prefers the Defensive building even if a troop is equally near.
+  - **Resolved: plain `Structure` targets (HQ, Farm, Barracks, walls, etc.) are also
+    auto-targeted by default whenever no enemy troop or Defensive building is in
+    range.** Any troop that lists `Structure` in its `canTarget` will, once nothing
+    else is fighting it, automatically path to and attack the nearest such building or
+    wall — no directed click required. This is a lower-priority tier than troops/
+    Defensive buildings: as long as an enemy troop or Defensive building the unit can
+    engage is in range, that's attacked first; the squad only turns on plain
+    Structures once the immediate area is clear of those. A directed click still works
+    exactly as described above, e.g. to make a squad path toward and commit to a
+    *specific* distant Structure rather than whichever is nearest by default.
+    **Basekiller** is a good example: `Defensive` and `Structure` in `canTarget` mean
+    it auto-fights base defenses first, then auto-beelines for HQ/Farm/etc. once no
+    Defensive building or troop is in range — combined with its `Defensive` damage
+    bonus, it prefers Defensive buildings over any other target when several are in
+    range (see the damage-modifier target-priority rule above).
 - **Vision range and engagement (attack) range are separate** — a unit can see an
   enemy approaching before it's close enough to fight, giving the player a genuine
   reaction window (retreat, reposition, garrison a base, etc.).
@@ -90,12 +106,14 @@
 
 #### Commander Tiers & the Commander Cap
 **Resolved**: the Command Centre doesn't unlock Commanders one-per-level like a normal
-production building. Commanders are split into three tiers (`basic` / `rare` / `best`,
-a field on each Commander's troop definition):
-- **Command Centre level 1** unlocks **every** `basic`-tier Commander at once (not just
+production building. Commanders are split into three tiers (`common` / `rare` / `epic`,
+a field on each Commander's troop definition). Note: `data/buildings/command_centre.json`
+implements this progression, but no Commander troop is yet defined in `data/troops/` —
+the roster itself doesn't exist in data yet.
+- **Command Centre level 1** unlocks **every** `common`-tier Commander at once (not just
   one), and contributes 1 slot to the player's **Commander cap**.
 - **Level 2** additionally unlocks every `rare`-tier Commander.
-- **Level 3** additionally unlocks every `best`-tier Commander — full roster available.
+- **Level 3** additionally unlocks every `epic`-tier Commander — full roster available.
 - **Level 4+**: no further unlocks — just HP growth, plus **+1 Commander-cap slot per
   level**.
 
@@ -111,8 +129,9 @@ drops back under the (lower) cap. Full details and the data shape: see
 `06-building-stats-and-defenses.md`.
 
 ### Cargo: Boarding, Launching, and Carrier Loss
-- **Boarding**: a squad boards a carrier squad (Transport Carrier, Aircraft Carrier)
-  via a `board` order targeting the carrier squad, provided the carrier has open
+- **Boarding**: a squad boards a carrier squad (Transport Truck, HMS Cuddles, Tank
+  Carrier, Aircraft Carrier) via a `board` order targeting the carrier squad, provided
+  the carrier has open
   cargo capacity and the boarding squad's Domain/tags are in the carrier's
   `cargoAllowedTags` (see `05-troop-stat-schema.md`). A boarded squad's position
   becomes the carrier's — it stops pathing/acting independently until unloaded.
@@ -121,7 +140,7 @@ drops back under the (lower) cap. Full details and the data shape: see
   it's aboard.
 - **Launching/unloading**: an `unload` order deploys a specific boarded squad at the
   carrier's current hex (or an adjacent hex), resuming its independent movement/combat.
-  Confirmed **mid-battle capable** for both Aircraft Carrier and Transport Carrier
+  Confirmed **mid-battle capable** for both Aircraft Carrier and Transport Truck
   (`can_launch_cargo_mid_combat`) — not restricted to idle/docked moments.
 - **Resolved: if a carrier squad is destroyed while troops are boarded, everything
   aboard dies with it** — boarded squads (and their member troops) are removed from
@@ -149,8 +168,14 @@ drops back under the (lower) cap. Full details and the data shape: see
 - **Status effects beyond damage**: some attacks apply a temporary effect on hit
   rather than (or in addition to) damage — e.g. Winter Forge's Cold Turret **freezes**
   its target for a couple of seconds (can't move or attack while frozen). This is a
-  new schema field (`status_effect_on_hit`), not a special case — see
-  `05-troop-stat-schema.md`.
+  schema field (`status_effect_on_hit`), not a special case — see
+  `05-troop-stat-schema.md`. **`stun`** is a related but distinct effect type: the same
+  full-lockout shape as freeze, but it always ends with a global, fixed follow-on
+  debuff (-30% move/attack speed, lasting the same `duration` as the lockout itself)
+  once the lockout expires — the -30%/-30% magnitude is a fixed rule of the `stun`
+  type itself, not a number authored per building/troop, the same way HP regen is a
+  global rule rather than a per-building stat; only the tail's *length* is derived
+  from whatever `duration` was already set for the lockout.
 - **All buildings and walls regenerate HP slowly over time** once out of combat —
   damage from a fight isn't permanent unless the structure is actually destroyed
   during the fight.
@@ -175,7 +200,7 @@ drops back under the (lower) cap. Full details and the data shape: see
 ## Resolved Decisions
 - **Commander dies mid-battle → squad disbands** (see Commanders section above).
 - **Mixed-squad speed = slowest member's speed.**
-- **Aircraft Carrier and Transport Carrier can both launch/deploy their cargo
+- **Aircraft Carrier and Transport Truck can both launch/deploy their cargo
   mid-battle** — not purely storage/transport-while-idle. See `05-troop-stat-schema.md`'s
   Transport/Cargo fields (`can_launch_cargo_mid_combat`).
 - **Boarding is an explicit order, cargo counts against squad cap, and cargo dies with

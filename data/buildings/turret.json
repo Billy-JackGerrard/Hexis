@@ -1,0 +1,36 @@
+{
+  "id": "turret",
+  "name": "Turret",
+  "category": "Defensive",
+  "populationCost": 1,
+
+  "notes": "Generic default defense, buildable at every base. Base for every Turret variant (extends: \"turret\" — see cold_turret/emp_turret/flame_turret/grenade_tower/river_battery/wind_spire). Note: defensiveStats.range (4) and nonProductionUpgrade.baseStats.range (5) disagree here — the two are meant to describe the same level-1 value (defensiveStats is the static combat profile, nonProductionUpgrade is what actually grows per level) and should match; needs a decision on which number is correct.",
+
+  "defensiveStats": {
+    "damage": 18,
+    "attackSpeed": 1.0,
+    "range": 4,
+    "splashRadius": 0,
+    "canTarget": ["Infantry", "Land", "Naval", "Air"],
+    "damageTypes": [],
+    "visionRange": 7
+  },
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 250,
+      "damage": 18,
+      "range": 5
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 12 },
+      "damage": { "mode": "percent", "value": 10 },
+      "range": { "mode": "flat", "value": 0.5 }
+    },
+    "baseCost": {
+      "stone": 100,
+      "steel": 60
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

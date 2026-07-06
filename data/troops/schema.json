@@ -31,8 +31,7 @@
 
     "maxSquadSize": { "type": "number", "default": 4, "description": "Max troops of this type that can share one SquadInstance (see game-design/07-data-architecture.md). A freshly produced troop auto-joins the nearest same-type squad below this cap, or forms a new squad of 1. Set to 1 for troops that never merge into squads (Engineer, Commander, Disruptor)." },
     "maxSquadsLed": { "type": "number", "description": "Only relevant for Commander-tagged troops: how many squads this Commander can lead as a regiment (baseline 4 — see game-design/04-combat.md)." },
-    "commanderTier": { "type": "string", "enum": ["basic", "rare", "best"], "description": "Only relevant for Commander-tagged troops: which Command Centre level unlocks this Commander (basic at level 1, rare at level 2, best at level 3 — all lower tiers stay unlocked at higher levels). See game-design/02-bases-and-buildings.md's Command Centre & the Commander Cap section and data/buildings/schema.json's commanderProgression." },
-    "prioritizeStructures": { "type": "boolean", "default": false, "description": "Siege-behavior flag: units with this set default-target the nearest building/wall (Structure OR Defensive) over enemy troops when nothing is directly attacking them, instead of the normal nearest-enemy-troop default (see game-design/04-combat.md). Regular troops still need an explicit directed order to attack a building/wall at all." },
+    "commanderTier": { "type": "string", "enum": ["common", "rare", "epic"], "description": "Only relevant for Commander-tagged troops: which Command Centre level unlocks this Commander (common at level 1, rare at level 2, epic at level 3 — all lower tiers stay unlocked at higher levels). See game-design/02-bases-and-buildings.md's Command Centre & the Commander Cap section and data/buildings/schema.json's commanderProgression." },
 
     "terrainOverrides": {
       "type": "object",
@@ -47,7 +46,7 @@
     "canTarget": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Domains/tags this unit is allowed to engage, independent of range. Empty array = cannot attack at all (e.g. Engineer, Glider, Disruptor). Reserved value \"Structure\" covers buildings AND walls EXCEPT Defensive-category buildings (there is no separate \"Building\" vs \"Wall\" target kind, but Defensive is split out as its own reserved value — see below) — most combat troops include it by default since sieging structures is core to the conquest win condition; Sniper is a deliberate exception that omits it (see game-design/08-troop-roster.md). Reserved value \"Defensive\" covers Defensive-category buildings specifically (Turret, Missile Launcher, Grenade Tower, Flame/Cold Turret, River Battery, Tower — see data/buildings/schema.json's category field) and must be listed separately from \"Structure\" to be attackable."
+      "description": "Domains/tags this unit is allowed to engage, independent of range. Empty array = cannot attack at all (e.g. Engineer, Glider, Disruptor). Reserved value \"Structure\" covers buildings AND walls EXCEPT Defensive-category buildings (there is no separate \"Building\" vs \"Wall\" target kind, but Defensive is split out as its own reserved value — see below) — most combat troops include it by default since sieging structures is core to the conquest win condition; Sniper is a deliberate exception that omits it (see game-design/08-troop-roster.md). A \"Structure\" target IS auto-targeted by default, the same as an enemy troop or Defensive building, whenever no enemy troop is in range (see game-design/04-combat.md). Reserved value \"Defensive\" covers Defensive-category buildings specifically (Turret, Missile Launcher, Grenade Tower, Flame/Cold Turret, River Battery, Tower — see data/buildings/schema.json's category field) and must be listed separately from \"Structure\" to be attackable. A \"Defensive\" target is always auto-targeted the same as an enemy troop, since Defensive buildings actively fight back."
     },
 
     "damageDealtModifiers": {
@@ -69,8 +68,10 @@
 
     "stealth": { "type": "boolean", "default": false },
     "revealRange": { "type": "number", "description": "Distance at which a stealthed unit becomes visible to a non-detector. Required if stealth is true." },
-    "detector": { "type": "boolean", "default": false, "description": "Sees stealthed units at full visionRange, ignoring their revealRange." },
+    "detector": { "type": "boolean", "default": false, "description": "Reveals stealthed units within detectionRange (or full visionRange if detectionRange is omitted), ignoring their revealRange. Revealing means the stealthed unit becomes visible/targetable to ANY of the owning player's troops/buildings within that same local radius, not just to this detector itself — e.g. Radar Array has no attack of its own, so its detector flag only matters because it exposes the target to whatever else is nearby." },
+    "detectionRange": { "type": "number", "description": "Optional override for detector's stealth-sight radius, when it should differ from this unit's own visionRange. Defaults to visionRange if omitted. Currently unused by any troop (Sniper's stealth detection uses its full visionRange) — added for symmetry with the building-side field of the same name (see data/buildings/schema.json), used by Tower." },
     "revealsOnAttack": { "type": "boolean", "default": false, "description": "If true, attacking breaks this unit's own stealth until a few seconds pass without attacking." },
+    "empImmune": { "type": "boolean", "default": false, "description": "True if this troop is unaffected by the \"emp\" statusEffectOnHit type (Signal Ridge's EMP Turret — see game-design/05-troop-stat-schema.md's Status Effects section and data/buildings/emp_turret.json). Currently only Hot Air Balloon and Glider: both are unpowered/non-electronic (a hot-air envelope and an unpowered glider have no engine for an EMP to disable), unlike every other Air-domain unit." },
 
     "cargoCapacity": { "type": "number", "default": 0, "description": "How many SQUADS this troop can carry aboard it (not individual troop headcount) — a boarding squad occupies exactly one slot regardless of its own size. 0 = cannot transport. Capacity sums across every troop in the carrier's own squad (see game-design/07-data-architecture.md's SquadInstance.cargoSquadIds)." },
     "cargoAllowedTags": {
@@ -94,9 +95,9 @@
             "type": "string",
             "enum": ["friendly_troops", "enemy_troops", "friendly_buildings", "enemy_buildings"]
           },
-          "filter": { "type": "string", "description": "Optional narrowing, e.g. a specific building type." },
-          "effect": { "type": "string", "description": "e.g. \"damage_reduction\", \"slow\", \"production_boost\", \"suppress_targeting\", \"heal_over_time\"." },
-          "magnitude": { "type": ["number", "string"] }
+          "filter": { "type": "string", "description": "Optional narrowing, e.g. a specific building type, or a Domain value (e.g. \"Infantry\", \"Land\") to restrict a troop-targeted aura to one domain. Matches exactly one value — a support unit that needs to cover multiple domains (e.g. Volt Truck covering Land/Air/Naval) carries one aura entry per domain rather than a list here." },
+          "effect": { "type": "string", "description": "e.g. \"damage_reduction\", \"slow\", \"production_boost\", \"suppress_targeting\", \"heal_over_time\", \"upkeep_reduction\", \"speed_boost\", \"attack_speed_boost\"." },
+          "magnitude": { "type": "number", "description": "Always a plain number — never a unit-suffixed string like \"6/s\" or \"+25%\" — so the engine never has to parse it. Unit is implicit from effect: heal_over_time and upkeep_reduction are flat amounts (hp/s, and food+fuel upkeep each respectively — upkeep_reduction applies the same flat magnitude to both foodUpkeep and fuelUpkeep simultaneously, floored at 0 per troop), slow/production_boost/damage_reduction/speed_boost/attack_speed_boost are signed percent (e.g. -20 = -20%, 25 = +25%)." }
         }
       }
     },
@@ -105,9 +106,10 @@
       "type": "object",
       "description": "Temporary condition applied to the target on a successful hit, in addition to direct damage.",
       "properties": {
-        "type": { "type": "string", "description": "e.g. \"freeze\"." },
+        "type": { "type": "string", "description": "e.g. \"freeze\", \"stun\", \"knockback\", \"emp\". \"stun\" is a GLOBAL rule, not per-instance config: it always applies a fixed -30% move/attack-speed debuff once the lockout (duration) ends, lasting that same duration again — in addition to the full lockout itself. \"knockback\" is an instantaneous displacement (magnitude = hexes shoved back), not a timed lockout. \"emp\" is domain-conditional (Land: movement disabled but can still attack, for duration; Air: instant destroy, no duration; Infantry/Naval: no effect) and respects a target's empImmune flag. See game-design/05-troop-stat-schema.md's Status Effects section. Don't add fields here to configure the stun tail; author only duration/magnitude/chance for the lockout, the tail reuses duration and its -30%/-30% magnitude is fixed." },
         "duration": { "type": ["number", "string"] },
-        "magnitude": { "type": "number" }
+        "magnitude": { "type": "number" },
+        "chance": { "type": "number", "default": 100, "description": "Percent chance (0-100) the effect applies on a successful hit. Omitted/100 = always applies. E.g. a stun effect might set this to 30 for a 30% chance per hit." }
       }
     },
 

@@ -1,0 +1,28 @@
+{
+  "id": "frost_tank",
+  "name": "Frost Tank",
+  "domain": "Land",
+  "tags": ["Vehicle", "Tank", "Ice"],
+
+  "hp": 260,
+  "armor": 2,
+  "damage": 18,
+  "attackSpeed": 1.2,
+  "range": 4,
+  "splashRadius": 1,
+  "visionRange": 8,
+  "speed": 2.0,
+
+  "maxSquadSize": 3,
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "statusEffectOnHit": { "type": "freeze", "duration": 2, "chance": 25 },
+
+  "cost": { "food": 25, "steel": 65 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 3,
+  "productionTime": 28,
+
+  "notes": "Winter Forge's Frostworks exclusive (not built at Fort Irongrad's Tank Plant) — the Heavy Tank roster's ice-themed control unit, tying into Winter Forge's Cold Turret/Ice Spire identity. Each hit has a 25% chance to freeze (full lockout for duration, no trailing debuff — distinct from stun, see game-design/05-troop-stat-schema.md's Status Effects section). Otherwise a mid-pack heavy tank: no damage modifiers, moderate stats across the board, cheapest and lightest Fuel upkeep of the heavy roster."
+}

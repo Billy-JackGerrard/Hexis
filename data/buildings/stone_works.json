@@ -1,0 +1,23 @@
+{
+  "id": "stone_works",
+  "name": "Stone Works",
+  "category": "Resource",
+  "populationCost": 1,
+
+  "notes": "Foundry Reach exclusive (enforced via that base's buildableBuildings list, not a placementRequirement here) — mechanically a Quarry equivalent (Stone output), the same pattern Harbour uses for Food relative to Farm, but gated by base eligibility rather than terrain adjacency. Deliberately steep growth curve vs. Quarry's mild one, same shape as Harbour vs. Farm: lower level-1 output but +60%/level compounding, so a maxed-out Stone Works eventually out-produces a maxed-out Quarry despite the weaker starting point. Costs Steel to build/upgrade, same cross-wiring as Quarry.",
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 150,
+      "stoneOutput": 5
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 10 },
+      "stoneOutput": { "mode": "percent", "value": 60 }
+    },
+    "baseCost": {
+      "steel": 60
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

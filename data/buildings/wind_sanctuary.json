@@ -1,0 +1,17 @@
+{
+  "id": "wind_sanctuary",
+  "name": "Wind Sanctuary",
+  "category": "Production",
+  "populationCost": 1,
+
+  "placementRequirement": {
+    "siteTerrain": "Hill"
+  },
+
+  "notes": "Windy Peaks only — merged Air Factory + Hangar into a single building. Windy Peaks' buildings sit on Hill tiles, the same terrain exception Treehouse gets for Forest. Unlocks, in order: Glider, Hot Air Balloon.",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 180, "unlocks": "glider", "cost": { "stone": 240, "steel": 60 } },
+    { "level": 2, "hp": 210, "unlocks": "hot_air_balloon", "cost": { "stone": 300, "steel": 160 } }
+  ]
+}

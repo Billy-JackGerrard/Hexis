@@ -1,0 +1,18 @@
+{
+  "id": "ford_yard",
+  "name": "Ford Yard",
+  "category": "Production",
+  "populationCost": 1,
+
+  "placementRequirement": {
+    "siteTerrain": "Plains",
+    "adjacentTerrainRequired": "Water"
+  },
+
+  "notes": "Rivergate only — Water-adjacency covers Ocean or River tiles alike, same requirement as Port/Shipyard. Unlocks, in order: Amphibious Raider, Submarine. Submarine is also built at Kraken Point's Shipyard.",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 220, "unlocks": "amphibious_raider", "cost": { "stone": 70, "steel": 40 } },
+    { "level": 2, "hp": 280, "unlocks": "submarine", "cost": { "stone": 230, "steel": 200 } }
+  ]
+}

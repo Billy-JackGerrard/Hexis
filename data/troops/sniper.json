@@ -20,6 +20,7 @@
 
   "stealth": true,
   "revealRange": 1,
+  "revealsOnAttack": true,
   "detector": true,
 
   "cost": { "food": 30 },

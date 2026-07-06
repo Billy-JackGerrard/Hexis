@@ -1,26 +1,26 @@
 {
   "id": "engineer",
   "name": "Engineer",
-  "domain": "Infantry",
-  "tags": ["Support"],
+  "domain": "Land",
+  "tags": ["Vehicle", "Support"],
 
-  "hp": 40,
+  "hp": 60,
   "damage": 0,
   "attackSpeed": 0,
   "range": 0,
   "splashRadius": 0,
   "visionRange": 8,
-  "speed": 1.1,
+  "speed": 1.6,
 
   "maxSquadSize": 1,
 
   "canTarget": [],
   "canBuildInfrastructure": true,
 
-  "cost": { "food": 15 },
-  "foodUpkeep": 1,
-  "fuelUpkeep": 0,
+  "cost": { "food": 15, "steel": 15 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
   "productionTime": 8,
 
-  "notes": "Only unit that can build standalone Road/Bridge/Dock/Tower. Buildable anywhere including behind enemy lines. Non-combat: canTarget is empty."
+  "notes": "Only unit that can build standalone Road/Bridge/Dock/Tower/Landmine. Buildable anywhere including behind enemy lines. Non-combat: canTarget is empty. Land-domain vehicle (Factory-produced), not Infantry."
 }

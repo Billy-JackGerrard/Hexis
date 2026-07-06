@@ -1,0 +1,17 @@
+{
+  "id": "supply_depot",
+  "name": "Supply Depot",
+  "category": "Production",
+  "populationCost": 1,
+
+  "notes": "Camp Cozy only — a support-vehicle specialist production building, distinct from Factory's combat-vehicle roster. Unlocks, in order: Engineer, Ambulance, Transport Truck, Repair Truck, Mule, Volt Truck. Engineer, Ambulance, and Transport Truck are also Factory unlocks elsewhere (see data/buildings/factory.json) — shared across both buildings, same pattern as Juggernaut/Rocket Tank across Tank Plant/Frostworks.",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 200, "unlocks": "engineer", "cost": { "stone": 220, "steel": 90 } },
+    { "level": 2, "hp": 260, "unlocks": "ambulance", "cost": { "stone": 350, "steel": 260 } },
+    { "level": 3, "hp": 340, "unlocks": "transport_truck", "cost": { "stone": 500, "steel": 350 } },
+    { "level": 4, "hp": 430, "unlocks": "repair_truck", "cost": { "stone": 650, "steel": 450 } },
+    { "level": 5, "hp": 520, "unlocks": "mule", "cost": { "stone": 800, "steel": 600 } },
+    { "level": 6, "hp": 620, "unlocks": "volt_truck", "cost": { "stone": 950, "steel": 800 } }
+  ]
+}

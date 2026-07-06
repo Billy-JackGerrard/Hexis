@@ -1,0 +1,29 @@
+{
+  "id": "radar_array",
+  "name": "Radar Array",
+  "category": "Support",
+  "populationCost": 1,
+  "isFixed": true,
+
+  "detector": true,
+
+  "notes": "Signal Ridge only, and pre-seeded/fixed (isFixed: true, same pattern as HQ/Ice Spire): never freshly built even after capture, so there is exactly one Radar Array per map — it can only be rebuilt from a ruin (normal rebuildCost applies) if destroyed. That cap matters because its bonus is unlike Tower's short-range detector (data/buildings/tower.json): the first building whose effect isn't local to its own base at all. Alongside the usual local detection radius (visionRange in nonProductionUpgrade.baseStats, paired with the top-level detector: true flag — detectionRange is omitted, so it detects stealth at that same full visionRange, no short-range restriction like Tower), it also grants globalVisionRangeBonus, a flat vision-range bonus applied map-wide to the owning player rather than to this base alone. Being fixed keeps that map-wide bonus from being stackable by building several. No production/defensive stats — passive, no queue or targeting, so its detector flag is only ever useful because revealing a stealthed unit exposes it to whatever else of the owning player's is nearby (troops, Turret, etc.) — Radar Array itself never lands a hit.",
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 200,
+      "visionRange": 8,
+      "globalVisionRangeBonus": 3
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 10 },
+      "visionRange": { "mode": "flat", "value": 1 },
+      "globalVisionRangeBonus": { "mode": "flat", "value": 0.5 }
+    },
+    "baseCost": {
+      "stone": 150,
+      "steel": 100
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

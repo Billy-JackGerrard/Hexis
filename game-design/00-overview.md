@@ -24,8 +24,8 @@ A cartoon-style, 2.5D top-down/isometric strategy game. Each match lasts roughly
   at match start (one per starting player) and never changes during the match, so this
   is always a concrete, checkable target regardless of how Capitals change hands.
 - **Elimination**: a player is only eliminated when they lose **all** bases (Capital or
-  Unique) — losing every Capital you hold costs you Command Centre access and each
-  base's +50% bonus, but it's not fatal on its own.
+  Unique) — losing every Capital you hold costs you Command Centre access, but it's
+  not fatal on its own.
 - **Timer fallback**: if no player has won by 60 minutes, the player holding the most
   Capitals wins. Ties break down a fixed chain: **most Capitals** → if tied, **most
   bases overall** → if still tied, **most total buildings** across all owned bases →
@@ -35,10 +35,9 @@ A cartoon-style, 2.5D top-down/isometric strategy game. Each match lasts roughly
 - Every player starts with one **Capital Base**.
 - **Capital status is permanent and cumulative, not transferable**: once a base is
   founded as a Capital, it is always a Capital, no matter who owns it. Capturing a
-  rival's Capital gives you an *additional* Capital — its own Command Centre, its own
-  +50% bonus — on top of any Capitals you already hold. There is no "designation"
-  step and no cap of one Capital per player; a player can end up owning several
-  Capitals at once.
+  rival's Capital gives you an *additional* Capital — its own Command Centre — on top
+  of any Capitals you already hold. There is no "designation" step and no cap of one
+  Capital per player; a player can end up owning several Capitals at once.
 - A player who loses every Capital they hold keeps playing ("homeless") as long as
   they hold at least one Unique base — but this is a real handicap, not a cosmetic
   one: without a Command Centre they cannot train new Commanders, and Commanders are

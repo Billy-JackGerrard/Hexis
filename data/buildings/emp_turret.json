@@ -1,0 +1,36 @@
+{
+  "id": "emp_turret",
+  "name": "EMP Turret",
+  "category": "Defensive",
+  "populationCost": 1,
+  "extends": "turret",
+
+  "notes": "Signal Ridge only, alongside Radar Array/Covert Works. A Turret variant (see \"extends\") built around its statusEffectOnHit rather than raw damage — low base damage, but every hit applies `{type: emp, duration: 3}` (see game-design/05-troop-stat-schema.md's Status Effects section for the full domain-conditional breakdown): Land-domain vehicles are immobilized (can't move, can still attack) for the duration; Air-domain troops are destroyed outright; Infantry and Naval are unaffected by the status (still take direct damage normally); troops flagged empImmune (Hot Air Balloon, Glider) are unaffected entirely. Unlike every other Turret variant (cold_turret, flame_turret, grenade_tower, river_battery, wind_spire all restate canTarget), this defensiveStats block omits canTarget entirely — per schema.json's extends rule (a variant's defensiveStats overrides the base wholesale, not merged key-by-key), that likely means this Turret can't target anything rather than inheriting Turret's four domains; needs a canTarget array added here to actually function.",
+
+  "defensiveStats": {
+    "damage": 6,
+    "attackSpeed": 0.8,
+    "range": 5,
+    "splashRadius": 0,
+    "visionRange": 6,
+    "statusEffectOnHit": { "type": "emp", "duration": 3 }
+  },
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 200,
+      "damage": 6,
+      "range": 5
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 12 },
+      "damage": { "mode": "percent", "value": 10 },
+      "range": { "mode": "flat", "value": 0.3 }
+    },
+    "baseCost": {
+      "stone": 110,
+      "steel": 70
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

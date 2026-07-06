@@ -4,25 +4,24 @@
   "domain": "Land",
   "tags": ["Vehicle", "Siege"],
 
-  "hp": 180,
+  "hp": 200,
   "damage": 10,
   "attackSpeed": 1,
   "range": 4,
   "splashRadius": 0,
-  "visionRange": 6,
+  "visionRange": 8,
   "speed": 2.4,
 
   "maxSquadSize": 4,
 
   "canTarget": ["Land", "Air", "Naval", "Structure", "Defensive"],
-  "prioritizeStructures": true,
 
-  "damageDealtModifiers": { "Defensive": 2.5 },
+  "damageDealtModifiers": { "Defensive": 2.5, "Structure": 1.4 },
 
   "cost": { "food": 25, "steel": 50 },
   "foodUpkeep": 0,
-  "fuelUpkeep": 3,
+  "fuelUpkeep": 2,
   "productionTime": 28,
 
-  "notes": "Dedicated siege unit: prioritizeStructures makes it auto-beeline for the nearest building/wall with no explicit order, and its Defensive bonus (2.5x) further prioritizes base defenses specifically over other structures. Cannot target Infantry."
+  "notes": "Dedicated siege unit. Its Defensive and Structure entries in canTarget already make it auto-fight base defenses and beeline for plain Structures (HQ, Farm, walls, etc.) by default whenever no enemy troop is in range, with no explicit order needed (see game-design/04-combat.md). Its Defensive damage bonus (2.5x) also means it prefers a Defensive building over any other in-range target, structure or troop. Cannot target Infantry."
 }

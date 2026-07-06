@@ -1,0 +1,29 @@
+{
+  "id": "repair_truck",
+  "name": "Repair Truck",
+  "domain": "Land",
+  "tags": ["Vehicle", "Support"],
+
+  "hp": 150,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 2.6,
+
+  "maxSquadSize": 2,
+
+  "canTarget": [],
+
+  "auras": [
+    { "radius": 3, "target": "friendly_troops", "filter": "Land", "effect": "heal_over_time", "magnitude": 4 }
+  ],
+
+  "cost": { "food": 25, "steel": 30 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 18,
+
+  "notes": "Camp Cozy's Supply Depot exclusive — Ambulance's vehicle-repair counterpart. Aura is Land-only (filter: \"Land\", i.e. Vehicle-domain troops), lower magnitude and pricier than Ambulance's Infantry-only heal, reflecting that keeping a vehicle running is a slower/costlier job than patching up infantry. Non-combat (canTarget: []), like Ambulance/Engineer."
+}

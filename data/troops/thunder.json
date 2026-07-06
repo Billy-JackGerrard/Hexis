@@ -1,0 +1,27 @@
+{
+  "id": "thunder",
+  "name": "Thunder",
+  "domain": "Air",
+  "tags": ["Aircraft", "Fighter"],
+
+  "hp": 140,
+  "damage": 28,
+  "attackSpeed": 0.7,
+  "range": 5,
+  "splashRadius": 1,
+  "visionRange": 7,
+  "speed": 2.0,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "damageDealtModifiers": { "Infantry": 0.7 },
+
+  "cost": { "food": 25, "steel": 55 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 4,
+  "productionTime": 30,
+
+  "notes": "Sky Fortress's heavier, missile-armed alternative to Wingfighter — slower and less mobile but hits much harder per shot, with a small splash radius from missile impact and longer range. Slight penalty vs. Infantry (0.7x) — missiles are an inefficient way to hit infantry, the inverse of Wingfighter's anti-troop specialization. Renamed from an earlier 'Falcon' working name."
+}

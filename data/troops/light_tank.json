@@ -4,13 +4,13 @@
   "domain": "Land",
   "tags": ["Vehicle", "Tank"],
 
-  "hp": 200,
+  "hp": 180,
   "damage": 15,
   "attackSpeed": 1,
   "range": 4,
   "splashRadius": 0,
   "visionRange": 8,
-  "speed": 3.0,
+  "speed": 2.8,
 
   "maxSquadSize": 4,
 

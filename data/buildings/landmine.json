@@ -1,0 +1,36 @@
+{
+  "id": "landmine",
+  "name": "Landmine",
+  "category": "Defensive",
+  "isStandalone": true,
+
+  "stealth": true,
+  "revealRange": 1,
+
+  "notes": "Standalone trap, not tied to any base — placed anywhere by an Engineer, like Tower/Road/Bridge/Dock. Invisible to enemies until they're within revealRange (1 hex), or instantly spotted by any detector at its full visionRange. Very low HP — once revealed/detected, a single hit from almost anything kills it before it can trigger. If an enemy Infantry/Land troop gets within range undetected, it deals its damage as a splash hit and is destroyed immediately (defensiveStats.selfDestructOnTrigger) rather than persisting as a repeating attacker. No population cost and no rebuildCost, same as other standalone buildings — destruction deletes it outright rather than leaving a ruin.",
+
+  "defensiveStats": {
+    "damage": 70,
+    "range": 1,
+    "splashRadius": 1,
+    "canTarget": ["Infantry", "Land"],
+    "damageTypes": [],
+    "visionRange": 1,
+    "selfDestructOnTrigger": true
+  },
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 30,
+      "damage": 70
+    },
+    "statGrowth": {
+      "hp": { "mode": "flat", "value": 0 },
+      "damage": { "mode": "percent", "value": 10 }
+    },
+    "baseCost": {
+      "stone": 25
+    },
+    "costGrowth": { "mode": "percent", "value": 20 }
+  }
+}

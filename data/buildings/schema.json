@@ -15,6 +15,8 @@
       "description": "Determines whether the building needs player input (Production = queue a troop) or just runs on its own once built. \"Core\" is a single-instance category for HQ only — it doesn't attack, produce, or apply an aura; its only mechanical effects are the capture-on-zero-HP rule and gating every other building's max level at that base (see game-design/02-bases-and-buildings.md)."
     },
 
+    "extends": { "type": "string", "description": "Id of another building this one is a variant of, e.g. River Battery/Flame Turret/Cold Turret/Grenade Tower extending \"turret\". Inheritance is shallow and field-level: any of defensiveStats/nonProductionUpgrade/populationCost present on this file override the corresponding field on the base building wholesale (e.g. providing defensiveStats.canTarget replaces the whole canTarget array, it does not merge array entries); anything omitted here is inherited unchanged. Purely a data-authoring convenience to avoid restating identical stat blocks across Turret variants — has no other engine meaning." },
+
     "isStandalone": { "type": "boolean", "default": false, "description": "True for Road/Bridge/Dock/Tower — placed anywhere by an Engineer, not tied to a base (never appears in any BaseDef.buildableBuildings list — see data/bases/schema.json). Standalone instances carry their own ownerId directly (no baseId to derive ownership from) and, like Walls, do NOT ruin on destruction — a standalone building at 0 HP is deleted permanently, freeing the hex/edge; rebuilding it there is a fresh build at full cost, not a ruin-rebuild. See game-design/07-data-architecture.md." },
     "isFixed": { "type": "boolean", "default": false, "description": "True for pre-seeded-only buildings (HQ, Ice Spire) that can never be freshly built from a menu, even after capture — only rebuilt if ruined. They also cannot be demolished." },
 
@@ -35,7 +37,12 @@
       "type": "object",
       "description": "Where this building is allowed to be placed, beyond the base's HQ-radius and two-adjacent-buildings rules. Two independent constraints, since a building's own hex terrain and an adjacency requirement to a *different* terrain are separate concerns (e.g. Port sits on Plains but needs an adjacent Water tile).",
       "properties": {
-        "siteTerrain": { "type": "string", "enum": ["Plains", "Forest", "Hill"], "default": "Plains", "description": "Terrain the building's own hex must be. Plains for almost everything; Forest for Treehouse's buildings; Hill for Windy Peaks' buildings." },
+        "siteTerrain": {
+          "type": "string",
+          "enum": ["Plains", "Forest", "Hill", "River"],
+          "default": "Plains",
+          "description": "Terrain the building's own hex must be. Plains is the global default (see game-design/01-map-and-terrain.md — it's the only generally buildable terrain) and most building files omit this property entirely rather than restate it. Named exceptions: Forest for Treehouse's buildings, or Road (which unblocks a Forest hex for Land Vehicles by sitting directly on it); Hill for Windy Peaks' buildings; River for Bridge, which sits directly on the River hex it unblocks for Infantry/Land Vehicles (Naval already passes through River tiles regardless — a Bridge doesn't block or interact with Naval at all, it only changes the Infantry/Land terrain-cost for that hex)."
+        },
         "adjacentTerrainRequired": { "type": "string", "enum": ["Water", "Forest"], "description": "Optional — at least one neighboring hex must satisfy this. \"Water\" is a unified check satisfied by either an Ocean tile or a River tile (there is no separate \"Coast\" terrain and no separate River-adjacency requirement — see game-design/01-map-and-terrain.md). E.g. Port/Shipyard/Harbour require \"Water\"; a non-Treehouse base's Lumber Mill requires \"Forest\"." }
       }
     },
@@ -54,7 +61,7 @@
 
     "defensiveStats": {
       "type": "object",
-      "description": "Only present for Defensive-category buildings (Turret, Missile Launcher, Grenade Tower, Flame Turret, Cold Turret, River Battery, Tower).",
+      "description": "Only present for Defensive-category buildings (Turret, Missile Launcher, Grenade Tower, Flame Turret, Cold Turret, River Battery, Tower, Landmine).",
       "properties": {
         "damage": { "type": "number" },
         "attackSpeed": { "type": "number" },
@@ -63,18 +70,35 @@
         "canTarget": { "type": "array", "items": { "type": "string" } },
         "damageTypes": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Same mechanism as troop.schema.json's damageTypes — e.g. Flame Turret (Firebase) carries [\"Fire\"]." },
         "damageDealtModifiers": { "type": "object", "additionalProperties": { "type": "number" } },
-        "detector": { "type": "boolean", "default": false },
+        "detector": { "type": "boolean", "default": false, "description": "Reveals stealthed units within detectionRange (or full visionRange if detectionRange is omitted), ignoring their revealRange. Revealing means the stealthed unit becomes visible/targetable to ANY of the owning player's troops/buildings within that same local radius, not just to this building itself — matters for Tower, whose own combat stats can lose to a full squad even once it reveals them; the point is stripping stealth for a garrison/wall/other defenses to finish, not necessarily soloing the kill." },
+        "detectionRange": { "type": "number", "description": "Optional override for detector's stealth-sight radius, when it should differ from this building's own visionRange. Defaults to visionRange if omitted. Used by Tower (short detectionRange despite a long visionRange, so it clears normal fog-of-war far but only spots stealthed units up close) — Landmine's detector-side visibility (being spotted, not spotting) uses stealth/revealRange instead, an unrelated pair of fields." },
         "visionRange": { "type": "number" },
+        "selfDestructOnTrigger": { "type": "boolean", "default": false, "description": "True for one-time trap buildings (Landmine): once this building deals damage, it is destroyed immediately (deletes outright, like a standalone building at 0 HP — no ruin) rather than persisting as a repeating attacker. attackSpeed is meaningless for these and should be omitted." },
         "statusEffectOnHit": {
           "type": "object",
           "properties": {
-            "type": { "type": "string" },
+            "type": { "type": "string", "description": "e.g. \"freeze\", \"stun\", \"knockback\", \"emp\". \"stun\" is a GLOBAL rule, not per-instance config: it always applies a fixed -30% move/attack-speed debuff once the lockout (duration) ends, lasting that same duration again — in addition to the full lockout itself. \"knockback\" is an instantaneous displacement (magnitude = hexes shoved back), not a timed lockout. \"emp\" is domain-conditional (Land: movement disabled but can still attack, for duration; Air: instant destroy, no duration; Infantry/Naval: no effect) and respects a target's empImmune flag (data/troops/schema.json). See game-design/05-troop-stat-schema.md's Status Effects section. Don't add fields here to configure the stun tail; author only duration/magnitude/chance for the lockout, the tail reuses duration and its -30%/-30% magnitude is fixed." },
             "duration": { "type": ["number", "string"] },
-            "magnitude": { "type": "number" }
+            "magnitude": { "type": "number" },
+            "chance": { "type": "number", "default": 100, "description": "Percent chance (0-100) the effect applies on a successful hit. Omitted/100 = always applies, e.g. Cold Turret's freeze. E.g. a stun effect might set this to 30 for a 30% chance per hit." }
           }
         }
       }
     },
+
+    "detector": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if this building reveals stealthed units within detectionRange (or full visionRange if detectionRange is omitted), ignoring their reveal_range. Revealing means the stealthed unit becomes visible/targetable to ANY of the owning player's troops/buildings within that same local radius, not just to this building itself — Radar Array has no attack of its own, so its detector flag only matters because it exposes the target to whatever else is nearby. This is the top-level equivalent of defensiveStats.detector, for non-Defensive buildings that need the flag — currently only Radar Array (Support). Defensive buildings (Turret, etc.) set detector under defensiveStats instead."
+    },
+    "detectionRange": { "type": "number", "description": "Top-level equivalent of defensiveStats.detectionRange, for non-Defensive detector buildings. Optional override for detector's stealth-sight radius when it should differ from visionRange. Defaults to visionRange if omitted — currently omitted by Radar Array, which detects at its full (long) visionRange." },
+
+    "stealth": {
+      "type": "boolean",
+      "default": false,
+      "description": "Mirrors troop.schema.json's stealth — this building is invisible to enemy troops/buildings beyond revealRange unless the observer has detector:true (at which point it's seen at full visionRange, ignoring revealRange). Required alongside revealRange. Currently only Landmine uses this."
+    },
+    "revealRange": { "type": "number", "description": "Required if stealth is true. Distance at which a stealthed building becomes visible to a non-detector, same mechanism as troop.schema.json's revealRange." },
 
     "auras": {
       "type": "array",
@@ -90,7 +114,7 @@
           },
           "filter": { "type": "string" },
           "effect": { "type": "string" },
-          "magnitude": { "type": ["number", "string"] }
+          "magnitude": { "type": "number", "description": "Always a plain number — never a unit-suffixed string like \"6/s\" or \"+25%\" — so the engine never has to parse it. Unit is implicit from effect: heal_over_time and upkeep_reduction are flat amounts (hp/s, and food+fuel upkeep each respectively), slow/production_boost/damage_reduction/speed_boost/attack_speed_boost are signed percent (e.g. -20 = -20%, 25 = +25%)." }
         }
       }
     },
@@ -123,7 +147,7 @@
             "required": ["level", "unlocksTier", "commanderSlots", "hp", "cost"],
             "properties": {
               "level": { "type": "number" },
-              "unlocksTier": { "type": "string", "enum": ["basic", "rare", "best"], "description": "All Commander troops with this commanderTier become trainable at this Command Centre once it reaches this level. Lower tiers already unlocked remain trainable." },
+              "unlocksTier": { "type": "string", "enum": ["common", "rare", "epic"], "description": "All Commander troops with this commanderTier become trainable at this Command Centre once it reaches this level. Lower tiers already unlocked remain trainable." },
               "commanderSlots": { "type": "number", "description": "This Command Centre's contribution to the player's maxCommanders cap at this level." },
               "hp": { "type": "number", "description": "Absolute value at this level, not a delta." },
               "cost": { "type": "object", "additionalProperties": { "type": "number" } }
@@ -171,6 +195,15 @@
         "baseCost": { "type": "object", "additionalProperties": { "type": "number" } },
         "costGrowth": { "$ref": "#/definitions/growthRate", "description": "Upgrade cost growth per level, intentionally faster than stat growth, e.g. {mode: \"percent\", value: 25}." },
         "addsTurretPerLevel": { "type": "boolean", "default": false, "description": "Wood Tower only — each level adds an independently-targeting turret instead of pure stat scaling." },
+        "defensiveStatsOverride": {
+          "type": "object",
+          "description": "Multi-material Defensive buildings only (currently just Tower). Some materials fight differently, not just at different numbers — e.g. Steel Tower loses Air targeting and gains splash, unlike Stone/Wood Tower which just scale damage/hp. Merged key-by-key on top of the building's shared defensiveStats block for this material only; omitted keys inherit the shared defensiveStats value unchanged. This is deliberately NOT the same semantics as the file-level `extends` override (which replaces whole blocks wholesale) — here individual keys merge so a material only needs to restate what actually differs.",
+          "properties": {
+            "canTarget": { "type": "array", "items": { "type": "string" } },
+            "damageTypes": { "type": "array", "items": { "type": "string" } },
+            "splashRadius": { "type": "number" }
+          }
+        },
         "minPopulationPerLevel": { "type": "number", "description": "Only meaningful for HQ: a multiplier used to compute the population gate for upgrading HQ to level N, on top of the resource cost: requiredPopulationUsed = minPopulationPerLevel * (N - 1). E.g. value 3 means reaching level 2 requires populationUsed >= 3, level 3 requires >= 6, level 4 requires >= 9, and so on. Steep cost curve + this population gate is what paces HQ upgrades (see game-design/06-building-stats-and-defenses.md)." }
       }
     }

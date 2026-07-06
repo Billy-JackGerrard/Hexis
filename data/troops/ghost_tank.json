@@ -1,0 +1,29 @@
+{
+  "id": "ghost_tank",
+  "name": "Ghost Tank",
+  "domain": "Land",
+  "tags": ["Vehicle", "Tank", "Stealth"],
+
+  "hp": 160,
+  "damage": 16,
+  "attackSpeed": 1,
+  "range": 4,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 2.6,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "stealth": true,
+  "revealRange": 1,
+  "revealsOnAttack": true,
+
+  "cost": { "food": 20, "steel": 60 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 3,
+  "productionTime": 30,
+
+  "notes": "Signal Ridge's Covert Works exclusive. Cloaking tech trades raw stats for ambush potential: lower HP/damage than Tonk and no damageDealtModifiers, unlike Light Tank/Tonk. Invisible to non-detector units/buildings beyond revealRange (1 — very short, same convention as Sniper); detector units/buildings (Sniper, Radar Array) see it at their normal visionRange instead. revealsOnAttack means firing makes it visible to everyone until a few seconds pass without attacking, then it re-cloaks."
+}

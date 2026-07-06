@@ -4,7 +4,7 @@
   "category": "Support",
   "populationCost": 0,
 
-  "notes": "Grants population capacity rather than consuming it (populationCost: 0) — the only Support building whose effect is structural (populationCapacity stat) rather than an auras entry. Stacks additively with HQ's own level-based population contribution (+2/level, see hq.json). Deliberately kept cheap (per game-design/02-bases-and-buildings.md's placement-rule notes, which assume a base with any buildable hex can always afford a House to keep expanding past its population cap). No inherent level cap, only the HQ-level ceiling. HP regen follows the global rule (5% of current max HP per 5s tick), not a per-building field.",
+  "notes": "Grants population capacity rather than consuming it (populationCost: 0) — the only Support building whose effect is structural (populationCapacity stat) rather than an auras entry. Stacks additively with HQ's own level-based population contribution (+2/level, see hq.json). Deliberately kept cheap so a base with any buildable hex can always afford one to keep expanding past its population cap.",
 
   "nonProductionUpgrade": {
     "baseStats": {

@@ -1,0 +1,43 @@
+{
+  "id": "wind_spire",
+  "name": "Wind Spire",
+  "category": "Defensive",
+  "populationCost": 1,
+  "extends": "turret",
+
+  "placementRequirement": {
+    "siteTerrain": "Hill"
+  },
+
+  "notes": "Windy Peaks only — sits on Hill tiles, the same terrain exception Wind Sanctuary gets. A Turret variant (see \"extends\") trading raw damage for crowd control and anti-air specialization: low base damage, but a strong knockback on every hit (statusEffectOnHit.type: \"knockback\", magnitude in hexes pushed — a new status-effect type, distinct from freeze/stun, with no chance field since it always applies) plus a large damageDealtModifiers.Air bonus. Longer range than a base Turret, reflecting the hilltop vantage.",
+
+  "defensiveStats": {
+    "damage": 6,
+    "attackSpeed": 1.0,
+    "range": 6,
+    "splashRadius": 0,
+    "canTarget": ["Infantry", "Land", "Naval", "Air"],
+    "damageTypes": [],
+    "visionRange": 8,
+    "damageDealtModifiers": { "Air": 2.5 },
+    "statusEffectOnHit": { "type": "knockback", "magnitude": 2 }
+  },
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 210,
+      "damage": 6,
+      "range": 6
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 12 },
+      "damage": { "mode": "percent", "value": 10 },
+      "range": { "mode": "flat", "value": 0.5 }
+    },
+    "baseCost": {
+      "stone": 90,
+      "steel": 50
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

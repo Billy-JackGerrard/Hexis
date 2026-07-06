@@ -1,0 +1,21 @@
+{
+  "id": "command_centre",
+  "name": "Command Centre",
+  "category": "Production",
+  "populationCost": 1,
+
+  "notes": "Capital only — trains Commander troops. Does not use the standard productionUpgradeLevels model: see commanderProgression below. Levels 1-3 each unlock a whole commanderTier at once (common, rare, epic) rather than one troop per level; commanderSlots stays at 1 through levels 1-3 and only grows from level 4 onward via postTierGrowth.commanderSlotsPerLevel. No Commander troop is yet defined in data/troops/ — this building's production side has nothing to train until a Commander roster is authored.",
+
+  "commanderProgression": {
+    "tierLevels": [
+      { "level": 1, "unlocksTier": "common", "commanderSlots": 1, "hp": 250, "cost": { "stone": 300, "steel": 150 } },
+      { "level": 2, "unlocksTier": "rare", "commanderSlots": 1, "hp": 290, "cost": { "stone": 350, "steel": 300 } },
+      { "level": 3, "unlocksTier": "epic", "commanderSlots": 1, "hp": 335, "cost": { "stone": 500, "steel": 320 } }
+    ],
+    "postTierGrowth": {
+      "hpGrowth": { "mode": "percent", "value": 10 },
+      "commanderSlotsPerLevel": 1,
+      "costGrowth": { "mode": "percent", "value": 25 }
+    }
+  }
+}

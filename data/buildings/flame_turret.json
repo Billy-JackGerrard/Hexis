@@ -1,0 +1,37 @@
+{
+  "id": "flame_turret",
+  "name": "Flame Turret",
+  "category": "Defensive",
+  "populationCost": 1,
+  "extends": "turret",
+
+  "notes": "Firebase's specialty defense, in addition to the generic Turret/Missile Launcher every base gets. A Turret variant (see \"extends\"). Renamed from Flamethrower to avoid colliding with the Barracks infantry unit of the same name. damageTypes:[Fire] carries a bonus against Wood-tagged targets (Wood Walls, Wood Towers, Wood Docks/Bridges) via their own damageReceivedModifiers, mirroring the existing Wood-vs-Fire vulnerability elsewhere in the design. No Naval or Air targeting, unlike base Turret — ground-only.",
+
+  "defensiveStats": {
+    "damage": 14,
+    "attackSpeed": 1.1,
+    "range": 3,
+    "splashRadius": 1,
+    "canTarget": ["Infantry", "Land"],
+    "damageTypes": ["Fire"],
+    "visionRange": 5
+  },
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 190,
+      "damage": 14,
+      "range": 3
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 12 },
+      "damage": { "mode": "percent", "value": 10 },
+      "range": { "mode": "flat", "value": 0.2 }
+    },
+    "baseCost": {
+      "stone": 90,
+      "steel": 50
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

@@ -1,6 +1,6 @@
 {
-  "id": "transport_carrier",
-  "name": "Transport Carrier",
+  "id": "transport_truck",
+  "name": "Transport Truck",
   "domain": "Land",
   "tags": ["Vehicle", "Support"],
 
@@ -10,7 +10,7 @@
   "range": 0,
   "splashRadius": 0,
   "visionRange": 8,
-  "speed": 2.8,
+  "speed": 2.4,
 
   "maxSquadSize": 1,
 
@@ -25,5 +25,5 @@
   "fuelUpkeep": 1,
   "productionTime": 15,
 
-  "notes": "Fully unarmed; relies on escort or its own cargo for protection. cargoCapacity counts squads, not troop headcount: 1 means it carries one Infantry squad aboard (any size up to that squad's own maxSquadSize). Fuel upkeep only while moving, per Land-domain rules."
+  "notes": "Fully unarmed; relies on escort or its own cargo for protection. cargoCapacity counts squads, not troop headcount: 1 means it carries one Infantry squad aboard (any size up to that squad's own maxSquadSize)."
 }

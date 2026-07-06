@@ -1,0 +1,27 @@
+{
+  "id": "ice_spire",
+  "name": "Ice Spire",
+  "category": "Support",
+  "isFixed": true,
+  "populationCost": 1,
+
+  "notes": "Winter Forge only — pre-seeded/fixed: never freshly built even after capture, but if destroyed it ruins like any other building and can be rebuilt at the usual ruin discount (rebuildCost default applies). Not a production or defensive building — pure aura structure carrying a slow debuff on nearby enemy troops. Winter Forge's Oil Rig boost is a separate base-wide bonus authored on the base definition itself, not an Ice Spire aura.",
+
+  "auras": [
+    { "radius": 6, "target": "enemy_troops", "effect": "slow", "magnitude": -20 }
+  ],
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 250
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 10 }
+    },
+    "baseCost": {
+      "stone": 150,
+      "steel": 80
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

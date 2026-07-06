@@ -1,0 +1,20 @@
+{
+  "id": "shipyard",
+  "name": "Shipyard",
+  "category": "Production",
+  "populationCost": 1,
+
+  "placementRequirement": {
+    "siteTerrain": "Plains",
+    "adjacentTerrainRequired": "Water"
+  },
+
+  "notes": "Kraken Point only — builds everything Port can, plus larger/advanced ships topping out at Aircraft Carrier. Unlocks, in order: Destroyer, Tank Carrier, Submarine, Aircraft Carrier. Submarine is also built at Rivergate's Ford Yard.",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 280, "unlocks": "destroyer", "cost": { "stone": 120, "steel": 100 } },
+    { "level": 2, "hp": 340, "unlocks": "tank_carrier", "cost": { "stone": 170, "steel": 150 } },
+    { "level": 3, "hp": 410, "unlocks": "submarine", "cost": { "stone": 230, "steel": 200 } },
+    { "level": 4, "hp": 500, "unlocks": "aircraft_carrier", "cost": { "stone": 320, "steel": 280 } }
+  ]
+}

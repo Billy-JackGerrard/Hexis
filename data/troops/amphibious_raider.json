@@ -1,0 +1,29 @@
+{
+  "id": "amphibious_raider",
+  "name": "Amphibious Raider",
+  "domain": "Land",
+  "tags": ["Vehicle", "Light", "Amphibious"],
+
+  "hp": 85,
+  "damage": 8,
+  "attackSpeed": 1.2,
+  "range": 4,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 2.8,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Naval"],
+
+  "damageDealtModifiers": { "Naval": 1.4},
+
+  "terrainOverrides": { "ignoresRiverBlock": true },
+
+  "cost": { "food": 15, "steel": 15 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 10,
+
+  "notes": "Rivergate's Ford Yard exclusive — a vehicle (not Infantry) that fords rivers directly without a Bridge, via ignoresRiverBlock. Statwise the river-crossing sibling to Quad-bike (Treehouse's forest-crossing equivalent): low HP/damage, fast, cheap. Cannot target Air, same as Quad-bike."
+}

@@ -1,0 +1,27 @@
+{
+  "id": "glider",
+  "name": "Glider",
+  "domain": "Air",
+  "tags": ["Aircraft", "Scout"],
+
+  "hp": 40,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 2.6,
+
+  "maxSquadSize": 4,
+
+  "canTarget": [],
+
+  "empImmune": true,
+
+  "cost": { "food": 30 },
+  "foodUpkeep": 1,
+  "fuelUpkeep": 0,
+  "productionTime": 8,
+
+  "notes": "Pure scout, cannot attack at all. Unpowered — unlike every other Air-domain unit it draws Food upkeep instead of Fuel, same as ground infantry (see game-design/03-resources.md). empImmune: an unpowered glider has no engine for Signal Ridge's EMP Turret to disable, unlike every other Air-domain unit (see game-design/05-troop-stat-schema.md's Status Effects section)."
+}

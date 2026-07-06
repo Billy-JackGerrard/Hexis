@@ -1,0 +1,45 @@
+{
+  "id": "winter_forge",
+  "baseType": "Winter Forge",
+  "isCapital": false,
+
+  "buildableBuildings": [
+    "hq",
+    "house",
+    "farm",
+    "quarry",
+    "mine",
+    "oil_rig",
+    "lumber_mill",
+    "frostworks",
+    "turret",
+    "missile_launcher",
+    "cold_turret",
+    "ice_spire",
+    "wall"
+  ],
+
+  "resourceModifiers": [
+    { "scope": "building", "buildingType": "oil_rig", "multiplier": 1.5 }
+  ],
+
+  "initialBuildings": [
+    { "buildingType": "hq", "count": 1 },
+    { "buildingType": "farm", "count": 1 },
+    { "buildingType": "quarry", "count": 1 },
+    { "buildingType": "turret", "count": 1 },
+    { "buildingType": "missile_launcher", "count": 1 },
+    { "buildingType": "cold_turret", "count": 2 },
+    { "buildingType": "ice_spire", "count": 1 },
+    { "buildingType": "frostworks", "count": 1 },
+    { "buildingType": "wall", "count": 6, "material": "stone" }
+  ],
+
+  "initialGarrison": [
+    { "troopId": "frost_tank", "count": 3 },
+    { "troopId": "juggernaut", "count": 3 },
+    { "troopId": "rocket_tank", "count": 2 }
+  ],
+
+  "notes": "Cold/ice specialist Unique base — one instance on the map, sited on Plains, no terrain exception. Frostworks builds a SUBSET of the Heavy Tank roster (Frost Tank, Juggernaut, Rocket Tank) — not Granite Crumbler/Chonky, which stay Fort Irongrad-exclusive. Cold Turret is the specialty defense (ice bombs, freezes on hit). Ice Spire is pre-seeded/fixed (isFixed: true on data/buildings/ice_spire.json) — a pure aura structure slowing nearby enemy troops, not a production or defensive building; it can never be freshly built even after capture, only rebuilt from a ruin. +50% Oil Rig bonus is a building-scoped resourceModifiers entry (multiplier 1.5), authored on this BaseDef rather than as an Ice Spire aura."
+}

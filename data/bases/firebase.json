@@ -1,0 +1,40 @@
+{
+  "id": "firebase",
+  "baseType": "Firebase",
+  "isCapital": false,
+
+  "buildableBuildings": [
+    "hq",
+    "house",
+    "farm",
+    "quarry",
+    "mine",
+    "oil_rig",
+    "lumber_mill",
+    "fire_helipad",
+    "barracks",
+    "turret",
+    "missile_launcher",
+    "flame_turret",
+    "wall"
+  ],
+
+  "initialBuildings": [
+    { "buildingType": "hq", "count": 1 },
+    { "buildingType": "farm", "count": 1 },
+    { "buildingType": "quarry", "count": 1 },
+    { "buildingType": "turret", "count": 1 },
+    { "buildingType": "missile_launcher", "count": 1 },
+    { "buildingType": "flame_turret", "count": 2 },
+    { "buildingType": "fire_helipad", "count": 1 },
+    { "buildingType": "wall", "count": 6, "material": "stone" }
+  ],
+
+  "initialGarrison": [
+    { "troopId": "flamecopter", "count": 3 },
+    { "troopId": "plasmacopter", "count": 2 },
+    { "troopId": "rifleman", "count": 4 }
+  ],
+
+  "notes": "Incendiary air power specialist Unique base — one instance on the map. Fire Helipad builds Flamecopter and Plasmacopter; Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Firebase its own infantry roster too. Flame Turret is the specialty defense (renamed from Flamethrower to avoid colliding with the Barracks infantry unit of the same name). Sited on Plains, no terrain exception."
+}

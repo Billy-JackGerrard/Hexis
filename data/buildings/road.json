@@ -1,0 +1,19 @@
+{
+  "id": "road",
+  "name": "Road",
+  "category": "Infrastructure",
+  "isStandalone": true,
+
+  "placementRequirement": {
+    "siteTerrain": "Forest"
+  },
+
+  "notes": "Engineer-built, placed directly on a Forest hex to unblock it for Land Vehicles (see game-design/01-map-and-terrain.md). Infantry already ignores the Forest block and Air ignores all terrain, so Road only matters for the Land Vehicle domain; it has no effect on Naval since Forest isn't Naval-passable regardless. Unlike Bridge/Dock, has no Wood/Stone material choice — a single build. Public infrastructure once built — usable by any player's troops, not just the builder's owner. Destructible by any troop, but only after clearing defenders on/near it first; deletes outright on destruction (no ruin), freeing the hex for a full-cost fresh build rather than a discounted ruin-rebuild — rebuildCost does not apply. Not tied to a base, so it doesn't consume a population slot and isn't gated by any HQ level.",
+
+  "nonProductionUpgrade": {
+    "baseStats": { "hp": 100 },
+    "statGrowth": { "hp": { "mode": "percent", "value": 10 } },
+    "baseCost": { "wood": 20, "stone": 10 },
+    "costGrowth": { "mode": "percent", "value": 20 }
+  }
+}

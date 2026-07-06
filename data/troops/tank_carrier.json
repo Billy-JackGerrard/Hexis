@@ -1,0 +1,29 @@
+{
+  "id": "tank_carrier",
+  "name": "Tank Carrier",
+  "domain": "Naval",
+  "tags": ["Ship", "Carrier"],
+
+  "hp": 200,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 1.8,
+
+  "maxSquadSize": 1,
+
+  "canTarget": [],
+
+  "cargoCapacity": 2,
+  "cargoAllowedTags": ["Land", "Infantry"],
+  "canLaunchCargoMidCombat": true,
+
+  "cost": { "food": 25, "steel": 60 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 1,
+  "productionTime": 26,
+
+  "notes": "Kraken Point Shipyard exclusive. The planned 'Heavy Transport' from the roster doc, renamed Tank Carrier — bigger than HMS Cuddles and the first transport whose cargoAllowedTags includes Land, not just Infantry: it can carry vehicle squads (2 squads total, any mix of Land/Infantry, each squad occupying one slot regardless of its own headcount). Fully unarmed like Transport Truck, and like Transport Truck (not HMS Cuddles) it can launch cargo mid-combat rather than only while idle/docked — an amphibious-assault craft that drops tanks straight into a fight."
+}

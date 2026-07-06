@@ -17,13 +17,13 @@
   "canTarget": [],
 
   "auras": [
-    { "radius": 3, "target": "friendly_troops", "effect": "heal_over_time", "magnitude": "5/s" }
+    { "radius": 3, "target": "friendly_troops", "filter": "Infantry", "effect": "heal_over_time", "magnitude": 8 }
   ],
 
-  "cost": { "food": 20, "steel": 15 },
+  "cost": { "food": 12, "steel": 10 },
   "foodUpkeep": 0,
   "fuelUpkeep": 1,
   "productionTime": 15,
 
-  "notes": "Light support vehicle rather than infantry so it can keep pace with the army it's healing. Fuel upkeep only applies while moving, per Land-domain rules (see game-design/03-resources.md); free while stationary."
+  "notes": "Light support vehicle rather than infantry so it can keep pace with the army it's healing. Aura is Infantry-only (filter: \"Infantry\") — vehicle repair is Repair Truck's job instead (see data/troops/repair_truck.json). Cheaper and faster-healing than before now that its scope narrowed to one domain rather than all friendly troops."
 }

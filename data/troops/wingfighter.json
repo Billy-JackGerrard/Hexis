@@ -1,0 +1,27 @@
+{
+  "id": "wingfighter",
+  "name": "Wingfighter",
+  "domain": "Air",
+  "tags": ["Aircraft", "Fighter"],
+
+  "hp": 85,
+  "damage": 8,
+  "attackSpeed": 2.2,
+  "range": 3,
+  "splashRadius": 0,
+  "visionRange": 7,
+  "speed": 3.2,
+
+  "maxSquadSize": 4,
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "damageDealtModifiers": { "Structure": 0.5, "Defensive": 0.5, "Air": 1.2 },
+
+  "cost": { "food": 15, "steel": 30 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 3.5,
+  "productionTime": 20,
+
+  "notes": "Sky Fortress's fast anti-troop dogfighter — rapid-fire machine guns, the fastest combat aircraft in the roster. Deliberately weak against buildings/walls/defenses (0.5x), unlike Thunder, so it doesn't double as a siege unit. Bonus vs. Air (1.2x) reflects its dogfighter specialty against other aircraft. Heavy aircraft Fuel upkeep (contrast Hot Air Balloon/Glider, which are lighter exceptions)."
+}

@@ -72,19 +72,14 @@ see `ideas.txt`'s account-perks idea).
   level cap, only the HQ-level ceiling (see `06-building-stats-and-defenses.md`).
 - Capital Base's Oil Rig specifically has a **-50% resource production penalty**
   compared to a Unique base's Oil Rig — the only differentiator, kept simple for ease
-  of implementation/balancing.
-- **Resolved: how this stacks with the Capital's own +50% base-wide bonus.** Both are
-  now structured `resourceModifiers` entries on `BaseDef` (`data/bases/schema.json`)
-  rather than free-text — a `scope: "base"` multiplier (`1.5`, the Capital's general
-  +50%) and a `scope: "building", buildingType: "oil_rig"` multiplier (`0.5`, the
-  penalty). They stack **multiplicatively**, building-scoped first: `baseOutput * 0.5
-  (Oil Rig penalty) * 1.5 (Capital-wide bonus)` = **0.75x** a Unique base's equivalent-
-  level Oil Rig — a net penalty, but softer than the raw -50% reading in isolation.
-  See `07-data-architecture.md`'s Base & Ownership section for the field shape.
-- **Winter Forge's Ice Spire** buffs the production of every Oil Rig at that specific
-  base (an aura targeting a friendly building type, not friendly troops — see
-  `05-troop-stat-schema.md`), making Winter Forge a notably strong Fuel-economy base
-  on top of its heavy-armor/crowd-control identity.
+  of implementation/balancing. Capital carries no offsetting base-wide bonus, so this
+  is a straight `baseOutput * 0.5` — a `scope: "building", buildingType: "oil_rig"`
+  multiplier (`0.5`) in its `resourceModifiers` (`data/bases/schema.json`), and nothing
+  else. See `07-data-architecture.md`'s Base & Ownership section for the field shape.
+- **Winter Forge** gets a boost to its Oil Rig production, but this is authored as a
+  building-scoped bonus on Winter Forge's own `BaseDef` (a `scope: "building",
+  buildingType: "oil_rig"` `resourceModifiers` entry, multiplier 1.5), not an Ice
+  Spire aura.
 
 ## Population
 - Introduced as a **per-base** gating value, separate from the four tradeable
@@ -103,7 +98,7 @@ see `ideas.txt`'s account-perks idea).
   "Fishing boats" are purely the building's visual (boat count scales with level);
   see `02-bases-and-buildings.md`.
 - **Shipyard** (Kraken Point only): builds everything Port can, plus larger/advanced
-  ships (up to Aircraft Carrier), and carries an aura boosting this base's own
-  Harbour's Food output (same pattern as Ice Spire buffing Oil Rigs) — making Kraken
-  Point a strong Food-economy base as well as a military one, provided it has a
-  Harbour built.
+  ships (up to Aircraft Carrier). Kraken Point's own `BaseDef` separately carries a
+  +50% Harbour production bonus (a base-wide, building-scoped `resourceModifiers`
+  entry, not a Shipyard aura — see `07-data-architecture.md`) — making Kraken Point a strong Food-economy
+  base as well as a military one, provided it has a Harbour built.

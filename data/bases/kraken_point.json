@@ -1,0 +1,43 @@
+{
+  "id": "kraken_point",
+  "baseType": "Kraken Point",
+  "isCapital": false,
+
+  "buildableBuildings": [
+    "hq",
+    "house",
+    "farm",
+    "quarry",
+    "mine",
+    "oil_rig",
+    "lumber_mill",
+    "harbour",
+    "shipyard",
+    "port",
+    "turret",
+    "missile_launcher",
+    "wall"
+  ],
+
+  "resourceModifiers": [
+    { "scope": "building", "buildingType": "harbour", "multiplier": 1.5 }
+  ],
+
+  "initialBuildings": [
+    { "buildingType": "hq", "count": 1 },
+    { "buildingType": "farm", "count": 1 },
+    { "buildingType": "quarry", "count": 1 },
+    { "buildingType": "turret", "count": 1 },
+    { "buildingType": "missile_launcher", "count": 1 },
+    { "buildingType": "shipyard", "count": 1 },
+    { "buildingType": "wall", "count": 6, "material": "stone" }
+  ],
+
+  "initialGarrison": [
+    { "troopId": "destroyer", "count": 3 },
+    { "troopId": "hms_cuddles", "count": 3 },
+    { "troopId": "submarine", "count": 2 }
+  ],
+
+  "notes": "Naval capstone Unique base — one instance on the map, found along the map's ocean edge. Shipyard builds everything Port can plus advanced ships up to Aircraft Carrier; Port is also independently listed here (any water-adjacent base can build it), giving Kraken Point both. Both Shipyard and Harbour/Port require an adjacent Water tile, which this base's site is expected to satisfy given its ocean-edge placement. No specialty defense building — relies on generic Turret/Missile Launcher plus Walls. initialGarrison omits Tank Carrier (damage 0, empty canTarget — pure cargo, not a combatant, same reasoning as excluding Engineer/Glider elsewhere) and Aircraft Carrier (deliberately not pre-seeded — a top-tier unit, not a starting-garrison piece). +50% Harbour bonus is a building-scoped resourceModifiers entry (multiplier 1.5) authored directly on this BaseDef, not a Shipyard aura — data/buildings/shipyard.json itself has no auras field."
+}

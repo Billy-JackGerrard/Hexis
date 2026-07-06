@@ -4,13 +4,13 @@
   "domain": "Land",
   "tags": ["Vehicle", "Tank"],
 
-  "hp": 200,
+  "hp": 220,
   "damage": 25,
   "attackSpeed": 0.7,
   "range": 6,
   "splashRadius": 0,
   "visionRange": 8,
-  "speed": 2.8,
+  "speed": 2.6,
 
   "maxSquadSize": 4,
 
@@ -20,8 +20,8 @@
 
   "cost": { "food": 20, "steel": 42 },
   "foodUpkeep": 0,
-  "fuelUpkeep": 3,
+  "fuelUpkeep": 2,
   "productionTime": 24,
 
-  "notes": "Heavier, longer-range sibling to Light Tank: slower attack speed, higher per-hit damage, longer range, and slight damage bonuses vs. Air-domain targets and vs. Structure (buildings+walls are a single reserved key per the schema, so this also nudges its damage vs. buildings, not walls alone). Fuel upkeep only while moving, per Land-domain rules."
+  "notes": "Heavier, longer-range sibling to Light Tank: slower attack speed, higher per-hit damage, longer range, and slight damage bonuses vs. Air-domain targets and vs. Structure (buildings+walls are a single reserved key per the schema, so this also nudges its damage vs. buildings, not walls alone)."
 }
