@@ -53,6 +53,9 @@ func _base_with(owner: String, building_type: String, level: int, hex: HexCoord)
 	base.buildings.append(building)
 	return base
 
+func _standalone(owner: String, building_type: String, material: String, level: int, hex: HexCoord) -> BuildingInstance:
+	return BuildingInstance.new("standalone_%s" % building_type, "", building_type, level, material, hex, owner)
+
 ## Hex-disc size formula (3n(n+1)+1) for a full, untruncated radius-n reveal.
 func _disc_size(radius: int) -> int:
 	return 3 * radius * (radius + 1) + 1
@@ -98,7 +101,7 @@ func _test_vision_system() -> void:
 	var small_grid := _disc_grid(4, Terrain.Type.PLAINS)
 	var s1 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
 	var visions1: Dictionary = {}
-	VisionSystem.resolve_tick([s1], [], small_grid, _troop_defs, _building_defs, visions1)
+	VisionSystem.resolve_tick([s1], [], [], small_grid, _troop_defs, _building_defs, visions1)
 	var pv1: PlayerVision = VisionSystem.vision_for(visions1, "p1")
 	_check(pv1.visible_hexes.size() == _disc_size(4), "visible set is truncated to the grid's radius-4 extent, not the full radius-10 vision")
 	_check(pv1.is_visible(HexCoord.new(4, 0)), "the farthest on-grid hex (distance 4) is visible")
@@ -112,8 +115,8 @@ func _test_vision_system() -> void:
 	var s2_hills := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
 	var visions2p: Dictionary = {}
 	var visions2h: Dictionary = {}
-	VisionSystem.resolve_tick([s2_plains], [], plains_grid, _troop_defs, _building_defs, visions2p)
-	VisionSystem.resolve_tick([s2_hills], [], hills_grid, _troop_defs, _building_defs, visions2h)
+	VisionSystem.resolve_tick([s2_plains], [], [], plains_grid, _troop_defs, _building_defs, visions2p)
+	VisionSystem.resolve_tick([s2_hills], [], [], hills_grid, _troop_defs, _building_defs, visions2h)
 	_check(VisionSystem.vision_for(visions2p, "p1").visible_hexes.size() == _disc_size(10), "on Plains: visionRange 8 + Plains bonus 2 = radius-10 reveal")
 	_check(VisionSystem.vision_for(visions2h, "p1").visible_hexes.size() == _disc_size(8), "on Hills: visionRange 8 + no bonus = radius-8 reveal")
 
@@ -122,7 +125,7 @@ func _test_vision_system() -> void:
 	var turret_base := _base_with("p1", "turret", 1, HexCoord.new(0, 0))
 	var no_squads: Array[SquadInstance] = []
 	var visions3: Dictionary = {}
-	VisionSystem.resolve_tick(no_squads, [turret_base], turret_grid, _troop_defs, _building_defs, visions3)
+	VisionSystem.resolve_tick(no_squads, [turret_base], [], turret_grid, _troop_defs, _building_defs, visions3)
 	_check(VisionSystem.vision_for(visions3, "p1").visible_hexes.size() == _disc_size(9), "Turret (visionRange 7 + Plains bonus 2) reveals a radius-9 disc with no squads involved")
 
 	# 4. Radar Array's globalVisionRangeBonus extends a squad far from the
@@ -133,7 +136,7 @@ func _test_vision_system() -> void:
 	var p1_squad := _make_squad("p1", "rifleman", HexCoord.new(25, 0))
 	var p2_squad := _make_squad("p2", "rifleman", HexCoord.new(25, 0))
 	var visions4: Dictionary = {}
-	VisionSystem.resolve_tick([p1_squad, p2_squad], [radar_base], big_grid, _troop_defs, _building_defs, visions4)
+	VisionSystem.resolve_tick([p1_squad, p2_squad], [radar_base], [], big_grid, _troop_defs, _building_defs, visions4)
 	var pv1_far := VisionSystem.vision_for(visions4, "p1")
 	var pv2_far := VisionSystem.vision_for(visions4, "p2")
 	# p1: visionRange 8 + Plains 2 + globalVisionRangeBonus 3 = radius 13.
@@ -149,11 +152,11 @@ func _test_vision_system() -> void:
 	var move_grid := _disc_grid(30, Terrain.Type.PLAINS)
 	var s5 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
 	var visions5: Dictionary = {}
-	VisionSystem.resolve_tick([s5], [], move_grid, _troop_defs, _building_defs, visions5)
+	VisionSystem.resolve_tick([s5], [], [], move_grid, _troop_defs, _building_defs, visions5)
 	var pv5 := VisionSystem.vision_for(visions5, "p1")
 	_check(pv5.is_visible(HexCoord.new(0, 0)) and pv5.is_explored(HexCoord.new(0, 0)), "origin starts both visible and explored")
 	s5.current_hex = HexCoord.new(20, 0)
-	VisionSystem.resolve_tick([s5], [], move_grid, _troop_defs, _building_defs, visions5)
+	VisionSystem.resolve_tick([s5], [], [], move_grid, _troop_defs, _building_defs, visions5)
 	_check(not pv5.is_visible(HexCoord.new(0, 0)), "origin is no longer visible after the squad moves away")
 	_check(pv5.is_explored(HexCoord.new(0, 0)), "origin stays explored (persistent fog-of-war fade) after the squad moves away")
 	_check(pv5.is_visible(HexCoord.new(20, 0)), "the squad's new position is now visible")
@@ -164,5 +167,16 @@ func _test_vision_system() -> void:
 	var s6 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
 	s6.boarded_on_squad_id = "carrier1"
 	var visions6: Dictionary = {}
-	VisionSystem.resolve_tick([s6], [], boarded_grid, _troop_defs, _building_defs, visions6)
+	VisionSystem.resolve_tick([s6], [], [], boarded_grid, _troop_defs, _building_defs, visions6)
 	_check(not visions6.has("p1"), "a boarded squad contributes no vision (no PlayerVision created for its owner)")
+
+	# 7. A standalone building (Tower, no owning base) contributes vision keyed
+	# by its own owner_id — independent of any base's owner_id. Tower (stone)
+	# visionRange 12 + Plains bonus 2 = radius-14 reveal.
+	var standalone_grid := _disc_grid(20, Terrain.Type.PLAINS)
+	var standalone_tower := _standalone("p3", "tower", "stone", 1, HexCoord.new(0, 0))
+	var standalone_buildings: Array[BuildingInstance] = [standalone_tower]
+	var visions7: Dictionary = {}
+	VisionSystem.resolve_tick([], [], standalone_buildings, standalone_grid, _troop_defs, _building_defs, visions7)
+	_check(VisionSystem.vision_for(visions7, "p3").visible_hexes.size() == _disc_size(14), "standalone Tower (visionRange 12 + Plains bonus 2) reveals a radius-14 disc, keyed by its own owner_id, with no base or squads involved")
+	_check(not visions7.has("p1"), "standalone Tower's owner_id (p3) is independent of any base's owner_id")

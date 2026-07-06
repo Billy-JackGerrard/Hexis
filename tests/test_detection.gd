@@ -51,6 +51,9 @@ func _base_with(owner: String, building_type: String, level: int, hex: HexCoord)
 	base.buildings.append(building)
 	return base
 
+func _standalone(owner: String, building_type: String, material: String, level: int, hex: HexCoord) -> BuildingInstance:
+	return BuildingInstance.new("standalone_%s" % building_type, "", building_type, level, material, hex, owner)
+
 ## Hex-disc size formula (3n(n+1)+1) for a full, untruncated radius-n reveal.
 func _disc_size(radius: int) -> int:
 	return 3 * radius * (radius + 1) + 1
@@ -87,13 +90,13 @@ func _test_detection_system() -> void:
 	var grid := _disc_grid(15, Terrain.Type.PLAINS)
 	var sniper := _make_squad("p1", "sniper", HexCoord.new(0, 0))
 	var detections1: Dictionary = {}
-	DetectionSystem.resolve_tick([sniper], [], grid, _troop_defs, _building_defs, detections1)
+	DetectionSystem.resolve_tick([sniper], [], [], grid, _troop_defs, _building_defs, detections1)
 	_check(DetectionSystem.detected_hexes_for(detections1, "p1").size() == _disc_size(12), "Sniper detector covers a radius-12 disc (its full visionRange, no detectionRange override)")
 
 	# A non-detector troop (Rifleman) contributes no detection coverage at all.
 	var detections2: Dictionary = {}
 	var rifleman := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
-	DetectionSystem.resolve_tick([rifleman], [], grid, _troop_defs, _building_defs, detections2)
+	DetectionSystem.resolve_tick([rifleman], [], [], grid, _troop_defs, _building_defs, detections2)
 	_check(detections2.is_empty(), "a non-detector troop contributes no detection coverage")
 
 	# Tower (base-attached is out of scope for this slice, but detectionRange
@@ -102,7 +105,7 @@ func _test_detection_system() -> void:
 	# detectionRange fallback radius.
 	var radar_base := _base_with("p1", "radar_array", 1, HexCoord.new(0, 0))
 	var detections3: Dictionary = {}
-	DetectionSystem.resolve_tick([], [radar_base], grid, _troop_defs, _building_defs, detections3)
+	DetectionSystem.resolve_tick([], [radar_base], [], grid, _troop_defs, _building_defs, detections3)
 	_check(DetectionSystem.detected_hexes_for(detections3, "p1").size() == _disc_size(8), "Radar Array (base-attached) covers a radius-8 disc (its visionRange fallback) with no squads involved")
 
 	# Two owners stay independent: p2's detector coverage never appears under
@@ -110,7 +113,7 @@ func _test_detection_system() -> void:
 	var detections4: Dictionary = {}
 	var p1_sniper := _make_squad("p1", "sniper", HexCoord.new(0, 0))
 	var p2_sniper := _make_squad("p2", "sniper", HexCoord.new(0, 0))
-	DetectionSystem.resolve_tick([p1_sniper, p2_sniper], [], grid, _troop_defs, _building_defs, detections4)
+	DetectionSystem.resolve_tick([p1_sniper, p2_sniper], [], [], grid, _troop_defs, _building_defs, detections4)
 	_check(DetectionSystem.detected_hexes_for(detections4, "p1").size() == _disc_size(12), "p1's Sniper coverage is present under p1's key")
 	_check(DetectionSystem.detected_hexes_for(detections4, "p2").size() == _disc_size(12), "p2's Sniper coverage is present under p2's key")
 
@@ -119,5 +122,16 @@ func _test_detection_system() -> void:
 	var detections5: Dictionary = {}
 	var boarded := _make_squad("p1", "sniper", HexCoord.new(0, 0))
 	boarded.boarded_on_squad_id = "carrier1"
-	DetectionSystem.resolve_tick([boarded], [], grid, _troop_defs, _building_defs, detections5)
+	DetectionSystem.resolve_tick([boarded], [], [], grid, _troop_defs, _building_defs, detections5)
 	_check(detections5.is_empty(), "a boarded detector squad contributes no detection coverage")
+
+	# A standalone Tower (no owning base) contributes detector coverage keyed
+	# by its own owner_id — this is the Tower detector/detectionRange wiring
+	# the build-order item calls out. Its detectionRange (3) is much smaller
+	# than its own visionRange (12), and must not leak into another owner.
+	var detections6: Dictionary = {}
+	var standalone_tower := _standalone("p3", "tower", "stone", 1, HexCoord.new(0, 0))
+	var standalone_buildings: Array[BuildingInstance] = [standalone_tower]
+	DetectionSystem.resolve_tick([], [], standalone_buildings, grid, _troop_defs, _building_defs, detections6)
+	_check(DetectionSystem.detected_hexes_for(detections6, "p3").size() == _disc_size(3), "standalone Tower's detector coverage is a radius-3 disc (its detectionRange, not its 12-tile visionRange), keyed by its own owner_id")
+	_check(DetectionSystem.detected_hexes_for(detections6, "p1").is_empty(), "standalone Tower's coverage does not leak into an unrelated owner's key")

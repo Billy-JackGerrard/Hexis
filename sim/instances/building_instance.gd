@@ -20,14 +20,19 @@ var current_hp: float = 0.0
 ## Attack-speed accumulator for Defensive buildings, same meaning as
 ## SquadInstance.attack_progress. Unused (stays 0) for non-Defensive buildings.
 var attack_progress: float = 0.0
+## Owner for a standalone building (base_id == ""), which has no BaseInstance
+## to derive ownership from. Unused ("") for base-attached buildings — those
+## keep deriving ownership from base.owner_id, per 02-bases-and-buildings.md.
+var owner_id: String = ""
 
-func _init(p_id: String, p_base_id: String, p_building_type: String, p_level: int = 1, p_material: String = "", p_hex: HexCoord = null) -> void:
+func _init(p_id: String, p_base_id: String, p_building_type: String, p_level: int = 1, p_material: String = "", p_hex: HexCoord = null, p_owner_id: String = "") -> void:
 	id = p_id
 	base_id = p_base_id
 	building_type = p_building_type
 	level = p_level
 	material = p_material
 	hex = p_hex
+	owner_id = p_owner_id
 
 ## Sets max_hp from the building's def and starts current_hp at full. No-op
 ## (leaves HP at 0) if the def carries no HP anywhere.

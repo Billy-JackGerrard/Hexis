@@ -3,12 +3,11 @@
 ## separate" rule. Stateless/static, same split as MovementResolver/
 ## CombatResolver (data on the instances + PlayerVision, timing/rules here).
 ##
-## Scope: squads + base-attached buildings only — standalone buildings
-## (Tower, Landmine, Road, Bridge, Dock) aren't wired into combat yet either
-## (CombatResolver._build_targets only iterates base.buildings), and
-## BuildingInstance carries no owner_id for a standalone instance to key
-## vision by. Standalone-building vision is deferred until that ownership
-## plumbing exists.
+## Scope: squads + base-attached buildings + standalone buildings (Tower,
+## Landmine, Road, Bridge, Dock), keyed by building.owner_id since they have
+## no owning BaseInstance. Standalone buildings still aren't wired into
+## combat (CombatResolver._build_targets only iterates base.buildings) —
+## that's a separate, not-yet-addressed gap.
 ##
 ## Deliberately does NOT touch stealth/detection or terrain combat bonuses —
 ## those are the next build-order item and consume this system's output,
@@ -16,10 +15,12 @@
 class_name VisionSystem
 extends RefCounted
 
-## squads/bases: every player's live state (read-only here). visions: owner_id
-## -> PlayerVision, created lazily for owners not yet seen. visible_hexes is
+## squads/bases: every player's live state (read-only here).
+## standalone_buildings: buildings with no owning base (base_id == ""),
+## keyed by their own owner_id instead of a base's. visions: owner_id ->
+## PlayerVision, created lazily for owners not yet seen. visible_hexes is
 ## fully recomputed this call; explored_hexes only ever grows.
-static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance], grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, visions: Dictionary) -> void:
+static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, visions: Dictionary) -> void:
 	var global_bonus_by_owner := _global_vision_bonus_by_owner(bases, building_defs)
 
 	for pv in visions.values():
@@ -50,6 +51,15 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 			vision += Terrain.vision_bonus(grid.get_terrain(building.hex))
 			vision += global_bonus_by_owner.get(base.owner_id, 0.0)
 			_reveal(visions, base.owner_id, building.hex, int(vision), grid)
+
+	for building in standalone_buildings:
+		var def: Dictionary = building_defs.get(building.building_type, {})
+		var vision := BuildingStats.vision_range(def, building.level, building.material, building_defs)
+		if vision <= 0.0:
+			continue
+		vision += Terrain.vision_bonus(grid.get_terrain(building.hex))
+		vision += global_bonus_by_owner.get(building.owner_id, 0.0)
+		_reveal(visions, building.owner_id, building.hex, int(vision), grid)
 
 static func vision_for(visions: Dictionary, owner_id: String) -> PlayerVision:
 	if not visions.has(owner_id):

@@ -268,12 +268,12 @@ func _test_stealth_and_detection() -> void:
 	var squads: Array[SquadInstance] = [ghost]
 	var bases: Array[BaseInstance] = []
 	var det_p1: Dictionary = {}
-	DetectionSystem.resolve_tick(squads, bases, stealth_grid, _troop_defs, _building_defs, det_p1)
+	DetectionSystem.resolve_tick(squads, bases, [], stealth_grid, _troop_defs, _building_defs, det_p1)
 	_check(det_p1.is_empty(), "no detector present yet -> no detection coverage")
 
 	var sniper_squad := _make_squad("p1", "sniper", HexCoord.new(0, 0), 1, troops)
 	squads.append(sniper_squad)
-	DetectionSystem.resolve_tick(squads, bases, stealth_grid, _troop_defs, _building_defs, det_p1)
+	DetectionSystem.resolve_tick(squads, bases, [], stealth_grid, _troop_defs, _building_defs, det_p1)
 	_check(DetectionSystem.detected_hexes_for(det_p1, "p1").has(ghost.current_hex.to_key()), "p1's Sniper detector covers the Ghost Tank's hex (full visionRange fallback)")
 	var revealed_candidates := CombatTargeting.candidates(HexCoord.new(5, 0), "p1", 10, rifleman, [ghost_target], det_p1)
 	_check(revealed_candidates.size() == 1, "p1's detector coverage reveals the Ghost Tank to a p1 attacker beyond its revealRange")
@@ -285,7 +285,7 @@ func _test_stealth_and_detection() -> void:
 	var radar_base := _p2_base_with("radar_array", HexCoord.new(0, 0))
 	radar_base.owner_id = "p1"
 	var det_radar: Dictionary = {}
-	DetectionSystem.resolve_tick([ghost], [radar_base], stealth_grid, _troop_defs, _building_defs, det_radar)
+	DetectionSystem.resolve_tick([ghost], [radar_base], [], stealth_grid, _troop_defs, _building_defs, det_radar)
 	_check(DetectionSystem.detected_hexes_for(det_radar, "p1").has(ghost.current_hex.to_key()), "Radar Array's detector covers a stealthed enemy squad within its vision range")
 	_check(DetectionSystem.detected_hexes_for(det_radar, "p2").is_empty(), "Radar Array's coverage does not leak to a different owner")
 

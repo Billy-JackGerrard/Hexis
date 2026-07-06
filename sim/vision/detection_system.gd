@@ -14,10 +14,11 @@
 ## fog-of-war-style persistence, unlike PlayerVision.explored_hexes, since
 ## detection is momentary ("can currently see through stealth"), not memory.
 ##
-## Scope: base-attached troops/buildings only (mirrors VisionSystem/
-## CombatResolver's existing boundary). Standalone detector buildings (Tower)
-## are deferred — no standalone-building placement/ownership flow exists yet
-## for a Tower instance to be keyed by owner_id at all.
+## Scope: base-attached troops/buildings, plus standalone detector buildings
+## (Tower), keyed by building.owner_id since they have no owning BaseInstance.
+## Landmine-as-a-hidden-object (its own stealth/revealRange) stays deferred —
+## building-side stealth detection (as opposed to squad-side, handled by
+## is_squad_hidden above) isn't wired up anywhere yet.
 class_name DetectionSystem
 extends RefCounted
 
@@ -55,7 +56,7 @@ static func squad_reveal_range(squad: SquadInstance, troop_def: Dictionary, grid
 ## {hex_key: true} for every hex within a detector's detectionRange (falling
 ## back to full visionRange if omitted, per schema). Base-attached
 ## troops/buildings only; boarded squads have no independent position.
-static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance], grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, detections: Dictionary) -> void:
+static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, detections: Dictionary) -> void:
 	detections.clear()
 
 	for squad in squads:
@@ -76,6 +77,14 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 			var range := BuildingStats.detection_range(def, building.level, building.material, building_defs)
 			if range > 0.0:
 				_mark(detections, base.owner_id, building.hex, int(range), grid)
+
+	for building in standalone_buildings:
+		var def: Dictionary = building_defs.get(building.building_type, {})
+		if not BuildingStats.detector(def, building_defs):
+			continue
+		var range := BuildingStats.detection_range(def, building.level, building.material, building_defs)
+		if range > 0.0:
+			_mark(detections, building.owner_id, building.hex, int(range), grid)
 
 static func detected_hexes_for(detections: Dictionary, owner_id: String) -> Dictionary:
 	return detections.get(owner_id, {})

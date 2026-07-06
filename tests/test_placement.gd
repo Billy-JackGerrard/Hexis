@@ -36,6 +36,8 @@ func _init() -> void:
 	_test_hq_radius()
 	print("BuildingPlacement population gate (integration)")
 	_test_population_gate()
+	print("BuildingPlacement standalone placement")
+	_test_standalone_placement()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -187,3 +189,97 @@ func _test_population_gate() -> void:
 		"non-House placement rejected once population is full")
 	_check(BuildingPlacement.can_place(base, capital_def, "house", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
 		"House placement still allowed once population is full")
+
+func _test_standalone_placement() -> void:
+	# Tower/Landmine have no placementRequirement at all -> buildable on any
+	# terrain, unlike can_place's implicit Plains default.
+	var mixed_grid := HexGrid.new()
+	mixed_grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
+	mixed_grid.set_terrain(HexCoord.new(1, 0), Terrain.Type.FOREST)
+	mixed_grid.set_terrain(HexCoord.new(2, 0), Terrain.Type.HILLS)
+
+	_check(BuildingPlacement.can_place_standalone("tower", HexCoord.new(0, 0), mixed_grid, _building_defs, {}) == BuildingPlacement.Result.OK,
+		"Tower placeable on Plains (no siteTerrain restriction)")
+	_check(BuildingPlacement.can_place_standalone("tower", HexCoord.new(1, 0), mixed_grid, _building_defs, {}) == BuildingPlacement.Result.OK,
+		"Tower placeable on Forest (no siteTerrain restriction)")
+	_check(BuildingPlacement.can_place_standalone("landmine", HexCoord.new(2, 0), mixed_grid, _building_defs, {}) == BuildingPlacement.Result.OK,
+		"Landmine placeable on Hills (no siteTerrain restriction)")
+
+	# Road requires Forest.
+	var forest_grid := HexGrid.new()
+	forest_grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
+	forest_grid.set_terrain(HexCoord.new(1, 0), Terrain.Type.FOREST)
+	_check(BuildingPlacement.can_place_standalone("road", HexCoord.new(0, 0), forest_grid, _building_defs, {}) == BuildingPlacement.Result.WRONG_SITE_TERRAIN,
+		"Road rejected on a Plains hex (siteTerrain Forest)")
+	_check(BuildingPlacement.can_place_standalone("road", HexCoord.new(1, 0), forest_grid, _building_defs, {}) == BuildingPlacement.Result.OK,
+		"Road placeable on a Forest hex")
+
+	# Bridge requires River.
+	var river_grid := HexGrid.new()
+	river_grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
+	river_grid.set_terrain(HexCoord.new(1, 0), Terrain.Type.RIVER)
+	_check(BuildingPlacement.can_place_standalone("bridge", HexCoord.new(0, 0), river_grid, _building_defs, {}) == BuildingPlacement.Result.WRONG_SITE_TERRAIN,
+		"Bridge rejected on a Plains hex (siteTerrain River)")
+	_check(BuildingPlacement.can_place_standalone("bridge", HexCoord.new(1, 0), river_grid, _building_defs, {}) == BuildingPlacement.Result.OK,
+		"Bridge placeable on a River hex")
+
+	# Dock requires Plains + an adjacent Water (Ocean/River) hex. Note:
+	# HexGrid.get_terrain() defaults an untracked hex to OCEAN, so every
+	# neighbor here must be explicitly set to a non-Water terrain to actually
+	# exercise the rejection path.
+	var dock_grid := HexGrid.new()
+	dock_grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
+	for neighbor in HexCoord.neighbors(HexCoord.new(0, 0)):
+		dock_grid.set_terrain(neighbor, Terrain.Type.PLAINS)
+	dock_grid.set_terrain(HexCoord.new(5, 5), Terrain.Type.PLAINS)
+	dock_grid.set_terrain(HexCoord.new(6, 5), Terrain.Type.OCEAN)
+	_check(BuildingPlacement.can_place_standalone("dock", HexCoord.new(0, 0), dock_grid, _building_defs, {}) == BuildingPlacement.Result.MISSING_ADJACENT_TERRAIN,
+		"Dock rejected on Plains with no adjacent Water")
+	_check(BuildingPlacement.can_place_standalone("dock", HexCoord.new(5, 5), dock_grid, _building_defs, {}) == BuildingPlacement.Result.OK,
+		"Dock placeable on Plains adjacent to Ocean")
+
+	# A non-standalone type is rejected by the standalone path.
+	_check(BuildingPlacement.can_place_standalone("farm", HexCoord.new(0, 0), mixed_grid, _building_defs, {}) == BuildingPlacement.Result.NOT_STANDALONE,
+		"a base-tied type (Farm) is rejected by the standalone validator")
+
+	# Hex occupancy against base buildings.
+	var occ_grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1)])
+	var occ_base := _fresh_seeded_base("sb1", occ_grid, 1)
+	var hq_hex: HexCoord = occ_base.buildings_of_type("hq")[0].hex
+	var occupied_with_base := BuildingPlacement.standalone_occupied_hexes([occ_base], [])
+	_check(BuildingPlacement.can_place_standalone("tower", hq_hex, occ_grid, _building_defs, occupied_with_base) == BuildingPlacement.Result.HEX_OCCUPIED,
+		"standalone placement rejected on a hex already occupied by a base building")
+
+	# Hex occupancy against another standalone building.
+	var standalone_hex := HexCoord.new(20, 20)
+	var lone_grid := HexGrid.new()
+	lone_grid.set_terrain(standalone_hex, Terrain.Type.PLAINS)
+	var existing_tower := BuildingInstance.new("t1", "", "tower", 1, "stone", standalone_hex, "p1")
+	var occupied_with_standalone := BuildingPlacement.standalone_occupied_hexes([], [existing_tower])
+	_check(BuildingPlacement.can_place_standalone("landmine", standalone_hex, lone_grid, _building_defs, occupied_with_standalone) == BuildingPlacement.Result.HEX_OCCUPIED,
+		"standalone placement rejected on a hex already occupied by another standalone building")
+
+	# Ground-unit occupancy blocks standalone placement too.
+	var unit_hex := HexCoord.new(30, 30)
+	var unit_grid := HexGrid.new()
+	unit_grid.set_terrain(unit_hex, Terrain.Type.PLAINS)
+	var infantry_squad := SquadInstance.new("su1", "p2", "rifleman", unit_hex)
+	var ground_occupied := BuildingPlacement.ground_unit_hexes([infantry_squad], _troop_defs)
+	_check(BuildingPlacement.can_place_standalone("tower", unit_hex, unit_grid, _building_defs, {}, ground_occupied) == BuildingPlacement.Result.HEX_OCCUPIED_BY_UNIT,
+		"standalone placement rejected on a hex occupied by a ground troop")
+
+	# place_standalone_building end-to-end: appends with owner_id/base_id set,
+	# and Road/Bridge placement wires grid infrastructure.
+	var build_hex := HexCoord.new(40, 40)
+	var build_grid := HexGrid.new()
+	build_grid.set_terrain(build_hex, Terrain.Type.FOREST)
+	var standalone_buildings: Array[BuildingInstance] = []
+	var place_result := BuildingPlacement.place_standalone_building([], standalone_buildings, "road", build_hex, build_grid, _building_defs, "road1", "p1")
+	_check(place_result == BuildingPlacement.Result.OK, "place_standalone_building succeeds for a valid Road placement")
+	_check(standalone_buildings.size() == 1, "the new standalone building was appended")
+	_check(standalone_buildings[0].owner_id == "p1", "the new standalone building carries the given owner_id")
+	_check(standalone_buildings[0].base_id == "", "the new standalone building has no base_id")
+	_check(build_grid.get_infrastructure(build_hex) == Terrain.Infrastructure.ROAD, "placing a Road wires grid infrastructure so pathfinding picks it up")
+
+	var second_place_result := BuildingPlacement.place_standalone_building([], standalone_buildings, "tower", build_hex, build_grid, _building_defs, "tower1", "p1")
+	_check(second_place_result == BuildingPlacement.Result.HEX_OCCUPIED, "a second standalone building can't be placed on the same hex as the first")

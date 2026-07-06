@@ -24,6 +24,7 @@ enum Result {
 	NOT_ENOUGH_ADJACENT_BUILDINGS,
 	OUTSIDE_HQ_RADIUS,
 	POPULATION_FULL,
+	NOT_STANDALONE,
 }
 
 ## Minimum adjacent existing buildings required for a normal (non-Wall)
@@ -131,4 +132,81 @@ static func place_building(base: BaseInstance, base_def: Dictionary, building_ty
 	if result != Result.OK:
 		return result
 	base.buildings.append(BuildingInstance.new(id, base.id, building_type, 1, material, hex))
+	return Result.OK
+
+## Validates placement of a standalone building (Tower/Landmine/Road/Bridge/
+## Dock) at a hex. Unlike can_place, there's no owning BaseInstance: no
+## buildableBuildings/population/2-adjacency/HQ-radius checks — those are
+## base-menu concepts that don't apply here. occupied_hexes is the union of
+## every base's occupied_hexes() plus every existing standalone building's
+## hex, built by standalone_occupied_hexes() below.
+##
+## Unlike can_place's implicit Plains default, a standalone building with no
+## placementRequirement at all (Tower, Landmine) is buildable on any terrain
+## per their notes — so siteTerrain is only enforced when the def names one.
+static func can_place_standalone(building_type: String, hex: HexCoord, grid: HexGrid, building_defs: Dictionary, occupied_hexes: Dictionary, occupied_unit_hexes: Dictionary = {}) -> Result:
+	var building_def: Dictionary = building_defs.get(building_type, {})
+	if not building_def.get("isStandalone", false):
+		return Result.NOT_STANDALONE
+
+	if not grid.has_hex(hex):
+		return Result.OUT_OF_HEX_BOUNDS
+
+	var hex_key := hex.to_key()
+	if occupied_hexes.has(hex_key):
+		return Result.HEX_OCCUPIED
+	if occupied_unit_hexes.has(hex_key):
+		return Result.HEX_OCCUPIED_BY_UNIT
+
+	var placement_requirement: Dictionary = building_def.get("placementRequirement", {})
+	if placement_requirement.has("siteTerrain"):
+		var required_site_terrain := _site_terrain(placement_requirement["siteTerrain"])
+		if grid.get_terrain(hex) != required_site_terrain:
+			return Result.WRONG_SITE_TERRAIN
+
+	var adjacent_terrain_required: String = placement_requirement.get("adjacentTerrainRequired", "")
+	if adjacent_terrain_required != "":
+		var satisfied := false
+		for neighbor in HexCoord.neighbors(hex):
+			if _matches_adjacent_terrain_required(adjacent_terrain_required, grid.get_terrain(neighbor)):
+				satisfied = true
+				break
+		if not satisfied:
+			return Result.MISSING_ADJACENT_TERRAIN
+
+	return Result.OK
+
+## Union of every base's occupied_hexes() plus every standalone building's
+## hex, as {hex_key: BuildingInstance} — the standalone-path equivalent of
+## BaseInstance.occupied_hexes(), since standalone buildings have no owning
+## base to ask.
+static func standalone_occupied_hexes(bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance]) -> Dictionary:
+	var result: Dictionary = {}
+	for base in bases:
+		for key in base.occupied_hexes():
+			result[key] = base.occupied_hexes()[key]
+	for building in standalone_buildings:
+		if building.hex != null:
+			result[building.hex.to_key()] = building
+	return result
+
+## Validates via can_place_standalone and, on OK, appends a new
+## BuildingInstance (base_id "", owner_id set) to standalone_buildings.
+## Road/Bridge additionally get wired into grid infrastructure so pathfinding
+## picks them up immediately (Terrain.effective_cost/edge_cost already
+## consume get_infrastructure). Dock/Tower/Landmine don't touch
+## infrastructure — Dock's disembark-gating and Tower/Landmine's combat role
+## are separate systems.
+static func place_standalone_building(bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], building_type: String, hex: HexCoord, grid: HexGrid, building_defs: Dictionary, id: String, owner_id: String, material: String = "", occupied_unit_hexes: Dictionary = {}) -> Result:
+	var occupied := standalone_occupied_hexes(bases, standalone_buildings)
+	var result := can_place_standalone(building_type, hex, grid, building_defs, occupied, occupied_unit_hexes)
+	if result != Result.OK:
+		return result
+	var building := BuildingInstance.new(id, "", building_type, 1, material, hex, owner_id)
+	building.init_hp(building_defs.get(building_type, {}), building_defs)
+	standalone_buildings.append(building)
+	if building_type == "road":
+		grid.set_infrastructure(hex, Terrain.Infrastructure.ROAD)
+	elif building_type == "bridge":
+		grid.set_infrastructure(hex, Terrain.Infrastructure.BRIDGE)
 	return Result.OK

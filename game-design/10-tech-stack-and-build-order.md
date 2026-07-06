@@ -165,13 +165,40 @@ writing real UI code does, and it also needs actual game state to bind to.
      standalone-building-placement item below, which this depends on; and
      regiment-wide stealth auras (Commander Nightfall's `grant_stealth` aura),
      which lands with the aura system.
-   - [ ] Standalone building placement (Engineer-built-anywhere Tower,
-     Landmine, Road, Bridge, Dock): no placement flow exists for
-     `isStandalone` buildings at all today — `BuildingPlacement.can_place()`
-     explicitly rejects them, and `BuildingInstance` has no `owner_id` for a
-     standalone instance to be keyed by owner. Blocks two already-deferred
-     items: `VisionSystem`'s standalone-building vision, and this build's
-     Tower `detector`/`detectionRange` wiring into `DetectionSystem`.
+   - [x] Standalone building placement (Engineer-built-anywhere Tower,
+     Landmine, Road, Bridge, Dock): `BuildingInstance` gained `owner_id`
+     (trailing optional constructor param, defaulting to `""` and unused for
+     base-attached buildings, which keep deriving ownership from
+     `base.owner_id`). `BuildingPlacement.can_place_standalone()`
+     (`sim/instances/building_placement.gd`) is the base-free validator —
+     unlike `can_place()`'s implicit Plains default, it only enforces
+     `siteTerrain`/`adjacentTerrainRequired` when the def actually specifies
+     one (Tower/Landmine have neither and are placeable on any terrain, per
+     their "anywhere" notes), and skips every base-menu-only check
+     (buildableBuildings/population/2-adjacency/HQ-radius).
+     `standalone_occupied_hexes()` unions base-occupied hexes with existing
+     standalone buildings' hexes so the two placement domains can't overlap.
+     `place_standalone_building()` appends to a plain `Array[BuildingInstance]`
+     (no new manager/registry class, matching the array-of-instances +
+     stateless-resolver pattern used everywhere else) and, for Road/Bridge,
+     calls `grid.set_infrastructure()` — the first placement path to ever do
+     so outside tests. `VisionSystem.resolve_tick()` and
+     `DetectionSystem.resolve_tick()` (`sim/vision/`) each gained a
+     `standalone_buildings` parameter and a loop keyed by
+     `building.owner_id` instead of `base.owner_id`, closing both
+     previously-deferred gaps — Tower's `detector`/`detectionRange` now
+     reaches `DetectionSystem`, and Tower/Landmine's `visionRange` now
+     reaches `VisionSystem` (Road/Bridge/Dock have neither field, so they
+     naturally contribute nothing to either system). `tests/test_placement.gd`
+     (new standalone-placement section), `tests/test_vision.gd`,
+     `tests/test_detection.gd`, and `tests/test_combat.gd` (signature-only
+     update) all extended/updated accordingly. **Deferred**: Engineer-must-
+     issue-this enforcement (`canBuildInfrastructure` — no command/order-
+     issuing layer exists yet to check who's calling the placement
+     function), Dock's actual Naval disembark-gating movement logic,
+     CombatResolver targeting standalone buildings, and building-side
+     stealth/detection (Landmine-as-a-hidden-object) — squad-side already
+     exists, buildings don't yet.
    - [ ] Regiment lock-step movement: a move order on a Commander computes one
      shared path; every squad in the regiment (Commander included) advances
      it in sync, hex-by-hex, at the regiment's slowest-member speed
