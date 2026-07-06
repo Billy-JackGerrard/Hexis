@@ -1,7 +1,7 @@
 ## Live per-match state for one owned base (see 07-data-architecture.md
-## section 5). Deliberately minimal for now: no hexCoord/population/walls —
-## just enough (hqLevel + its buildings) to drive squad/commander cap math
-## ahead of full base/building placement rules landing.
+## section 5). Deliberately minimal for now: no walls yet — that's deferred
+## to the combat/line-of-sight slice. hexCoord/population are now tracked
+## here to drive BuildingPlacement/Population validation.
 class_name BaseInstance
 extends RefCounted
 
@@ -9,17 +9,29 @@ var id: String
 var base_def_id: String
 var owner_id: String
 var hq_level: int
+var hex_coord: HexCoord
 var buildings: Array[BuildingInstance] = []
 
-func _init(p_id: String, p_base_def_id: String, p_owner_id: String, p_hq_level: int = 1) -> void:
+func _init(p_id: String, p_base_def_id: String, p_owner_id: String, p_hq_level: int = 1, p_hex_coord: HexCoord = null) -> void:
 	id = p_id
 	base_def_id = p_base_def_id
 	owner_id = p_owner_id
 	hq_level = p_hq_level
+	hex_coord = p_hex_coord
 
 func buildings_of_type(building_type: String) -> Array[BuildingInstance]:
 	var result: Array[BuildingInstance] = []
 	for b in buildings:
 		if b.building_type == building_type:
 			result.append(b)
+	return result
+
+## {hex_key: BuildingInstance} for every building with a hex — the source of
+## truth for "is this hex occupied" (one building per hex) and for counting
+## adjacent buildings during placement validation.
+func occupied_hexes() -> Dictionary:
+	var result: Dictionary = {}
+	for b in buildings:
+		if b.hex != null:
+			result[b.hex.to_key()] = b
 	return result

@@ -53,8 +53,25 @@ writing real UI code does, and it also needs actual game state to bind to.
      `tests/test_units.gd`, 25 checks passing.
    - [ ] Combat resolution (auto-attack nearest in range, damage modifiers,
      splash — see `04-combat.md`).
-   - [ ] Base/building placement rules, hex-adjacency validation (see
-     `02-bases-and-buildings.md`).
+   - [x] Base/building placement rules, hex-adjacency validation (see
+     `02-bases-and-buildings.md`): `BuildingPlacement.can_place()`
+     (`sim/instances/building_placement.gd`) checks base-type eligibility
+     (`BaseDef.buildableBuildings`), `isFixed`/`isStandalone` gating,
+     one-building-per-hex + ground-troop-occupancy (`ground_unit_hexes()` —
+     Infantry/Land block, Air/Naval don't), `siteTerrain`/
+     `adjacentTerrainRequired` (Plains-only by default, Treehouse/Windy Peaks
+     Forest/Hill exceptions), the 2-adjacent-buildings expansion rule, HQ
+     build radius (placeholder `hq_level*2+2`, tunable like
+     `Terrain.HILLS_INFANTRY_COST`), and the population gate. `Population`
+     (`sim/instances/population.gd`) derives `populationCap`/`populationUsed`
+     from live buildings (House/HQ grant capacity rather than consume it).
+     `BaseFactory.seed_base()` (`sim/instances/base_factory.gd`) places the
+     mutually-adjacent HQ/Farm/Quarry seed cluster from `BaseDef.initialBuildings`.
+     `BaseInstance`/`BuildingInstance` now carry `hex_coord`/`hex`.
+     `tests/test_placement.gd`, 33 checks passing. **Deferred**: Walls
+     (edge-keyed, 1-adjacent-building exception, no population cost — lands
+     with the combat/line-of-sight slice), the Bridge-foothold adjacency
+     exception, and demolish/ruin state.
 2. **Godot rendering scaffold** — a minimal scene rendering one base,
    click-to-move wired to the sim core.
    - [ ] Not started.
