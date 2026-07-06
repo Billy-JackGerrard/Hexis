@@ -146,24 +146,23 @@ occupies a hex, and moves hex-to-hex:
   Walls entirely, same as every other terrain rule.
 
 ## Rendering Notes (2.5D Cartoon Style)
-- **Resolved: Phaser 3, 2D sprite-based, not true 3D.** The isometric look is faked with
-  2D sprites drawn in isometric projection plus painter's-algorithm depth sorting (draw
-  order by y-position) — the same approach genre precedents like Clash of Clans / Boom
-  Beach use, rather than a real 3D engine (Three.js/Unity/Godot 3D). Phaser is used for
-  its game loop, input handling, camera pan/zoom, scene management, audio, and asset
-  loading (it renders via Pixi.js internally, so this isn't a step down in rendering
-  capability from using Pixi directly — it's Pixi plus a full framework around it).
-- **Resolved: hex tiles are NOT drawn via Phaser's Tilemap system**, including its
-  hexagonal tilemap mode. Terrain tiles are plain Phaser sprites, positioned by a
-  standalone hex-math module (axial/cube coordinates, per the standard Red Blob Games
+- **Resolved: Godot, 2D sprite-based, not true 3D** (see `10-tech-stack-and-build-order.md`
+  for the full engine decision/rationale). The isometric look is faked with `Sprite2D`
+  nodes drawn in isometric projection plus `Node2D`'s Y-sort depth ordering (draw order
+  by y-position) — the same approach genre precedents like Clash of Clans / Boom Beach
+  use, rather than a real 3D engine (Three.js/Unity/Godot 3D).
+- **Resolved: hex tiles are NOT drawn via Godot's `TileMap` node**, including its
+  hexagonal tile-shape support. Terrain tiles are plain `Sprite2D` nodes, positioned by
+  a standalone hex-math module (axial/cube coordinates, per the standard Red Blob Games
   reference implementation — neighbors, distance, pathfinding) that has zero dependency
-  on Phaser. Reasoning: Tilemap's hex mode only helps with drawing/culling, not the
-  adjacency/pathfinding/terrain-cost logic the simulation needs anyway (that's hand-written
-  regardless); it's the least-exercised, least battle-tested corner of Phaser's API; its
-  natural workflow (author in Tiled, import) fights against this game's procedurally
-  generated map; and the map is small/bounded enough that Tilemap's main real benefit
-  (off-screen culling) isn't needed. This is what the earlier raw-Phaser hex attempt was
-  missing — hex math was never a rendering-library problem to begin with.
+  on Godot's scene tree (see `sim/hex/` — implemented and unit-tested headlessly ahead of
+  any rendering, per the build order). Reasoning: `TileMap`'s hex mode only helps with
+  drawing/culling, not the adjacency/pathfinding/terrain-cost logic the simulation needs
+  anyway (that's hand-written regardless, and already exists independent of the engine);
+  its natural workflow (paint tiles in the editor / import a tileset) fights against this
+  game's procedurally generated map; and the map is small/bounded enough that `TileMap`'s
+  main real benefit (off-screen culling) isn't needed. Hex math was never a
+  rendering-library problem to begin with.
 - Forests/hills/props as 2D sprites layered on top of terrain tiles, not 3D geometry.
 - Fog of war as a shader/overlay pass (darkened/desaturated unexplored, grayed "explored
   but not visible").

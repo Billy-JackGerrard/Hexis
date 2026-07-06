@@ -179,10 +179,15 @@ TroopInstance {
   currentHP,
   activeBuffs: [
     { source, effect, magnitude, expiresAt }   // auras, deficit-drain, etc.
-  ],
-  fuelStatus            // only relevant for aircraft/vehicles
+  ]
 }
 ```
+Fuel isn't tracked per-instance — there's no refillable tank to store. Fuel is a
+draw against the shared player pool, computed live each resource tick from the
+troop's Domain/tags and whether it's currently under a move order or occupying/
+adjacent to one of the owner's own bases (see `03-resources.md`'s Fuel rules), the
+same "computed live, not baked into stored state" treatment already used for
+terrain-based buffs.
 Buffs/debuffs (Shield Tank auras, Food/Fuel deficit drain, terrain bonuses) are
 computed each tick from what's currently in range/in effect, not baked permanently
 into the unit's stats.
@@ -302,7 +307,7 @@ A player's maximum simultaneous squad count is **not a flat number** — it's de
 (Capital *and* Unique) has its own HQ and its own `hqLevel` (see Base Seeding in
 `02-bases-and-buildings.md`), so this scales with both how many bases and how
 developed each one is. A fresh player with one level-1 Capital starts at `maxSquads =
-3` (`1 * 2 + 2`). Producing a troop that would need a new squad (no existing
+4` (`1 * 2 + 2`). Producing a troop that would need a new squad (no existing
 same-type squad has room) is blocked/paused once the player is at their squad cap (see
 `3b`'s production-queue-pause rule) — upgrading any owned base's HQ, or capturing an
 additional base, raises the cap again.
