@@ -283,6 +283,15 @@ RegimentInstance {
     order-override described in `09-ui-and-controls.md` (which doesn't clear
     `commanderId` and the squad resumes following the Commander once idle) —
     `leave_regiment` is the explicit, permanent version.
+  - **Resolved: regiment movement is lock-step on one shared path, not per-squad
+    independent pathing.** A move order targeting a Commander computes a single
+    `path` from the Commander's `currentHex`; every member squad's `path` and
+    `edgeProgress` are set to mirror the Commander's exactly, and all advance
+    together each tick at the regiment's capped speed (see `04-combat.md`'s
+    Commanders section). A squad that's temporarily split off via an ad hoc order
+    (per `09-ui-and-controls.md`) has its own independent `path`/`edgeProgress`
+    until it goes idle, at which point it's reset to mirror the Commander's current
+    shared path again.
 - If the Commander dies, the `RegimentInstance` is deleted and every member squad's
   `commanderId` is cleared — they revert to unled, single-type-only squads (see
   `04-combat.md`'s Commander-death rule).

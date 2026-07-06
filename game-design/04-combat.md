@@ -110,6 +110,18 @@
   aura). Re-forming the regiment requires assigning those squads to a (living)
   Commander again.
 - **Resolved: a regiment's movement speed is capped by its slowest member squad.**
+- **Resolved: a regiment moves as a single lock-step block, not independently
+  pathing squads chasing an anchor.** A move order issued to a Commander (or with
+  its regiment selected) computes **one shared path** from the Commander's current
+  position; every squad in the regiment — the Commander included — advances along
+  that identical path in sync, hex-by-hex, at the regiment's capped (slowest-member)
+  speed. Because stacking is unlimited (see `07-data-architecture.md`), this means
+  the whole regiment literally occupies the same hex together at every step rather
+  than spreading out or straggling around obstacles individually — the visual/
+  gameplay expression of "squads under a Commander stick together." An individual
+  squad that's been given a temporary ad hoc order (per the independent-selection
+  rule in `09-ui-and-controls.md`) simply drops out of lock-step until it goes idle
+  and rejoins the shared path.
 
 #### Commander Tiers & the Commander Cap
 **Resolved**: the Command Centre doesn't unlock Commanders one-per-level like a normal
