@@ -72,6 +72,38 @@ static func _hp_model(resolved: Dictionary, material: String) -> Dictionary:
 static func defensive_stats(def: Dictionary, building_defs: Dictionary) -> Dictionary:
 	return resolve_def(def, building_defs).get("defensiveStats", {})
 
+## Vision range for a building of this type/level/material, or 0.0 if it
+## carries no visionRange anywhere (most Production/Resource buildings don't
+## emit vision on their own). Checked in the same shape as max_hp: multi-
+## material blocks first (Tower — visionRange grows per statGrowth), then a
+## plain nonProductionUpgrade block (Radar Array — also grows), then a flat
+## defensiveStats.visionRange (Turret variants/Missile Launcher/Landmine —
+## these have no growth entry today, matching how CombatResolver already
+## reads their damage/range un-leveled straight off defensiveStats).
+static func vision_range(def: Dictionary, level: int, material: String, building_defs: Dictionary) -> float:
+	var resolved := resolve_def(def, building_defs)
+
+	var upgrade_model := _hp_model(resolved, material)
+	if not upgrade_model.is_empty() and upgrade_model.get("baseStats", {}).has("visionRange"):
+		var base_vision: float = float(upgrade_model.get("baseStats", {}).get("visionRange", 0.0))
+		var growth: Dictionary = upgrade_model.get("statGrowth", {}).get("visionRange", {})
+		return _apply_growth(base_vision, growth, level)
+
+	return float(resolved.get("defensiveStats", {}).get("visionRange", 0.0))
+
+## Flat, map-wide vision-range bonus this building grants its owner (only
+## Radar Array uses this today — 02-bases-and-buildings.md), applied on top of
+## every one of the owner's vision sources, not just this building's own tile.
+## Grows with level the same way HP/other nonProductionUpgrade stats do.
+static func global_vision_bonus(def: Dictionary, level: int, building_defs: Dictionary) -> float:
+	var resolved := resolve_def(def, building_defs)
+	var upgrade: Dictionary = resolved.get("nonProductionUpgrade", {})
+	if not upgrade.get("baseStats", {}).has("globalVisionRangeBonus"):
+		return 0.0
+	var base_bonus: float = float(upgrade.get("baseStats", {}).get("globalVisionRangeBonus", 0.0))
+	var growth: Dictionary = upgrade.get("statGrowth", {}).get("globalVisionRangeBonus", {})
+	return _apply_growth(base_bonus, growth, level)
+
 ## The damageReceivedModifiers that apply to this building instance — per
 ## material for multi-material buildings (e.g. Wood Wall's {Fire: 2.0}), else
 ## the def's top-level block. {} if none.

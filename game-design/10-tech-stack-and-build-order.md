@@ -109,11 +109,30 @@ writing real UI code does, and it also needs actual game state to bind to.
      fog-of-war (split into its own item below — it doesn't gate movement),
      regiment lock-step, cargo/carrier position-driving, and attack-move
      repathing toward a directed target.
-   - [ ] Vision / fog-of-war: vision range tracked separately from engagement
-     range per `04-combat.md` (a unit sees an enemy approaching before it's
-     close enough to fight), per-player visibility sets. Split out from the
-     movement item above since movement doesn't depend on it, but terrain
-     bonuses/ambush and stealth/detection below do.
+   - [x] Vision / fog-of-war: per-player currently-visible and persistently-
+     explored hex sets (`sim/vision/player_vision.gd`'s `PlayerVision`),
+     recomputed each tick by `VisionSystem.resolve_tick()`
+     (`sim/vision/vision_system.gd`) from every live squad's and base
+     building's `visionRange`, mirroring `MovementResolver`/`CombatResolver`'s
+     stateless-resolver-over-flat-arrays shape. `explored_hexes` only ever
+     grows (the "explored but not currently visible" fade); `visible_hexes` is
+     fully recomputed every tick. `Terrain.vision_bonus()`
+     (`sim/hex/terrain_types.gd`) adds a flat, tunable `PLAINS_VISION_BONUS`
+     (placeholder like `HILLS_INFANTRY_COST`) for a source standing on Plains,
+     per `01-map-and-terrain.md`'s "extended vision + extends fog-of-war
+     clearing." `BuildingStats.vision_range()`/`.global_vision_bonus()`
+     (`sim/instances/building_stats.gd`) resolve a building's vision the same
+     three-shape way `max_hp()` already does (materialStats for Tower,
+     nonProductionUpgrade for Radar Array, flat `defensiveStats.visionRange`
+     un-leveled for Turret/Missile Launcher/Landmine — matching how
+     `CombatResolver` already reads those buildings' `defensiveStats`
+     un-leveled) plus Radar Array's `globalVisionRangeBonus`, applied on top
+     of every one of that owner's vision sources map-wide, not just its own
+     tile. `tests/test_vision.gd`, 32 checks passing. **Deferred**: standalone-
+     building vision (Tower/Landmine) — `BuildingInstance` has no `owner_id`
+     for a standalone instance to key vision by yet, the same boundary
+     `CombatResolver` already stops at; and consuming this system for
+     stealth/detection + terrain combat bonuses (the next item below).
    - [ ] Terrain combat bonuses + stealth/detection: hill defender bonus,
      forest ambush (attacker hidden until engaging), Tower/Radar Array
      `detector`/`detectionRange`. Depends on the movement resolver above and

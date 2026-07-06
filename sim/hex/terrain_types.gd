@@ -22,6 +22,11 @@ const INF: float = -1.0 ## sentinel for "impassable", not a numeric cost
 ## an exact multiplier. Tune freely; nothing else depends on this number yet.
 const HILLS_INFANTRY_COST: float = 2.0
 
+## Placeholder — 01-map-and-terrain.md establishes Plains as "extended vision"
+## but never pins an exact bonus. Tune freely; nothing else depends on this
+## number yet.
+const PLAINS_VISION_BONUS: float = 2.0
+
 ## cost[terrain][domain] -> hexes-per-second divisor (>1 = slower, INF = blocked).
 ## Air ignores all terrain restrictions and is always 1.0.
 const COST := {
@@ -83,6 +88,12 @@ static func effective_cost(terrain: Type, domain: Domain, infrastructure: Infras
 
 static func is_passable_with(terrain: Type, domain: Domain, infrastructure: Infrastructure = Infrastructure.NONE) -> bool:
 	return effective_cost(terrain, domain, infrastructure) != INF
+
+## Flat vision-radius bonus for standing on this terrain — Plains "extends
+## vision + extends fog-of-war clearing" (01-map-and-terrain.md); every other
+## terrain grants none.
+static func vision_bonus(terrain: Type) -> float:
+	return PLAINS_VISION_BONUS if terrain == Type.PLAINS else 0.0
 
 ## Maps a troop def's `domain` string (schema enum "Infantry"/"Land"/"Air"/"Naval")
 ## to this module's Domain enum — a direct 1:1 name match. Defaults to INFANTRY (with
