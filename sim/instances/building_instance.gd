@@ -24,6 +24,13 @@ var attack_progress: float = 0.0
 ## to derive ownership from. Unused ("") for base-attached buildings — those
 ## keep deriving ownership from base.owner_id, per 02-bases-and-buildings.md.
 var owner_id: String = ""
+## Same statusEffectOnHit lockout/tail fields as SquadInstance — a frozen/
+## stunned Defensive building can't fire back. Buildings never move, so there
+## is no move_lockout_remaining equivalent (emp/knockback don't apply to
+## buildings — see StatusEffectSystem).
+var lockout_remaining: float = 0.0
+var stun_tail_remaining: float = 0.0
+var stun_tail_queued: float = 0.0
 
 func _init(p_id: String, p_base_id: String, p_building_type: String, p_level: int = 1, p_material: String = "", p_hex: HexCoord = null, p_owner_id: String = "") -> void:
 	id = p_id

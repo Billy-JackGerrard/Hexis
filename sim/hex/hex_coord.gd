@@ -63,3 +63,17 @@ static func range_within(center: HexCoord, radius: int) -> Array[HexCoord]:
 		for dr in range(r_min, r_max + 1):
 			result.append(HexCoord.new(center.q + dq, center.r + dr))
 	return result
+
+## The neighbor direction index (0-5) of `origin` that points furthest away
+## from `from` — i.e. straight-line-away from an attacker's hex through the
+## target's hex. Used by knockback (04-combat.md's statusEffectOnHit). Ties
+## (e.g. `from` and `origin` on the same hex) resolve to direction 0.
+static func direction_away(from: HexCoord, origin: HexCoord) -> int:
+	var best_dir := 0
+	var best_dist := -1
+	for i in range(6):
+		var d := distance(neighbor(origin, i), from)
+		if d > best_dist:
+			best_dist = d
+			best_dir = i
+	return best_dir

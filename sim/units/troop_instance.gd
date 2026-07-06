@@ -16,7 +16,12 @@ var unit_type: String
 var owner_id: String
 var squad_id: String
 var current_hp: float
-## Array of { source, effect, magnitude, expires_at } — auras, deficit-drain, etc.
+## Still unused: aura/status-effect modifiers ended up living on SquadInstance/
+## BuildingInstance instead (lockout_remaining, stun_tail_remaining, etc. —
+## see StatusEffectSystem/AuraSystem), since movement/attack lockout and aura
+## coverage are squad-wide, not per-troop (a squad's members all share type/
+## stats and fire in unison already, per CombatResolver). Kept declared for a
+## future per-troop-granular effect, if one ever needs it.
 var active_buffs: Array[Dictionary] = []
 
 func _init(p_id: String, p_unit_type: String, p_owner_id: String, p_squad_id: String, p_current_hp: float) -> void:

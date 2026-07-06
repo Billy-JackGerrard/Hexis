@@ -145,3 +145,31 @@ static func stealth(def: Dictionary, building_defs: Dictionary) -> bool:
 ## needing a detector.
 static func reveal_range(def: Dictionary, building_defs: Dictionary) -> float:
 	return float(resolve_def(def, building_defs).get("revealRange", 0.0))
+
+## This building's aura list (Hospital, Ice Spire — Support-category), with any
+## leveled magnitude override applied. Radius/target/filter/effect are used
+## as-authored; only `magnitude` can scale with level, and only when the def's
+## nonProductionUpgrade carries a matching baseStats key (currently just
+## Hospital's healMagnitude — its aura radius stays flat per level while the
+## heal amount grows, see data/buildings/hospital.json's notes). Ice Spire's
+## slow magnitude has no such growth entry, so it's used unleveled.
+static func auras(def: Dictionary, level: int, building_defs: Dictionary) -> Array:
+	var resolved := resolve_def(def, building_defs)
+	var upgrade: Dictionary = resolved.get("nonProductionUpgrade", {})
+	var base_stats: Dictionary = upgrade.get("baseStats", {})
+	var result: Array = []
+	for aura in resolved.get("auras", []):
+		var entry: Dictionary = (aura as Dictionary).duplicate()
+		var magnitude_key := _aura_magnitude_key(String(entry.get("effect", "")))
+		if magnitude_key != "" and base_stats.has(magnitude_key):
+			var growth: Dictionary = upgrade.get("statGrowth", {}).get(magnitude_key, {})
+			entry["magnitude"] = _apply_growth(float(base_stats[magnitude_key]), growth, level)
+		result.append(entry)
+	return result
+
+## Which nonProductionUpgrade.baseStats key (if any) carries this aura
+## effect's leveled magnitude, mirroring how hp/visionRange are named.
+static func _aura_magnitude_key(effect: String) -> String:
+	if effect == "heal_over_time" or effect == "heal_out_of_combat":
+		return "healMagnitude"
+	return ""

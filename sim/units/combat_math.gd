@@ -3,7 +3,7 @@
 ## squads and Defensive buildings (an "attacker" is just its stat dict plus the
 ## keys it presents on the receiving side).
 ##
-## final = max(1, base * dealtMult * receivedMult * terrainMult - armor)
+## final = max(1, base * dealtMult * receivedMult * terrainMult * auraMult - armor)
 ##   dealtMult    — product of the attacker's damageDealtModifiers whose key
 ##                  matches any of the target's match-keys (Domain/tags/reserved).
 ##   receivedMult — product of the target's damageReceivedModifiers whose key
@@ -13,6 +13,9 @@
 ##   terrainMult  — target.defense_multiplier (04-combat.md's hill defender
 ##                  bonus, Terrain.defense_bonus() looked up at CombatTarget
 ##                  construction time); 1.0 on any non-bonus terrain.
+##   auraMult     — target.aura_damage_reduction_mult (AuraSystem's
+##                  damage_reduction effect, e.g. Shield Tank); 1.0 with no
+##                  aura coverage.
 ##   armor        — flat, applied last; a hit always deals at least 1.
 ##
 ## Multiple matching keys within a dict multiply together (every authored
@@ -55,5 +58,5 @@ static func received_multiplier(attacker_def: Dictionary, target: CombatTarget) 
 ## is passed explicitly because a Defensive building's damage lives in its
 ## defensiveStats block, not at the def's top level like a troop's.
 static func resolve_damage(attacker_def: Dictionary, base_damage: float, target: CombatTarget) -> float:
-	var raw := base_damage * dealt_multiplier(attacker_def, target) * received_multiplier(attacker_def, target) * target.defense_multiplier
+	var raw := base_damage * dealt_multiplier(attacker_def, target) * received_multiplier(attacker_def, target) * target.defense_multiplier * target.aura_damage_reduction_mult
 	return max(1.0, raw - target.armor)

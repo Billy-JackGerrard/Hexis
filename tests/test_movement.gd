@@ -22,6 +22,8 @@ func _init() -> void:
 	_test_terrain_overrides()
 	print("MovementResolver")
 	_test_movement_resolver()
+	print("Regiment lock-step")
+	_test_regiment_lockstep()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -169,3 +171,56 @@ func _test_movement_resolver() -> void:
 	MovementResolver.resolve_tick(1.0, [s10], grid10, _troop_defs)
 	_check(s10.current_hex.equals(HexCoord.new(0, 0)), "no detour exists on this line -> squad halts at its current hex, doesn't teleport/error")
 	_check(s10.path.is_empty(), "a blocked route with no detour clears the path (idle) rather than looping forever")
+
+## --- Regiment lock-step ----------------------------------------------------
+
+func _test_regiment_lockstep() -> void:
+	# 1. issue_regiment_move mirrors the Commander's shared path onto every
+	# member squad (all starting from the Commander's own hex).
+	var grid1 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])
+	var cmd1 := _make_squad("p1", "commander_vanguard", HexCoord.new(0, 0))
+	var m1a := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	var m1b := _make_squad("p1", "sniper", HexCoord.new(0, 0))
+	_check(MovementResolver.issue_regiment_move(cmd1, [m1a, m1b], grid1, HexCoord.new(3, 0), _troop_defs), "issue_regiment_move succeeds toward a reachable goal")
+	_check(m1a.path.size() == cmd1.path.size(), "member path mirrors the Commander's shared path")
+	_check(m1a.order.get("type") == "regiment_move", "member order flips to regiment_move")
+	_check(m1b.order.get("type") == "regiment_move", "second member order flips to regiment_move")
+
+	# 2. Regiment speed is capped by its slowest member (sniper, speed 1.0),
+	# not the faster Commander (3.2) or rifleman (1.2).
+	MovementResolver.resolve_regiment_tick(1.0, cmd1, [m1a, m1b], grid1, _troop_defs)
+	_check(cmd1.current_hex.equals(HexCoord.new(1, 0)), "1.0s @ capped speed 1.0 crosses exactly one plains hex")
+	_check(_approx(cmd1.edge_progress, 0.0), "no leftover progress after an exact 1-hex tick")
+	_check(m1a.current_hex.equals(cmd1.current_hex), "rifleman mirrors the Commander's new hex")
+	_check(m1b.current_hex.equals(cmd1.current_hex), "sniper mirrors the Commander's new hex")
+	_check(m1a.path.size() == cmd1.path.size(), "rifleman's remaining path still mirrors the Commander's")
+
+	# 3. An ad hoc order splits a member off; it advances independently via the
+	# ordinary per-squad resolve_tick (not resolve_regiment_tick), and is left
+	# behind by the lock-step block.
+	var grid2 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])
+	var cmd2 := _make_squad("p1", "commander_vanguard", HexCoord.new(0, 0))
+	var m2 := _make_squad("p1", "sniper", HexCoord.new(0, 0))
+	MovementResolver.issue_regiment_move(cmd2, [m2], grid2, HexCoord.new(3, 0), _troop_defs)
+	MovementResolver.issue_move(m2, grid2, HexCoord.new(2, 0), _troop_defs)
+	_check(m2.order.get("type") == "move", "ad hoc order on a member overrides its regiment_move order")
+	MovementResolver.resolve_regiment_tick(0.1, cmd2, [m2], grid2, _troop_defs)
+	_check(_approx(cmd2.edge_progress, 0.32), "Commander still advances alone at its own capped speed 3.2 (no other lock-step members)")
+	_check(m2.current_hex.equals(HexCoord.new(0, 0)), "ad hoc-split member is untouched by resolve_regiment_tick")
+
+	# 4. Once the ad hoc-split member goes idle (arrives / path drains), it
+	# automatically rejoins the shared path on the next regiment tick.
+	MovementResolver.resolve_tick(2.0, [m2], grid2, _troop_defs)
+	_check(m2.path.is_empty(), "ad hoc order (speed 1.0, 2 hexes) fully resolved in 2.0s -> idle")
+	MovementResolver.resolve_regiment_tick(1.0, cmd2, [m2], grid2, _troop_defs)
+	_check(m2.order.get("type") == "regiment_move", "idle member converts back to regiment_move")
+	_check(m2.current_hex.equals(cmd2.current_hex), "rejoined member mirrors the Commander's hex again")
+
+	# 5. Unreachable goal for the Commander's domain -> issue_regiment_move
+	# fails, no member is mutated.
+	var grid3 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.FOREST])
+	var cmd3 := _make_squad("p1", "commander_vanguard", HexCoord.new(0, 0))
+	var m3 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	_check(not MovementResolver.issue_regiment_move(cmd3, [m3], grid3, HexCoord.new(1, 0), _troop_defs), "Land Commander can't path through Forest -> issue_regiment_move returns false")
+	_check(m3.path.is_empty(), "member path untouched (still empty) on a failed issue_regiment_move")
+	_check(m3.order.is_empty(), "member order untouched on a failed issue_regiment_move")

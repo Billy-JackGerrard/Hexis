@@ -199,16 +199,67 @@ writing real UI code does, and it also needs actual game state to bind to.
      CombatResolver targeting standalone buildings, and building-side
      stealth/detection (Landmine-as-a-hidden-object) — squad-side already
      exists, buildings don't yet.
-   - [ ] Regiment lock-step movement: a move order on a Commander computes one
-     shared path; every squad in the regiment (Commander included) advances
-     it in sync, hex-by-hex, at the regiment's slowest-member speed
-     (`RegimentInstance`, `sim/units/regiment_instance.gd`, currently only
-     tracks membership). Depends on the movement resolver above.
-   - [ ] Status effects (freeze/stun/knockback/emp) + auras: wires up
-     `TroopInstance.active_buffs` (`sim/units/troop_instance.gd`) — currently
-     a declared field nothing reads or writes. Covers Cold Turret's freeze,
-     `stun`'s fixed -30% move/-30% attack-speed tail, Commander buff auras,
-     Ice Spire's slow, Hospital's heal.
+   - [x] Regiment lock-step movement: `MovementResolver.issue_regiment_move()`
+     computes one shared path from the Commander's squad and mirrors it onto
+     every member squad (clearing any ad hoc split); `resolve_regiment_tick()`
+     advances the Commander along that path at a flat speed cap — the
+     slowest member's speed stat, per `04-combat.md` — using the Commander's
+     own domain/`terrainOverrides` to resolve terrain cost (the shared-path
+     anchor), then mirrors the resulting `current_hex`/`path`/`edge_progress`
+     onto every lock-step member rather than each squad re-deriving its own
+     cost (`sim/units/movement_resolver.gd`). A member given a temporary ad
+     hoc order (`{type:"move"}`, per `09-ui-and-controls.md`) is left for the
+     ordinary per-squad `resolve_tick()` to advance instead — which now skips
+     any squad whose order is `{type:"regiment_move"}` to avoid double-
+     advancing — and automatically converts back to `regiment_move` (re-
+     syncing onto the Commander's current path/hex) once its ad hoc path
+     drains empty. `RegimentInstance` itself is unchanged (still just
+     membership bookkeeping); the resolver takes already-resolved
+     `SquadInstance` objects rather than ids, consistent with `issue_move()`,
+     since the command/order-issuing layer that would resolve
+     `commanderId`/`squadIds` into live objects doesn't exist yet (same
+     deferral as `assign_to_commander`/`leave_regiment` elsewhere in this
+     doc). `tests/test_movement.gd` (new Regiment lock-step section, 41
+     checks total). **Deferred**: Commander-death regiment disband (still a
+     combat-side concern), cargo-boarded regiment members.
+   - [x] Status effects (freeze/stun/knockback/emp) + auras:
+     `StatusEffectSystem` (`sim/units/status_effect_system.gd`) rolls and
+     applies a hit's `statusEffectOnHit` to the PRIMARY target only (splash
+     victims never carry one — a scoping choice): `freeze`/`stun` set
+     `lockout_remaining` (full move+attack lockout; `stun` also queues
+     `stun_tail_queued`, armed into `stun_tail_remaining`'s -30%/-30% tail the
+     instant the lockout crosses to 0, with leftover dt correctly carried into
+     the tail's first tick rather than wasted); `knockback` shoves the target
+     `magnitude` hexes straight away from the attacker
+     (`HexCoord.direction_away()`), clamped at the grid edge; `emp` is
+     domain-conditional (Land: `move_lockout_remaining`, can still attack;
+     Air: instant destroy via `CombatTarget.kill_squad()`; Infantry/Naval: no
+     effect; `empImmune` troops unaffected). Lives on `SquadInstance`/
+     `BuildingInstance` directly (not `TroopInstance.active_buffs` — see that
+     field's updated comment) since lockout/aura coverage is squad-wide, not
+     per-troop. `AuraSystem` (`sim/units/aura_system.gd`) resolves proximity-
+     radius auras fresh each tick from every live troop/building source
+     (`BuildingStats.auras()` applies Hospital's leveled `healMagnitude` the
+     same way `max_hp()`/`vision_range()` already scale): `speed_boost`/`slow`
+     and `attack_speed_boost` multiply into `MovementResolver`/
+     `CombatResolver`'s speed math (stacking multiplicatively across sources,
+     same "every modifier applies" rule as `CombatMath`), `damage_reduction`
+     reaches `CombatMath.resolve_damage()` via a new
+     `CombatTarget.aura_damage_reduction_mult`, `heal_over_time` applies as
+     flat HP regen via `AuraSystem.apply_heals()`, and `suppress_targeting`
+     makes `CombatResolver` skip a covered Defensive building's turn entirely.
+     `tests/test_status_effects.gd` (30 checks) and `tests/test_auras.gd` (21
+     checks), plus a CombatResolver/MovementResolver integration check in
+     each. **Deferred**: Commander buff auras (Vanguard/Nightfall/Warden) —
+     their `own_regiment`/`own_regiment_and_self` filter is regiment
+     MEMBERSHIP, not proximity, which needs `RegimentInstance.commanderId`/
+     `squadIds` resolved into live squad references — the same
+     command/order-issuing-layer gap already deferred for
+     `assign_to_commander` above; `upkeep_reduction` (Mule) is computed but has
+     no consumer yet, since troop Food/Fuel upkeep itself isn't wired in
+     anywhere (see the Resource ticking item above); standalone-building aura
+     sources (none authored today, but `AuraSystem` only loops base-attached
+     buildings, matching `CombatResolver`/`VisionSystem`'s existing boundary).
    - [ ] Cargo: `board`/`unload` orders, `cargoAllowedTags` gating, mid-combat
      launch for Aircraft Carrier/Transport Truck, carrier-death-kills-cargo.
      `SquadInstance.boarded_on_squad_id`/`cargo_squad_ids` are declared fields

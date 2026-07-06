@@ -32,6 +32,11 @@ var is_hidden: bool = false
 ## Range within which an enemy sees this target despite is_hidden, without
 ## needing a detector.
 var reveal_range: float = 0.0
+## Received-damage multiplier from a friendly damage_reduction aura (e.g.
+## Shield Tank) — see AuraSystem. 1.0 with no aura coverage; buildings never
+## carry one today (no data authors a friendly_buildings damage_reduction
+## aura) so this stays 1.0 for Kind.BUILDING.
+var aura_damage_reduction_mult: float = 1.0
 
 ## Backing references — exactly one is set depending on kind.
 var squad: SquadInstance
@@ -41,7 +46,7 @@ var building: BuildingInstance
 ## member_ids alone would still read as "alive" until _prune_dead runs.
 var _troops: Dictionary = {}
 
-static func for_squad(p_squad: SquadInstance, troop_def: Dictionary, troops_by_id: Dictionary, grid: HexGrid = null) -> CombatTarget:
+static func for_squad(p_squad: SquadInstance, troop_def: Dictionary, troops_by_id: Dictionary, grid: HexGrid = null, auras: Dictionary = {}) -> CombatTarget:
 	var t := CombatTarget.new()
 	t.kind = Kind.SQUAD
 	t.owner_id = p_squad.owner_id
@@ -59,6 +64,8 @@ static func for_squad(p_squad: SquadInstance, troop_def: Dictionary, troops_by_i
 		t.defense_multiplier = Terrain.defense_bonus(grid.get_terrain(p_squad.current_hex))
 		t.is_hidden = DetectionSystem.is_squad_hidden(p_squad, troop_def, grid)
 		t.reveal_range = DetectionSystem.squad_reveal_range(p_squad, troop_def, grid)
+	if not auras.is_empty():
+		t.aura_damage_reduction_mult = AuraSystem.damage_reduction_mult(auras, p_squad.id)
 	return t
 
 static func for_building(p_building: BuildingInstance, building_def: Dictionary, building_defs: Dictionary, grid: HexGrid = null) -> CombatTarget:
@@ -87,6 +94,16 @@ func target_id() -> String:
 
 func current_hp() -> float:
 	return building.current_hp if kind == Kind.BUILDING else 0.0
+
+## Kills every living member of a squad target outright (emp's Air-domain
+## instant-destroy branch, see StatusEffectSystem) — a no-op for a building.
+func kill_squad() -> void:
+	if kind != Kind.SQUAD:
+		return
+	for member_id in squad.member_ids:
+		var troop: TroopInstance = _troops.get(member_id)
+		if troop != null:
+			troop.current_hp = 0.0
 
 func is_alive() -> bool:
 	if kind == Kind.BUILDING:
