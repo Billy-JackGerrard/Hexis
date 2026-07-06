@@ -1,0 +1,40 @@
+{
+  "id": "commander_vanguard",
+  "name": "Vanguard",
+  "domain": "Land",
+  "tags": ["Vehicle", "Commander"],
+
+  "hp": 220,
+  "armor": 5,
+  "damage": 18,
+  "attackSpeed": 1.0,
+  "range": 4,
+  "splashRadius": 0,
+  "visionRange": 9,
+  "speed": 3.2,
+
+  "maxSquadSize": 1,
+  "maxSquadsLed": 4,
+  "commanderTier": "basic",
+
+  "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
+
+  "damageDealtModifiers": { "Land": 1.2 },
+
+  "auras": [
+    {
+      "radius": 999,
+      "target": "friendly_troops",
+      "filter": "own_regiment",
+      "effect": "speed_boost",
+      "magnitude": 1.8
+    }
+  ],
+
+  "cost": { "food": 60, "steel": 80, "fuel": 20 },
+  "foodUpkeep": 2,
+  "fuelUpkeep": 4,
+  "productionTime": 45,
+
+  "notes": "Basic-tier Commander, Capital-only via Command Centre. maxSquadsLed caps its regiment at 4 squads (see game-design/07-data-architecture.md's 4b/4d). Speed-boost aura is scoped by filter \"own_regiment\" rather than proximity — radius is set high purely so distance never gates it; the regiment membership (commanderId) is what actually determines who gets the 1.8x boost, not being physically nearby."
+}

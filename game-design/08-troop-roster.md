@@ -106,6 +106,16 @@ doc records design rationale, not the numbers themselves.
 | Building | Unit(s) | Notes |
 |---|---|---|
 | Supply Depot | **Engineer**, **Ambulance**, **Transport Truck**, **Repair Truck**, **Mule**, **Volt Truck** | All non-combat (`can_target: []`) — a support-vehicle-only roster, distinct from Factory's combat vehicles. Engineer/Ambulance/Transport Truck are shared with Factory (see Capital Base above). Repair Truck heals Land vehicles (Ambulance's counterpart, which now heals Infantry only); Mule reduces nearby troops' Food/Fuel upkeep; Volt Truck boosts speed + attack speed for Land/Air/Naval. Stats implemented, see `data/troops/repair_truck.json`, `data/troops/mule.json`, `data/troops/volt_truck.json` |
+
+**Resolved: healing has a deliberate rarity progression by Domain, and Air currently
+has no healing option at all.** Infantry healing (Hospital's passive aura, Ambulance's
+mobile aura) is available to every base via Factory/Capital. Land-vehicle healing
+(Repair Truck) is gated behind Camp Cosy's Supply Depot — one specific Unique base,
+not universally available. Air has no repair/heal unit or building at all — this is
+an intentional gap for now, not an oversight, consistent with healing getting rarer
+by Domain (Infantry → common, Land vehicles → one Unique base, Air → none yet). If a
+future pass adds aircraft healing, it should sit at least as rare as Repair Truck to
+preserve that progression.
 | Barracks | Rifleman, Grenadier, Flamethrower, Shielder, Sniper (shared w/ Capital roster) | Camp Cosy's only source of combat troops — Supply Depot's roster can't defend the base at all |
 
 ## Fuel/Maintenance Quick Reference
@@ -125,7 +135,7 @@ doc records design rationale, not the numbers themselves.
 - [x] Wingfighter/Thunder (Sky Fortress) full stat sheet — see `data/troops/wingfighter.json`, `data/troops/thunder.json`
 - [x] Full Kraken Point Shipyard roster (ship tiers up to Aircraft Carrier) — Destroyer, Submarine, Tank Carrier, Aircraft Carrier; see `data/troops/destroyer.json`, `data/troops/submarine.json`, `data/troops/tank_carrier.json`, `data/troops/aircraft_carrier.json`. Cruiser/Battleship tier deliberately deferred
 - [x] Engineer combat stats — non-combat (`canTarget: []`), Land-domain vehicle, hp 60, cheap/fast to produce, level-1 Factory unlock; see `data/troops/engineer.json`
-- [ ] Named Commander roster + each Commander's unique buff/ability — the one troop category still entirely unimplemented; Command Centre's production side (`commanderProgression`) is ready and waiting for it
+- [x] Named Commander roster + each Commander's unique buff/ability — full basic/rare/best set implemented: **Vanguard** (basic), a Land-vehicle Commander whose aura gives its regiment's squads a 1.8x speed boost; **Nightfall** (rare), a stealthy Land-vehicle Commander whose aura extends its own Ghost-Tank-style stealth (revealRange 1, revealsOnAttack) to every squad in its regiment; and **Warden** (best), a tanky support Commander whose aura heals itself and its regiment once out of combat (`heal_out_of_combat`, gated like buildings' passive regen, unlike Ambulance/Repair Truck's always-on heal). All three scope their aura via `filter: "own_regiment"` (Warden: `"own_regiment_and_self"`) rather than proximity, capped at `maxSquadsLed: 4`. See `data/troops/commander_vanguard.json`, `data/troops/commander_nightfall.json`, `data/troops/commander_warden.json`
 - [x] Full stat sheet: HP, damage, speed, cost, splash radius, range for every unit — done for every non-Commander troop, see `data/troops/`
 - [ ] Rock-paper-scissors matchup matrix — per-unit damage modifiers are authored, but no consolidated summary matrix exists yet
 - [x] Heavy Tank roster + which types are Irongrad-only vs. shared with Winter Forge's

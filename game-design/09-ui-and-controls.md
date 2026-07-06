@@ -33,10 +33,67 @@ scheme, adapted for real-time (not turn-based) play.
 - **Fog of war overlay**: distinguishing "unexplored," "explored but not currently
   visible," and "currently visible" states.
 
-## Open / Unresolved Items
-- Exact squad-selection UX (drag-box, control groups, double-click-to-select-all-of-type).
-- How a Commander's regiment (up to 4 squads) is visually distinguished/grouped for
-  selection versus an independent single-type squad.
-- Whether there's a dedicated "alerts" panel for under-attack bases / resource deficits
-  (likely necessary given multi-base management under a 40-minute clock).
-- Build menu layout for Unique bases with restricted building sets vs. Capital's fixed set.
+## Squad Selection
+- **Drag-box**: standard RTS marquee select — selects every one of the player's own
+  squads whose `currentHex` falls inside the dragged screen rectangle.
+- **Single click on a hex**:
+  - If exactly one of the player's squads occupies that hex, it's selected directly.
+  - **Resolved: if multiple squads are stacked on the same hex** (stacking is
+    unlimited — see `07-data-architecture.md`), a click selects one squad at a time,
+    and **repeated clicks on that same hex cycle through the stack** (one squad per
+    click, wrapping back to the first). This lets the player reach a buried squad
+    without needing a drag-box, at the cost of extra clicks on a heavily stacked hex.
+- **Control groups**: standard numbered control groups (assign selection to a number
+  key, press the number to reselect), stored as a saved list of squad ids — a group
+  member that's since died or merged away is simply dropped from the group silently.
+- **Resolved: double-click-to-select-all-of-type is on-screen only**, not global — a
+  double-click on a squad selects every squad of that same troop type currently
+  visible in the viewport, matching classic RTS convention. Given 12-18 bases and
+  multiple simultaneous fronts, a global version risked silently stripping a
+  defended base the player isn't currently looking at.
+
+## Commander Regiments
+- **Selecting a Commander selects its whole regiment as one group** (the Commander
+  plus up to 4 member squads) for movement purposes — a move order given while the
+  Commander is selected moves the regiment together, with the Commander as the
+  rally point/anchor (see `04-combat.md`).
+- **Visual grouping**: a Commander and its regiment's squads share a common
+  highlight/outline treatment (e.g. a shared banner color tied to that Commander)
+  distinct from the plain selection outline used for an independent, unassigned
+  squad — so the player can tell at a glance which squads on screen currently belong
+  to a regiment versus operating solo.
+- **Resolved: regiment membership doesn't lock a squad out of independent orders.**
+  Clicking directly on one squad within a regiment (rather than the Commander)
+  still selects just that squad and allows an ad hoc move/attack order for it alone,
+  temporarily splitting it from the regiment's shared movement. It automatically
+  resumes following the Commander's rally point once it goes idle again (no order
+  pending) — membership itself is unaffected; only which squads currently share the
+  Commander's move order changes moment to moment.
+
+## Alerts Panel
+- **Resolved: yes, a dedicated alerts panel exists**, given multi-base management under
+  a real-time clock makes it impractical to notice every threat by scanning the map.
+  A persistent list (corner of the HUD) surfaces, per base:
+  - **Under attack** — an enemy troop/squad is currently in range of or engaging that
+    base (its defenses, garrison, or buildings).
+  - **Resource deficit** — that base is contributing to (or the player's pool is in) a
+    Food/Fuel deficit, tying into the per-squad drain in `03-resources.md`.
+  - **Production paused** — a building's queue is paused at the squad or Commander cap
+    (see `07-data-architecture.md`'s `pauseReason`), since that's otherwise silent.
+- **One entry per base per alert type**, not per event — an ongoing attack shows a
+  single persistent "under attack" entry for that base for as long as it continues,
+  rather than spamming one row per hit; it clears automatically once no enemy remains
+  in range.
+- **Clicking an alert recenters the camera on that base** — the fastest way to jump
+  across a large, multi-front map without hunting for the minimap location.
+
+## Build Menu (Unique Bases)
+- **Resolved: a Unique base's build menu only lists the buildings that base type can
+  actually build** — it does not show every game building grayed out with a "not
+  available here" state. Capital's menu is the fixed superset (every non-Unique
+  production/resource/support building); each Unique base instead has its own fixed,
+  shorter list (see `02-bases-and-buildings.md`'s per-base building tables). Reasoning:
+  Unique-base restrictions are **permanent identity, not a temporary lock a player
+  might unlock later** (unlike, say, a production building's level-gated troop
+  roster) — showing greyed-out entries for buildings that base will *never* be able to
+  build would just be clutter/false affordance, not useful information.

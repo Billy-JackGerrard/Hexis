@@ -330,8 +330,9 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   produce the unit.
 - **Food upkeep** — ongoing Food consumption while the unit exists.
 - **Fuel upkeep** — ongoing Fuel consumption; rules differ by Domain (land
-  vehicles: only while moving; aircraft: constant unless docked adjacent to a base;
-  ships: minimal regardless of state — see `03-resources.md`).
+  vehicles: only while moving; aircraft: constant unless idle and on/adjacent to one
+  of the *owner's own* bases (never an enemy's or neutral one); ships: minimal
+  regardless of state — see `03-resources.md`).
 - **Production time** — troop training is **not instant** (unlike building
   construction). This is why a base can build multiple copies of the same production
   building (e.g. two Barracks = double infantry output) — each building has its own
@@ -408,7 +409,8 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 **Aircraft Carrier** (Kraken Point Shipyard)
 - Domain: Naval · Tags: `[Ship, Carrier]`
 - cargo_capacity: > 0 · cargo_allowed_tags: `[Air]` · can_launch_cargo_mid_combat: true
-- Docked aircraft use no Fuel while stored, same as being docked adjacent to a base
+- Docked aircraft use no Fuel while stored — its own mechanic, distinct from the
+  general "Fuel-free adjacent to an owned base" rule (see `03-resources.md`)
 
 **Shield Tank** (future/planned)
 - Domain: Land · Tags: `[Vehicle, Tank, Support]`

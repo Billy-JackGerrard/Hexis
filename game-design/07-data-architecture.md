@@ -200,11 +200,13 @@ SquadInstance {
   commanderId,           // nullable — set if assigned to a Commander's regiment
   boardedOnSquadId,      // nullable — set if this squad is currently cargo aboard a carrier squad; while set, this squad doesn't path/act independently (see 04-combat.md's Cargo section)
   cargoSquadIds: [...],  // only meaningful if troopType's cargoCapacity > 0 — squad ids currently boarded aboard this carrier squad
-  order: { type: "move" | "attack_target" | "board" | "unload", targetId }
+  order: { type: "move" | "attack_target" | "board" | "unload" | "assign_to_commander" | "leave_regiment", targetId }
                          // targetId resolves to a Squad, BuildingInstance, or Wall for
                          // "attack_target"; a carrier SquadInstance for "board"; a
-                         // boarded SquadInstance for "unload" (see 04-combat.md's
-                         // directed-target/siege targeting and Cargo section)
+                         // boarded SquadInstance for "unload"; a Commander's
+                         // TroopInstance for "assign_to_commander"; null/ignored for
+                         // "leave_regiment" (see 04-combat.md's directed-target/siege
+                         // targeting, Cargo section, and Regiment Assignment section)
 }
 ```
 - **Cargo/boarding**: a squad with `boardedOnSquadId` set is "inside" that carrier
@@ -254,9 +256,33 @@ RegimentInstance {
   squadIds: [...]        // up to that Commander's maxSquadsLed (baseline 4)
 }
 ```
-- Assigning a squad to a Commander sets that squad's `commanderId` and adds it to the
-  Commander's `RegimentInstance.squadIds`; this is what lets a Commander's regiment mix
-  troop types under one follow-the-Commander order, per `04-combat.md`.
+- **Resolved: `maxSquadsLed` (baseline 4) counts only the escorted squads, not the
+  Commander's own squad.** The Commander's `TroopInstance`/squad is tracked separately
+  via `commanderId` and is never itself an entry in `squadIds` — a full regiment is
+  the Commander plus 4 escorted squads (5 units total), consistent with the
+  Commander's buff aura applying to every squad in the regiment "on top of its own
+  combat presence" (see `04-combat.md`).
+- **Regiment Assignment — resolved:**
+  - **Joining**: a squad's owner issues `order: { type: "assign_to_commander",
+    targetId: <Commander TroopInstance id> }` targeting one of their own Commanders.
+    On success, the squad's `commanderId` is set and its id is appended to that
+    Commander's `RegimentInstance.squadIds` (creating the `RegimentInstance` first if
+    this is the Commander's first assigned squad).
+  - **Resolved: a squad with `boardedOnSquadId` set (currently cargo aboard a
+    carrier) cannot be assigned to a regiment** — it already can't path/act
+    independently while boarded, so `assign_to_commander` is rejected for it the same
+    way it's rejected at a full regiment; it becomes assignable again once unloaded.
+  - **Regiment-full rejection**: if `squadIds.length` is already at the Commander's
+    `maxSquadsLed`, the `assign_to_commander` order is rejected outright (no-op, with
+    a UI rejection cue) — the player must free a slot (via `leave_regiment` or losing
+    a member squad) before assigning another.
+  - **Leaving**: a squad's owner can issue `order: { type: "leave_regiment" }` at any
+    time to permanently detach it from its current regiment — this clears
+    `commanderId` and removes the squad from `RegimentInstance.squadIds` immediately,
+    independent of the Commander's health. This is distinct from the temporary ad hoc
+    order-override described in `09-ui-and-controls.md` (which doesn't clear
+    `commanderId` and the squad resumes following the Commander once idle) —
+    `leave_regiment` is the explicit, permanent version.
 - If the Commander dies, the `RegimentInstance` is deleted and every member squad's
   `commanderId` is cleared — they revert to unled, single-type-only squads (see
   `04-combat.md`'s Commander-death rule).

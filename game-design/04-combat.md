@@ -95,9 +95,16 @@
   a small roster of named Commanders, not one generic unit) that applies to every
   squad in its regiment, on top of its own combat presence.
 - Assigning a squad to a Commander adds it to that Commander's **regiment** (up to
-  4 squads), which then **follows the Commander** as its rally point/anchor — this is
-  how a player mixes troop types (e.g. an infantry squad + a vehicle squad) under one
-  combined command instead of moving single-type squads independently.
+  4 squads, **not counting the Commander's own squad** — a full regiment is the
+  Commander plus 4 escorted squads), which then **follows the Commander** as its
+  rally point/anchor — this is how a player mixes troop types (e.g. an infantry squad
+  + a vehicle squad) under one combined command instead of moving single-type squads
+  independently.
+- **Resolved: joining/leaving a regiment are explicit player orders**
+  (`assign_to_commander` targeting the Commander; `leave_regiment` with no target),
+  not passive/automatic — see `07-data-architecture.md`'s `RegimentInstance` section
+  for the full data-level rules, including rejection when the regiment is already at
+  its 4-squad cap.
 - **Resolved: if a Commander dies mid-battle, its regiment disbands** — every member
   squad reverts to operating independently (no more shared rally point, no more buff
   aura). Re-forming the regiment requires assigning those squads to a (living)

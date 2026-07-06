@@ -63,3 +63,5 @@ A cartoon-style, 2.5D top-down/isometric strategy game. Each match lasts roughly
   rendering split that keeps the single-player build multiplayer-ready
 - `08-troop-roster.md` — units defined so far, filled in against the schema (in progress)
 - `09-ui-and-controls.md` — control scheme direction
+- `10-tech-stack-and-build-order.md` — engine choice (Godot), why, and the
+  backend-before-frontend build sequence
