@@ -84,6 +84,65 @@ writing real UI code does, and it also needs actual game state to bind to.
      bonuses (hill defender, forest ambush), regiment lock-step movement, cargo,
      and HQ capture-flip + ruin state (a destroyed building is deleted, not
      captured/ruined, for now).
+   - [x] Squad movement/pathing resolver — **prerequisite for the combat-slice
+     items below.** `MovementResolver.resolve_tick()`
+     (`sim/units/movement_resolver.gd`) advances every squad's `current_hex`/
+     `path`/`edge_progress` per `01-map-and-terrain.md`'s Movement & Positioning
+     model: motion is converted to elapsed *time*, not carried as a raw
+     progress fraction, since consecutive edges can have different terrain
+     cost (plains 1.0 vs. hills 2.0) — a fraction of one edge isn't the same
+     fraction of another. `MovementResolver.issue_move()` is the order entry
+     point (resolves a squad's Domain + `terrainOverrides` from its troop def,
+     calls `HexGrid.find_path()`, strips the current hex, sets `path` and a
+     `{type:"move", goal}` order symmetric with the existing `attack_target`
+     order) and mid-route replanning (a wall raised after the order was issued
+     reroutes once per tick, or halts cleanly if no detour exists). Boarded
+     squads are skipped (cargo position-driving is deferred). Runs before
+     `CombatResolver` in the not-yet-built top-level tick orchestrator.
+     `HexGrid.edge_cost()`/`find_path()`/`passable_neighbors()` and
+     `Terrain.effective_cost()` gained an optional `overrides` param
+     (backward-compatible default `{}`) so a troop's `terrainOverrides`
+     (`ignoresForestBlock`/`ignoresRiverBlock`, e.g. Quad-bike) are honored by
+     pathing, not just Road/Bridge infrastructure; `Terrain.domain_from_string()`
+     maps a troop def's `domain` string to `Terrain.Domain`.
+     `tests/test_movement.gd`, 32 checks passing. **Deferred**: vision/
+     fog-of-war (split into its own item below — it doesn't gate movement),
+     regiment lock-step, cargo/carrier position-driving, and attack-move
+     repathing toward a directed target.
+   - [ ] Vision / fog-of-war: vision range tracked separately from engagement
+     range per `04-combat.md` (a unit sees an enemy approaching before it's
+     close enough to fight), per-player visibility sets. Split out from the
+     movement item above since movement doesn't depend on it, but terrain
+     bonuses/ambush and stealth/detection below do.
+   - [ ] Terrain combat bonuses + stealth/detection: hill defender bonus,
+     forest ambush (attacker hidden until engaging), Tower/Radar Array
+     `detector`/`detectionRange`. Depends on the movement resolver above and
+     the vision item above it.
+   - [ ] Regiment lock-step movement: a move order on a Commander computes one
+     shared path; every squad in the regiment (Commander included) advances
+     it in sync, hex-by-hex, at the regiment's slowest-member speed
+     (`RegimentInstance`, `sim/units/regiment_instance.gd`, currently only
+     tracks membership). Depends on the movement resolver above.
+   - [ ] Status effects (freeze/stun/knockback/emp) + auras: wires up
+     `TroopInstance.active_buffs` (`sim/units/troop_instance.gd`) — currently
+     a declared field nothing reads or writes. Covers Cold Turret's freeze,
+     `stun`'s fixed -30% move/-30% attack-speed tail, Commander buff auras,
+     Ice Spire's slow, Hospital's heal.
+   - [ ] Cargo: `board`/`unload` orders, `cargoAllowedTags` gating, mid-combat
+     launch for Aircraft Carrier/Transport Truck, carrier-death-kills-cargo.
+     `SquadInstance.boarded_on_squad_id`/`cargo_squad_ids` are declared fields
+     with no logic behind them yet.
+   - [ ] HQ capture-flip, building ruin state, and out-of-combat HP regen:
+     `CombatResolver._prune_dead()` currently deletes any building — HQ
+     included — at 0 HP. Per `02-bases-and-buildings.md`, an HQ at 0 HP should
+     instead flip the base to the attacker and respawn at full HP; an
+     ordinary building (Farm, Barracks, Turret, etc.) should become a
+     rebuildable ruin rather than vanish (Walls/standalone buildings are
+     correctly spec'd to delete outright, so those stay as-is); and all
+     buildings/walls should slowly regen HP once out of combat. Shares its
+     ruin data model with the placement slice's "demolish/ruin state"
+     deferral below — same ruin state, two different triggers (voluntary
+     demolish vs. combat destruction).
    - [x] Base/building placement rules, hex-adjacency validation (see
      `02-bases-and-buildings.md`): `BuildingPlacement.can_place()`
      (`sim/instances/building_placement.gd`) checks base-type eligibility

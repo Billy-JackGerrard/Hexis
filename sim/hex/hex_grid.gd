@@ -53,25 +53,27 @@ func get_infrastructure(coord: HexCoord) -> Terrain.Infrastructure:
 ## Movement cost to cross from `from` into `to` for the given domain, or
 ## Terrain.INF if blocked by terrain/a wall, after accounting for any
 ## Road/Bridge on `to` clearing a terrain block. Air ignores walls too, same
-## as every other terrain rule (01-map-and-terrain.md).
-func edge_cost(from: HexCoord, to: HexCoord, domain: Terrain.Domain) -> float:
+## as every other terrain rule (01-map-and-terrain.md). `overrides` is a
+## troop def's `terrainOverrides` dict (05-troop-stat-schema.md), forwarded to
+## Terrain.effective_cost — never clears a Wall, only terrain blocks.
+func edge_cost(from: HexCoord, to: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}) -> float:
 	if not has_hex(to):
 		return Terrain.INF
 	if domain != Terrain.Domain.AIR and is_walled_edge(from, to):
 		return Terrain.INF
-	return Terrain.effective_cost(get_terrain(to), domain, get_infrastructure(to))
+	return Terrain.effective_cost(get_terrain(to), domain, get_infrastructure(to), overrides)
 
-func passable_neighbors(coord: HexCoord, domain: Terrain.Domain) -> Array[HexCoord]:
+func passable_neighbors(coord: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}) -> Array[HexCoord]:
 	var result: Array[HexCoord] = []
 	for n in HexCoord.neighbors(coord):
-		if edge_cost(coord, n, domain) != Terrain.INF:
+		if edge_cost(coord, n, domain, overrides) != Terrain.INF:
 			result.append(n)
 	return result
 
 ## Standard hex A*, edge cost per `edge_cost`. Returns [] if no path exists.
 ## Path is computed once per order per the design (not re-planned every tick);
 ## callers own re-invoking this when blocked or re-ordered.
-func find_path(start: HexCoord, goal: HexCoord, domain: Terrain.Domain) -> Array[HexCoord]:
+func find_path(start: HexCoord, goal: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}) -> Array[HexCoord]:
 	if not has_hex(start) or not has_hex(goal):
 		return []
 	if start.equals(goal):
@@ -102,7 +104,7 @@ func find_path(start: HexCoord, goal: HexCoord, domain: Terrain.Domain) -> Array
 
 		open.erase(current_key)
 		for neighbor in HexCoord.neighbors(current):
-			var step_cost := edge_cost(current, neighbor, domain)
+			var step_cost := edge_cost(current, neighbor, domain, overrides)
 			if step_cost == Terrain.INF:
 				continue
 			var neighbor_key := neighbor.to_key()

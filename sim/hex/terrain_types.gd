@@ -64,7 +64,10 @@ static func is_passable(terrain: Type, domain: Domain) -> bool:
 ## a Bridge is built"): a Road clears Forest's Land block, a Bridge clears River's
 ## Infantry/Land block. Infrastructure that doesn't apply to the terrain/domain in
 ## question (e.g. a Bridge on a Forest hex) is simply a no-op — falls back to `cost()`.
-static func effective_cost(terrain: Type, domain: Domain, infrastructure: Infrastructure = Infrastructure.NONE) -> float:
+## `overrides` is a troop def's `terrainOverrides` dict (05-troop-stat-schema.md):
+## `ignoresForestBlock`/`ignoresRiverBlock` clear the same blocks a Road/Bridge would,
+## per-unit rather than per-hex. Never clears a Wall — that's a separate edge check.
+static func effective_cost(terrain: Type, domain: Domain, infrastructure: Infrastructure = Infrastructure.NONE, overrides: Dictionary = {}) -> float:
 	var base := cost(terrain, domain)
 	if base != INF:
 		return base
@@ -72,7 +75,28 @@ static func effective_cost(terrain: Type, domain: Domain, infrastructure: Infras
 		return 1.0
 	if infrastructure == Infrastructure.BRIDGE and terrain == Type.RIVER and (domain == Domain.INFANTRY or domain == Domain.LAND):
 		return 1.0
+	if overrides.get("ignoresForestBlock", false) and terrain == Type.FOREST and domain == Domain.LAND:
+		return 1.0
+	if overrides.get("ignoresRiverBlock", false) and terrain == Type.RIVER and (domain == Domain.INFANTRY or domain == Domain.LAND):
+		return 1.0
 	return INF
 
 static func is_passable_with(terrain: Type, domain: Domain, infrastructure: Infrastructure = Infrastructure.NONE) -> bool:
 	return effective_cost(terrain, domain, infrastructure) != INF
+
+## Maps a troop def's `domain` string (schema enum "Infantry"/"Land"/"Air"/"Naval")
+## to this module's Domain enum — a direct 1:1 name match. Defaults to INFANTRY (with
+## an error) on an unrecognized string rather than failing silently.
+static func domain_from_string(name: String) -> Domain:
+	match name:
+		"Infantry":
+			return Domain.INFANTRY
+		"Land":
+			return Domain.LAND
+		"Air":
+			return Domain.AIR
+		"Naval":
+			return Domain.NAVAL
+		_:
+			push_error("Terrain.domain_from_string: unrecognized domain '%s', defaulting to Infantry" % name)
+			return Domain.INFANTRY
