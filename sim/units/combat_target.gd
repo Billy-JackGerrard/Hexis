@@ -1,0 +1,79 @@
+## A uniform view over "something combat can shoot at" — an enemy SquadInstance
+## or an enemy BuildingInstance — so CombatTargeting and CombatMath treat both
+## the same way (see 04-combat.md: troops, Defensive buildings, and plain
+## Structures are all auto-targetable). Built fresh each tick from live state;
+## holds references, never a copy.
+class_name CombatTarget
+extends RefCounted
+
+enum Kind { SQUAD, BUILDING }
+
+var kind: Kind
+var owner_id: String
+var hex: HexCoord
+## The keys this target presents for canTarget / damage-modifier matching:
+## a squad presents its troop Domain + tags; a building presents "Defensive"
+## (Defensive-category) or "Structure" (any other building/wall).
+var match_keys: Array[String] = []
+## Priority tier per 04-combat.md: A (troops + Defensive buildings) is engaged
+## before B (plain Structures).
+var is_tier_a: bool
+var damage_received_modifiers: Dictionary = {}
+## Flat per-hit reduction (troop `armor`; buildings have no armor stat -> 0).
+var armor: float = 0.0
+
+## Backing references — exactly one is set depending on kind.
+var squad: SquadInstance
+var building: BuildingInstance
+## id -> TroopInstance registry (squad targets only) so is_alive() can tell a
+## squad whose members all just died (this tick, pre-prune) from a live one —
+## member_ids alone would still read as "alive" until _prune_dead runs.
+var _troops: Dictionary = {}
+
+static func for_squad(p_squad: SquadInstance, troop_def: Dictionary, troops_by_id: Dictionary) -> CombatTarget:
+	var t := CombatTarget.new()
+	t.kind = Kind.SQUAD
+	t.owner_id = p_squad.owner_id
+	t.hex = p_squad.current_hex
+	t.squad = p_squad
+	t._troops = troops_by_id
+	t.is_tier_a = true
+	var keys: Array[String] = [String(troop_def.get("domain", ""))]
+	for tag in troop_def.get("tags", []):
+		keys.append(String(tag))
+	t.match_keys = keys
+	t.damage_received_modifiers = troop_def.get("damageReceivedModifiers", {})
+	t.armor = float(troop_def.get("armor", 0.0))
+	return t
+
+static func for_building(p_building: BuildingInstance, building_def: Dictionary, building_defs: Dictionary) -> CombatTarget:
+	var t := CombatTarget.new()
+	t.kind = Kind.BUILDING
+	# Standalone buildings carry their own ownerId; base buildings derive it from
+	# the base. Only base buildings exist in this slice, so ownership comes from
+	# the caller wiring (set after construction). Left blank here; CombatTargeting
+	# sets owner_id from the owning BaseInstance.
+	t.hex = p_building.hex
+	t.building = p_building
+	var is_defensive: bool = BuildingStats.resolve_def(building_def, building_defs).get("category", "") == "Defensive"
+	var keys: Array[String] = []
+	keys.append("Defensive" if is_defensive else "Structure")
+	t.match_keys = keys
+	t.is_tier_a = is_defensive
+	t.damage_received_modifiers = BuildingStats.damage_received_modifiers(building_def, p_building.material, building_defs)
+	return t
+
+func target_id() -> String:
+	return building.id if kind == Kind.BUILDING else squad.id
+
+func current_hp() -> float:
+	return building.current_hp if kind == Kind.BUILDING else 0.0
+
+func is_alive() -> bool:
+	if kind == Kind.BUILDING:
+		return building.current_hp > 0.0
+	for member_id in squad.member_ids:
+		var troop: TroopInstance = _troops.get(member_id)
+		if troop != null and troop.current_hp > 0.0:
+			return true
+	return false

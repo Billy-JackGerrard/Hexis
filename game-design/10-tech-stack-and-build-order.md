@@ -51,8 +51,39 @@ writing real UI code does, and it also needs actual game state to bind to.
      Command Centre levels, enough for `sim/units/squad_cap.gd` to compute
      real `maxSquads`/`maxCommanders` caps rather than stubbing them —
      `tests/test_units.gd`, 25 checks passing.
-   - [ ] Combat resolution (auto-attack nearest in range, damage modifiers,
-     splash — see `04-combat.md`).
+   - [x] Per-building troop production queue (`sim/instances/production_queue.gd`,
+     `sim/units/production_manager.gd`) per `07-data-architecture.md` section 3b:
+     one `ProductionQueue` per Production building keyed by building_id, FIFO
+     `enqueue`/`advance` (accumulator countdown, not a global clock), and
+     `pump()`'s deploy rules — a completed troop joins an in-range same-type
+     squad with room (bypassing the cap), else forms a new squad, else pauses
+     the queue at the squad cap (or Commander cap for a Command Centre) holding
+     the completed-but-undeployed entry until capacity frees. Extends
+     `tests/test_units.gd` (now covers ProductionQueue/ProductionManager).
+   - [x] Combat resolution (auto-attack nearest in range, damage modifiers,
+     splash — see `04-combat.md`): `CombatResolver.resolve_tick()`
+     (`sim/units/combat_resolver.gd`) advances a per-squad / per-Defensive-building
+     attack-speed accumulator (same "accumulator, not absolute time" pattern as
+     `edge_progress`) and fires volleys. `CombatTargeting`
+     (`sim/units/combat_targeting.gd`) does target selection per `04-combat.md`:
+     `canTarget` filtering, the Tier-A (troops + Defensive buildings) over Tier-B
+     (plain Structures) priority split, highest-qualifying-`damageDealtModifiers`-
+     then-nearest ordering, and the directed `attack_target` order override.
+     `CombatMath` (`sim/units/combat_math.gd`) resolves damage
+     (`damageDealtModifiers` × `damageReceivedModifiers` × armor, `Piercing`
+     bypass, ≥1 floor), splash hits enemies around the impact hex (no friendly
+     fire), and the dead are pruned. Buildings became combatants: `BuildingInstance`
+     now carries `current_hp`/`max_hp` (from `BuildingStats.max_hp()`,
+     `sim/instances/building_stats.gd`, which applies the `growthRate` formula and
+     resolves Turret-variant `extends`), Defensive buildings fire back, and a
+     building at 0 HP is removed. A uniform `CombatTarget`
+     (`sim/units/combat_target.gd`) lets targeting/damage treat squads and
+     buildings identically. `tests/test_combat.gd`, 36 checks passing. **Deferred**:
+     status effects (freeze/stun/knockback/emp), auras (Shield Tank, Ambulance
+     heal, Disruptor suppress), stealth/detection visibility, terrain combat
+     bonuses (hill defender, forest ambush), regiment lock-step movement, cargo,
+     and HQ capture-flip + ruin state (a destroyed building is deleted, not
+     captured/ruined, for now).
    - [x] Base/building placement rules, hex-adjacency validation (see
      `02-bases-and-buildings.md`): `BuildingPlacement.can_place()`
      (`sim/instances/building_placement.gd`) checks base-type eligibility

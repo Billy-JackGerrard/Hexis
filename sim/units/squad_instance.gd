@@ -10,6 +10,11 @@ var member_ids: Array[String] = []
 var current_hex: HexCoord
 var path: Array[HexCoord] = []
 var edge_progress: float = 0.0
+## Attack-speed accumulator (attacks, not seconds): CombatResolver adds
+## dt * attackSpeed each tick and fires one volley per whole unit, mirroring
+## edge_progress's "accumulator, not absolute time" treatment. All members
+## share type/stats, so the squad fires in unison — one attack per living member.
+var attack_progress: float = 0.0
 var commander_id: String = "" ## set if assigned to a Commander's regiment
 var boarded_on_squad_id: String = "" ## set if currently cargo aboard a carrier squad
 var cargo_squad_ids: Array[String] = [] ## only meaningful if troopType's cargoCapacity > 0
