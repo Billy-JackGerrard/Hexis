@@ -209,8 +209,10 @@ drops back under the (lower) cap. Full details and the data shape: see
 - See `01-map-and-terrain.md` for the full terrain/movement table. Key combat-relevant
   points:
   - Forests grant an ambush bonus (attacker hidden until engaging).
-  - Hills give a defender bonus to troops stationed there.
-  - Plains offer no combat bonus but extended vision.
+  - Hills give a defender bonus to troops stationed there, plus extended vision
+    (elevation).
+  - Plains offer no combat bonus and no vision bonus — purely economic/buildable
+    terrain.
 
 ## Infrastructure Combat
 - Roads, Bridges, and Docks can be destroyed by any troop, but only after any
