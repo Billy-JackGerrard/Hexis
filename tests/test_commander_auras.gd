@@ -132,7 +132,11 @@ func _test_mule_upkeep_reduction() -> void:
 	var squads: Array[SquadInstance] = [mule, infantry]
 
 	var auras := AuraSystem.resolve_tick(squads, [], _troop_defs, {})
-	_check(AuraSystem.upkeep_reduction(auras, infantry.id) == 3.0, "Mule's proximity aura reduces upkeep by its flat magnitude")
+	var mule_upkeep_reduction := 0.0
+	for aura in _troop_defs["mule"].get("auras", []):
+		if aura.get("effect", "") == "upkeep_reduction":
+			mule_upkeep_reduction = float(aura.get("magnitude", 0.0))
+	_check(AuraSystem.upkeep_reduction(auras, infantry.id) == mule_upkeep_reduction, "Mule's proximity aura reduces upkeep by its authored flat magnitude (%s)" % mule_upkeep_reduction)
 
 	var without_mule: Dictionary = AuraSystem.resolve_tick([infantry], [], _troop_defs, {})
 	var upkeep_without_mule := UpkeepSystem.compute_upkeep([infantry], [], [], _troop_defs, without_mule)

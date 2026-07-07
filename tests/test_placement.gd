@@ -57,21 +57,36 @@ func _plains_grid(hexes: Array) -> HexGrid:
 
 func _test_population() -> void:
 	var fresh_base := BaseInstance.new("pb1", "capital", "p1", 1)
-	_check(Population.population_cap(fresh_base, _building_defs) == 2, "hq level 1, no houses -> population cap 2")
+	# hq_level*2 is Population.population_cap's own (sim/-side) formula for
+	# HQ's contribution, not a data/buildings/hq.json value it reads back —
+	# out of this file's data-driven-ification scope, left as a literal
+	# multiplier matching that formula.
+	var hq_cap: int = fresh_base.hq_level * 2
+	_check(Population.population_cap(fresh_base, _building_defs) == hq_cap, "hq level %d, no houses -> population cap %d" % [fresh_base.hq_level, hq_cap])
 	_check(Population.population_used(fresh_base, _building_defs) == 0, "no buildings -> population used 0")
 	_check(Population.has_capacity_for(fresh_base, "farm", _building_defs), "fresh base has room for a non-house building")
 
 	fresh_base.buildings.append(BuildingInstance.new("h1", "pb1", "house", 1))
-	_check(Population.population_cap(fresh_base, _building_defs) == 6, "one level-1 House adds 4 capacity -> cap 2+4=6")
+	var house_capacity_l1: int = int(_building_defs["house"]["nonProductionUpgrade"]["baseStats"]["populationCapacity"])
+	_check(Population.population_cap(fresh_base, _building_defs) == hq_cap + house_capacity_l1, "one level-1 House adds its authored populationCapacity (%d) -> cap %d+%d=%d" % [house_capacity_l1, hq_cap, house_capacity_l1, hq_cap + house_capacity_l1])
 
 	fresh_base.buildings.append(BuildingInstance.new("f1", "pb1", "farm", 1))
 	fresh_base.buildings.append(BuildingInstance.new("q1", "pb1", "quarry", 1))
-	_check(Population.population_used(fresh_base, _building_defs) == 2, "House doesn't count; Farm+Quarry (populationCost 1 each) do")
-	_check(Population.has_capacity_for(fresh_base, "mine", _building_defs), "2 used < 6 cap -> room for another building")
+	# population_used counts each building with populationCost > 0 as exactly
+	# 1 (a threshold check, not a sum of the cost magnitudes -- see
+	# Population.population_used) -- so what's data-driven here is WHICH
+	# building types count, not the specific cost number.
+	var farm_pop_cost: float = float(_building_defs["farm"].get("populationCost", 1))
+	var quarry_pop_cost: float = float(_building_defs["quarry"].get("populationCost", 1))
+	var used_after_farm_quarry: int = (1 if farm_pop_cost > 0 else 0) + (1 if quarry_pop_cost > 0 else 0)
+	_check(Population.population_used(fresh_base, _building_defs) == used_after_farm_quarry, "House doesn't count; Farm+Quarry (populationCost > 0) do")
+	_check(Population.has_capacity_for(fresh_base, "mine", _building_defs), "%d used < %d cap -> room for another building" % [used_after_farm_quarry, hq_cap + house_capacity_l1])
 
+	var turret_pop_cost: float = float(_building_defs["turret"].get("populationCost", 1))
 	for i in range(4):
 		fresh_base.buildings.append(BuildingInstance.new("t%d" % i, "pb1", "turret", 1))
-	_check(Population.population_used(fresh_base, _building_defs) == 6, "6 population-costing buildings placed")
+	var used_after_turrets: int = used_after_farm_quarry + (4 if turret_pop_cost > 0 else 0)
+	_check(Population.population_used(fresh_base, _building_defs) == used_after_turrets, "%d population-costing buildings placed" % used_after_turrets)
 	_check(not Population.has_capacity_for(fresh_base, "mine", _building_defs), "used == cap -> no room for a non-house building")
 	_check(Population.has_capacity_for(fresh_base, "house", _building_defs), "House is always placeable regardless of capacity")
 	_check(Population.has_capacity_for(fresh_base, "hq", _building_defs), "HQ is always placeable regardless of capacity")
@@ -262,7 +277,11 @@ func _test_population_gate() -> void:
 	base.buildings.append(BuildingInstance.new("q1", "b8", "quarry", 1, "", HexCoord.new(1, -1)))
 	var capital_def: Dictionary = _base_defs["capital"]
 
-	_check(Population.population_used(base, _building_defs) == 2 and Population.population_cap(base, _building_defs) == 2,
+	var farm_pop_cost: float = float(_building_defs["farm"].get("populationCost", 1))
+	var quarry_pop_cost: float = float(_building_defs["quarry"].get("populationCost", 1))
+	var expected_used: int = (1 if farm_pop_cost > 0 else 0) + (1 if quarry_pop_cost > 0 else 0)
+	var hq_cap: int = base.hq_level * 2
+	_check(Population.population_used(base, _building_defs) == expected_used and Population.population_cap(base, _building_defs) == hq_cap,
 		"fixture is already at population cap (Farm+Quarry == hq_level*2)")
 	_check(BuildingPlacement.can_place(base, capital_def, "turret", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.POPULATION_FULL,
 		"non-House placement rejected once population is full")
@@ -402,4 +421,8 @@ func _test_wall_placement() -> void:
 		"an already-walled edge is rejected")
 
 	# A Wall doesn't consume population.
-	_check(Population.population_used(seeded, _building_defs) == 3, "the placed Wall does not count against population (still just Farm+Quarry+Command Centre)")
+	var farm_pop_cost: float = float(_building_defs["farm"].get("populationCost", 1))
+	var quarry_pop_cost: float = float(_building_defs["quarry"].get("populationCost", 1))
+	var command_centre_pop_cost: float = float(_building_defs["command_centre"].get("populationCost", 1))
+	var expected_used: int = (1 if farm_pop_cost > 0 else 0) + (1 if quarry_pop_cost > 0 else 0) + (1 if command_centre_pop_cost > 0 else 0)
+	_check(Population.population_used(seeded, _building_defs) == expected_used, "the placed Wall does not count against population (still just Farm+Quarry+Command Centre, populationCost > 0 each)")

@@ -11,7 +11,7 @@
     "mine",
     "oil_rig",
     "lumber_mill",
-    "fire_helipad",
+    "blazeworks",
     "barracks",
     "turret",
     "missile_launcher",
@@ -26,7 +26,7 @@
     { "buildingType": "turret", "count": 1 },
     { "buildingType": "missile_launcher", "count": 1 },
     { "buildingType": "flame_turret", "count": 2 },
-    { "buildingType": "fire_helipad", "count": 1 },
+    { "buildingType": "blazeworks", "count": 1 },
     { "buildingType": "wall", "count": 6, "material": "stone" }
   ],
 
@@ -36,5 +36,5 @@
     { "troopId": "rifleman", "count": 4 }
   ],
 
-  "notes": "Incendiary air power specialist Unique base — one instance on the map. Fire Helipad builds Flamecopter and Plasmacopter; Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Firebase its own infantry roster too. Flame Turret is the specialty defense (renamed from Flamethrower to avoid colliding with the Barracks infantry unit of the same name). Sited on Plains, no terrain exception."
+  "notes": "Incendiary air power specialist Unique base — one instance on the map. Blazeworks builds Flamecopter and Plasmacopter; Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Firebase its own infantry roster too. Flame Turret is the specialty defense (renamed from Flamethrower to avoid colliding with the Barracks infantry unit of the same name). Sited on Plains, no terrain exception."
 }

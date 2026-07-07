@@ -46,10 +46,27 @@ func _test_data_loader() -> void:
 
 func _test_commander_progression() -> void:
 	var progression: Dictionary = DataLoader.load_dir("res://data/buildings")["command_centre"]["commanderProgression"]
-	_check(CommanderProgression.slots_at_level(progression, 1) == 1, "level 1 -> 1 slot")
-	_check(CommanderProgression.slots_at_level(progression, 3) == 1, "level 3 -> 1 slot (tiers unlock, cap stays 1)")
-	_check(CommanderProgression.slots_at_level(progression, 4) == 2, "level 4 -> 2 slots (+1 postTierGrowth)")
-	_check(CommanderProgression.slots_at_level(progression, 6) == 4, "level 6 -> 4 slots (+1 per level past 3)")
+
+	# Derive expected values from the raw tierLevels/postTierGrowth data
+	# rather than the algorithm under test, so a rebalance of those numbers
+	# doesn't silently desync the test from what slots_at_level should return.
+	var tier_levels: Array = progression["tierLevels"]
+	var level_1_entry: Dictionary = tier_levels.filter(func(e): return int(e["level"]) == 1)[0]
+	var level_3_entry: Dictionary = tier_levels.filter(func(e): return int(e["level"]) == 3)[0]
+	var last_tier_entry: Dictionary = tier_levels[tier_levels.size() - 1]
+	var max_tier_level: int = int(last_tier_entry["level"])
+	var max_tier_slots: int = int(last_tier_entry["commanderSlots"])
+	var per_level: int = int(progression["postTierGrowth"]["commanderSlotsPerLevel"])
+
+	var expected_level_1: int = int(level_1_entry["commanderSlots"])
+	var expected_level_3: int = int(level_3_entry["commanderSlots"])
+	var expected_level_4: int = max_tier_slots + per_level * (4 - max_tier_level)
+	var expected_level_6: int = max_tier_slots + per_level * (6 - max_tier_level)
+
+	_check(CommanderProgression.slots_at_level(progression, 1) == expected_level_1, "level 1 -> %d slot(s) (tierLevels' level-1 entry)" % expected_level_1)
+	_check(CommanderProgression.slots_at_level(progression, 3) == expected_level_3, "level 3 -> %d slot(s) (tiers unlock, tierLevels' level-3 entry)" % expected_level_3)
+	_check(CommanderProgression.slots_at_level(progression, 4) == expected_level_4, "level 4 -> %d slot(s) (last tier's %d + postTierGrowth.commanderSlotsPerLevel %d)" % [expected_level_4, max_tier_slots, per_level])
+	_check(CommanderProgression.slots_at_level(progression, 6) == expected_level_6, "level 6 -> %d slot(s) (last tier's %d + %d per level past level %d)" % [expected_level_6, max_tier_slots, per_level, max_tier_level])
 
 func _test_squad_cap() -> void:
 	var one_capital: Array[BaseInstance] = [BaseInstance.new("b1", "capital", "p1", 1)]
@@ -66,7 +83,9 @@ func _test_squad_cap() -> void:
 	base_with_ccs.buildings.append(BuildingInstance.new("cc1", "b1", "command_centre", 1))
 	base_with_ccs.buildings.append(BuildingInstance.new("cc2", "b1", "command_centre", 4))
 	var bases_with_ccs: Array[BaseInstance] = [base_with_ccs]
-	_check(SquadCap.max_commanders(bases_with_ccs, building_defs) == 3, "level-1 + level-4 Command Centre -> maxCommanders 1+2=3")
+	var cc_progression: Dictionary = building_defs["command_centre"]["commanderProgression"]
+	var expected_commanders: int = CommanderProgression.slots_at_level(cc_progression, 1) + CommanderProgression.slots_at_level(cc_progression, 4)
+	_check(SquadCap.max_commanders(bases_with_ccs, building_defs) == expected_commanders, "level-1 + level-4 Command Centre -> maxCommanders sums each Command Centre's commanderProgression slots (%d)" % expected_commanders)
 
 	var no_ccs: Array[BaseInstance] = [BaseInstance.new("b1", "capital", "p1", 1)]
 	_check(SquadCap.max_commanders(no_ccs, building_defs) == 0, "no Command Centre -> maxCommanders 0")
@@ -133,18 +152,20 @@ func _test_production_queue() -> void:
 	var troops: Dictionary = {}
 
 	# enqueue + advance timing
+	var rifleman_production_time: float = float(troop_defs["rifleman"]["productionTime"])
 	var queue := ProductionQueue.new("barracks1")
 	ProductionManager.enqueue(queue, "rifleman", troop_defs)
-	_check(queue.entries[0]["production_time"] == 10.0, "enqueue reads productionTime from troop def")
-	_check(queue.entries[0]["remaining"] == 10.0, "enqueue starts remaining at full productionTime")
+	_check(queue.entries[0]["production_time"] == rifleman_production_time, "enqueue reads productionTime (%s) from troop def" % rifleman_production_time)
+	_check(queue.entries[0]["remaining"] == rifleman_production_time, "enqueue starts remaining at full productionTime")
 
 	ProductionManager.advance(queue, 4.0)
-	_check(queue.entries[0]["remaining"] == 6.0, "advance ticks front entry's remaining down")
+	var expected_remaining_after_4: float = max(0.0, rifleman_production_time - 4.0)
+	_check(queue.entries[0]["remaining"] == expected_remaining_after_4, "advance ticks front entry's remaining down by dt")
 
 	ProductionManager.enqueue(queue, "rifleman", troop_defs)
-	ProductionManager.advance(queue, 6.0)
+	ProductionManager.advance(queue, expected_remaining_after_4)
 	_check(queue.front_complete(), "front entry completes once remaining hits 0")
-	_check(queue.entries[1]["remaining"] == 10.0, "advance leaves later entries untouched (FIFO)")
+	_check(queue.entries[1]["remaining"] == rifleman_production_time, "advance leaves later entries untouched (FIFO)")
 
 	queue.paused = true
 	var remaining_before: float = queue.entries[0]["remaining"]
@@ -160,7 +181,7 @@ func _test_production_queue() -> void:
 	var join_squads: Array[SquadInstance] = [other_a, other_b, roomy]
 	var join_queue := ProductionQueue.new("barracks1")
 	ProductionManager.enqueue(join_queue, "rifleman", troop_defs)
-	ProductionManager.advance(join_queue, 10.0)
+	ProductionManager.advance(join_queue, rifleman_production_time)
 	# owner already owns 3 squads against an (empty-bases) maxSquads of 2 --
 	# joining must still succeed since an over-cap owner can still fill an
 	# existing squad's spare room.
@@ -173,7 +194,7 @@ func _test_production_queue() -> void:
 	var one_capital: Array[BaseInstance] = [BaseInstance.new("b1", "capital", "p1", 1)]
 	var new_squad_queue := ProductionQueue.new("barracks1")
 	ProductionManager.enqueue(new_squad_queue, "rifleman", troop_defs)
-	ProductionManager.advance(new_squad_queue, 10.0)
+	ProductionManager.advance(new_squad_queue, rifleman_production_time)
 	var empty_squads: Array[SquadInstance] = []
 	ProductionManager.pump(new_squad_queue, "p1", spawn_hex, "barracks", empty_squads, troops, one_capital, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(new_squad_queue.is_empty(), "completed entry that forms a new squad is popped")
@@ -189,7 +210,7 @@ func _test_production_queue() -> void:
 	]
 	var pause_queue := ProductionQueue.new("barracks1")
 	ProductionManager.enqueue(pause_queue, "rifleman", troop_defs)
-	ProductionManager.advance(pause_queue, 10.0)
+	ProductionManager.advance(pause_queue, rifleman_production_time)
 	ProductionManager.pump(pause_queue, "p1", spawn_hex, "barracks", at_cap_squads, troops, one_capital, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(pause_queue.paused, "queue pauses when a new squad is needed at the squad cap")
 	_check(pause_queue.pause_reason == "squad_cap", "pause_reason is squad_cap")
@@ -203,9 +224,10 @@ func _test_production_queue() -> void:
 	_check(at_cap_squads.size() == 4, "the held troop formed its new squad on resume")
 
 	# pause at commander_cap: Command Centre, no Command Centre built yet -> maxCommanders 0
+	var commander_vanguard_production_time: float = float(troop_defs["commander_vanguard"]["productionTime"])
 	var commander_queue := ProductionQueue.new("cc1")
 	ProductionManager.enqueue(commander_queue, "commander_vanguard", troop_defs)
-	ProductionManager.advance(commander_queue, 45.0)
+	ProductionManager.advance(commander_queue, commander_vanguard_production_time)
 	var no_squads: Array[SquadInstance] = []
 	ProductionManager.pump(commander_queue, "p1", spawn_hex, "command_centre", no_squads, troops, [], building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(commander_queue.paused, "queue pauses when a Commander is needed at the commander cap")

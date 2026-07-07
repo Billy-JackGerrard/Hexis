@@ -78,43 +78,57 @@ func _test_terrain_overrides() -> void:
 ## --- MovementResolver ------------------------------------------------------
 
 func _test_movement_resolver() -> void:
-	# 1. Single-hex partial advance: rifleman (speed 1.2) on plains.
+	var rifleman_speed: float = float(_troop_defs["rifleman"]["speed"])
+	var quad_bike_speed: float = float(_troop_defs["quad_bike"]["speed"])
+	# Hills' Infantry movement-cost multiplier is a sim/-side placeholder
+	# constant (Terrain.HILLS_INFANTRY_COST), not authored in data/troops/ —
+	# out of this file's data-driven-ification scope, but named here so the
+	# speed-derived math below stays legible.
+	var hills_infantry_cost := 2.0
+
+	# 1. Single-hex partial advance: rifleman on plains.
 	var grid1 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])
 	var s1 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
 	_check(MovementResolver.issue_move(s1, grid1, HexCoord.new(3, 0), _troop_defs), "issue_move succeeds toward a reachable goal")
 	MovementResolver.resolve_tick(0.5, [s1], grid1, _troop_defs)
-	_check(s1.current_hex.equals(HexCoord.new(0, 0)), "0.5s @ speed 1.2: still on the starting hex")
-	_check(_approx(s1.edge_progress, 0.6), "0.5s @ speed 1.2: edge_progress = 0.6")
+	_check(s1.current_hex.equals(HexCoord.new(0, 0)), "0.5s @ rifleman's speed: still on the starting hex")
+	_check(_approx(s1.edge_progress, rifleman_speed * 0.5), "0.5s @ rifleman's speed (%s): edge_progress = %s" % [rifleman_speed, rifleman_speed * 0.5])
 	MovementResolver.resolve_tick(0.5, [s1], grid1, _troop_defs)
 	_check(s1.current_hex.equals(HexCoord.new(1, 0)), "second 0.5s tick crosses the first hex boundary")
-	_check(_approx(s1.edge_progress, 0.2), "leftover time carried onto the new edge (0.2)")
+	_check(_approx(s1.edge_progress, rifleman_speed * 1.0 - 1.0), "leftover time carried onto the new edge (%s)" % (rifleman_speed * 1.0 - 1.0))
 
-	# 2. Multi-hex advance in one big-dt tick: quad_bike (speed 3.0) on plains.
+	# 2. Multi-hex advance in one big-dt tick: quad_bike on plains.
 	var grid2 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])
 	var s2 := _make_squad("p1", "quad_bike", HexCoord.new(0, 0))
 	MovementResolver.issue_move(s2, grid2, HexCoord.new(4, 0), _troop_defs)
 	MovementResolver.resolve_tick(1.0, [s2], grid2, _troop_defs)
-	_check(s2.current_hex.equals(HexCoord.new(3, 0)), "1.0s @ speed 3.0 on plains crosses 3 whole hexes")
-	_check(_approx(s2.edge_progress, 0.0), "no leftover progress after an exact 3-hex tick")
+	var quad_hexes_crossed: int = int(floor(quad_bike_speed))
+	var quad_leftover: float = quad_bike_speed - float(quad_hexes_crossed)
+	_check(s2.current_hex.equals(HexCoord.new(quad_hexes_crossed, 0)), "1.0s @ quad_bike's speed (%s) on plains crosses %d whole hexes" % [quad_bike_speed, quad_hexes_crossed])
+	_check(_approx(s2.edge_progress, quad_leftover), "leftover progress after the tick (%s)" % quad_leftover)
 
-	# 3. Terrain-cost slowdown: rifleman on hills (cost 2.0) moves half as fast.
+	# 3. Terrain-cost slowdown: rifleman on hills moves at speed/cost.
 	var grid3 := _line_grid([Terrain.Type.HILLS, Terrain.Type.HILLS])
 	var s3 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
 	MovementResolver.issue_move(s3, grid3, HexCoord.new(1, 0), _troop_defs)
 	MovementResolver.resolve_tick(1.0, [s3], grid3, _troop_defs)
-	_check(s3.current_hex.equals(HexCoord.new(0, 0)), "hills: 1.0s @ effective speed 0.6 doesn't finish the hex")
-	_check(_approx(s3.edge_progress, 0.6), "hills: edge_progress = speed/cost * dt = 0.6")
+	var hills_effective_speed: float = rifleman_speed / hills_infantry_cost
+	_check(s3.current_hex.equals(HexCoord.new(0, 0)), "hills: 1.0s @ effective speed %s doesn't finish the hex" % hills_effective_speed)
+	_check(_approx(s3.edge_progress, hills_effective_speed), "hills: edge_progress = speed/cost * dt = %s" % hills_effective_speed)
 
 	# 4. Differing-cost remainder correctness: plains -> plains -> hills.
-	# Crossing hex0->hex1 (plains, cost 1) takes 1/1.2 = 0.8333s, leaving
-	# 0.1667s for hex1->hex2 (hills, cost 2, effective speed 0.6): 0.1667*0.6 = 0.1.
-	# A naive fraction-carry (instead of a time-carry) would instead give ~0.2.
+	# Crossing hex0->hex1 (plains, cost 1) takes 1/speed seconds, leaving the
+	# remainder of the 1.0s tick for hex1->hex2 (hills, effective speed
+	# speed/cost). A naive fraction-carry (instead of a time-carry) would
+	# instead give a different, wrong remainder.
 	var grid4 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.HILLS])
 	var s4 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
 	MovementResolver.issue_move(s4, grid4, HexCoord.new(2, 0), _troop_defs)
 	MovementResolver.resolve_tick(1.0, [s4], grid4, _troop_defs)
+	var leftover_time: float = 1.0 - 1.0 / rifleman_speed
+	var expected_progress4: float = leftover_time * hills_effective_speed
 	_check(s4.current_hex.equals(HexCoord.new(1, 0)), "crosses exactly the first (plains) edge in 1.0s")
-	_check(_approx(s4.edge_progress, 0.1), "leftover time correctly re-applied at the hills edge's own speed (0.1, not 0.2)")
+	_check(_approx(s4.edge_progress, expected_progress4), "leftover time correctly re-applied at the hills edge's own speed (%s, via time-carry not fraction-carry)" % expected_progress4)
 
 	# 5. Unreachable goal -> issue_move fails, no movement.
 	var grid5 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.FOREST])
@@ -188,11 +202,15 @@ func _test_regiment_lockstep() -> void:
 	_check(m1a.order.get("type") == "regiment_move", "member order flips to regiment_move")
 	_check(m1b.order.get("type") == "regiment_move", "second member order flips to regiment_move")
 
-	# 2. Regiment speed is capped by its slowest member (sniper, speed 1.0),
-	# not the faster Commander (3.2) or rifleman (1.2).
+	# 2. Regiment speed is capped by its slowest member (sniper), not the
+	# faster Commander or rifleman.
+	var sniper_speed: float = float(_troop_defs["sniper"]["speed"])
+	var commander_speed: float = float(_troop_defs["commander_vanguard"]["speed"])
 	MovementResolver.resolve_regiment_tick(1.0, cmd1, [m1a, m1b], grid1, _troop_defs)
-	_check(cmd1.current_hex.equals(HexCoord.new(1, 0)), "1.0s @ capped speed 1.0 crosses exactly one plains hex")
-	_check(_approx(cmd1.edge_progress, 0.0), "no leftover progress after an exact 1-hex tick")
+	var sniper_hexes_crossed: int = int(floor(sniper_speed))
+	var sniper_leftover: float = sniper_speed - float(sniper_hexes_crossed)
+	_check(cmd1.current_hex.equals(HexCoord.new(sniper_hexes_crossed, 0)), "1.0s @ capped speed (sniper's, %s) crosses %d plains hex(es)" % [sniper_speed, sniper_hexes_crossed])
+	_check(_approx(cmd1.edge_progress, sniper_leftover), "leftover progress after the capped tick (%s)" % sniper_leftover)
 	_check(m1a.current_hex.equals(cmd1.current_hex), "rifleman mirrors the Commander's new hex")
 	_check(m1b.current_hex.equals(cmd1.current_hex), "sniper mirrors the Commander's new hex")
 	_check(m1a.path.size() == cmd1.path.size(), "rifleman's remaining path still mirrors the Commander's")
@@ -207,13 +225,13 @@ func _test_regiment_lockstep() -> void:
 	MovementResolver.issue_move(m2, grid2, HexCoord.new(2, 0), _troop_defs)
 	_check(m2.order.get("type") == "move", "ad hoc order on a member overrides its regiment_move order")
 	MovementResolver.resolve_regiment_tick(0.1, cmd2, [m2], grid2, _troop_defs)
-	_check(_approx(cmd2.edge_progress, 0.32), "Commander still advances alone at its own capped speed 3.2 (no other lock-step members)")
+	_check(_approx(cmd2.edge_progress, commander_speed * 0.1), "Commander still advances alone at its own capped speed (%s, no other lock-step members)" % commander_speed)
 	_check(m2.current_hex.equals(HexCoord.new(0, 0)), "ad hoc-split member is untouched by resolve_regiment_tick")
 
 	# 4. Once the ad hoc-split member goes idle (arrives / path drains), it
 	# automatically rejoins the shared path on the next regiment tick.
 	MovementResolver.resolve_tick(2.0, [m2], grid2, _troop_defs)
-	_check(m2.path.is_empty(), "ad hoc order (speed 1.0, 2 hexes) fully resolved in 2.0s -> idle")
+	_check(m2.path.is_empty(), "ad hoc order (sniper's speed %s, 2 hexes) fully resolved in 2.0s -> idle" % sniper_speed)
 	MovementResolver.resolve_regiment_tick(1.0, cmd2, [m2], grid2, _troop_defs)
 	_check(m2.order.get("type") == "regiment_move", "idle member converts back to regiment_move")
 	_check(m2.current_hex.equals(cmd2.current_hex), "rejoined member mirrors the Commander's hex again")
@@ -270,7 +288,7 @@ func _make_target(owner: String, troop_type: String, hex: HexCoord) -> CombatTar
 	return CombatTarget.for_squad(squad, _troop_defs.get(troop_type, {}), troops)
 
 func _test_attack_move() -> void:
-	# rifleman: range 4, speed 1.2.
+	var rifleman_range: float = float(_troop_defs["rifleman"]["range"])
 	var grid := _line_grid([
 		Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS,
 		Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS,
@@ -284,7 +302,7 @@ func _test_attack_move() -> void:
 	var far_target := _make_target("p2", "rifleman", HexCoord.new(8, 0))
 	attacker.order = {"type": "attack_target", "targetId": far_target.target_id()}
 	MovementResolver.resolve_attack_move([attacker], _troop_defs, grid, [far_target])
-	_check(not attacker.path.is_empty(), "attacker out of range (dist 8 > range 4) chases toward the target")
+	_check(not attacker.path.is_empty(), "attacker out of range (dist 8 > rifleman's range %s) chases toward the target" % rifleman_range)
 	_check(attacker.order.get("type") == "attack_target", "chasing does not overwrite the attack_target order")
 	_check(attacker.order.get("targetId") == far_target.target_id(), "attack_target's targetId is preserved while chasing")
 
@@ -301,7 +319,7 @@ func _test_attack_move() -> void:
 	near_attacker.order = {"type": "attack_target", "targetId": near_target.target_id()}
 	near_attacker.path = [HexCoord.new(1, 0), HexCoord.new(2, 0)]
 	MovementResolver.resolve_attack_move([near_attacker], _troop_defs, grid, [near_target])
-	_check(near_attacker.path.is_empty(), "target already in range (dist 3 <= range 4) clears any in-progress chase path")
+	_check(near_attacker.path.is_empty(), "target already in range (dist 3 <= rifleman's range %s) clears any in-progress chase path" % rifleman_range)
 
 	# 4. A squad with no attack_target order is left completely alone.
 	var idle_squad := _make_squad("p1", "rifleman", HexCoord.new(0, 0))

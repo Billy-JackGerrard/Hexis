@@ -15,7 +15,7 @@ var troops_by_id: Dictionary = {} ## id -> TroopInstance
 var regiments: Array[RegimentInstance] = []
 var standalone_buildings: Array[BuildingInstance] = []
 var production_queues: Dictionary = {} ## building_id -> ProductionQueue
-var resource_pools: Dictionary = {} ## owner_id -> ResourcePool
+var players: Dictionary = {} ## owner_id -> Player
 
 var grid: HexGrid
 var troop_defs: Dictionary = {}
@@ -106,7 +106,12 @@ func commander_count(owner_id: String) -> int:
 			count += 1
 	return count
 
+func player_for(owner_id: String) -> Player:
+	if not players.has(owner_id):
+		players[owner_id] = Player.new(owner_id)
+	return players[owner_id]
+
+## Convenience accessor for the common case (every call site so far only
+## needs the resource pool, not the Player itself).
 func pool_for(owner_id: String) -> ResourcePool:
-	if not resource_pools.has(owner_id):
-		resource_pools[owner_id] = ResourcePool.new()
-	return resource_pools[owner_id]
+	return player_for(owner_id).resources

@@ -138,7 +138,8 @@ static func select_target(attacker_squad: SquadInstance, attacker_def: Dictionar
 				return target
 		# Directed target dead / out of range / illegal: drop the order only
 		# once it's actually gone (an out-of-range-but-living target keeps the
-		# order — movement toward it is the movement system's job, deferred),
+		# order — MovementResolver.resolve_attack_move() is what chases it
+		# into range; this file only decides whether to fire, never to move),
 		# then fall through to auto-targeting.
 		if not _target_alive_anywhere(directed_id, targets):
 			attacker_squad.order = {}

@@ -103,6 +103,33 @@ func _test_board() -> void:
 	var rifles_d := _make_squad("p1", "rifleman", hex, 1, troops)
 	_check(not CargoSystem.can_board(tank_carrier, rifles_d, _troop_defs), "Tank Carrier rejects a third boarder past capacity 2")
 
+	# Boarding requires adjacency: a squad two hexes away from the carrier
+	# can't board it, even if everything else about the pairing is valid.
+	var far_grid := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])
+	var truck5 := _make_squad("p1", "transport_truck", HexCoord.new(0, 0), 1, troops)
+	var rifles_far := _make_squad("p1", "rifleman", HexCoord.new(2, 0), 1, troops)
+	_check(not CargoSystem.can_board(truck5, rifles_far, _troop_defs, far_grid), "a squad two hexes from the carrier cannot board")
+
+	# One hex away (adjacent, not coincident) is allowed.
+	var truck6 := _make_squad("p1", "transport_truck", HexCoord.new(0, 0), 1, troops)
+	var rifles_adjacent := _make_squad("p1", "rifleman", HexCoord.new(1, 0), 1, troops)
+	_check(CargoSystem.can_board(truck6, rifles_adjacent, _troop_defs, far_grid), "a squad adjacent to the carrier can board")
+
+	# Naval carrier boarding from a bare Plains hex (no Dock/Port/Shipyard) is
+	# rejected, mirroring unload's coastline rule in reverse.
+	var cuddles_board := _make_squad("p1", "hms_cuddles", HexCoord.new(0, 0), 1, troops)
+	var rifles_shore := _make_squad("p1", "rifleman", HexCoord.new(1, 0), 1, troops)
+	_check(not CargoSystem.can_board(cuddles_board, rifles_shore, _troop_defs, far_grid), "Naval carrier cannot pick up troops from a bare Plains hex")
+
+	# The same pickup succeeds once that shore hex has a Dock.
+	var dock_buildings_board: Array[BuildingInstance] = [BuildingInstance.new("dock2", "", "dock", 1, "stone", HexCoord.new(1, 0), "p1")]
+	var no_bases_board: Array[BaseInstance] = []
+	_check(CargoSystem.can_board(cuddles_board, rifles_shore, _troop_defs, far_grid, no_bases_board, dock_buildings_board), "Naval carrier can pick up troops standing on a Dock hex")
+
+	# A standalone Harbour hex works the same way as a Dock/Port/Shipyard.
+	var harbour_buildings_board: Array[BuildingInstance] = [BuildingInstance.new("harbour1", "", "harbour", 1, "", HexCoord.new(1, 0), "p1")]
+	_check(CargoSystem.can_board(cuddles_board, rifles_shore, _troop_defs, far_grid, no_bases_board, harbour_buildings_board), "Naval carrier can pick up troops standing on a Harbour hex")
+
 ## --- CargoSystem.unload ----------------------------------------------------
 
 func _test_unload() -> void:
@@ -138,6 +165,14 @@ func _test_unload() -> void:
 	var no_bases: Array[BaseInstance] = []
 	_check(CargoSystem.unload(cuddles, rifles, HexCoord.new(1, 0), grid, _troop_defs, false, no_bases, dock_buildings), "unload() succeeds onto a Dock hex while idle")
 	_check(rifles.current_hex.equals(HexCoord.new(1, 0)), "unloaded onto the requested Dock hex")
+
+	# A Harbour hex works the same way as a Dock/Port/Shipyard for disembarking.
+	var cuddles2 := _make_squad("p1", "hms_cuddles", hex, 1, troops)
+	var rifles3 := _make_squad("p1", "rifleman", hex, 1, troops)
+	CargoSystem.board(cuddles2, rifles3, _troop_defs)
+	var harbour_buildings: Array[BuildingInstance] = [BuildingInstance.new("harbour2", "", "harbour", 1, "", HexCoord.new(1, 0), "p1")]
+	_check(CargoSystem.unload(cuddles2, rifles3, HexCoord.new(1, 0), grid, _troop_defs, false, no_bases, harbour_buildings), "unload() succeeds onto a Harbour hex while idle")
+	_check(rifles3.current_hex.equals(HexCoord.new(1, 0)), "unloaded onto the requested Harbour hex")
 
 	# Unloading a squad that isn't actually boarded there fails.
 	var truck := _make_squad("p1", "transport_truck", hex, 1, troops)

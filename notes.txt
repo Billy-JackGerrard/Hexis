@@ -1,2 +1,33 @@
 private notes - not for ai
 
+
+TROOP POSITIONING:
+
+how should troop positioning work? eg if i have Chonky in a regiment or group of squads, i want chonkys to be at the front to take the damage, if no chonky, then maybe Juggernaut. if they're all infantry, then Shielders should be at the front. and if an an attack comes from behind then they should rearrange themselves no? and of course the player should be able to manually rearrange/move them
+
+Given the current architecture, combat already picks a target via member_ids[0] order in combat_resolver.gd's _damage_target (Hexis/sim/units/combat_resolver.gd:246-258) — so "who tanks" is really just "who's first in the array," and there's no facing/direction concept anywhere yet (flagged as an open item in 07-data-architecture.md:535).
+
+My recommendation: add a data-driven frontlinePriority field to the troop schema (e.g. Chonky=3, Juggernaut=2, Shielder=1 for Infantry squads, default=0) rather than hardcoding unit names, and auto-sort member_ids/squad order by that whenever composition changes — with player drag-reordering stored as an explicit override that wins over auto-sort until composition changes again. For rear attacks, the cheap version is a binary front/back flip (track last hit's approach hex vs. squad's direction of travel, reverse the order if it's roughly opposite) rather than true multi-angle facing, since full flanking is a much bigger system the design doc already deferred.
+
+The main tradeoff is scope: binary front/back flip is cheap and reuses the existing single-array targeting model, but it won't handle side attacks or multiple simultaneous attackers gracefully — true facing/flanking would need a real orientation field on regiments and touches pathing/rendering too. Want me to sketch this out as a fuller design doc addition, or start scoping the implementation?
+
+
+TROOP CONTROL:
+Click and click on where you want them to go. simple.
+but we could also add click + use arrow keys to control them?
+
+
+
+AIRCRAFT:
+Could have a runway / helipad, changing the no fuel used requirements to be actually grounded.
+Could also have support aircraft like troop carrier helicopter, supply drops, repair drones. This could be another base, similar to Camp Cosy.
+If troop carrier copter, they need to land to board/unload, and they can only land on built helipads?
+If we have separate runway/helipad then maybe rename fire helipad to be something like Copter Oven
+Could filter aircraft based on tags; Helicopter or Plane
+Gliders and Hot Air Balloons can't land at all? Or they can, but hot air balloon counts as a helicopter, and gliders.. see below.
+
+Gliders. Maybe they're actually infantry? But when spawned and when walking off a hill, they "glide" by flying for X seconds before returning to infantry mode?
+
+
+
+Should amphibious raider be able to be turned into Naval class, so it can be targeted by submarines etc

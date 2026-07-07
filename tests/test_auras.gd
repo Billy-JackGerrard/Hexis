@@ -42,6 +42,23 @@ func _init() -> void:
 func _approx(a: float, b: float) -> bool:
 	return abs(a - b) < 0.001
 
+## Percent-based aura effects (speed_boost/attack_speed_boost/slow) apply as
+## 1 + magnitude/100 — mirrors AuraSystem._percent_factor's non-damage_reduction
+## branch (see sim/units/aura_system.gd's _percent_factor) — so tests can
+## derive the expected multiplier from a def's authored magnitude instead of
+## hardcoding the resulting multiplier.
+func _boost_mult(magnitude: float) -> float:
+	return 1.0 + magnitude / 100.0
+
+## Finds an aura's magnitude by effect (+ optional filter) within a def's
+## `auras` array, so tests read the live authored value instead of a
+## hardcoded copy of it.
+func _aura_magnitude(auras: Array, effect: String, filter: String = "") -> float:
+	for aura in auras:
+		if aura.get("effect") == effect and (filter == "" or aura.get("filter") == filter):
+			return float(aura.get("magnitude", 0.0))
+	return 0.0
+
 func _make_squad(owner: String, troop_type: String, hex: HexCoord, count: int, troops: Dictionary) -> SquadInstance:
 	_next_id += 1
 	var squad := SquadInstance.new("sq%d" % _next_id, owner, troop_type, hex)
@@ -57,18 +74,21 @@ func _make_squad(owner: String, troop_type: String, hex: HexCoord, count: int, t
 
 func _test_building_stats_auras() -> void:
 	var hospital: Dictionary = _building_defs["hospital"]
+	var hospital_heal_l1: float = float(hospital["auras"][0]["magnitude"])
+	var hospital_radius: int = int(hospital["auras"][0]["radius"])
 	var level1 := BuildingStats.auras(hospital, 1, _building_defs)
 	_check(level1.size() == 1, "Hospital has one aura entry")
-	_check(_approx(float(level1[0]["magnitude"]), 6.0), "Hospital's heal_over_time magnitude is 6 at level 1")
-	_check(int(level1[0]["radius"]) == 8, "Hospital's radius is 8 at level 1")
+	_check(_approx(float(level1[0]["magnitude"]), hospital_heal_l1), "Hospital's heal_over_time magnitude at level 1 matches its authored base magnitude (%s)" % hospital_heal_l1)
+	_check(int(level1[0]["radius"]) == hospital_radius, "Hospital's radius at level 1 matches its authored radius (%s)" % hospital_radius)
 
 	var level3 := BuildingStats.auras(hospital, 3, _building_defs)
-	_check(float(level3[0]["magnitude"]) > 6.0, "Hospital's heal magnitude grows with level (healMagnitude statGrowth)")
-	_check(int(level3[0]["radius"]) == 8, "Hospital's radius stays flat per level while magnitude scales")
+	_check(float(level3[0]["magnitude"]) > float(level1[0]["magnitude"]), "Hospital's heal magnitude grows with level (healMagnitude statGrowth)")
+	_check(int(level3[0]["radius"]) == int(level1[0]["radius"]), "Hospital's radius stays flat per level while magnitude scales")
 
 	var ice_spire: Dictionary = _building_defs["ice_spire"]
+	var ice_slow_magnitude: float = float(ice_spire["auras"][0]["magnitude"])
 	var ice_auras := BuildingStats.auras(ice_spire, 2, _building_defs)
-	_check(_approx(float(ice_auras[0]["magnitude"]), -20.0), "Ice Spire's slow magnitude has no growth entry -> stays unleveled (-20)")
+	_check(_approx(float(ice_auras[0]["magnitude"]), ice_slow_magnitude), "Ice Spire's slow magnitude (%s) has no growth entry -> stays unleveled" % ice_slow_magnitude)
 
 ## --- Proximity troop auras --------------------------------------------------
 
@@ -77,8 +97,14 @@ func _test_troop_auras() -> void:
 	var bases: Array[BaseInstance] = []
 	var troops := {}
 
-	# Volt Truck (Land/Air/Naval speed_boost 40% + attack_speed_boost 15%,
-	# radius 3, deliberately excludes Infantry) at origin.
+	var volt_def: Dictionary = _troop_defs["volt_truck"]
+	var volt_speed_boost: float = _aura_magnitude(volt_def["auras"], "speed_boost", "Land")
+	var volt_attack_speed_boost: float = _aura_magnitude(volt_def["auras"], "attack_speed_boost", "Land")
+	var volt_speed_mult: float = _boost_mult(volt_speed_boost)
+	var volt_attack_speed_mult: float = _boost_mult(volt_attack_speed_boost)
+
+	# Volt Truck (Land/Air/Naval speed_boost + attack_speed_boost, radius 3,
+	# deliberately excludes Infantry) at origin.
 	var volt := _make_squad("p1", "volt_truck", HexCoord.new(0, 0), 1, troops)
 	squads.append(volt)
 	# A Land ally within radius 3 -> boosted.
@@ -95,8 +121,8 @@ func _test_troop_auras() -> void:
 	squads.append(enemy_basekiller)
 
 	var auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.speed_mult(auras, basekiller.id), 1.4), "in-range Land ally gets Volt Truck's +40% speed_boost")
-	_check(_approx(AuraSystem.attack_speed_mult(auras, basekiller.id), 1.15), "in-range Land ally gets Volt Truck's +15% attack_speed_boost")
+	_check(_approx(AuraSystem.speed_mult(auras, basekiller.id), volt_speed_mult), "in-range Land ally gets Volt Truck's speed_boost (+%s%%)" % volt_speed_boost)
+	_check(_approx(AuraSystem.attack_speed_mult(auras, basekiller.id), volt_attack_speed_mult), "in-range Land ally gets Volt Truck's attack_speed_boost (+%s%%)" % volt_attack_speed_boost)
 	_check(_approx(AuraSystem.speed_mult(auras, far_basekiller.id), 1.0), "out-of-range Land ally gets no boost")
 	_check(_approx(AuraSystem.speed_mult(auras, rifleman.id), 1.0), "in-range Infantry ally gets no boost (filter excludes Infantry)")
 	_check(_approx(AuraSystem.speed_mult(auras, enemy_basekiller.id), 1.0), "in-range enemy Land squad gets no boost (friendly_troops only)")
@@ -111,7 +137,7 @@ func _test_troop_auras() -> void:
 	squads2.append(volt_b)
 	squads2.append(stacked_ally)
 	var auras2 := AuraSystem.resolve_tick(squads2, bases, _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.speed_mult(auras2, stacked_ally.id), 1.4), "two overlapping Volt Trucks (same source type) still contribute only +40%, not +96%")
+	_check(_approx(AuraSystem.speed_mult(auras2, stacked_ally.id), volt_speed_mult), "two overlapping Volt Trucks (same source type) still contribute only +%s%%, not double" % volt_speed_boost)
 
 ## --- Building aura sources --------------------------------------------------
 
@@ -121,6 +147,7 @@ func _test_building_auras() -> void:
 
 	var base := BaseInstance.new("b1", "capital", "p1", 1, HexCoord.new(0, 0))
 	var hospital_def: Dictionary = _building_defs["hospital"]
+	var hospital_heal: float = float(hospital_def["auras"][0]["magnitude"])
 	var hospital := BuildingInstance.new("hosp1", "b1", "hospital", 1, "", HexCoord.new(0, 0))
 	hospital.init_hp(hospital_def, _building_defs)
 	base.buildings.append(hospital)
@@ -133,13 +160,14 @@ func _test_building_auras() -> void:
 	patient_troop.current_hp = 50.0
 
 	var auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.squad_mods_heal(auras, patient.id), 6.0), "Hospital's heal_over_time (6/s at level 1) reaches an in-range squad")
+	_check(_approx(AuraSystem.squad_mods_heal(auras, patient.id), hospital_heal), "Hospital's heal_over_time (%s/s at level 1) reaches an in-range squad" % hospital_heal)
 
 	AuraSystem.apply_heals(1.0, auras, squads, troops, _troop_defs)
-	_check(_approx(patient_troop.current_hp, 56.0), "apply_heals adds heal_per_second * dt to a damaged member's HP")
+	_check(_approx(patient_troop.current_hp, 50.0 + hospital_heal), "apply_heals adds heal_per_second * dt to a damaged member's HP")
 
 	AuraSystem.apply_heals(100.0, auras, squads, troops, _troop_defs)
-	_check(_approx(patient_troop.current_hp, 100.0), "apply_heals caps healing at the troop's authored max HP")
+	var rifleman_hp: float = float(_troop_defs["rifleman"].get("hp", 0.0))
+	_check(_approx(patient_troop.current_hp, rifleman_hp), "apply_heals caps healing at the troop's authored max HP (%s)" % rifleman_hp)
 
 	# Three Hospitals in range of the same squad must not triple its heal --
 	# same source type (hospital) dedupes to a single max contribution.
@@ -150,19 +178,22 @@ func _test_building_auras() -> void:
 	hosp3.init_hp(hospital_def, _building_defs)
 	base.buildings.append(hosp3)
 	var stacked_auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.squad_mods_heal(stacked_auras, patient.id), 6.0), "three overlapping Hospitals still contribute only 6/s, not 18/s")
+	_check(_approx(AuraSystem.squad_mods_heal(stacked_auras, patient.id), hospital_heal), "three overlapping Hospitals still contribute only %s/s, not %s/s" % [hospital_heal, hospital_heal * 3.0])
 
 	# A different support type (Ambulance) reaching the same squad still adds
 	# on top of Hospital's heal, since it's a different source type.
 	var ambulance := _make_squad("p1", "ambulance", HexCoord.new(3, 0), 1, troops)
 	squads.append(ambulance)
 	var mixed_auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
-	var expected_mixed: float = 6.0 + float(_troop_defs["ambulance"]["auras"][0]["magnitude"])
-	_check(_approx(AuraSystem.squad_mods_heal(mixed_auras, patient.id), expected_mixed), "Hospital and Ambulance are different source types, so their heals still add together")
+	var ambulance_heal: float = float(_troop_defs["ambulance"]["auras"][0]["magnitude"])
+	var expected_mixed: float = hospital_heal + ambulance_heal
+	_check(_approx(AuraSystem.squad_mods_heal(mixed_auras, patient.id), expected_mixed), "Hospital (%s/s) and Ambulance (%s/s) are different source types, so their heals still add together" % [hospital_heal, ambulance_heal])
 
 	# Ice Spire's slow reaches an enemy squad in range, not a friendly one.
 	var ice_base := BaseInstance.new("b2", "winter_forge", "p1", 1, HexCoord.new(20, 0))
 	var ice_def: Dictionary = _building_defs["ice_spire"]
+	var ice_slow_magnitude: float = float(ice_def["auras"][0]["magnitude"])
+	var ice_slow_mult: float = _boost_mult(ice_slow_magnitude)
 	var ice_spire := BuildingInstance.new("ice1", "b2", "ice_spire", 1, "", HexCoord.new(20, 0))
 	ice_spire.init_hp(ice_def, _building_defs)
 	ice_base.buildings.append(ice_spire)
@@ -171,16 +202,16 @@ func _test_building_auras() -> void:
 	var friendly_near := _make_squad("p1", "rifleman", HexCoord.new(21, 0), 1, troops)
 	var ice_squads: Array[SquadInstance] = [enemy_near, friendly_near]
 	var ice_auras := AuraSystem.resolve_tick(ice_squads, [ice_base], _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.speed_mult(ice_auras, enemy_near.id), 0.8), "Ice Spire's -20% slow reaches an enemy squad in range")
+	_check(_approx(AuraSystem.speed_mult(ice_auras, enemy_near.id), ice_slow_mult), "Ice Spire's slow (%s%%) reaches an enemy squad in range" % ice_slow_magnitude)
 	_check(_approx(AuraSystem.speed_mult(ice_auras, friendly_near.id), 1.0), "Ice Spire's slow does not affect the owner's own troops (enemy_troops only)")
 
 	# Two Ice Spires in range of the same enemy squad are the same source
-	# type -> only one -20% slow applies, not two stacked.
+	# type -> only one slow applies, not two stacked.
 	var ice_spire2 := BuildingInstance.new("ice2", "b2", "ice_spire", 1, "", HexCoord.new(21, 0))
 	ice_spire2.init_hp(ice_def, _building_defs)
 	ice_base.buildings.append(ice_spire2)
 	var double_ice_auras := AuraSystem.resolve_tick([enemy_near], [ice_base], _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.speed_mult(double_ice_auras, enemy_near.id), 0.8), "two overlapping Ice Spires (same source type) still apply only -20% slow, not -36%")
+	_check(_approx(AuraSystem.speed_mult(double_ice_auras, enemy_near.id), ice_slow_mult), "two overlapping Ice Spires (same source type) still apply only %s%% slow, not double" % ice_slow_magnitude)
 
 	# A squad that's simultaneously the Ice Spire's enemy (p1's base slows
 	# p2) and a Volt Truck's ally (p2's own truck boosts it) gets both
@@ -190,7 +221,8 @@ func _test_building_auras() -> void:
 	var cross_target := _make_squad("p2", "basekiller", HexCoord.new(21, 0), 1, troops)
 	var cross_squads: Array[SquadInstance] = [volt, cross_target]
 	var cross_auras := AuraSystem.resolve_tick(cross_squads, [ice_base], _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.speed_mult(cross_auras, cross_target.id), 1.4 * 0.8), "Ice Spire's slow and Volt Truck's boost are different source types, so they still combine multiplicatively (1.4 x 0.8)")
+	var volt_speed_mult2: float = _boost_mult(_aura_magnitude(_troop_defs["volt_truck"]["auras"], "speed_boost", "Land"))
+	_check(_approx(AuraSystem.speed_mult(cross_auras, cross_target.id), volt_speed_mult2 * ice_slow_mult), "Ice Spire's slow and Volt Truck's boost are different source types, so they still combine multiplicatively (%.3f x %.3f)" % [volt_speed_mult2, ice_slow_mult])
 
 ## --- suppress_targeting -----------------------------------------------------
 
@@ -231,9 +263,16 @@ func _test_integration() -> void:
 
 	var auras := AuraSystem.resolve_tick(squads, [], _troop_defs, _building_defs)
 	MovementResolver.resolve_tick(1.0, squads, grid, _troop_defs, auras)
-	# quad_bike speed 3.0 * 1.4 boost = 4.2 hexes in 1.0s -> crosses 4 whole
-	# hexes (edge cost 1.0 each on plains), landing on hex 5.
-	_check(quad.current_hex.equals(HexCoord.new(5, 0)), "Volt Truck's speed_boost accelerates a nearby Land squad's movement")
+	# quad_bike's boosted speed (base speed * Volt Truck's Land speed_boost)
+	# crosses however many whole hexes that covers in 1.0s (edge cost 1.0 each
+	# on plains) -- derived from live data so a speed/aura rebalance can't
+	# silently desync this expectation from the numbers actually in play.
+	var quad_speed: float = float(_troop_defs["quad_bike"]["speed"])
+	var volt_speed_boost: float = _aura_magnitude(_troop_defs["volt_truck"]["auras"], "speed_boost", "Land")
+	var boosted_speed: float = quad_speed * _boost_mult(volt_speed_boost)
+	var hexes_crossed: int = int(floor(boosted_speed))
+	var expected_hex := HexCoord.new(1 + hexes_crossed, 0)
+	_check(quad.current_hex.equals(expected_hex), "Volt Truck's speed_boost accelerates a nearby Land squad's movement (quad_bike speed %s x %s%% boost = %s hex/s, crossing %d hexes in 1.0s)" % [quad_speed, volt_speed_boost, boosted_speed, hexes_crossed])
 
 	# CombatResolver: a suppressed Turret doesn't fire even with a target in range.
 	var base := BaseInstance.new("b1", "capital", "p1", 1, HexCoord.new(5, 0))

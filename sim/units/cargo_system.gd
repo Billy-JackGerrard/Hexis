@@ -15,13 +15,24 @@ extends RefCounted
 ## (cargoCapacity summed across its own living members — capacity counts
 ## SQUADS, not troop headcount — must exceed its current cargoSquadIds
 ## count), and the boarding squad's troopType Domain/tags intersect the
-## carrier's cargoAllowedTags (same match mechanism as canTarget).
-static func can_board(carrier_squad: SquadInstance, boarding_squad: SquadInstance, troop_defs: Dictionary) -> bool:
+## carrier's cargoAllowedTags (same match mechanism as canTarget). The
+## boarding squad must also be at the carrier's current hex or an immediate
+## neighbor — troops can't board a carrier from across the map — and, per
+## 01-map-and-terrain.md's Naval/Coastline Rules, if the carrier is
+## Naval-domain and the boarding squad is standing on a non-Naval-passable
+## hex (i.e. it's ashore, not already afloat), that hex must carry a
+## Dock/Port/Shipyard/Harbour (BuildingPlacement.is_naval_landing_hex) — mirrors the
+## same rule `unload` enforces for putting troops back ashore.
+## `bases`/`standalone_buildings` default to empty (no gating) so existing
+## non-Naval-carrier callers don't need to pass them.
+static func can_board(carrier_squad: SquadInstance, boarding_squad: SquadInstance, troop_defs: Dictionary, grid: HexGrid = null, bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> bool:
 	if carrier_squad.owner_id != boarding_squad.owner_id:
 		return false
 	if boarding_squad.member_ids.is_empty() or boarding_squad.boarded_on_squad_id != "":
 		return false
 	if carrier_squad.member_ids.is_empty() or carrier_squad.boarded_on_squad_id != "":
+		return false
+	if HexCoord.distance(carrier_squad.current_hex, boarding_squad.current_hex) > 1:
 		return false
 
 	var carrier_def: Dictionary = troop_defs.get(carrier_squad.troop_type, {})
@@ -31,6 +42,12 @@ static func can_board(carrier_squad: SquadInstance, boarding_squad: SquadInstanc
 	var capacity := capacity_per_troop * carrier_squad.member_ids.size()
 	if float(carrier_squad.cargo_squad_ids.size()) >= capacity:
 		return false
+
+	if grid != null:
+		var carrier_domain := Terrain.domain_from_string(String(carrier_def.get("domain", "Infantry")))
+		if carrier_domain == Terrain.Domain.NAVAL and not Terrain.is_passable(grid.get_terrain(boarding_squad.current_hex), Terrain.Domain.NAVAL):
+			if not BuildingPlacement.is_naval_landing_hex(boarding_squad.current_hex, bases, standalone_buildings):
+				return false
 
 	var boarding_def: Dictionary = troop_defs.get(boarding_squad.troop_type, {})
 	var keys: Array[String] = [String(boarding_def.get("domain", ""))]
@@ -45,8 +62,8 @@ static func can_board(carrier_squad: SquadInstance, boarding_squad: SquadInstanc
 ## pathing/acting independently — its position becomes the carrier's — until
 ## unloaded; it still counts against the owner's global squad cap. Returns
 ## false (no-op) if can_board rejects it.
-static func board(carrier_squad: SquadInstance, boarding_squad: SquadInstance, troop_defs: Dictionary) -> bool:
-	if not can_board(carrier_squad, boarding_squad, troop_defs):
+static func board(carrier_squad: SquadInstance, boarding_squad: SquadInstance, troop_defs: Dictionary, grid: HexGrid = null, bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> bool:
+	if not can_board(carrier_squad, boarding_squad, troop_defs, grid, bases, standalone_buildings):
 		return false
 	boarding_squad.boarded_on_squad_id = carrier_squad.id
 	boarding_squad.path = []
@@ -77,7 +94,7 @@ static func can_unload(carrier_squad: SquadInstance, boarded_squad: SquadInstanc
 ## rejects the unload the same way it would block ordinary movement).
 ## Additionally, per 01-map-and-terrain.md's Naval/Coastline Rules: if the
 ## carrier itself is Naval-domain and `target_hex` isn't Naval-passable (i.e.
-## it's land, not more open water), that hex must carry a Dock/Port/Shipyard
+## it's land, not more open water), that hex must carry a Dock/Port/Shipyard/Harbour
 ## (BuildingPlacement.is_naval_landing_hex) — a ship can't put troops ashore
 ## anywhere along a bare coast/riverbank. `bases`/`standalone_buildings`
 ## default to empty (no gating) so existing non-Naval-carrier callers (e.g.

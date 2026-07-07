@@ -55,8 +55,8 @@ doc records design rationale, not the numbers themselves.
 ### Firebase
 | Building | Unit(s) | Notes |
 |---|---|---|
-| Fire Helipad | **Flamecopter** (renamed from Flame Helicopter) | Short range, high splash, fire damage. Cannot target Air. Stats implemented, see `data/troops/flamecopter.json` |
-| Fire Helipad | **Plasmacopter** (renamed from Plasma Helicopter) | Bigger, slower, longer range, explosive impact damage. Stats implemented, see `data/troops/plasmacopter.json` |
+| Blazeworks | **Flamecopter** (renamed from Flame Helicopter) | Short range, high splash, fire damage. Cannot target Air. Stats implemented, see `data/troops/flamecopter.json` |
+| Blazeworks | **Plasmacopter** (renamed from Plasma Helicopter) | Bigger, slower, longer range, explosive impact damage. Stats implemented, see `data/troops/plasmacopter.json` |
 
 ### Windy Peaks (renamed from Air Temple)
 | Building | Unit(s) | Notes |
@@ -121,7 +121,7 @@ preserve that progression.
 ## Fuel/Maintenance Quick Reference
 - Land vehicles: free while stationary, consume Fuel while moving.
 - Aircraft: heavy Fuel consumption, free while not moving and on/adjacent to one of
-  the owner's own bases (any base's footprint — no Hangar/Fire Helipad landing
+  the owner's own bases (any base's footprint — no Hangar/Blazeworks landing
   mechanic; see `03-resources.md`).
 - Ships: consume very little Fuel regardless of state.
 - **Exception — Glider** (Windy Peaks): unpowered, so it uses **no Fuel at all** and

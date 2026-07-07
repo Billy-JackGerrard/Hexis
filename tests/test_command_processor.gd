@@ -31,6 +31,8 @@ func _init() -> void:
 	_test_cargo()
 	print("assign_to_commander / leave_regiment")
 	_test_regiment_assignment()
+	print("merge_squads")
+	_test_merge_squads()
 	print("place_building")
 	_test_place_building()
 	print("place_standalone_building (Engineer enforcement)")
@@ -132,6 +134,10 @@ func _test_cargo() -> void:
 	# cares about.
 	var carrier := _make_squad(state, "p1", "hms_cuddles", HexCoord.new(0, 0))
 	var cargo := _make_squad(state, "p1", "rifleman", HexCoord.new(0, 0))
+	# HMS Cuddles is Naval-domain and (0,0) isn't Naval-passable on a flat
+	# land grid, so per CargoSystem.can_board's coastline rule the pickup hex
+	# needs a Dock -- same requirement unload already enforces in reverse.
+	state.standalone_buildings.append(BuildingInstance.new("dock_cargo", "", "dock", 1, "stone", HexCoord.new(0, 0), "p1"))
 
 	_check(CommandProcessor.board_cargo(state, carrier.id, cargo.id, "p2") == CommandProcessor.Result.NOT_OWNER, "boarding someone else's cargo is rejected")
 	_check(CommandProcessor.board_cargo(state, carrier.id, cargo.id, "p1") == CommandProcessor.Result.OK, "boarding succeeds")
@@ -178,6 +184,71 @@ func _test_regiment_assignment() -> void:
 	_check(CommandProcessor.leave_regiment(state, squad_a.id, "p1") == CommandProcessor.Result.OK, "leave_regiment succeeds")
 	_check(squad_a.commander_id == "", "commander_id cleared after leaving")
 	_check(not state.regiments[0].squad_ids.has(squad_a.id), "the regiment no longer lists the departed squad")
+
+func _test_merge_squads() -> void:
+	var state := _new_state(_flat_grid(10))
+
+	_check(CommandProcessor.merge_squads(state, "nope1", "nope2", "p1") == CommandProcessor.Result.NOT_FOUND, "unknown squad ids -> NOT_FOUND")
+
+	var solo := _make_squad(state, "p1", "rifleman", HexCoord.new(0, 0), 3)
+	_check(CommandProcessor.merge_squads(state, solo.id, solo.id, "p1") == CommandProcessor.Result.INVALID, "merging a squad into itself is rejected")
+
+	var mine := _make_squad(state, "p1", "rifleman", HexCoord.new(1, 0), 3)
+	var theirs := _make_squad(state, "p2", "rifleman", HexCoord.new(1, 0), 3)
+	_check(CommandProcessor.merge_squads(state, mine.id, theirs.id, "p1") == CommandProcessor.Result.NOT_OWNER, "merging someone else's squad in is rejected")
+	_check(CommandProcessor.merge_squads(state, theirs.id, mine.id, "p2") == CommandProcessor.Result.NOT_OWNER, "wrong owner issuing the order is rejected")
+
+	var engineer := _make_squad(state, "p1", "engineer", HexCoord.new(1, 0))
+	_check(CommandProcessor.merge_squads(state, mine.id, engineer.id, "p1") == CommandProcessor.Result.INVALID, "merging different troop types is rejected")
+
+	var commander_target := _make_squad(state, "p1", "commander_vanguard", HexCoord.new(1, 0))
+	var commander_donor := _make_squad(state, "p1", "commander_vanguard", HexCoord.new(1, 0))
+	_check(CommandProcessor.merge_squads(state, commander_target.id, commander_donor.id, "p1") == CommandProcessor.Result.INVALID, "a Commander squad can't be merged away as a donor")
+
+	var far := _make_squad(state, "p1", "rifleman", HexCoord.new(5, 0), 1)
+	_check(CommandProcessor.merge_squads(state, mine.id, far.id, "p1") == CommandProcessor.Result.NOT_ADJACENT, "merging squads that aren't on the same hex is rejected")
+
+	var carrier := _make_squad(state, "p1", "transport_truck", HexCoord.new(1, 0))
+	var boarded := _make_squad(state, "p1", "rifleman", HexCoord.new(1, 0), 1)
+	CargoSystem.board(carrier, boarded, _troop_defs)
+	_check(CommandProcessor.merge_squads(state, mine.id, boarded.id, "p1") == CommandProcessor.Result.INVALID, "a boarded donor squad can't be merged")
+	_check(CommandProcessor.merge_squads(state, boarded.id, mine.id, "p1") == CommandProcessor.Result.INVALID, "a boarded target squad can't receive a merge")
+
+	var loaded_cargo := _make_squad(state, "p1", "rifleman", HexCoord.new(1, 0), 1)
+	var loaded_carrier := _make_squad(state, "p1", "transport_truck", HexCoord.new(1, 0))
+	CargoSystem.board(loaded_carrier, loaded_cargo, _troop_defs)
+	var another_carrier := _make_squad(state, "p1", "transport_truck", HexCoord.new(1, 0))
+	_check(CommandProcessor.merge_squads(state, another_carrier.id, loaded_carrier.id, "p1") == CommandProcessor.Result.INVALID, "a donor squad still carrying cargo can't be merged away")
+
+	var full_target := _make_squad(state, "p1", "rifleman", HexCoord.new(1, 0), 8)
+	_check(CommandProcessor.merge_squads(state, full_target.id, mine.id, "p1") == CommandProcessor.Result.SQUAD_FULL, "merging into an already-full squad is rejected")
+
+	# Full-drain merge, including regiment cleanup for a donor that was
+	# assigned to a Commander.
+	var target := _make_squad(state, "p1", "rifleman", HexCoord.new(2, 0), 5)
+	var donor := _make_squad(state, "p1", "rifleman", HexCoord.new(2, 0), 2)
+	var commander := _make_squad(state, "p1", "commander_vanguard", HexCoord.new(2, 0))
+	CommandProcessor.assign_to_commander(state, donor.id, commander.id, "p1")
+	var regiment := state.regiments[0]
+
+	var result := CommandProcessor.merge_squads(state, target.id, donor.id, "p1")
+	_check(result == CommandProcessor.Result.OK, "merging a smaller donor fully into a target with room succeeds")
+	_check(target.member_ids.size() == 7, "the target absorbed all of the donor's members")
+	_check(not state.squads.has(donor), "the fully-drained donor squad was removed")
+	_check(not regiment.squad_ids.has(donor.id), "the drained donor was removed from its regiment")
+
+	# Partial merge: the target fills up before the donor fully drains, so the
+	# donor survives with its leftover members.
+	var target2 := _make_squad(state, "p1", "rifleman", HexCoord.new(3, 0), 7)
+	var donor2 := _make_squad(state, "p1", "rifleman", HexCoord.new(3, 0), 3)
+
+	result = CommandProcessor.merge_squads(state, target2.id, donor2.id, "p1")
+	var rifleman_max_squad_size: int = int(_troop_defs["rifleman"].get("maxSquadSize", 0))
+	var donor2_leftover: int = 3 - (rifleman_max_squad_size - 7)
+	_check(result == CommandProcessor.Result.OK, "merging a donor larger than the target's remaining room still succeeds")
+	_check(target2.member_ids.size() == rifleman_max_squad_size, "the target filled up to maxSquadSize (%d)" % rifleman_max_squad_size)
+	_check(donor2.member_ids.size() == donor2_leftover, "the donor kept its leftover members once the target filled")
+	_check(state.squads.has(donor2), "a donor with leftover members is not removed")
 
 func _test_place_building() -> void:
 	var state := _new_state(_flat_grid(5))
@@ -231,11 +302,13 @@ func _test_place_standalone() -> void:
 
 	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 500.0)
 	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 500.0)
+	var tower_stone_cost: float = float(_building_defs["tower"].get("materialStats", {}).get("stone", {}).get("baseCost", {}).get("stone", 0.0))
+	var tower_steel_cost: float = float(_building_defs["tower"].get("materialStats", {}).get("stone", {}).get("baseCost", {}).get("steel", 0.0))
 	var ok := CommandProcessor.place_standalone_building(state, engineer_squad.id, "tower", target_hex, "stone", "p1")
 	_check(ok == BuildingPlacement.Result.OK, "an Engineer squad can place standalone infrastructure")
 	_check(state.standalone_buildings.size() == 1, "the Tower was actually placed")
-	_check(state.pool_for("p1").get_amount(ResourceType.Type.STONE) == 500.0 - 150.0, "placement deducted the Tower's stone cost")
-	_check(state.pool_for("p1").get_amount(ResourceType.Type.STEEL) == 500.0 - 100.0, "placement deducted the Tower's steel cost")
+	_check(state.pool_for("p1").get_amount(ResourceType.Type.STONE) == 500.0 - tower_stone_cost, "placement deducted the Tower's stone cost (%s)" % tower_stone_cost)
+	_check(state.pool_for("p1").get_amount(ResourceType.Type.STEEL) == 500.0 - tower_steel_cost, "placement deducted the Tower's steel cost (%s)" % tower_steel_cost)
 
 	var wrong_owner := CommandProcessor.place_standalone_building(state, engineer_squad.id, "tower", HexCoord.new(-2, 0), "stone", "p2")
 	_check(wrong_owner == BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE, "issuing as a different owner than the squad's own is rejected")
@@ -256,10 +329,11 @@ func _test_place_wall() -> void:
 	var neighbor := HexCoord.neighbor(hq.hex, 3)
 
 	var stone_before := state.pool_for("p1").get_amount(ResourceType.Type.STONE)
+	var wall_stone_cost: float = float(_building_defs["wall"].get("materialStats", {}).get("stone", {}).get("baseCost", {}).get("stone", 0.0))
 	var result := CommandProcessor.place_wall(state, base.id, hq.hex, neighbor, "stone", "p1")
 	_check(result == BuildingPlacement.Result.OK, "placing a Wall adjacent to an existing building succeeds")
 	_check(state.grid.is_walled_edge(hq.hex, neighbor), "the grid records the new wall's edge")
-	_check(state.pool_for("p1").get_amount(ResourceType.Type.STONE) == stone_before - 40.0, "placing a Stone Wall deducted its 40-stone cost")
+	_check(state.pool_for("p1").get_amount(ResourceType.Type.STONE) == stone_before - wall_stone_cost, "placing a Stone Wall deducted its %s-stone cost" % wall_stone_cost)
 
 func _test_demolish() -> void:
 	var state := _new_state(_flat_grid(5))
@@ -333,13 +407,14 @@ func _test_upgrade() -> void:
 	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 1000.0)
 	var stone_before := state.pool_for("p1").get_amount(ResourceType.Type.STONE)
 	var level1_hp := farm.max_hp
+	var farm_level1_stone_cost: float = float(_building_defs["farm"].get("nonProductionUpgrade", {}).get("baseCost", {}).get("stone", 0.0))
 	var result := CommandProcessor.upgrade_building(state, farm.id, "p1")
 	_check(result == CommandProcessor.Result.OK, "upgrading with enough resources under the HQ ceiling succeeds")
 	_check(farm.level == 2, "the farm's level incremented")
 	_check(farm.max_hp > level1_hp, "max_hp grew with the level (statGrowth)")
 	_check(farm.current_hp == farm.max_hp, "an undamaged building stays at full HP after upgrading")
 	_check(state.pool_for("p1").get_amount(ResourceType.Type.STONE) < stone_before, "the upgrade cost was deducted from the pool")
-	_check(float(farm.total_resources_spent.get(ResourceType.Type.STONE, 0.0)) > 50.0, "total_resources_spent grew past the level-1 build cost")
+	_check(float(farm.total_resources_spent.get(ResourceType.Type.STONE, 0.0)) > farm_level1_stone_cost, "total_resources_spent grew past the level-1 build cost (%s)" % farm_level1_stone_cost)
 
 	# Damage it partway, then upgrade again -- HP should scale proportionally
 	# with the new max, not free-heal back to full (that's rebuild_building's
@@ -365,9 +440,10 @@ func _test_upgrade_max_level() -> void:
 
 	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 100000.0)
 	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 100000.0)
+	var barracks_max_level: int = int(_building_defs["barracks"].get("productionUpgradeLevels", []).size())
 	for i in range(4):
 		_check(CommandProcessor.upgrade_building(state, barracks.id, "p1") == CommandProcessor.Result.OK, "upgrading Barracks up through its productionUpgradeLevels table succeeds")
-	_check(barracks.level == 5, "Barracks reached its max level (5, the length of its productionUpgradeLevels table)")
+	_check(barracks.level == barracks_max_level, "Barracks reached its max level (%d, the length of its productionUpgradeLevels table)" % barracks_max_level)
 	_check(CommandProcessor.upgrade_building(state, barracks.id, "p1") == CommandProcessor.Result.INVALID, "upgrading past a Production building's derived max level is rejected")
 
 func _test_upgrade_hq() -> void:
@@ -406,8 +482,10 @@ func _test_upgrade_hq() -> void:
 	_check(result == CommandProcessor.Result.OK, "upgrading HQ once populationUsed meets the gate succeeds")
 	_check(hq.level == 3, "the HQ BuildingInstance's own level incremented")
 	_check(base.hq_level == 3, "BaseInstance.hq_level stays in lockstep with the HQ building's level")
-	# hq_level*2 (3*2=6) plus the House's own +4 capacity contribution (house.json).
-	_check(Population.population_cap(base, _building_defs) == 10, "population_cap grew from the HQ upgrade (it reads BaseInstance.hq_level, not the HQ BuildingInstance's own level)")
+	# hq_level*2 plus the House's own populationCapacity contribution (house.json).
+	var house_capacity: int = int(_building_defs["house"].get("nonProductionUpgrade", {}).get("baseStats", {}).get("populationCapacity", 0.0))
+	var expected_population_cap: int = base.hq_level * 2 + house_capacity
+	_check(Population.population_cap(base, _building_defs) == expected_population_cap, "population_cap grew from the HQ upgrade to %d (hq_level*2 + House's %d capacity) -- it reads BaseInstance.hq_level, not the HQ BuildingInstance's own level" % [expected_population_cap, house_capacity])
 
 func _test_enqueue_production() -> void:
 	var state := _new_state(_flat_grid(5))
@@ -427,11 +505,12 @@ func _test_enqueue_production() -> void:
 	_check(not state.production_queues.has(barracks.id), "the rejected order created no ProductionQueue")
 
 	state.pool_for("p1").set_amount(ResourceType.Type.FOOD, 100.0)
+	var rifleman_food_cost: float = float(_troop_defs["rifleman"].get("cost", {}).get("food", 0.0))
 	var result := CommandProcessor.enqueue_production(state, barracks.id, "rifleman", "p1")
 	_check(result == CommandProcessor.Result.OK, "queuing at your own Production building succeeds")
 	_check(state.production_queues.has(barracks.id), "a ProductionQueue was created and registered for this building")
 	_check(state.production_queues[barracks.id].entries.size() == 1, "the troop was enqueued")
-	_check(state.pool_for("p1").get_amount(ResourceType.Type.FOOD) == 80.0, "enqueuing deducted the troop's Food cost from the pool")
+	_check(state.pool_for("p1").get_amount(ResourceType.Type.FOOD) == 100.0 - rifleman_food_cost, "enqueuing deducted the troop's Food cost (%s) from the pool" % rifleman_food_cost)
 
 	# Level-gating: Barracks unlocks Grenadier at level 2 (data/buildings/barracks.json).
 	# A level-1 Barracks must reject it, with nothing enqueued and nothing spent.

@@ -16,9 +16,11 @@
 ##
 ## Scope: base-attached troops/buildings, plus standalone detector buildings
 ## (Tower), keyed by building.owner_id since they have no owning BaseInstance.
-## Landmine-as-a-hidden-object (its own stealth/revealRange) stays deferred —
-## building-side stealth detection (as opposed to squad-side, handled by
-## is_squad_hidden above) isn't wired up anywhere yet.
+## Landmine-as-a-hidden-object is wired too: CombatTarget.for_building()'s
+## is_hidden/reveal_range (sourced from BuildingStats.stealth()/.reveal_range())
+## and CombatTargeting.candidates()'s target.is_hidden gate are Kind-agnostic,
+## shared with squad-side stealth (is_squad_hidden above) — no separate
+## building-side query needed here.
 class_name DetectionSystem
 extends RefCounted
 

@@ -74,8 +74,10 @@ scattered single tiles, e.g. a proper forest region rather than one random fores
 - Naval troops can travel the **outer coastline ring** all the way around the map, and
   can sail up any **river** — rivers are automatically navigable from the sea at their
   mouth (no port/dock required just to sail).
-- Naval troops can **only disembark onto land at a Dock or a Port/Shipyard** —
-  they cannot land anywhere else along a coast or riverbank.
+- Naval troops can **only disembark onto land at a Dock, a Port/Shipyard, or a
+  Harbour** — they cannot land anywhere else along a coast or riverbank. The
+  same rule gates boarding: ground troops can only board a Naval carrier from
+  one of these hexes (or from open water they're already standing in/on).
 - **Fuel**: ships use very little Fuel (negligible compared to aircraft).
 
 ## Public Infrastructure (Roads, Bridges, Docks)

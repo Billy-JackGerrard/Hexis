@@ -64,15 +64,19 @@ func _disc_size(radius: int) -> int:
 
 func _test_building_stats_detector() -> void:
 	# Tower: defensiveStats.detector/detectionRange, independent of its own
-	# (per-material) 12-tile visionRange.
+	# (per-material) visionRange.
+	var tower_detection_range: float = float(_building_defs["tower"]["defensiveStats"]["detectionRange"])
 	_check(BuildingStats.detector(_building_defs["tower"], _building_defs) == true, "Tower is a detector")
-	_check(BuildingStats.detection_range(_building_defs["tower"], 1, "stone", _building_defs) == 3.0, "Tower detectionRange is 3, not its 12-tile visionRange")
+	_check(BuildingStats.detection_range(_building_defs["tower"], 1, "stone", _building_defs) == tower_detection_range, "Tower detectionRange (%s) is used, not its (much larger) visionRange" % tower_detection_range)
 
 	# Radar Array: top-level detector: true, no detectionRange -> falls back to
-	# vision_range() (8 at level 1, growing +1/level).
+	# vision_range() (base value at level 1, growing with level per its
+	# authored statGrowth).
+	var radar_vision_base: float = float(_building_defs["radar_array"]["nonProductionUpgrade"]["baseStats"]["visionRange"])
+	var radar_vision_growth: float = float(_building_defs["radar_array"]["nonProductionUpgrade"]["statGrowth"]["visionRange"].get("value", 0.0))
 	_check(BuildingStats.detector(_building_defs["radar_array"], _building_defs) == true, "Radar Array is a detector")
-	_check(BuildingStats.detection_range(_building_defs["radar_array"], 1, "", _building_defs) == 8.0, "Radar Array detectionRange falls back to visionRange (8) at level 1")
-	_check(BuildingStats.detection_range(_building_defs["radar_array"], 2, "", _building_defs) == 9.0, "Radar Array's fallback visionRange grows to 9 at level 2")
+	_check(BuildingStats.detection_range(_building_defs["radar_array"], 1, "", _building_defs) == radar_vision_base, "Radar Array detectionRange falls back to visionRange (%s) at level 1" % radar_vision_base)
+	_check(BuildingStats.detection_range(_building_defs["radar_array"], 2, "", _building_defs) == radar_vision_base + radar_vision_growth, "Radar Array's fallback visionRange grows by %s/level to %s at level 2" % [radar_vision_growth, radar_vision_base + radar_vision_growth])
 
 	# Farm: no detector at all.
 	_check(BuildingStats.detector(_building_defs["farm"], _building_defs) == false, "Farm is not a detector")
@@ -80,20 +84,22 @@ func _test_building_stats_detector() -> void:
 
 	# Landmine: stealthed building, always top-level even though its category
 	# is Defensive.
+	var landmine_reveal_range: float = float(_building_defs["landmine"]["revealRange"])
 	_check(BuildingStats.stealth(_building_defs["landmine"], _building_defs) == true, "Landmine is stealthed")
-	_check(BuildingStats.reveal_range(_building_defs["landmine"], _building_defs) == 1.0, "Landmine's revealRange is 1")
+	_check(BuildingStats.reveal_range(_building_defs["landmine"], _building_defs) == landmine_reveal_range, "Landmine's revealRange (%s) is returned correctly" % landmine_reveal_range)
 	_check(BuildingStats.stealth(_building_defs["farm"], _building_defs) == false, "Farm is not stealthed")
 
 ## --- DetectionSystem -------------------------------------------------------
 
 func _test_detection_system() -> void:
-	# A detector troop (Sniper, no detectionRange -> full visionRange 12)
-	# reveals a radius-12 disc around itself.
+	# A detector troop (Sniper, no detectionRange -> full visionRange) reveals
+	# a disc sized to that visionRange around itself.
+	var sniper_vision_range: int = int(_troop_defs["sniper"]["visionRange"])
 	var grid := _disc_grid(15, Terrain.Type.PLAINS)
 	var sniper := _make_squad("p1", "sniper", HexCoord.new(0, 0))
 	var detections1: Dictionary = {}
 	DetectionSystem.resolve_tick([sniper], [], [], grid, _troop_defs, _building_defs, detections1)
-	_check(DetectionSystem.detected_hexes_for(detections1, "p1").size() == _disc_size(12), "Sniper detector covers a radius-12 disc (its full visionRange, no detectionRange override)")
+	_check(DetectionSystem.detected_hexes_for(detections1, "p1").size() == _disc_size(sniper_vision_range), "Sniper detector covers a radius-%d disc (its full visionRange, no detectionRange override)" % sniper_vision_range)
 
 	# A non-detector troop (Rifleman) contributes no detection coverage at all.
 	var detections2: Dictionary = {}
@@ -105,10 +111,11 @@ func _test_detection_system() -> void:
 	# resolution itself is exercised via BuildingStats above) — here, Radar
 	# Array as a base-attached detector building covers its own (small, fixed)
 	# detectionRange fallback radius.
+	var radar_vision_base: int = int(_building_defs["radar_array"]["nonProductionUpgrade"]["baseStats"]["visionRange"])
 	var radar_base := _base_with("p1", "radar_array", 1, HexCoord.new(0, 0))
 	var detections3: Dictionary = {}
 	DetectionSystem.resolve_tick([], [radar_base], [], grid, _troop_defs, _building_defs, detections3)
-	_check(DetectionSystem.detected_hexes_for(detections3, "p1").size() == _disc_size(8), "Radar Array (base-attached) covers a radius-8 disc (its visionRange fallback) with no squads involved")
+	_check(DetectionSystem.detected_hexes_for(detections3, "p1").size() == _disc_size(radar_vision_base), "Radar Array (base-attached) covers a radius-%d disc (its visionRange fallback) with no squads involved" % radar_vision_base)
 
 	# Two owners stay independent: p2's detector coverage never appears under
 	# p1's key.
@@ -116,8 +123,8 @@ func _test_detection_system() -> void:
 	var p1_sniper := _make_squad("p1", "sniper", HexCoord.new(0, 0))
 	var p2_sniper := _make_squad("p2", "sniper", HexCoord.new(0, 0))
 	DetectionSystem.resolve_tick([p1_sniper, p2_sniper], [], [], grid, _troop_defs, _building_defs, detections4)
-	_check(DetectionSystem.detected_hexes_for(detections4, "p1").size() == _disc_size(12), "p1's Sniper coverage is present under p1's key")
-	_check(DetectionSystem.detected_hexes_for(detections4, "p2").size() == _disc_size(12), "p2's Sniper coverage is present under p2's key")
+	_check(DetectionSystem.detected_hexes_for(detections4, "p1").size() == _disc_size(sniper_vision_range), "p1's Sniper coverage is present under p1's key")
+	_check(DetectionSystem.detected_hexes_for(detections4, "p2").size() == _disc_size(sniper_vision_range), "p2's Sniper coverage is present under p2's key")
 
 	# A boarded squad contributes no detection coverage (no independent
 	# position while carried), mirroring VisionSystem's treatment.
@@ -129,13 +136,14 @@ func _test_detection_system() -> void:
 
 	# A standalone Tower (no owning base) contributes detector coverage keyed
 	# by its own owner_id — this is the Tower detector/detectionRange wiring
-	# the build-order item calls out. Its detectionRange (3) is much smaller
-	# than its own visionRange (12), and must not leak into another owner.
+	# the build-order item calls out. Its detectionRange is much smaller than
+	# its own visionRange, and must not leak into another owner.
+	var tower_detection_range: int = int(_building_defs["tower"]["defensiveStats"]["detectionRange"])
 	var detections6: Dictionary = {}
 	var standalone_tower := _standalone("p3", "tower", "stone", 1, HexCoord.new(0, 0))
 	var standalone_buildings: Array[BuildingInstance] = [standalone_tower]
 	DetectionSystem.resolve_tick([], [], standalone_buildings, grid, _troop_defs, _building_defs, detections6)
-	_check(DetectionSystem.detected_hexes_for(detections6, "p3").size() == _disc_size(3), "standalone Tower's detector coverage is a radius-3 disc (its detectionRange, not its 12-tile visionRange), keyed by its own owner_id")
+	_check(DetectionSystem.detected_hexes_for(detections6, "p3").size() == _disc_size(tower_detection_range), "standalone Tower's detector coverage is a radius-%d disc (its detectionRange, not its much larger visionRange), keyed by its own owner_id" % tower_detection_range)
 	_check(DetectionSystem.detected_hexes_for(detections6, "p1").is_empty(), "standalone Tower's coverage does not leak into an unrelated owner's key")
 
 ## --- CombatTargeting stealth integration (Landmine) -------------------------
@@ -155,9 +163,10 @@ func _test_landmine_combat_targeting() -> void:
 	target.owner_id = landmine.owner_id
 	var targets: Array[CombatTarget] = [target]
 	var rifleman_def: Dictionary = _troop_defs["rifleman"]
+	var landmine_reveal_range: float = float(_building_defs["landmine"]["revealRange"])
 
 	_check(target.is_hidden, "a Landmine CombatTarget is hidden by default")
-	_check(target.reveal_range == 1.0, "a Landmine CombatTarget's reveal_range matches its authored revealRange (1)")
+	_check(target.reveal_range == landmine_reveal_range, "a Landmine CombatTarget's reveal_range matches its authored revealRange (%s)" % landmine_reveal_range)
 
 	# Beyond revealRange, with no detector coverage: invisible to targeting.
 	var far_candidates := CombatTargeting.candidates(HexCoord.new(3, 0), "p1", 10, rifleman_def, targets)
@@ -165,7 +174,7 @@ func _test_landmine_combat_targeting() -> void:
 
 	# Within revealRange: visible without needing a detector.
 	var near_candidates := CombatTargeting.candidates(HexCoord.new(1, 0), "p1", 10, rifleman_def, targets)
-	_check(near_candidates.size() == 1, "an attacker within the Landmine's revealRange (1) can target it, no detector needed")
+	_check(near_candidates.size() == 1, "an attacker within the Landmine's revealRange (%s) can target it, no detector needed" % landmine_reveal_range)
 
 	# Beyond revealRange, but the attacker's owner has detector coverage on
 	# the Landmine's hex: visible.

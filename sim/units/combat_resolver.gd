@@ -21,7 +21,9 @@
 ## buildings (Tower/Landmine — the only standalone types with combat HP; Road/
 ## Bridge/Dock have none, per BuildingStats.max_hp) are now targetable too and,
 ## per 06-building-stats-and-defenses.md, delete outright at 0 HP rather than
-## ruining, unlike a base building — Walls remain untargetable (unimplemented).
+## ruining, unlike a base building. Walls are targetable too (edge-keyed, no
+## single hex — see CombatTarget.distance_from/for_building) and, like
+## standalone buildings, delete outright rather than ruining.
 ## Terrain defense bonuses and stealth/detection (hill defender bonus, forest
 ## ambush, Tower/Radar Array detector) are handled via CombatTarget's
 ## defense_multiplier/is_hidden/reveal_range (computed from `grid` at

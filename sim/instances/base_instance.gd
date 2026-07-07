@@ -1,7 +1,8 @@
 ## Live per-match state for one owned base (see 07-data-architecture.md
-## section 5). Deliberately minimal for now: no walls yet — that's deferred
-## to the combat/line-of-sight slice. hexCoord/population are now tracked
-## here to drive BuildingPlacement/Population validation.
+## section 5). Walls live in `buildings` too (edge-keyed via hex_a/hex_b
+## instead of `hex` — see BuildingInstance), not a separate registry.
+## hexCoord/population are tracked here to drive BuildingPlacement/
+## Population validation.
 class_name BaseInstance
 extends RefCounted
 

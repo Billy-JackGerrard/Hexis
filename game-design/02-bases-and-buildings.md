@@ -157,7 +157,7 @@ being destroyed in combat:
 | Port | Navy (basic roster) | Any base with a water-adjacent tile |
 | Tank Plant | Heavy tanks (full roster, builds 3-5 at a time) | Fort Irongrad only |
 | Grenade Tower | Defense — splash damage, cheap, short range/low damage | Fort Irongrad only |
-| Fire Helipad | Flamecopter, Plasmacopter | Firebase only |
+| Blazeworks | Flamecopter, Plasmacopter | Firebase only |
 | Flame Turret (renamed from Flamethrower) | Defense (fire) | Firebase only |
 | Wind Sanctuary | Glider, Hot Air Balloon | Windy Peaks only (hill tiles) |
 | Wind Spire | Defense — low damage, strong knockback, bonus damage vs. Air | Windy Peaks only (hill tiles) |
@@ -284,7 +284,7 @@ Centre's level unlocks a whole tier at once, not one Commander at a time:
 
 ### Firebase
 - Incendiary air power specialist.
-- **Fire Helipad**: builds Flamecopter (short range, high splash, fire damage) and
+- **Blazeworks**: builds Flamecopter (short range, high splash, fire damage) and
   Plasmacopter (bigger, slower, longer range, explosive impact damage).
 - **Flame Turret** (defense) — renamed from Flamethrower to avoid colliding with the
   Barracks infantry unit of the same name (see `08-troop-roster.md`).
@@ -457,7 +457,7 @@ player input to function or just runs on its own once built:
 
 | Category | Examples | Requires player action? |
 |---|---|---|
-| **Production** | Barracks, Factory, Port, Tank Plant, Frostworks, Fire Helipad, Wind Sanctuary, Forest Yard, Shipyard, Hangar, Command Centre, Covert Works, Ford Yard, Supply Depot | **Yes** — the player must pick a troop from the building's roster to queue; nothing is produced until a choice is made |
+| **Production** | Barracks, Factory, Port, Tank Plant, Frostworks, Blazeworks, Wind Sanctuary, Forest Yard, Shipyard, Hangar, Command Centre, Covert Works, Ford Yard, Supply Depot | **Yes** — the player must pick a troop from the building's roster to queue; nothing is produced until a choice is made |
 | **Resource** | Farm, Quarry, Mine, Oil Rig, Lumber Mill, Harbour, Stone Works | No — ticks automatically every resource tick (see `07-data-architecture.md`) |
 | **Defensive** | Turret, Missile Launcher, Grenade Tower, Flame Turret, Cold Turret, River Battery, Wind Spire, EMP Turret, Walls, Tower | No — auto-fires on any enemy troop that enters range, same as troops (see `04-combat.md`) |
 | **Support** | Hospital, Ice Spire, House, Radar Array | No — passively applies its effect (healing / aura / population capacity / vision) with no queue or target selection involved |

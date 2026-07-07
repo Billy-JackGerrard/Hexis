@@ -73,40 +73,57 @@ func _synthetic_target(def: Dictionary, owner: String, hex: HexCoord, troops: Di
 
 func _test_building_stats() -> void:
 	var hq: Dictionary = _building_defs["hq"]
-	_check(_approx(BuildingStats.max_hp(hq, 1, "", _building_defs), 300.0), "HQ level 1 max_hp = baseStats.hp (300)")
-	_check(_approx(BuildingStats.max_hp(hq, 2, "", _building_defs), 330.0), "HQ level 2 max_hp = 300 * 1.10 (percent growth)")
+	var hq_base_hp: float = float(hq.get("nonProductionUpgrade", {}).get("baseStats", {}).get("hp", 0.0))
+	var hq_hp_growth_pct: float = float(hq.get("nonProductionUpgrade", {}).get("statGrowth", {}).get("hp", {}).get("value", 0.0))
+	var hq_level2_hp: float = hq_base_hp * (1.0 + hq_hp_growth_pct / 100.0)
+	_check(_approx(BuildingStats.max_hp(hq, 1, "", _building_defs), hq_base_hp), "HQ level 1 max_hp = baseStats.hp (%s)" % hq_base_hp)
+	_check(_approx(BuildingStats.max_hp(hq, 2, "", _building_defs), hq_level2_hp), "HQ level 2 max_hp = %s * (1 + %s%%) percent growth = %s" % [hq_base_hp, hq_hp_growth_pct, hq_level2_hp])
 
 	var wall: Dictionary = _building_defs["wall"]
-	_check(_approx(BuildingStats.max_hp(wall, 1, "wood", _building_defs), 80.0), "Wood Wall level 1 max_hp from materialStats")
-	_check(_approx(BuildingStats.max_hp(wall, 1, "steel", _building_defs), 400.0), "Steel Wall level 1 max_hp from materialStats")
-	_check(BuildingStats.damage_received_modifiers(wall, "wood", _building_defs).get("Fire", 1.0) == 2.0, "Wood Wall has {Fire: 2.0} damageReceivedModifiers")
-	_check(_approx(BuildingStats.armor(wall, 1, "steel", _building_defs), 5.0), "Steel Wall has flat armor (5) from materialStats.baseStats.armor")
+	var wall_wood_hp: float = float(wall.get("materialStats", {}).get("wood", {}).get("baseStats", {}).get("hp", 0.0))
+	var wall_steel_hp: float = float(wall.get("materialStats", {}).get("steel", {}).get("baseStats", {}).get("hp", 0.0))
+	var wall_wood_fire_mod: float = float(wall.get("materialStats", {}).get("wood", {}).get("damageReceivedModifiers", {}).get("Fire", 1.0))
+	var wall_steel_armor: float = float(wall.get("materialStats", {}).get("steel", {}).get("baseStats", {}).get("armor", 0.0))
+	_check(_approx(BuildingStats.max_hp(wall, 1, "wood", _building_defs), wall_wood_hp), "Wood Wall level 1 max_hp from materialStats (%s)" % wall_wood_hp)
+	_check(_approx(BuildingStats.max_hp(wall, 1, "steel", _building_defs), wall_steel_hp), "Steel Wall level 1 max_hp from materialStats (%s)" % wall_steel_hp)
+	_check(BuildingStats.damage_received_modifiers(wall, "wood", _building_defs).get("Fire", 1.0) == wall_wood_fire_mod, "Wood Wall has {Fire: %s} damageReceivedModifiers" % wall_wood_fire_mod)
+	_check(_approx(BuildingStats.armor(wall, 1, "steel", _building_defs), wall_steel_armor), "Steel Wall has flat armor (%s) from materialStats.baseStats.armor" % wall_steel_armor)
 	_check(_approx(BuildingStats.armor(wall, 1, "stone", _building_defs), 0.0), "Stone Wall has no armor entry -> 0")
 	_check(_approx(BuildingStats.armor(wall, 1, "wood", _building_defs), 0.0), "Wood Wall has no armor entry -> 0")
 
 	# extends inheritance: a synthetic Turret variant that omits every block
 	# inherits Turret's defensiveStats + nonProductionUpgrade wholesale.
+	var turret_def: Dictionary = _building_defs["turret"]
+	var turret_hp: float = float(turret_def.get("nonProductionUpgrade", {}).get("baseStats", {}).get("hp", 0.0))
+	var turret_damage: float = float(turret_def.get("defensiveStats", {}).get("damage", 0.0))
 	var variant := {"id": "test_variant", "name": "Test Variant", "category": "Defensive", "extends": "turret"}
-	_check(_approx(BuildingStats.max_hp(variant, 1, "", _building_defs), 250.0), "extends: variant inherits Turret's baseStats.hp (250)")
-	_check(BuildingStats.defensive_stats(variant, 1, "", _building_defs).get("damage", 0.0) == 18, "extends: variant inherits Turret's defensiveStats.damage (18)")
+	_check(_approx(BuildingStats.max_hp(variant, 1, "", _building_defs), turret_hp), "extends: variant inherits Turret's baseStats.hp (%s)" % turret_hp)
+	_check(BuildingStats.defensive_stats(variant, 1, "", _building_defs).get("damage", 0.0) == turret_damage, "extends: variant inherits Turret's defensiveStats.damage (%s)" % turret_damage)
 
 	# Tower (multi-material Defensive): defensive_stats merges the material's
 	# level-scaled damage/attackSpeed/range/canTarget/splashRadius on top of
 	# the building-level (material-invariant) detector/detectionRange, per
 	# data/buildings/schema.json's materialStats.canTarget note.
 	var tower: Dictionary = _building_defs["tower"]
+	var tower_wood_block: Dictionary = tower.get("materialStats", {}).get("wood", {})
+	var tower_wood_damage: float = float(tower_wood_block.get("baseStats", {}).get("damage", 0.0))
+	var tower_wood_attack_speed: float = float(tower_wood_block.get("baseStats", {}).get("attackSpeed", 0.0))
+	var tower_steel_block: Dictionary = tower.get("materialStats", {}).get("steel", {})
+	var tower_steel_splash: int = int(tower_steel_block.get("splashRadius", 0))
+	var tower_steel_armor: float = float(tower_steel_block.get("baseStats", {}).get("armor", 0.0))
+	var tower_stone_growth_pct: float = float(tower.get("materialStats", {}).get("stone", {}).get("statGrowth", {}).get("damage", {}).get("value", 0.0))
 	var wood_stats := BuildingStats.defensive_stats(tower, 1, "wood", _building_defs)
-	_check(wood_stats.get("damage", 0.0) == 10.0, "Wood Tower level 1 damage from materialStats.wood.baseStats")
-	_check(_approx(wood_stats.get("attackSpeed", 0.0), 1.6), "Wood Tower attackSpeed from materialStats.wood.baseStats")
+	_check(wood_stats.get("damage", 0.0) == tower_wood_damage, "Wood Tower level 1 damage from materialStats.wood.baseStats (%s)" % tower_wood_damage)
+	_check(_approx(wood_stats.get("attackSpeed", 0.0), tower_wood_attack_speed), "Wood Tower attackSpeed from materialStats.wood.baseStats (%s)" % tower_wood_attack_speed)
 	_check(wood_stats.get("canTarget", []) == ["Infantry", "Land", "Air", "Naval"], "Wood Tower canTarget from materialStats.wood")
 	_check(wood_stats.get("detector", false) == true, "Wood Tower still carries the material-invariant detector flag")
 	var steel_stats := BuildingStats.defensive_stats(tower, 1, "steel", _building_defs)
 	_check(not steel_stats.get("canTarget", []).has("Air"), "Steel Tower's canTarget drops Air, unlike Wood/Stone")
-	_check(steel_stats.get("splashRadius", 0) == 2, "Steel Tower's splashRadius (2) from materialStats.steel")
+	_check(steel_stats.get("splashRadius", 0) == tower_steel_splash, "Steel Tower's splashRadius (%s) from materialStats.steel" % tower_steel_splash)
 	var stone_damage_l1: float = BuildingStats.defensive_stats(tower, 1, "stone", _building_defs).get("damage", 0.0)
 	var stone_damage_l2: float = BuildingStats.defensive_stats(tower, 2, "stone", _building_defs).get("damage", 0.0)
-	_check(stone_damage_l2 > stone_damage_l1, "Stone Tower's damage grows with level (8% percent growth)")
-	_check(_approx(BuildingStats.armor(tower, 1, "steel", _building_defs), 5.0), "Steel Tower has flat armor (5) from materialStats.baseStats.armor")
+	_check(stone_damage_l2 > stone_damage_l1, "Stone Tower's damage grows with level (%s%% percent growth)" % tower_stone_growth_pct)
+	_check(_approx(BuildingStats.armor(tower, 1, "steel", _building_defs), tower_steel_armor), "Steel Tower has flat armor (%s) from materialStats.baseStats.armor" % tower_steel_armor)
 	_check(_approx(BuildingStats.armor(tower, 1, "stone", _building_defs), 0.0), "Stone Tower has no armor entry -> 0")
 
 	# a real Turret variant still resolves an HP even though it restates blocks.
@@ -123,9 +140,11 @@ func _test_combat_math() -> void:
 	var infantry_target := _synthetic_target({"domain": "Infantry", "tags": []}, "p2", HexCoord.new(1, 0), troops)
 	_check(_approx(CombatMath.resolve_damage(rifleman, 10.0, infantry_target), 10.0), "plain hit = base damage (10)")
 
-	# damageDealtModifiers bonus: Grenadier {Land: 1.5} vs a Land target
+	# damageDealtModifiers bonus: Grenadier's live {Land: X} modifier vs a Land target
 	var land_target := _synthetic_target({"domain": "Land", "tags": []}, "p2", HexCoord.new(1, 0), troops)
-	_check(_approx(CombatMath.resolve_damage(grenadier, 8.0, land_target), 12.0), "Grenadier {Land:1.5} vs Land = 8 * 1.5 = 12")
+	var grenadier_land_mult: float = float(grenadier.get("damageDealtModifiers", {}).get("Land", 1.0))
+	var grenadier_land_expected: float = 8.0 * grenadier_land_mult
+	_check(_approx(CombatMath.resolve_damage(grenadier, 8.0, land_target), grenadier_land_expected), "Grenadier's Land modifier (%s) vs Land = 8 * %s = %s" % [grenadier_land_mult, grenadier_land_mult, grenadier_land_expected])
 	_check(_approx(CombatMath.resolve_damage(grenadier, 8.0, infantry_target), 8.0), "Grenadier's Land bonus does NOT apply to an Infantry target")
 
 	# damageReceivedModifiers: a Fire attacker vs a Fire-vulnerable target
@@ -211,7 +230,8 @@ func _test_combat_targeting() -> void:
 		CombatTarget.for_squad(enemy_land, basekiller, troops),
 	]
 	var gpick := CombatTargeting.select_target(gren2, grenadier, mixed)
-	_check(gpick != null and gpick.target_id() == enemy_land.id, "Grenadier prefers the Land target (1.5x) over an equally-near Infantry")
+	var gren_land_mult: float = float(grenadier.get("damageDealtModifiers", {}).get("Land", 1.0))
+	_check(gpick != null and gpick.target_id() == enemy_land.id, "Grenadier prefers the Land target (%sx) over an equally-near Infantry" % gren_land_mult)
 
 	# dampener avoidance: a troop with {Land: 0.5} (deals HALF damage to Land)
 	# prefers a farther neutral target (no modifier, full damage) over a nearer
@@ -361,18 +381,28 @@ func _test_combat_resolver() -> void:
 
 	# attack-speed cadence: no fire until the accumulator reaches 1.0
 	var troops: Dictionary = {}
+	var rifleman_hp: float = float(_troop_defs["rifleman"].get("hp", 0.0))
+	var rifleman_damage: float = float(_troop_defs["rifleman"].get("damage", 0.0))
+	var rifleman_attack_speed: float = float(_troop_defs["rifleman"].get("attackSpeed", 1.0))
 	var a := _make_squad("p1", "rifleman", HexCoord.new(0, 0), 1, troops)
 	var b := _make_squad("p2", "rifleman", HexCoord.new(1, 0), 1, troops)
 	var squads: Array[SquadInstance] = [a, b]
 	CombatResolver.resolve_tick(0.5, squads, [], troops, grid, _troop_defs, _building_defs)
-	_check(troops[b.member_ids[0]].current_hp == 100.0, "no fire before attack_progress reaches 1.0 (dt 0.5, attackSpeed 1)")
+	_check(troops[b.member_ids[0]].current_hp == rifleman_hp, "no fire before attack_progress reaches 1.0 (dt 0.5, attackSpeed %s)" % rifleman_attack_speed)
 	CombatResolver.resolve_tick(0.5, squads, [], troops, grid, _troop_defs, _building_defs)
-	_check(troops[b.member_ids[0]].current_hp == 90.0, "one volley fires when the accumulator crosses 1.0 (10 damage)")
+	_check(troops[b.member_ids[0]].current_hp == rifleman_hp - rifleman_damage, "one volley fires when the accumulator crosses 1.0 (%s damage)" % rifleman_damage)
 
 	# splash hits other enemies in radius but never friendlies. Targets and the
-	# friendly are Engineers (Land, canTarget []): grenadier gets its {Land:1.5}
-	# bonus and nothing retaliates, isolating the splash to the grenadier's shot.
+	# friendly are Engineers (Land, canTarget []): grenadier gets its live
+	# {Land: X} bonus and nothing retaliates, isolating the splash to the
+	# grenadier's shot.
 	var t2: Dictionary = {}
+	var engineer_hp: float = float(_troop_defs["engineer"].get("hp", 0.0))
+	var grenadier_def2: Dictionary = _troop_defs["grenadier"]
+	var grenadier_land_mult2: float = float(grenadier_def2.get("damageDealtModifiers", {}).get("Land", 1.0))
+	var grenadier_base_damage2: float = float(grenadier_def2.get("damage", 0.0))
+	var grenadier_splash_damage: float = grenadier_base_damage2 * grenadier_land_mult2
+	var engineer_hp_after_splash: float = engineer_hp - grenadier_splash_damage
 	var gren := _make_squad("p1", "grenadier", HexCoord.new(0, 0), 1, t2)
 	var enemy_a := _make_squad("p2", "engineer", HexCoord.new(1, 0), 1, t2)
 	var enemy_b := _make_squad("p2", "engineer", HexCoord.new(2, 0), 1, t2)
@@ -382,11 +412,12 @@ func _test_combat_resolver() -> void:
 	var friendly_tid := friendly.member_ids[0]
 	var splash_squads: Array[SquadInstance] = [gren, enemy_a, enemy_b, friendly]
 	CombatResolver.resolve_tick(1.0, splash_squads, [], t2, grid, _troop_defs, _building_defs)
-	# Engineer hp 60; Grenadier vs Land = 8 * 1.5 = 12 -> 48. Primary enemy_a and
+	# Engineer hp (engineer_hp); Grenadier vs Land = grenadier_base_damage2 *
+	# grenadier_land_mult2 = grenadier_splash_damage. Primary enemy_a and
 	# splashed enemy_b (1 hex away) both hit; the friendly in radius is spared.
-	_check(t2[enemy_a_tid].current_hp == 48.0, "splash: primary Land target takes 12 (60 -> 48)")
-	_check(t2[enemy_b_tid].current_hp == 48.0, "splash: second enemy in radius also takes 12")
-	_check(t2[friendly_tid].current_hp == 60.0, "splash does not damage a friendly unit in radius")
+	_check(t2[enemy_a_tid].current_hp == engineer_hp_after_splash, "splash: primary Land target takes %s (%s -> %s)" % [grenadier_splash_damage, engineer_hp, engineer_hp_after_splash])
+	_check(t2[enemy_b_tid].current_hp == engineer_hp_after_splash, "splash: second enemy in radius also takes %s" % grenadier_splash_damage)
+	_check(t2[friendly_tid].current_hp == engineer_hp, "splash does not damage a friendly unit in radius")
 
 	# a squad kills a weaker enemy squad, which is then pruned
 	var t3: Dictionary = {}
@@ -450,7 +481,7 @@ func _test_combat_resolver() -> void:
 	var raider := _make_squad("p1", "rifleman", HexCoord.new(1, 0), 1, t5)
 	var turret_base := _p2_base_with("turret", HexCoord.new(0, 0))
 	CombatResolver.resolve_tick(1.0, [raider], [turret_base], t5, grid, _troop_defs, _building_defs)
-	_check(t5[raider.member_ids[0]].current_hp < 100.0, "a Defensive Turret fires back and damages the attacking squad")
+	_check(t5[raider.member_ids[0]].current_hp < rifleman_hp, "a Defensive Turret fires back and damages the attacking squad")
 	_check(turret_base.buildings[0].current_hp < turret_base.buildings[0].max_hp, "the attacking squad also damages the Turret")
 
 	# out-of-combat regen: a damaged, surviving building slowly heals once it
@@ -473,13 +504,14 @@ func _test_combat_resolver() -> void:
 	# too: it fires back like any Defensive building, and a Basekiller can
 	# fight it down.
 	var t6: Dictionary = {}
+	var basekiller_hp: float = float(_troop_defs["basekiller"].get("hp", 0.0))
 	var attacker := _make_squad("p1", "basekiller", HexCoord.new(1, 0), 1, t6)
 	var tower := BuildingInstance.new("standalone_tower", "", "tower", 1, "wood", HexCoord.new(0, 0), "p2")
 	tower.init_hp(_building_defs["tower"], _building_defs)
 	var standalone: Array[BuildingInstance] = [tower]
 	var no_bases: Array[BaseInstance] = []
 	CombatResolver.resolve_tick(1.0, [attacker], no_bases, t6, grid, _troop_defs, _building_defs, {}, {}, standalone)
-	_check(t6[attacker.member_ids[0]].current_hp < 200.0, "standalone Tower fires back and damages the attacking squad")
+	_check(t6[attacker.member_ids[0]].current_hp < basekiller_hp, "standalone Tower fires back and damages the attacking squad")
 	_check(tower.current_hp < tower.max_hp, "standalone Tower is damaged by CombatResolver's targeting")
 
 	# Fought down to 0 HP, a standalone building deletes outright — it never
@@ -499,7 +531,7 @@ func _test_combat_resolver() -> void:
 	mine.init_hp(_building_defs["landmine"], _building_defs)
 	var mine_standalone: Array[BuildingInstance] = [mine]
 	CombatResolver.resolve_tick(1.0, [intruder], no_bases, t7, grid, _troop_defs, _building_defs, {}, {}, mine_standalone)
-	_check(t7[intruder.member_ids[0]].current_hp < 100.0, "a Landmine deals its splash damage the instant an Infantry/Land enemy is in range")
+	_check(t7[intruder.member_ids[0]].current_hp < rifleman_hp, "a Landmine deals its splash damage the instant an Infantry/Land enemy is in range")
 	_check(mine_standalone.is_empty(), "the Landmine is deleted outright the same tick it triggers, not left inert")
 
 ## Per 04-combat.md: "if a Commander dies mid-battle, its regiment disbands —
@@ -608,15 +640,17 @@ func _test_wall_combat() -> void:
 	_check(wall_target.distance_from(HexCoord.new(1, 0)) == 0, "distance_from is 0 when the attacker stands on hex_b")
 	_check(wall_target.distance_from(HexCoord.new(2, 0)) == 1, "distance_from is the MIN distance to either endpoint (1 via hex_b, not 2 via hex_a)")
 
-	# Steel Wall's flat armor (5) reaches CombatMath the same way a troop's
+	# Steel Wall's flat armor reaches CombatMath the same way a troop's
 	# armor stat does, and a Piercing attacker (e.g. Sniper) bypasses it.
+	var steel_wall_armor: float = float(_building_defs["wall"].get("materialStats", {}).get("steel", {}).get("baseStats", {}).get("armor", 0.0))
+	var steel_wall_normal_hit: float = max(10.0 - steel_wall_armor, 1.0)
 	var steel_wall := BuildingInstance.new("wall3", "wbase3", "wall", 1, "steel")
 	steel_wall.hex_a = HexCoord.new(0, 0)
 	steel_wall.hex_b = HexCoord.new(1, 0)
 	steel_wall.init_hp(_building_defs["wall"], _building_defs)
 	var steel_wall_target := CombatTarget.for_building(steel_wall, _building_defs["wall"], _building_defs, grid)
-	_check(_approx(steel_wall_target.armor, 5.0), "Steel Wall's CombatTarget carries armor 5")
-	_check(_approx(CombatMath.resolve_damage(_troop_defs["rifleman"], 10.0, steel_wall_target), 5.0), "a normal 10-damage hit vs Steel Wall's armor 5 -> 5")
+	_check(_approx(steel_wall_target.armor, steel_wall_armor), "Steel Wall's CombatTarget carries armor %s" % steel_wall_armor)
+	_check(_approx(CombatMath.resolve_damage(_troop_defs["rifleman"], 10.0, steel_wall_target), steel_wall_normal_hit), "a normal 10-damage hit vs Steel Wall's armor %s -> %s" % [steel_wall_armor, steel_wall_normal_hit])
 	var piercing_attacker: Dictionary = {"domain": "Land", "tags": [], "damageTypes": ["Piercing"], "damageDealtModifiers": {}}
 	_check(_approx(CombatMath.resolve_damage(piercing_attacker, 10.0, steel_wall_target), 10.0), "a Piercing attacker ignores Steel Wall's armor entirely")
 

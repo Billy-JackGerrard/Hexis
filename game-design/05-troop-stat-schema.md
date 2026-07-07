@@ -64,7 +64,7 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   River (needs a Bridge), slowed by Hills, normal on Forest/Plains; `Land` (vehicles) —
   blocked by Forest (needs a Road) and River (needs a Bridge), normal on Hills/Plains;
   `Air` — ignores all terrain restrictions; `Naval` — Ocean/River only, disembarks only
-  at a Dock/Port/Shipyard.
+  at a Dock/Port/Shipyard/Harbour.
 
 ### Targeting
 - **can_target** (list of Domains/tags, e.g. `[Land, Naval]`) — a hard restriction on
@@ -122,13 +122,15 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   "vs a descriptive trait" vs. "vs a kind of attack."
 - **Damage dealt modifiers** (`{tag_or_domain: multiplier}`) — e.g. an anti-air unit
   might carry `{Air: 1.5}`, meaning it deals 1.5x its base damage to anything with
-  Domain `Air`. **Grenadier** carries `{Land: 1.25}` — a bonus against `Land`-domain
-  targets (i.e. land vehicles) specifically, which does *not* apply to Air/Naval units
-  even if they also happen to carry a `Vehicle` tag, and does not apply to Infantry
-  (Infantry is a separate Domain, not part of `Land`). If a target's tags/domain don't
-  match any entry, the multiplier defaults to 1.0 (no bonus/penalty). **Basekiller**
-  carries `{Defensive: 2.5}` — a large bonus specifically vs. Defensive-category
-  buildings, using the `Defensive` reserved key split out from `Structure` above.
+  Domain `Air`. **Grenadier** carries a `{Land: ...}` bonus (see
+  `data/troops/grenadier.json` for the current multiplier) — a bonus against
+  `Land`-domain targets (i.e. land vehicles) specifically, which does *not* apply to
+  Air/Naval units even if they also happen to carry a `Vehicle` tag, and does not
+  apply to Infantry (Infantry is a separate Domain, not part of `Land`). If a target's
+  tags/domain don't match any entry, the multiplier defaults to 1.0 (no bonus/penalty).
+  **Basekiller** carries `{Defensive: 2.5}` — a large bonus specifically vs.
+  Defensive-category buildings, using the `Defensive` reserved key split out from
+  `Structure` above.
 - **Resolved: a multiplier entry doubles as a target-priority hint, proportional to
   the actual damage it changes.** The troop's default auto-targeting compares
   targets by their `damage_dealt_modifiers` product (matching entries multiply
@@ -289,8 +291,8 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 - **Freeze vs. Stun**: two distinct `type` values, not interchangeable names for the
   same effect:
   - **`freeze`** — full lockout only (target can't move or attack) for `duration`,
-    nothing after. Example: Cold Turret (Winter Forge) →
-    `{type: freeze, duration: "2-3s"}`.
+    nothing after. Example: Cold Turret (Winter Forge) → `{type: freeze, duration: ...}`
+    (see `data/buildings/cold_turret.json` for the current duration).
   - **`stun`** — full lockout for `duration`, same as freeze, but **always** followed
     by a fixed trailing "dazed" debuff once the lockout ends: **-30% move speed and
     -30% attack speed, lasting the same length as the lockout itself (`duration`

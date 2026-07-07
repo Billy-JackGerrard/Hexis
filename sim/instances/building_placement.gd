@@ -307,15 +307,16 @@ static func standalone_occupied_hexes(bases: Array[BaseInstance], standalone_bui
 			result[building.hex.to_key()] = building
 	return result
 
-## Building types a Naval carrier may disembark land cargo onto per
-## 01-map-and-terrain.md's Naval/Coastline Rules ("Naval troops can only
-## disembark onto land at a Dock or a Port/Shipyard") — consumed by
-## CargoSystem.unload(), not grid pathing (Dock doesn't touch grid
-## infrastructure; a docked ship's cargo disembarks via the Cargo system, it
-## doesn't path there as a Naval-domain move).
-const NAVAL_LANDING_BUILDING_TYPES := ["dock", "port", "shipyard"]
+## Building types a Naval carrier may disembark land cargo onto (or pick
+## boarding cargo up from) per 01-map-and-terrain.md's Naval/Coastline Rules
+## ("Naval troops can only disembark onto land at a Dock, a Port/Shipyard, or
+## a Harbour") — consumed by CargoSystem.unload()/can_board(), not grid
+## pathing (none of these touch grid infrastructure; a docked ship's cargo
+## disembarks via the Cargo system, it doesn't path there as a Naval-domain
+## move).
+const NAVAL_LANDING_BUILDING_TYPES := ["dock", "port", "shipyard", "harbour"]
 
-## True if `hex` carries a Dock, Port, or Shipyard — base-attached or
+## True if `hex` carries a Dock, Port, Shipyard, or Harbour — base-attached or
 ## standalone, per NAVAL_LANDING_BUILDING_TYPES.
 static func is_naval_landing_hex(hex: HexCoord, bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance]) -> bool:
 	var occupied := standalone_occupied_hexes(bases, standalone_buildings)

@@ -31,6 +31,8 @@ enum Result {
 	IS_FIXED,
 	INSUFFICIENT_RESOURCES,
 	NOT_UNLOCKED,
+	NOT_ADJACENT,
+	SQUAD_FULL,
 }
 
 ## --- Movement --------------------------------------------------------------
@@ -105,7 +107,7 @@ static func board_cargo(state: MatchState, carrier_squad_id: String, boarding_sq
 		return Result.NOT_FOUND
 	if carrier.owner_id != owner_id or boarding.owner_id != owner_id:
 		return Result.NOT_OWNER
-	return Result.OK if CargoSystem.board(carrier, boarding, state.troop_defs) else Result.INVALID
+	return Result.OK if CargoSystem.board(carrier, boarding, state.troop_defs, state.grid, state.bases, state.standalone_buildings) else Result.INVALID
 
 ## `in_combat` is derived on demand via CombatStateSystem — see that class's
 ## doc for why this is queried per-command rather than cached per-tick.
@@ -174,6 +176,55 @@ static func leave_regiment(state: MatchState, squad_id: String, owner_id: String
 	squad.commander_id = ""
 	if squad.order.get("type", "") == "regiment_move":
 		squad.order = {}
+	return Result.OK
+
+## Player-initiated counterpart to SquadManager's spawn-time auto-join (see
+## squad_manager.gd) — combines two same-type squads standing on the same hex
+## by moving `donor_squad_id`'s members into `target_squad_id` up to
+## maxSquadSize, for squads that never auto-joined (produced away from each
+## other) or thinned out from combat losses. Requires same hex (stricter than
+## board_cargo, which has no position check) so merging reads as "stack them,
+## then merge" rather than an at-range action. Rejects a Commander as donor
+## (maxSquadsLed > 0) since draining one to empty would need the full
+## regiment-disband handling CombatResolver does for Commander deaths
+## (_disband_regiments_for_dead_commanders), not the simpler single-squad
+## removal below.
+static func merge_squads(state: MatchState, target_squad_id: String, donor_squad_id: String, owner_id: String) -> Result:
+	var target := state.find_squad(target_squad_id)
+	var donor := state.find_squad(donor_squad_id)
+	if target == null or donor == null:
+		return Result.NOT_FOUND
+	if target_squad_id == donor_squad_id:
+		return Result.INVALID
+	if target.owner_id != owner_id or donor.owner_id != owner_id:
+		return Result.NOT_OWNER
+	if target.troop_type != donor.troop_type:
+		return Result.INVALID
+	if int(state.troop_defs.get(donor.troop_type, {}).get("maxSquadsLed", 0)) > 0:
+		return Result.INVALID
+	if target.boarded_on_squad_id != "" or donor.boarded_on_squad_id != "":
+		return Result.INVALID
+	if not donor.cargo_squad_ids.is_empty():
+		return Result.INVALID
+	if not target.current_hex.equals(donor.current_hex):
+		return Result.NOT_ADJACENT
+
+	var max_squad_size := int(state.troop_defs.get(target.troop_type, {}).get("maxSquadSize", 1))
+	if target.is_full(max_squad_size):
+		return Result.SQUAD_FULL
+
+	while not donor.member_ids.is_empty() and not target.is_full(max_squad_size):
+		var troop_id: String = donor.member_ids[0]
+		donor.remove_member(troop_id)
+		target.add_member(troop_id)
+
+	if donor.member_ids.is_empty():
+		state.squads.erase(donor)
+		if donor.commander_id != "":
+			for regiment in state.regiments:
+				if regiment.commander_id == donor.commander_id:
+					regiment.remove_squad(donor_squad_id)
+					break
 	return Result.OK
 
 ## --- Building placement -----------------------------------------------

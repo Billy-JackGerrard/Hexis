@@ -123,7 +123,7 @@ project a passive effect:
 - **HQ level as a global ceiling**: no building in a base can be upgraded past the
   HQ's current level, regardless of building type.
 - **Troop-production buildings** (Barracks, Factory, Port, Tank Plant, Frostworks,
-  Fire Helipad, Wind Sanctuary, Hangar, Forest Yard, Shipyard, Covert Works, Ford
+  Blazeworks, Wind Sanctuary, Hangar, Forest Yard, Shipyard, Covert Works, Ford
   Yard) have a **derived max level**: there's no
   separate stored cap — the max level is simply `length(troop_list)` for that
   building. Each level unlocks the next troop in the list, in order. This means the
@@ -268,7 +268,8 @@ cost/power tradeoff:
 - **Vision**: both variants clear fog of war at a high vision range, independent of
   attack range (consistent with vision ≠ engagement range elsewhere in the design).
 - **Stealth detection**: both variants also carry `detector: true` with a short
-  `detectionRange` of 3 — much shorter than their 12-tile `visionRange`, since normal
+  `detectionRange` — much shorter than their `visionRange` (which varies per
+  material; see `data/buildings/tower.json` for current values), since normal
   fog-of-war clearing and spotting a cloaked Ghost Tank/Submarine are treated as
   different senses. This is deliberately a *short-range, place-and-defend* counter
   rather than a mobile escort: Tower is cheap and buildable anywhere by an Engineer, so
@@ -285,7 +286,7 @@ cost/power tradeoff:
   kills a 300 HP Stone Tower in a few seconds), but that's fine: its job is to strip
   the stealth so a garrison, Wall, or other nearby defense can finish it, not to
   out-tank an entire squad alone. Against a single stealthed unit its own stats hold up
-  fine — Stone Tower's 300 HP/24 dmg/range 6 beats a Light Tank's 180 HP/15 dmg/range 4
+  fine — Stone Tower's 300 HP/28 dmg/range 6 beats a Light Tank's 180 HP/15 dmg/range 4
   in a straight 1v1.
 - **Wood Tower's role is confirmed as swarm-clearing**: its multiple turrets
   **independently target** (each turret slot picks its own nearest enemy, per the
@@ -318,9 +319,6 @@ Docks and Bridges (in addition to Walls) can now be built in **either Stone or W
   `nonProductionUpgrade`) — no new `can_target` entries unlock at higher levels.
 
 ## Known Data Inconsistencies (need a decision, not yet fixed)
-- `data/buildings/turret.json`'s `defensiveStats.range` (4) disagrees with its own
-  `nonProductionUpgrade.baseStats.range` (5) — these two are meant to describe the
-  same level-1 value.
 - `data/buildings/emp_turret.json`'s `defensiveStats` omits `canTarget` entirely; per
   the `extends` rule in `data/buildings/schema.json` (a variant's `defensiveStats`
   overrides the base wholesale, not merged key-by-key), this Turret variant may not be
