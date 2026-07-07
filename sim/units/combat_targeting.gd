@@ -27,8 +27,14 @@ static func can_target(attacker_def: Dictionary, target: CombatTarget) -> bool:
 ## `attacker_owner` (stealth/forest-ambush — DetectionSystem). `detections` is
 ## the owner_id -> {hex_key: true} map DetectionSystem.resolve_tick() produces;
 ## defaults to {} (no detector coverage) so existing callers keep compiling.
-static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}) -> Array[CombatTarget]:
+## `grid` (default null = no LOS check, so existing callers keep compiling)
+## enables Wall line-of-sight blocking (01-map-and-terrain.md): a non-Air
+## attacker can't hit a target whose line crosses a walled edge. Never applied
+## to a Wall target itself (hex_b set) — attacking a Wall is never blocked by
+## its own edge.
+static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null) -> Array[CombatTarget]:
 	var result: Array[CombatTarget] = []
+	var is_air := String(attacker_def.get("domain", "")) == "Air"
 	for target in targets:
 		if target.owner_id == attacker_owner or not target.is_alive():
 			continue
@@ -37,9 +43,11 @@ static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_
 		# Air-domain attackers ignore Walls entirely, same as every other
 		# terrain rule (01-map-and-terrain.md) — a Wall target always has
 		# hex_b set (it's the only thing that does).
-		if target.hex_b != null and String(attacker_def.get("domain", "")) == "Air":
+		if target.hex_b != null and is_air:
 			continue
 		if target.is_hidden and not _is_revealed_to(target, attacker_hex, attacker_owner, detections):
+			continue
+		if grid != null and not is_air and target.hex_b == null and grid.is_line_blocked(attacker_hex, target.hex):
 			continue
 		if can_target(attacker_def, target):
 			result.append(target)
@@ -83,8 +91,8 @@ static func _best_in_tier(attacker_hex: HexCoord, attacker_def: Dictionary, tier
 ## Auto tier/priority selection from a given position — the shared core used by
 ## both squads (after order handling) and Defensive buildings (which have no
 ## orders). Returns null if nothing is engageable.
-static func select_auto(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}) -> CombatTarget:
-	var in_range := candidates(attacker_hex, attacker_owner, attacker_range, attacker_def, targets, detections)
+static func select_auto(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null) -> CombatTarget:
+	var in_range := candidates(attacker_hex, attacker_owner, attacker_range, attacker_def, targets, detections, grid)
 	if in_range.is_empty():
 		return null
 
@@ -102,13 +110,13 @@ static func select_auto(attacker_hex: HexCoord, attacker_owner: String, attacker
 ## `attack_target` order when still valid (clearing it when the target is dead),
 ## then falls back to auto tier/priority selection. Returns null if nothing is
 ## engageable.
-static func select_target(attacker_squad: SquadInstance, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}) -> CombatTarget:
+static func select_target(attacker_squad: SquadInstance, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null) -> CombatTarget:
 	var attacker_range := int(attacker_def.get("range", 0))
 
 	var order: Dictionary = attacker_squad.order
 	if order.get("type", "") == "attack_target":
 		var directed_id: String = order.get("targetId", "")
-		var in_range := candidates(attacker_squad.current_hex, attacker_squad.owner_id, attacker_range, attacker_def, targets, detections)
+		var in_range := candidates(attacker_squad.current_hex, attacker_squad.owner_id, attacker_range, attacker_def, targets, detections, grid)
 		for target in in_range:
 			if target.target_id() == directed_id:
 				return target
@@ -119,7 +127,7 @@ static func select_target(attacker_squad: SquadInstance, attacker_def: Dictionar
 		if not _target_alive_anywhere(directed_id, targets):
 			attacker_squad.order = {}
 
-	return select_auto(attacker_squad.current_hex, attacker_squad.owner_id, attacker_range, attacker_def, targets, detections)
+	return select_auto(attacker_squad.current_hex, attacker_squad.owner_id, attacker_range, attacker_def, targets, detections, grid)
 
 static func _target_alive_anywhere(target_id: String, targets: Array[CombatTarget]) -> bool:
 	for target in targets:

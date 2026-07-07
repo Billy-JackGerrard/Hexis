@@ -24,7 +24,7 @@
     "terrainException": {
       "type": "string",
       "enum": ["Forest", "Hill"],
-      "description": "Treehouse buildings may be placed on Forest tiles; Windy Peaks buildings may be placed on Hill tiles. Omitted for every other base type (Plains-only). Individual buildings still declare their own placementRequirement (see data/buildings/schema.json) — this field is a base-level summary of that exception."
+      "description": "Treehouse buildings may be placed on Forest OR Plains tiles; Windy Peaks buildings may be placed on Hill OR Plains tiles — the named terrain is an additional allowed site terrain, not a replacement for whatever the building's own placementRequirement.siteTerrain already permits. Omitted for every other base type (Plains-only). Individual buildings still declare their own placementRequirement (see data/buildings/schema.json) — this field is a base-level summary of that exception, enforced generically in BuildingPlacement.can_place (sim/instances/building_placement.gd) for every building at the base, not authored per-building."
     },
 
     "buildableBuildings": {

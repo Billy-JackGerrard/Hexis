@@ -77,3 +77,43 @@ static func direction_away(from: HexCoord, origin: HexCoord) -> int:
 			best_dist = d
 			best_dir = i
 	return best_dir
+
+## The unbroken chain of hexes from `a` to `b` inclusive (length distance(a,b)+1),
+## via cube-coordinate linear interpolation + rounding — the standard hex-line
+## algorithm (each step is the nearest hex to the straight-line point at that
+## fraction of the way from a to b). Used by HexGrid.is_line_blocked() for Wall
+## line-of-sight (01-map-and-terrain.md: "an attack whose line from attacker-hex
+## to target-hex crosses a walled edge is blocked"). A tiny per-axis epsilon is
+## added before rounding so the line never lands exactly on a hex edge/vertex
+## (which would make cube_round's tie-break ambiguous/inconsistent) — a well-
+## known wrinkle of this algorithm, not a precision bug.
+static func line(a: HexCoord, b: HexCoord) -> Array[HexCoord]:
+	var n := distance(a, b)
+	var result: Array[HexCoord] = []
+	if n == 0:
+		result.append(a)
+		return result
+	for i in range(n + 1):
+		var t := float(i) / float(n)
+		result.append(_cube_round(
+			lerp(float(a.q), float(b.q), t) + 1e-6,
+			lerp(float(a.r), float(b.r), t) + 2e-6,
+			lerp(float(a.s()), float(b.s()), t) - 3e-6,
+		))
+	return result
+
+## Rounds fractional cube coordinates to the nearest valid hex, per the
+## standard technique: round each axis independently, then recompute whichever
+## axis drifted furthest from its rounded value so q+r+s stays 0.
+static func _cube_round(q: float, r: float, s: float) -> HexCoord:
+	var rq: float = roundf(q)
+	var rr: float = roundf(r)
+	var rs: float = roundf(s)
+	var q_diff: float = absf(rq - q)
+	var r_diff: float = absf(rr - r)
+	var s_diff: float = absf(rs - s)
+	if q_diff > r_diff and q_diff > s_diff:
+		rq = -rr - rs
+	elif r_diff > s_diff:
+		rr = -rq - rs
+	return HexCoord.new(int(rq), int(rr))

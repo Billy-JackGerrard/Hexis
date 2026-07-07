@@ -29,7 +29,22 @@ enum Result {
 	EDGE_NOT_ADJACENT_HEXES,
 	EDGE_ALREADY_WALLED,
 	NOT_ENOUGH_ADJACENT_BUILDINGS_FOR_WALL,
+	## The following five are command-layer (CommandProcessor) rejection
+	## reasons, not placement-geometry ones — grouped into this same enum so
+	## every place_*/rebuild caller gets one Result type back rather than two.
+	BASE_NOT_FOUND,
+	NOT_OWNER,
+	CANNOT_BUILD_INFRASTRUCTURE, ## no valid owned squad with canBuildInfrastructure
+	INSUFFICIENT_RESOURCES, ## owner's pool can't cover the build cost
+	OUT_OF_ENGINEER_RANGE, ## target hex is further than STANDALONE_BUILD_RANGE from the building Engineer
 }
+
+## Max hex-distance between the building Engineer and a standalone build site
+## (Road/Bridge/Dock/Tower/Landmine) — an Engineer must travel next to a site
+## rather than dropping infrastructure anywhere on the map. 1 = adjacent-only,
+## since the Engineer's own hex is already excluded (ground units block
+## placement — see ground_unit_hexes/HEX_OCCUPIED_BY_UNIT).
+const STANDALONE_BUILD_RANGE := 1
 
 ## Minimum adjacent existing buildings required for a normal (non-Wall)
 ## placement, per the Expansion Rule. Walls need only 1 — deferred, see above.
@@ -112,11 +127,16 @@ static func can_place(base: BaseInstance, base_def: Dictionary, building_type: S
 
 	var placement_requirement: Dictionary = building_def.get("placementRequirement", {})
 	var required_site_terrain := _site_terrain(placement_requirement.get("siteTerrain", "Plains"))
-	if grid.get_terrain(hex) != required_site_terrain:
-		return Result.WRONG_SITE_TERRAIN
+	var hex_terrain := grid.get_terrain(hex)
+	var used_terrain_exception := false
+	if hex_terrain != required_site_terrain:
+		var terrain_exception: String = base_def.get("terrainException", "")
+		if terrain_exception == "" or hex_terrain != _site_terrain(terrain_exception):
+			return Result.WRONG_SITE_TERRAIN
+		used_terrain_exception = true
 
 	var adjacent_terrain_required: String = placement_requirement.get("adjacentTerrainRequired", "")
-	if adjacent_terrain_required != "":
+	if adjacent_terrain_required != "" and not used_terrain_exception:
 		var satisfied := false
 		for neighbor in HexCoord.neighbors(hex):
 			if _matches_adjacent_terrain_required(adjacent_terrain_required, grid.get_terrain(neighbor)):
@@ -154,13 +174,17 @@ static func ground_unit_hexes(squads: Array[SquadInstance], troop_defs: Dictiona
 	return result
 
 ## Validates via can_place and, on OK, appends a new BuildingInstance (with
-## hex set) to base.buildings. Returns the Result either way; mutates nothing
-## on failure.
+## hex set, combat HP and total_resources_spent initialized from its def) to
+## base.buildings. Returns the Result either way; mutates nothing on failure.
 static func place_building(base: BaseInstance, base_def: Dictionary, building_type: String, hex: HexCoord, grid: HexGrid, building_defs: Dictionary, id: String, material: String = "", occupied_unit_hexes: Dictionary = {}) -> Result:
 	var result := can_place(base, base_def, building_type, hex, grid, building_defs, occupied_unit_hexes)
 	if result != Result.OK:
 		return result
-	base.buildings.append(BuildingInstance.new(id, base.id, building_type, 1, material, hex))
+	var building := BuildingInstance.new(id, base.id, building_type, 1, material, hex)
+	var building_def: Dictionary = building_defs.get(building_type, {})
+	building.init_hp(building_def, building_defs)
+	building.init_cost(building_def, building_defs)
+	base.buildings.append(building)
 	return Result.OK
 
 ## Validates placement of a standalone building (Tower/Landmine/Road/Bridge/
@@ -264,6 +288,7 @@ static func place_wall(base: BaseInstance, base_def: Dictionary, hex_a: HexCoord
 	wall.hex_a = hex_a
 	wall.hex_b = hex_b
 	wall.init_hp(building_defs.get("wall", {}), building_defs)
+	wall.init_cost(building_defs.get("wall", {}), building_defs)
 	base.buildings.append(wall)
 	grid.set_wall(hex_a, hex_b, true)
 	return Result.OK
@@ -312,6 +337,7 @@ static func place_standalone_building(bases: Array[BaseInstance], standalone_bui
 		return result
 	var building := BuildingInstance.new(id, "", building_type, 1, material, hex, owner_id)
 	building.init_hp(building_defs.get(building_type, {}), building_defs)
+	building.init_cost(building_defs.get(building_type, {}), building_defs)
 	standalone_buildings.append(building)
 	if building_type == "road":
 		grid.set_infrastructure(hex, Terrain.Infrastructure.ROAD)

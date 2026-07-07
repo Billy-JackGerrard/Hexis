@@ -36,5 +36,5 @@
     { "troopId": "rifleman", "count": 4 }
   ],
 
-  "notes": "Ground-support and reconnaissance aircraft specialist Unique base — one instance on the map, found on Hills; its buildings can be placed on Hill tiles (terrainException). Wind Sanctuary builds Glider and Hot Air Balloon; Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Windy Peaks its own infantry roster too. Wind Spire is the specialty defense — a Turret variant trading raw damage for knockback crowd control and a large anti-air damage bonus."
+  "notes": "Ground-support and reconnaissance aircraft specialist Unique base — one instance on the map, found on Hills; its buildings can be placed on Hill OR Plains tiles (terrainException — Hill is an additional allowed site terrain, not a replacement for the Plains default; Wind Sanctuary/Wind Spire declare Hill as their own explicit siteTerrain so they're unaffected). Wind Sanctuary builds Glider and Hot Air Balloon; Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Windy Peaks its own infantry roster too. Wind Spire is the specialty defense — a Turret variant trading raw damage for knockback crowd control and a large anti-air damage bonus."
 }

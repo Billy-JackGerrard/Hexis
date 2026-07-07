@@ -157,6 +157,47 @@ func _test_terrain() -> void:
 	_check(BuildingPlacement.can_place(seeded, capital_def, "harbour", HexCoord.new(0, -1), grid, _building_defs) == BuildingPlacement.Result.OK,
 		"Harbour placeable on Plains adjacent to Water, with 2 adjacent buildings (HQ+Quarry)")
 
+	## Treehouse's terrainException ("Forest") is a base-level, not per-building,
+	## exception -- per data/bases/treehouse.json's notes, ALL of its buildable
+	## buildings get Forest as an additional allowed site terrain alongside the
+	## Plains default, not a replacement for it.
+	var treehouse_def: Dictionary = _base_defs["treehouse"]
+	var treehouse_grid := HexGrid.new()
+	treehouse_grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
+	treehouse_grid.set_terrain(HexCoord.new(-1, 0), Terrain.Type.PLAINS)
+	treehouse_grid.set_terrain(HexCoord.new(0, -1), Terrain.Type.FOREST)
+	var treehouse_base := BaseInstance.new("th1", "treehouse", "p1", 1, HexCoord.new(0, 0))
+	treehouse_base.buildings.append(BuildingInstance.new("th_hq", "th1", "hq", 1, "", HexCoord.new(0, 0)))
+	treehouse_base.buildings.append(BuildingInstance.new("th_q", "th1", "quarry", 1, "", HexCoord.new(-1, 0)))
+
+	_check(BuildingPlacement.can_place(treehouse_base, treehouse_def, "farm", HexCoord.new(0, -1), treehouse_grid, _building_defs) == BuildingPlacement.Result.OK,
+		"Treehouse: Farm (default siteTerrain Plains) also placeable directly on Forest via terrainException")
+	_check(BuildingPlacement.can_place(seeded, capital_def, "farm", HexCoord.new(5, 5), grid, _building_defs) == BuildingPlacement.Result.WRONG_SITE_TERRAIN,
+		"Capital (no terrainException): Farm still rejected on Forest")
+
+	## Lumber Mill's own generic requirement is Plains + adjacent Forest; at
+	## Treehouse it should also be placeable directly on Forest with no
+	## adjacent-Forest requirement, since sitting on Forest IS the exception.
+	_check(BuildingPlacement.can_place(treehouse_base, treehouse_def, "lumber_mill", HexCoord.new(0, -1), treehouse_grid, _building_defs) == BuildingPlacement.Result.OK,
+		"Treehouse: Lumber Mill placeable directly on Forest, bypassing its generic adjacentTerrainRequired")
+
+	## Windy Peaks reuses the exact same generic terrainException mechanism,
+	## just with "Hill" as the base_def value -- nothing building-specific was
+	## needed for this to work, confirming the mechanism generalizes.
+	var windy_peaks_def: Dictionary = _base_defs["windy_peaks"]
+	var windy_peaks_grid := HexGrid.new()
+	windy_peaks_grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
+	windy_peaks_grid.set_terrain(HexCoord.new(-1, 0), Terrain.Type.PLAINS)
+	windy_peaks_grid.set_terrain(HexCoord.new(0, -1), Terrain.Type.HILLS)
+	var windy_peaks_base := BaseInstance.new("wp1", "windy_peaks", "p1", 1, HexCoord.new(0, 0))
+	windy_peaks_base.buildings.append(BuildingInstance.new("wp_hq", "wp1", "hq", 1, "", HexCoord.new(0, 0)))
+	windy_peaks_base.buildings.append(BuildingInstance.new("wp_q", "wp1", "quarry", 1, "", HexCoord.new(-1, 0)))
+
+	_check(BuildingPlacement.can_place(windy_peaks_base, windy_peaks_def, "farm", HexCoord.new(0, -1), windy_peaks_grid, _building_defs) == BuildingPlacement.Result.OK,
+		"Windy Peaks: Farm (default siteTerrain Plains) also placeable directly on Hill via terrainException")
+	_check(BuildingPlacement.can_place(seeded, capital_def, "farm", HexCoord.new(0, -1), windy_peaks_grid, _building_defs) == BuildingPlacement.Result.WRONG_SITE_TERRAIN,
+		"Capital (no terrainException): Farm still rejected on Hill")
+
 func _test_adjacency() -> void:
 	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(-1, 0), HexCoord.new(0, 1)])
 	var capital_def: Dictionary = _base_defs["capital"]

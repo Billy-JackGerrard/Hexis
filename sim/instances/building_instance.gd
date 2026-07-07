@@ -1,8 +1,7 @@
 ## Live per-match state for one built building (see 07-data-architecture.md
-## section 3). Still no totalResourcesSpent (belongs to the not-yet-built
-## demolish-refund action), but now carries combat HP, ruin state, and, for
-## Defensive buildings, an attack-speed accumulator so the CombatResolver can
-## fight it down / let it fire back.
+## section 3). Carries combat HP, ruin state, a demolish/rebuild-refund cost
+## basis, and, for Defensive buildings, an attack-speed accumulator so the
+## CombatResolver can fight it down / let it fire back.
 class_name BuildingInstance
 extends RefCounted
 
@@ -60,6 +59,14 @@ var last_damaged_by: String = ""
 ## 06-building-stats-and-defenses.md's Regeneration rule.
 var time_since_damage: float = 0.0
 var regen_progress: float = 0.0
+## Dict per ResourceType.Type -> float, cumulative — original build cost plus
+## every upgrade/rebuild cost paid, per 07-data-architecture.md. The basis
+## demolish_building refunds 50% of (CommandProcessor); set at construction
+## time via init_cost() and topped up by rebuild_building. Since no
+## upgrade-building action exists yet, this equals the def's level-1
+## base_cost for the building's whole lifetime unless it's rebuilt from a
+## ruin at least once.
+var total_resources_spent: Dictionary = {}
 
 func _init(p_id: String, p_base_id: String, p_building_type: String, p_level: int = 1, p_material: String = "", p_hex: HexCoord = null, p_owner_id: String = "") -> void:
 	id = p_id
@@ -75,3 +82,8 @@ func _init(p_id: String, p_base_id: String, p_building_type: String, p_level: in
 func init_hp(def: Dictionary, building_defs: Dictionary) -> void:
 	max_hp = BuildingStats.max_hp(def, level, material, building_defs)
 	current_hp = max_hp
+
+## Records this instance's level-1 build cost as its initial
+## total_resources_spent — called once at placement, alongside init_hp.
+func init_cost(def: Dictionary, building_defs: Dictionary) -> void:
+	total_resources_spent = ResourceType.dict_from_named(BuildingStats.base_cost(def, material, building_defs))

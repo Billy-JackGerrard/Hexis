@@ -70,6 +70,20 @@ func passable_neighbors(coord: HexCoord, domain: Terrain.Domain, overrides: Dict
 			result.append(n)
 	return result
 
+## True if the straight hex-line from `a` to `b` (HexCoord.line) crosses any
+## walled edge, per 01-map-and-terrain.md's Wall line-of-sight rule ("an attack
+## whose line from attacker-hex to target-hex crosses a walled edge is
+## blocked"). Checked against every consecutive pair along the line, not just
+## the endpoints, so a wall anywhere between attacker and target blocks the
+## shot, not only a wall adjacent to one of them. Air-domain exemption is the
+## caller's job (CombatTargeting), same as every other terrain rule.
+func is_line_blocked(a: HexCoord, b: HexCoord) -> bool:
+	var hexes := HexCoord.line(a, b)
+	for i in range(hexes.size() - 1):
+		if is_walled_edge(hexes[i], hexes[i + 1]):
+			return true
+	return false
+
 ## Standard hex A*, edge cost per `edge_cost`. Returns [] if no path exists.
 ## Path is computed once per order per the design (not re-planned every tick);
 ## callers own re-invoking this when blocked or re-ordered.

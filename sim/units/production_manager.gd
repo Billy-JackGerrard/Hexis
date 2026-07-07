@@ -39,6 +39,11 @@ static func advance(queue: ProductionQueue, dt: float) -> void:
 ## - owner_id/spawn_hex/building_type: identify who/where/what is producing.
 ## - squads: the owner's live SquadInstance list; mutated in place (append on
 ##   new squad, add_member on join).
+## - troops_by_id: id -> TroopInstance registry; mutated in place (a deployed
+##   troop, joined or new, is registered here) — every consumer downstream
+##   (CombatResolver, UpkeepSystem, ...) resolves a squad's member_ids through
+##   this registry, so a troop pump() creates but never registers here would
+##   read back as already-dead the very next tick.
 ## - owner_bases: every base the owner owns, for SquadCap's cap math.
 ## - current_commander_count: live count of the owner's Commander troops;
 ##   regiments/commanders aren't in a global registry the sim can derive this
@@ -52,6 +57,7 @@ static func pump(
 	spawn_hex: HexCoord,
 	building_type: String,
 	squads: Array[SquadInstance],
+	troops_by_id: Dictionary,
 	owner_bases: Array[BaseInstance],
 	building_defs: Dictionary,
 	troop_defs: Dictionary,
@@ -70,6 +76,7 @@ static func pump(
 		)
 		if joinable != null:
 			var joined_troop := TroopInstance.new(next_troop_id.call(), troop_type, owner_id, joinable.id, float(troop_def.get("hp", 0.0)))
+			troops_by_id[joined_troop.id] = joined_troop
 			joinable.add_member(joined_troop.id)
 			queue.entries.pop_front()
 			queue.paused = false
@@ -96,6 +103,7 @@ static func pump(
 
 		var new_squad := SquadInstance.new(next_squad_id.call(), owner_id, troop_type, spawn_hex)
 		var new_troop := TroopInstance.new(next_troop_id.call(), troop_type, owner_id, new_squad.id, float(troop_def.get("hp", 0.0)))
+		troops_by_id[new_troop.id] = new_troop
 		new_squad.add_member(new_troop.id)
 		squads.append(new_squad)
 		queue.entries.pop_front()

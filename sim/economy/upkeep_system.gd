@@ -20,7 +20,12 @@ extends RefCounted
 
 ## Every player's per-tick upkeep, keyed owner_id -> {ResourceType.Type: total}.
 ## Only Food/Fuel are ever populated (the only upkeep-bearing resources).
-static func compute_upkeep(squads: Array[SquadInstance], bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], troop_defs: Dictionary) -> Dictionary:
+## `auras` (AuraSystem.resolve_tick() output, default {} = no reduction) feeds
+## Mule's upkeep_reduction: a flat per-troop discount applied to BOTH
+## foodUpkeep and fuelUpkeep simultaneously, floored at 0 per troop (per
+## troop.schema.json's auras.magnitude note), applied before the movement/
+## near-base fuel-free rules below so an already-zeroed value stays zero.
+static func compute_upkeep(squads: Array[SquadInstance], bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], troop_defs: Dictionary, auras: Dictionary = {}) -> Dictionary:
 	var upkeep: Dictionary = {}
 	for squad in squads:
 		if squad.member_ids.is_empty():
@@ -28,6 +33,11 @@ static func compute_upkeep(squads: Array[SquadInstance], bases: Array[BaseInstan
 		var def: Dictionary = troop_defs.get(squad.troop_type, {})
 		var food_per_troop: float = float(def.get("foodUpkeep", 0.0))
 		var fuel_per_troop: float = float(def.get("fuelUpkeep", 0.0))
+
+		var reduction := AuraSystem.upkeep_reduction(auras, squad.id)
+		if reduction > 0.0:
+			food_per_troop = max(0.0, food_per_troop - reduction)
+			fuel_per_troop = max(0.0, fuel_per_troop - reduction)
 
 		if fuel_per_troop > 0.0 and squad.path.is_empty():
 			var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))

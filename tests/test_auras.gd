@@ -101,10 +101,8 @@ func _test_troop_auras() -> void:
 	_check(_approx(AuraSystem.speed_mult(auras, rifleman.id), 1.0), "in-range Infantry ally gets no boost (filter excludes Infantry)")
 	_check(_approx(AuraSystem.speed_mult(auras, enemy_basekiller.id), 1.0), "in-range enemy Land squad gets no boost (friendly_troops only)")
 
-	# Ice Spire is a building aura, tested separately below; here confirm a
-	# troop-authored enemy_troops aura (none currently shipped) would combine
-	# multiplicatively with an ally's speed_boost -- verified via a synthetic
-	# stacked pair using two Volt Trucks on the same ally.
+	# Two Volt Trucks reaching the same ally are the same source type
+	# (volt_truck), so they must not double up the +40% boost.
 	var squads2: Array[SquadInstance] = []
 	var volt_a := _make_squad("p1", "volt_truck", HexCoord.new(0, 0), 1, troops)
 	var volt_b := _make_squad("p1", "volt_truck", HexCoord.new(1, 0), 1, troops)
@@ -113,7 +111,7 @@ func _test_troop_auras() -> void:
 	squads2.append(volt_b)
 	squads2.append(stacked_ally)
 	var auras2 := AuraSystem.resolve_tick(squads2, bases, _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.speed_mult(auras2, stacked_ally.id), 1.4 * 1.4), "two overlapping speed_boost auras stack multiplicatively (1.4 x 1.4)")
+	_check(_approx(AuraSystem.speed_mult(auras2, stacked_ally.id), 1.4), "two overlapping Volt Trucks (same source type) still contribute only +40%, not +96%")
 
 ## --- Building aura sources --------------------------------------------------
 
@@ -143,6 +141,25 @@ func _test_building_auras() -> void:
 	AuraSystem.apply_heals(100.0, auras, squads, troops, _troop_defs)
 	_check(_approx(patient_troop.current_hp, 100.0), "apply_heals caps healing at the troop's authored max HP")
 
+	# Three Hospitals in range of the same squad must not triple its heal --
+	# same source type (hospital) dedupes to a single max contribution.
+	var hosp2 := BuildingInstance.new("hosp2", "b1", "hospital", 1, "", HexCoord.new(1, 0))
+	hosp2.init_hp(hospital_def, _building_defs)
+	base.buildings.append(hosp2)
+	var hosp3 := BuildingInstance.new("hosp3", "b1", "hospital", 1, "", HexCoord.new(2, 0))
+	hosp3.init_hp(hospital_def, _building_defs)
+	base.buildings.append(hosp3)
+	var stacked_auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
+	_check(_approx(AuraSystem.squad_mods_heal(stacked_auras, patient.id), 6.0), "three overlapping Hospitals still contribute only 6/s, not 18/s")
+
+	# A different support type (Ambulance) reaching the same squad still adds
+	# on top of Hospital's heal, since it's a different source type.
+	var ambulance := _make_squad("p1", "ambulance", HexCoord.new(3, 0), 1, troops)
+	squads.append(ambulance)
+	var mixed_auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
+	var expected_mixed: float = 6.0 + float(_troop_defs["ambulance"]["auras"][0]["magnitude"])
+	_check(_approx(AuraSystem.squad_mods_heal(mixed_auras, patient.id), expected_mixed), "Hospital and Ambulance are different source types, so their heals still add together")
+
 	# Ice Spire's slow reaches an enemy squad in range, not a friendly one.
 	var ice_base := BaseInstance.new("b2", "winter_forge", "p1", 1, HexCoord.new(20, 0))
 	var ice_def: Dictionary = _building_defs["ice_spire"]
@@ -156,6 +173,24 @@ func _test_building_auras() -> void:
 	var ice_auras := AuraSystem.resolve_tick(ice_squads, [ice_base], _troop_defs, _building_defs)
 	_check(_approx(AuraSystem.speed_mult(ice_auras, enemy_near.id), 0.8), "Ice Spire's -20% slow reaches an enemy squad in range")
 	_check(_approx(AuraSystem.speed_mult(ice_auras, friendly_near.id), 1.0), "Ice Spire's slow does not affect the owner's own troops (enemy_troops only)")
+
+	# Two Ice Spires in range of the same enemy squad are the same source
+	# type -> only one -20% slow applies, not two stacked.
+	var ice_spire2 := BuildingInstance.new("ice2", "b2", "ice_spire", 1, "", HexCoord.new(21, 0))
+	ice_spire2.init_hp(ice_def, _building_defs)
+	ice_base.buildings.append(ice_spire2)
+	var double_ice_auras := AuraSystem.resolve_tick([enemy_near], [ice_base], _troop_defs, _building_defs)
+	_check(_approx(AuraSystem.speed_mult(double_ice_auras, enemy_near.id), 0.8), "two overlapping Ice Spires (same source type) still apply only -20% slow, not -36%")
+
+	# A squad that's simultaneously the Ice Spire's enemy (p1's base slows
+	# p2) and a Volt Truck's ally (p2's own truck boosts it) gets both
+	# effects -- distinct source types (ice_spire, volt_truck) still combine
+	# multiplicatively on top of each other.
+	var volt := _make_squad("p2", "volt_truck", HexCoord.new(21, 0), 1, troops)
+	var cross_target := _make_squad("p2", "basekiller", HexCoord.new(21, 0), 1, troops)
+	var cross_squads: Array[SquadInstance] = [volt, cross_target]
+	var cross_auras := AuraSystem.resolve_tick(cross_squads, [ice_base], _troop_defs, _building_defs)
+	_check(_approx(AuraSystem.speed_mult(cross_auras, cross_target.id), 1.4 * 0.8), "Ice Spire's slow and Volt Truck's boost are different source types, so they still combine multiplicatively (1.4 x 0.8)")
 
 ## --- suppress_targeting -----------------------------------------------------
 

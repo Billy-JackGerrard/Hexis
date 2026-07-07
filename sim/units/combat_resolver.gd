@@ -40,7 +40,7 @@
 ## Auras (AuraSystem): a suppress_targeting-covered Defensive building skips
 ## its turn entirely (no attack_progress banked); attack_speed_mult multiplies
 ## in alongside the stun tail; damage_reduction reaches CombatMath via each
-## CombatTarget's aura_damage_reduction_mult (set at _build_targets time, same
+## CombatTarget's aura_damage_reduction_mult (set at build_targets time, same
 ## as defense_multiplier); heal_over_time/heal_out_of_combat apply as flat HP
 ## regen via AuraSystem.apply_heals() once per tick, before targeting/damage.
 ##
@@ -64,6 +64,10 @@ extends RefCounted
 ## regiments: every live RegimentInstance (mutated: a regiment whose Commander
 ## squad died this tick is removed — see _prune_dead's
 ## _disband_regiments_for_dead_commanders).
+## production_queues: building_id -> ProductionQueue (mutated: per
+## 07-data-architecture.md 3b, a building ruined this tick has its own entry
+## erased, and every building on a base captured this tick (HQ hits 0 HP) has
+## its entry erased too — see _prune_dead).
 static func resolve_tick(
 	dt: float,
 	squads: Array[SquadInstance],
@@ -76,11 +80,12 @@ static func resolve_tick(
 	auras: Dictionary = {},
 	standalone_buildings: Array[BuildingInstance] = [],
 	regiments: Array[RegimentInstance] = [],
+	production_queues: Dictionary = {},
 ) -> void:
 	StatusEffectSystem.resolve_tick(dt, squads, bases)
 	AuraSystem.apply_heals(dt, auras, squads, troops_by_id, troop_defs)
 
-	var targets := _build_targets(squads, bases, troops_by_id, grid, troop_defs, building_defs, auras, standalone_buildings)
+	var targets := build_targets(squads, bases, troops_by_id, grid, troop_defs, building_defs, auras, standalone_buildings)
 
 	for squad in squads:
 		_advance_squad(squad, dt, targets, troops_by_id, troop_defs, grid, building_defs, detections, auras)
@@ -91,7 +96,7 @@ static func resolve_tick(
 	for building in standalone_buildings:
 		_advance_building(building, building.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras)
 
-	_prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments)
+	_prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments, production_queues)
 	BuildingRegenSystem.resolve_tick(dt, bases)
 
 ## Builds the CombatTarget view over every live squad and combat-tracked
@@ -100,7 +105,7 @@ static func resolve_tick(
 ## targetable. `grid` feeds each CombatTarget's terrain-derived
 ## defense_multiplier/is_hidden/reveal_range; `auras` feeds a squad's
 ## damage_reduction-derived aura_damage_reduction_mult.
-static func _build_targets(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, auras: Dictionary = {}, standalone_buildings: Array[BuildingInstance] = []) -> Array[CombatTarget]:
+static func build_targets(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, auras: Dictionary = {}, standalone_buildings: Array[BuildingInstance] = []) -> Array[CombatTarget]:
 	var targets: Array[CombatTarget] = []
 	for squad in squads:
 		if squad.member_ids.is_empty():
@@ -139,14 +144,14 @@ static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[Comba
 	squad.attack_progress += dt * attack_speed
 	# Ready-but-idle: hold at most one banked volley so a unit fires promptly
 	# when an enemy arrives, without stockpiling charge over a long lull.
-	if CombatTargeting.select_target(squad, def, targets, detections) == null:
+	if CombatTargeting.select_target(squad, def, targets, detections, grid) == null:
 		squad.attack_progress = min(squad.attack_progress, 1.0)
 		return
 
 	var base_damage := float(def.get("damage", 0.0))
 	var splash := int(def.get("splashRadius", 0))
 	while squad.attack_progress >= 1.0:
-		var target := CombatTargeting.select_target(squad, def, targets, detections)
+		var target := CombatTargeting.select_target(squad, def, targets, detections, grid)
 		if target == null:
 			break
 		for member_id in _living_members(squad, troops_by_id):
@@ -177,7 +182,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 	var base_damage := float(stats.get("damage", 0.0))
 	var splash := int(stats.get("splashRadius", 0))
 	while building.attack_progress >= 1.0:
-		var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections)
+		var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections, grid)
 		if target == null:
 			building.attack_progress = min(building.attack_progress, 1.0)
 			return
@@ -212,6 +217,7 @@ static func _damage_target(target: CombatTarget, damage: float, attacker_owner: 
 		target.building.time_since_damage = 0.0
 		target.building.regen_progress = 0.0
 		return
+	target.squad.time_since_damage = 0.0
 	for member_id in target.squad.member_ids:
 		var troop: TroopInstance = troops_by_id.get(member_id)
 		if troop != null and troop.current_hp > 0.0:
@@ -234,8 +240,12 @@ static func _living_members(squad: SquadInstance, troops_by_id: Dictionary) -> A
 ## 06-building-stats-and-defenses.md's Destruction & Ruins section — clearing
 ## `grid.set_wall()` so a destroyed Wall's edge reopens for movement, and
 ## disbands any regiment whose Commander squad died this tick (see
-## _disband_regiments_for_dead_commanders).
-static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, standalone_buildings: Array[BuildingInstance] = [], regiments: Array[RegimentInstance] = []) -> void:
+## _disband_regiments_for_dead_commanders), and clears production_queues per
+## 07-data-architecture.md 3b: a freshly-ruined building's own queue entry is
+## erased, and a captured base (HQ hits 0 HP) erases every one of its
+## buildings' queue entries — in both cases the in-progress entry and its
+## already-spent resources are lost, not refunded/carried over.
+static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, standalone_buildings: Array[BuildingInstance] = [], regiments: Array[RegimentInstance] = [], production_queues: Dictionary = {}) -> void:
 	for squad in squads:
 		var survivors: Array[String] = []
 		for member_id in squad.member_ids:
@@ -284,6 +294,8 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 				# built system).
 				if building.last_damaged_by != "" and building.last_damaged_by != base.owner_id:
 					base.owner_id = building.last_damaged_by
+					for captured_building in base.buildings:
+						production_queues.erase(captured_building.id)
 				building.current_hp = building.max_hp
 				building.last_damaged_by = ""
 				building.time_since_damage = 0.0
@@ -302,6 +314,7 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 				# building no longer functions (every consuming system already
 				# gates on current_hp <= 0).
 				building.is_ruin = true
+				production_queues.erase(building.id)
 
 	for i in range(standalone_buildings.size() - 1, -1, -1):
 		if standalone_buildings[i].max_hp > 0.0 and standalone_buildings[i].current_hp <= 0.0:

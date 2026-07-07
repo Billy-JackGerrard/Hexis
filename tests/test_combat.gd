@@ -371,14 +371,18 @@ func _test_combat_resolver() -> void:
 	var farm_hp := farm.max_hp
 	_check(farm_hp > 0.0, "seeded Farm has a positive max_hp to fight down")
 	var bases: Array[BaseInstance] = [enemy_base]
+	# A live ProductionQueue keyed to the Farm should be erased the instant it
+	# ruins, per 07-data-architecture.md 3b -- a ruined building can't produce.
+	var farm_queues: Dictionary = {farm.id: ProductionQueue.new(farm.id)}
 	for _i in range(200):
 		if farm.is_ruin:
 			break
-		CombatResolver.resolve_tick(1.0, [siege], bases, t4, grid, _troop_defs, _building_defs)
+		CombatResolver.resolve_tick(1.0, [siege], bases, t4, grid, _troop_defs, _building_defs, {}, {}, [], [], farm_queues)
 	_check(farm.is_ruin, "Basekiller fights the Farm down to a ruin")
 	_check(enemy_base.buildings.size() == 1 and enemy_base.buildings[0] == farm, "the ruined Farm stays in base.buildings, not removed")
 	_check(farm.current_hp <= 0.0, "a ruin sits at 0 HP")
 	_check(farm.last_damaged_by == "p1", "the ruin remembers who dealt the killing blow")
+	_check(not farm_queues.has(farm.id), "the ruined Farm's ProductionQueue is erased outright")
 
 	# an HQ sieged to 0 HP captures the base instead of ruining
 	var t_hq: Dictionary = {}
@@ -387,14 +391,22 @@ func _test_combat_resolver() -> void:
 	var hq: BuildingInstance = hq_base.buildings[0]
 	var hq_max_hp := hq.max_hp
 	var hq_bases: Array[BaseInstance] = [hq_base]
+	# A live ProductionQueue for another building on the SAME base should be
+	# wiped out the moment the base is captured, not just the HQ's own (the
+	# HQ itself never produces) -- per 07-data-architecture.md 3b, capture
+	# clears every one of the captured base's queues.
+	var other_building := BuildingInstance.new("other_prod", hq_base.id, "barracks", 1)
+	hq_base.buildings.append(other_building)
+	var hq_capture_queues: Dictionary = {other_building.id: ProductionQueue.new(other_building.id)}
 	for _i in range(200):
 		if hq_base.owner_id == "p1":
 			break
-		CombatResolver.resolve_tick(1.0, [hq_siege], hq_bases, t_hq, grid, _troop_defs, _building_defs)
+		CombatResolver.resolve_tick(1.0, [hq_siege], hq_bases, t_hq, grid, _troop_defs, _building_defs, {}, {}, [], [], hq_capture_queues)
 	_check(hq_base.owner_id == "p1", "an HQ fought to 0 HP flips the whole base to the attacker")
 	_check(hq.current_hp == hq_max_hp, "the HQ respawns at full HP under its new owner")
 	_check(not hq.is_ruin, "the HQ is never marked as a ruin")
-	_check(hq_base.buildings.size() == 1, "the HQ is never removed from the base")
+	_check(hq_base.buildings.size() == 2, "the HQ is never removed from the base")
+	_check(not hq_capture_queues.has(other_building.id), "capturing the base erases every one of its buildings' ProductionQueues")
 
 	# a Defensive building fires back and damages an attacking squad
 	var t5: Dictionary = {}

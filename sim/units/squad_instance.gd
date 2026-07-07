@@ -42,6 +42,14 @@ var stun_tail_remaining: float = 0.0
 ## which never queues a tail); consumed by StatusEffectSystem.resolve_tick().
 var stun_tail_queued: float = 0.0
 
+## Seconds since any member of this squad last took damage — same out-of-
+## combat gating shape as BuildingInstance.time_since_damage, but consumed by
+## AuraSystem.apply_heals() for Commander Warden's `heal_out_of_combat` aura
+## (per its own note: only ticks once a squad hasn't taken damage recently,
+## unlike Ambulance/Repair Truck/Hospital's always-on `heal_over_time`). Reset
+## by CombatResolver on every hit; incremented every tick by apply_heals().
+var time_since_damage: float = 0.0
+
 func _init(p_id: String, p_owner_id: String, p_troop_type: String, p_current_hex: HexCoord) -> void:
 	id = p_id
 	owner_id = p_owner_id

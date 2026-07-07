@@ -130,6 +130,7 @@ func _test_production_queue() -> void:
 	var troop_defs := DataLoader.load_dir("res://data/troops")
 	var building_defs := DataLoader.load_dir("res://data/buildings")
 	var spawn_hex := HexCoord.new(0, 0)
+	var troops: Dictionary = {}
 
 	# enqueue + advance timing
 	var queue := ProductionQueue.new("barracks1")
@@ -163,7 +164,7 @@ func _test_production_queue() -> void:
 	# owner already owns 3 squads against an (empty-bases) maxSquads of 2 --
 	# joining must still succeed since an over-cap owner can still fill an
 	# existing squad's spare room.
-	ProductionManager.pump(join_queue, "p1", spawn_hex, "barracks", join_squads, [], building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
+	ProductionManager.pump(join_queue, "p1", spawn_hex, "barracks", join_squads, troops, [], building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(join_queue.is_empty(), "completed entry that joins an existing squad is popped")
 	_check(join_squads.size() == 3, "joining an existing squad does not create a new one")
 	_check(roomy.member_ids.size() == 2, "joined troop is appended to the existing squad")
@@ -174,7 +175,7 @@ func _test_production_queue() -> void:
 	ProductionManager.enqueue(new_squad_queue, "rifleman", troop_defs)
 	ProductionManager.advance(new_squad_queue, 10.0)
 	var empty_squads: Array[SquadInstance] = []
-	ProductionManager.pump(new_squad_queue, "p1", spawn_hex, "barracks", empty_squads, one_capital, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
+	ProductionManager.pump(new_squad_queue, "p1", spawn_hex, "barracks", empty_squads, troops, one_capital, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(new_squad_queue.is_empty(), "completed entry that forms a new squad is popped")
 	_check(empty_squads.size() == 1, "under cap -> a new squad is created")
 	_check(empty_squads[0].member_ids.size() == 1, "the new squad has the newly trained troop")
@@ -189,14 +190,14 @@ func _test_production_queue() -> void:
 	var pause_queue := ProductionQueue.new("barracks1")
 	ProductionManager.enqueue(pause_queue, "rifleman", troop_defs)
 	ProductionManager.advance(pause_queue, 10.0)
-	ProductionManager.pump(pause_queue, "p1", spawn_hex, "barracks", at_cap_squads, one_capital, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
+	ProductionManager.pump(pause_queue, "p1", spawn_hex, "barracks", at_cap_squads, troops, one_capital, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(pause_queue.paused, "queue pauses when a new squad is needed at the squad cap")
 	_check(pause_queue.pause_reason == "squad_cap", "pause_reason is squad_cap")
 	_check(not pause_queue.is_empty(), "paused entry is held, not dropped")
 
 	# auto-resume: freeing a slot and re-pumping deploys the held troop
 	at_cap_squads.remove_at(0)
-	ProductionManager.pump(pause_queue, "p1", spawn_hex, "barracks", at_cap_squads, one_capital, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
+	ProductionManager.pump(pause_queue, "p1", spawn_hex, "barracks", at_cap_squads, troops, one_capital, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(not pause_queue.paused, "re-pumping after a slot frees clears the pause")
 	_check(pause_queue.is_empty(), "held entry deploys once capacity is available again")
 	_check(at_cap_squads.size() == 4, "the held troop formed its new squad on resume")
@@ -206,7 +207,7 @@ func _test_production_queue() -> void:
 	ProductionManager.enqueue(commander_queue, "commander_vanguard", troop_defs)
 	ProductionManager.advance(commander_queue, 45.0)
 	var no_squads: Array[SquadInstance] = []
-	ProductionManager.pump(commander_queue, "p1", spawn_hex, "command_centre", no_squads, [], building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
+	ProductionManager.pump(commander_queue, "p1", spawn_hex, "command_centre", no_squads, troops, [], building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(commander_queue.paused, "queue pauses when a Commander is needed at the commander cap")
 	_check(commander_queue.pause_reason == "commander_cap", "pause_reason is commander_cap")
 
@@ -214,7 +215,7 @@ func _test_production_queue() -> void:
 	var base_with_cc := BaseInstance.new("b2", "capital", "p1", 1)
 	base_with_cc.buildings.append(BuildingInstance.new("cc_bldg", "b2", "command_centre", 1))
 	var bases_with_cc: Array[BaseInstance] = [base_with_cc]
-	ProductionManager.pump(commander_queue, "p1", spawn_hex, "command_centre", no_squads, bases_with_cc, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
+	ProductionManager.pump(commander_queue, "p1", spawn_hex, "command_centre", no_squads, troops, bases_with_cc, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(not commander_queue.paused, "re-pumping after a Command Centre is built clears the commander_cap pause")
 	_check(commander_queue.is_empty(), "held Commander deploys once the commander cap has room")
 	_check(no_squads.size() == 1, "the deployed Commander formed its own squad")

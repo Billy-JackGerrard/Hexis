@@ -32,24 +32,33 @@ const REVEAL_COOLDOWN_SECONDS: float = 3.0
 ## units, which use their own revealRange). Tune freely.
 const FOREST_AMBUSH_REVEAL_RANGE: float = 0.0
 
-## True if this squad is currently hidden from enemies: authored stealth, or
-## an Infantry squad ambushing from a Forest hex — and not mid-reveal-cooldown
-## from having attacked recently.
-static func is_squad_hidden(squad: SquadInstance, troop_def: Dictionary, grid: HexGrid) -> bool:
+## True if this squad is currently hidden from enemies: authored stealth,
+## Commander Nightfall's `grant_stealth` regiment aura (AuraSystem), or an
+## Infantry squad ambushing from a Forest hex — and not mid-reveal-cooldown
+## from having attacked recently. `auras` defaults to {} (no granted stealth)
+## so existing callers keep compiling.
+static func is_squad_hidden(squad: SquadInstance, troop_def: Dictionary, grid: HexGrid, auras: Dictionary = {}) -> bool:
 	if squad.reveal_cooldown_remaining > 0.0:
 		return false
 	if troop_def.get("stealth", false):
+		return true
+	if AuraSystem.is_granted_stealth(auras, squad.id):
 		return true
 	if String(troop_def.get("domain", "")) != "Infantry":
 		return false
 	return grid.get_terrain(squad.current_hex) == Terrain.Type.FOREST
 
 ## Range within which an enemy sees this squad despite being hidden, without
-## needing a detector — authored revealRange for schema-stealth units, or the
-## forest-ambush placeholder otherwise.
-static func squad_reveal_range(squad: SquadInstance, troop_def: Dictionary, grid: HexGrid) -> float:
+## needing a detector — authored revealRange for schema-stealth units, the
+## granting Commander's own revealRange for a Nightfall-granted cloak (same
+## revealRange/revealsOnAttack convention as Nightfall's own stealth, per
+## commander_nightfall.json's notes), or the forest-ambush placeholder
+## otherwise.
+static func squad_reveal_range(squad: SquadInstance, troop_def: Dictionary, grid: HexGrid, auras: Dictionary = {}) -> float:
 	if troop_def.get("stealth", false):
 		return float(troop_def.get("revealRange", 0.0))
+	if AuraSystem.is_granted_stealth(auras, squad.id):
+		return AuraSystem.granted_stealth_reveal_range(auras, squad.id)
 	return FOREST_AMBUSH_REVEAL_RANGE
 
 ## Recomputes detector coverage from scratch: detections[owner_id] ->

@@ -195,3 +195,63 @@ static func _aura_magnitude_key(effect: String) -> String:
 	if effect == "heal_over_time" or effect == "heal_out_of_combat":
 		return "healMagnitude"
 	return ""
+
+## Level-1 build cost (data/*.json's raw {"stone": 40, ...} shape — not yet
+## converted to ResourceType.Type, see ResourceType.dict_from_named) for this
+## building/material — the basis for both a fresh placement's
+## total_resources_spent and a ruin-rebuild's cost (a percentage of this, see
+## rebuild_cost_percent). Checked in the same three-shape dispatch as
+## _hp_model, plus Command Centre's commanderProgression (its own build cost
+## lives in tierLevels, not nonProductionUpgrade — see data/buildings/schema.json).
+static func base_cost(def: Dictionary, material: String, building_defs: Dictionary) -> Dictionary:
+	var resolved := resolve_def(def, building_defs)
+
+	for row in resolved.get("productionUpgradeLevels", []):
+		if int(row.get("level", 0)) == 1:
+			return row.get("cost", {})
+
+	var commander_progression: Dictionary = resolved.get("commanderProgression", {})
+	if not commander_progression.is_empty():
+		for row in commander_progression.get("tierLevels", []):
+			if int(row.get("level", 0)) == 1:
+				return row.get("cost", {})
+
+	return _hp_model(resolved, material).get("baseCost", {})
+
+## Percent of base_cost() a ruined (non-HQ, non-Wall, non-standalone) building
+## costs to rebuild at level 1, per 06-building-stats-and-defenses.md — the
+## def's own `rebuildCost` field (default 50, i.e. 50%). Distinct from
+## demolish_building's flat, hardcoded 50% refund (02-bases-and-buildings.md:
+## "This is a flat 50%, unlike the combat-destruction ruin-rebuild cost
+## model... which is a cost to rebuild, not a refund").
+static func rebuild_cost_percent(def: Dictionary, building_defs: Dictionary) -> float:
+	return float(resolve_def(def, building_defs).get("rebuildCost", 50))
+
+## data/buildings/*.json output-field name -> ResourceType.Type, for every
+## Resource-category building (Farm/Harbour/Quarry/Mine/StoneWorks/Oil Rig/
+## Lumber Mill) — none of which are multi-material, so these always live under
+## nonProductionUpgrade, unlike max_hp/vision_range's materialStats branch.
+const _OUTPUT_KEYS := {
+	"foodOutput": ResourceType.Type.FOOD,
+	"stoneOutput": ResourceType.Type.STONE,
+	"steelOutput": ResourceType.Type.STEEL,
+	"woodOutput": ResourceType.Type.WOOD,
+	"fuelOutput": ResourceType.Type.FUEL,
+}
+
+## This Resource building's per-tick output at `level`, as a ResourceType.Type
+## -> float dict (already leveled via statGrowth, per-resource) — {} for any
+## building with no output field at all (every non-Resource building).
+## Consumed by ProductionOutputSystem, which then applies BaseDef's
+## resourceModifiers (Capital's Oil Rig penalty, Foundry Reach's Steel bonus,
+## etc.) on top.
+static func resource_output(def: Dictionary, level: int, building_defs: Dictionary) -> Dictionary:
+	var resolved := resolve_def(def, building_defs)
+	var upgrade: Dictionary = resolved.get("nonProductionUpgrade", {})
+	var base_stats: Dictionary = upgrade.get("baseStats", {})
+	var result: Dictionary = {}
+	for key in _OUTPUT_KEYS:
+		if base_stats.has(key):
+			var growth: Dictionary = upgrade.get("statGrowth", {}).get(key, {})
+			result[_OUTPUT_KEYS[key]] = _apply_growth(float(base_stats[key]), growth, level)
+	return result

@@ -457,6 +457,119 @@ writing real UI code does, and it also needs actual game state to bind to.
      exemption instead of failing outright. `tests/test_placement.gd`
      extended (new section, covering both the exempted and
      no-foothold-yet-so-still-rejected cases).
+   - [x] Top-level tick orchestrator, command/order-issuing layer, and Wall
+     line-of-sight raycasting — the last three headless gaps, closed together
+     since building the order-issuing layer meant actually wiring in most of
+     the "blocked on this layer" deferrals scattered through this file.
+     `SimOrchestrator.resolve_tick()` (`sim/sim_orchestrator.gd`) is the
+     tick everything else was only ever driven from a test in isolation
+     before now: per `07-data-architecture.md`'s two tick rates, its fine
+     tick (whatever `dt` the caller passes, nominally 100ms) runs
+     Detection → Vision → attack-move → Movement → regiment lock-step →
+     Combat → production advance/pump every call, while its economy tick
+     (Aura → upkeep/production → `ResourceTick` → deficit-deaths) only fires
+     once 5 seconds have banked, via a `MatchState.economy_accumulator`
+     (state lives on the instance, same as every other accumulator in this
+     codebase — the resolver itself stays stateless). `MatchState`
+     (`sim/match_state.gd`) is the new shared registry bundle (squads, bases,
+     troops_by_id, regiments, standalone_buildings, production_queues,
+     resource_pools, defs, id generation) both it and the command layer
+     thread through — introduced now because this is the first code that
+     actually needs to hold all of it together across ticks, not a
+     speculative abstraction.
+     `CommandProcessor` (`sim/command/command_processor.gd`) is the
+     order-issuing layer itself: resolves an id-based player action into a
+     call against the existing systems that already did the work, closing
+     the specific gaps their own doc comments flagged as blocked on it —
+     `move_squad`/`attack_target` (including regiment-vs-plain-squad
+     dispatch for a Commander move), `board_cargo`/`unload_cargo` (in_combat
+     now derived on demand via new `CombatStateSystem.is_squad_in_combat()`,
+     rather than always defaulting false), `assign_to_commander`/
+     `leave_regiment` (creates/mutates `RegimentInstance` directly, the
+     `07-data-architecture.md` 4b flow), `place_building`/
+     `place_standalone_building` (now enforcing Engineer-only
+     `canBuildInfrastructure`, per `troop.schema.json`)/`place_wall`, and two
+     brand-new actions: `demolish_building` (flat 50% of
+     `BuildingInstance.total_resources_spent` refunded, blocked for
+     `isFixed`) and `rebuild_building` (pays the def's `rebuildCost`% of
+     `BuildingStats.base_cost()` to restore a ruin to level 1). Wiring
+     demolish/rebuild needed `total_resources_spent` tracking
+     (`BuildingInstance.init_cost()`, called alongside `init_hp()` at every
+     placement site — this also caught `place_building()` never having
+     called `init_hp()` at all, unlike `place_standalone_building()`/
+     `place_wall()`, so a player-placed base building had no combat HP until
+     now) and `BuildingStats.base_cost()`/`.rebuild_cost_percent()`
+     (mirroring `max_hp()`'s per-shape dispatch, plus a `commanderProgression`
+     branch for Command Centre). Wall line-of-sight
+     (`01-map-and-terrain.md`: "an attack whose line from attacker-hex to
+     target-hex crosses a walled edge is blocked") is `HexCoord.line()` (cube
+     lerp + round, the standard hex-line algorithm) and
+     `HexGrid.is_line_blocked()`, consumed by `CombatTargeting.candidates()`
+     via a new optional `grid` param (default null = no LOS check, so every
+     existing call site kept compiling) — never applied to a Wall's own edge
+     (attacking a Wall is never blocked by itself) and skipped entirely for
+     Air attackers, same as every other terrain rule. Landing the order layer
+     also closed several other deferrals its own doc comments named: Commander
+     regiment-membership buff auras (Vanguard's `speed_boost`, Nightfall's
+     `grant_stealth`, Warden's `heal_out_of_combat`) — `AuraSystem.resolve_tick()`
+     gained a `regiments` param and resolves `own_regiment`/
+     `own_regiment_and_self` by membership instead of proximity now that
+     regiments are addressable; `grant_stealth` reached
+     `DetectionSystem.is_squad_hidden()`/`.squad_reveal_range()` via a new
+     `auras` param; `heal_out_of_combat` finally gates on a new
+     `SquadInstance.time_since_damage` (mirroring `BuildingInstance`'s own
+     regen-delay field) instead of being folded unconditionally into
+     `heal_over_time`, per that code's own long-standing note. Mule's
+     `upkeep_reduction` also finally reaches `UpkeepSystem.compute_upkeep()`
+     (new `auras` param). Separately (not order-layer-gated, just never
+     built): `ProductionOutputSystem.compute_production()`
+     (`sim/economy/production_output_system.gd`) sources every Resource
+     building's `foodOutput`/`stoneOutput`/etc. (`BuildingStats.resource_output()`)
+     through `ResourceModifier` into the dict `ResourceTick.apply()` always
+     expected but nothing had ever computed — production was authored data
+     with zero consumers until now. Building the orchestrator also surfaced a
+     real, previously-invisible bug: `ProductionManager.pump()` created each
+     deployed troop's `TroopInstance` but never registered it in any
+     `troops_by_id` registry, so a squad it produced looked dead to
+     `CombatResolver._prune_dead()` the very next tick and was silently
+     wiped — invisible before because no test exercised `pump()` and
+     `CombatResolver` together in the same tick loop; `pump()` now takes a
+     `troops_by_id` param and registers every troop it creates.
+     `tests/test_line_of_sight.gd`, `tests/test_sim_orchestrator.gd`,
+     `tests/test_command_processor.gd`, and `tests/test_commander_auras.gd`
+     (new files), plus `tests/test_units.gd` extended for the `pump()` fix.
+     **Deferred at the time** (found during this pass, out of scope for it,
+     since resolved in a later pass — see below): resource-cost
+     enforcement/deduction on fresh builds or troop training —
+     `place_building`/`place_standalone_building`/`enqueue_production` still
+     don't check or spend resources at all (demolish/rebuild do, since paying/
+     refunding is their entire point, but this is a separate, larger gate to
+     add later); and clearing a `ProductionQueue` when its building is ruined
+     or its base captured, per `07-data-architecture.md` 3b (today an
+     orphaned queue is simply skipped by the orchestrator's production step
+     rather than actively erased).
+
+     **Both of those deferred items are now resolved.** Resource-cost
+     enforcement lives in `CommandProcessor` (`sim/command/command_processor.gd`),
+     the same check-then-spend shape `rebuild_building` already used:
+     `place_building`/`place_standalone_building`/`place_wall` each validate
+     placement first (`BuildingPlacement.can_place*`, read-only), price it via
+     `BuildingStats.base_cost()` + `ResourceType.dict_from_named()`, reject
+     with a new `BuildingPlacement.Result.INSUFFICIENT_RESOURCES` if the
+     owner's `ResourcePool` can't cover it, and only deduct once the
+     underlying placement call actually succeeds; `enqueue_production` does
+     the same against `troop_defs[type]["cost"]`, returning
+     `CommandProcessor.Result.INSUFFICIENT_RESOURCES`. `BuildingPlacement`
+     itself stays resource-agnostic (still no pool param) — the gate is
+     command-layer only, so direct `BuildingPlacement.place_*` callers (tests,
+     and any future non-command caller) are unaffected. Separately,
+     `CombatResolver.resolve_tick()`/`_prune_dead()` gained a
+     `production_queues` param (threaded from `SimOrchestrator` as
+     `state.production_queues`): a building freshly ruined this tick has its
+     own `production_queues` entry erased, and a base captured this tick (its
+     HQ hit 0 HP) has every one of its buildings' entries erased, per
+     `07-data-architecture.md` 3b's "resources already spent on those entries
+     are not refunded" rule.
 2. **Godot rendering scaffold** — a minimal scene rendering one base,
    click-to-move wired to the sim core.
    - [ ] Not started.

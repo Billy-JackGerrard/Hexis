@@ -68,8 +68,8 @@ static func for_squad(p_squad: SquadInstance, troop_def: Dictionary, troops_by_i
 	t.armor = float(troop_def.get("armor", 0.0))
 	if grid != null:
 		t.defense_multiplier = Terrain.defense_bonus(grid.get_terrain(p_squad.current_hex))
-		t.is_hidden = DetectionSystem.is_squad_hidden(p_squad, troop_def, grid)
-		t.reveal_range = DetectionSystem.squad_reveal_range(p_squad, troop_def, grid)
+		t.is_hidden = DetectionSystem.is_squad_hidden(p_squad, troop_def, grid, auras)
+		t.reveal_range = DetectionSystem.squad_reveal_range(p_squad, troop_def, grid, auras)
 	if not auras.is_empty():
 		t.aura_damage_reduction_mult = AuraSystem.damage_reduction_mult(auras, p_squad.id)
 	return t
