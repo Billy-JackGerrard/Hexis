@@ -31,6 +31,10 @@ func _init() -> void:
 	_test_stealth_and_detection()
 	print("CombatResolver")
 	_test_combat_resolver()
+	print("CombatResolver Commander-death regiment disband")
+	_test_commander_death_regiment_disband()
+	print("CombatResolver Wall combat")
+	_test_wall_combat()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -79,7 +83,24 @@ func _test_building_stats() -> void:
 	# inherits Turret's defensiveStats + nonProductionUpgrade wholesale.
 	var variant := {"id": "test_variant", "name": "Test Variant", "category": "Defensive", "extends": "turret"}
 	_check(_approx(BuildingStats.max_hp(variant, 1, "", _building_defs), 250.0), "extends: variant inherits Turret's baseStats.hp (250)")
-	_check(BuildingStats.defensive_stats(variant, _building_defs).get("damage", 0.0) == 18, "extends: variant inherits Turret's defensiveStats.damage (18)")
+	_check(BuildingStats.defensive_stats(variant, 1, "", _building_defs).get("damage", 0.0) == 18, "extends: variant inherits Turret's defensiveStats.damage (18)")
+
+	# Tower (multi-material Defensive): defensive_stats merges the material's
+	# level-scaled damage/attackSpeed/range/canTarget/splashRadius on top of
+	# the building-level (material-invariant) detector/detectionRange, per
+	# data/buildings/schema.json's materialStats.canTarget note.
+	var tower: Dictionary = _building_defs["tower"]
+	var wood_stats := BuildingStats.defensive_stats(tower, 1, "wood", _building_defs)
+	_check(wood_stats.get("damage", 0.0) == 10.0, "Wood Tower level 1 damage from materialStats.wood.baseStats")
+	_check(_approx(wood_stats.get("attackSpeed", 0.0), 1.6), "Wood Tower attackSpeed from materialStats.wood.baseStats")
+	_check(wood_stats.get("canTarget", []) == ["Infantry", "Land", "Air", "Naval"], "Wood Tower canTarget from materialStats.wood")
+	_check(wood_stats.get("detector", false) == true, "Wood Tower still carries the material-invariant detector flag")
+	var steel_stats := BuildingStats.defensive_stats(tower, 1, "steel", _building_defs)
+	_check(not steel_stats.get("canTarget", []).has("Air"), "Steel Tower's canTarget drops Air, unlike Wood/Stone")
+	_check(steel_stats.get("splashRadius", 0) == 2, "Steel Tower's splashRadius (2) from materialStats.steel")
+	var stone_damage_l1: float = BuildingStats.defensive_stats(tower, 1, "stone", _building_defs).get("damage", 0.0)
+	var stone_damage_l2: float = BuildingStats.defensive_stats(tower, 2, "stone", _building_defs).get("damage", 0.0)
+	_check(stone_damage_l2 > stone_damage_l1, "Stone Tower's damage grows with level (8% percent growth)")
 
 	# a real Turret variant still resolves an HP even though it restates blocks.
 	_check(BuildingStats.max_hp(_building_defs["cold_turret"], 1, "", _building_defs) > 0.0, "real Turret variant (cold_turret) resolves a positive max_hp")
@@ -397,3 +418,131 @@ func _test_combat_resolver() -> void:
 	_check(regen_building.current_hp == regen_building.max_hp - 100.0, "crossing the delay banks no regen tick yet on its own")
 	CombatResolver.resolve_tick(BuildingRegenSystem.REGEN_TICK_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
 	_check(_approx(regen_building.current_hp, regen_building.max_hp - 100.0 + regen_building.max_hp * BuildingRegenSystem.REGEN_FRACTION_OF_MAX_HP), "once a full 5-second regen tick banks past the delay, it heals 5% of max HP")
+
+	# A standalone building (Tower — Engineer-built, owner_id set directly
+	# rather than derived from a BaseInstance) is targetable by CombatResolver
+	# too: it fires back like any Defensive building, and a Basekiller can
+	# fight it down.
+	var t6: Dictionary = {}
+	var attacker := _make_squad("p1", "basekiller", HexCoord.new(1, 0), 1, t6)
+	var tower := BuildingInstance.new("standalone_tower", "", "tower", 1, "wood", HexCoord.new(0, 0), "p2")
+	tower.init_hp(_building_defs["tower"], _building_defs)
+	var standalone: Array[BuildingInstance] = [tower]
+	var no_bases: Array[BaseInstance] = []
+	CombatResolver.resolve_tick(1.0, [attacker], no_bases, t6, grid, _troop_defs, _building_defs, {}, {}, standalone)
+	_check(t6[attacker.member_ids[0]].current_hp < 200.0, "standalone Tower fires back and damages the attacking squad")
+	_check(tower.current_hp < tower.max_hp, "standalone Tower is damaged by CombatResolver's targeting")
+
+	# Fought down to 0 HP, a standalone building deletes outright — it never
+	# ruins, per 06-building-stats-and-defenses.md's Destruction & Ruins section.
+	for _i in range(200):
+		if standalone.is_empty():
+			break
+		CombatResolver.resolve_tick(1.0, [attacker], no_bases, t6, grid, _troop_defs, _building_defs, {}, {}, standalone)
+	_check(standalone.is_empty(), "a standalone Tower fought to 0 HP is deleted outright, not ruined")
+
+## Per 04-combat.md: "if a Commander dies mid-battle, its regiment disbands —
+## every member squad reverts to operating independently." RegimentInstance
+## itself was previously untouched by any resolver (only exercised directly
+## by tests/test_units.gd's assign_squad/remove_squad checks) — this proves
+## CombatResolver._disband_regiments_for_dead_commanders actually fires once
+## the Commander's squad is pruned.
+func _test_commander_death_regiment_disband() -> void:
+	var grid := HexGrid.new()
+	var troops: Dictionary = {}
+	var commander := _make_squad("p1", "commander_vanguard", HexCoord.new(0, 0), 1, troops)
+	var member_a := _make_squad("p1", "rifleman", HexCoord.new(0, 0), 1, troops)
+	var member_b := _make_squad("p1", "sniper", HexCoord.new(0, 0), 1, troops)
+	member_a.commander_id = commander.id
+	member_a.order = {"type": "regiment_move", "goal": HexCoord.new(3, 0).to_key()}
+	member_b.commander_id = commander.id
+	member_b.order = {"type": "regiment_move", "goal": HexCoord.new(3, 0).to_key()}
+
+	var regiment := RegimentInstance.new("r1", commander.id)
+	regiment.assign_squad(member_a.id, 4)
+	regiment.assign_squad(member_b.id, 4)
+	var regiments: Array[RegimentInstance] = [regiment]
+
+	# Kill the Commander directly (combat RNG/targeting isn't the point here).
+	troops[commander.member_ids[0]].current_hp = 0.0
+
+	var squads: Array[SquadInstance] = [commander, member_a, member_b]
+	var bases: Array[BaseInstance] = []
+	CombatResolver.resolve_tick(1.0, squads, bases, troops, grid, _troop_defs, _building_defs, {}, {}, [], regiments)
+
+	_check(not squads.any(func(s): return s.id == commander.id), "the dead Commander squad is pruned")
+	_check(regiments.is_empty(), "the regiment is disbanded once its Commander dies")
+	_check(member_a.commander_id == "", "member squad's commander_id is cleared")
+	_check(member_b.commander_id == "", "second member squad's commander_id is cleared")
+	_check(member_a.order.is_empty(), "member squad's regiment_move order is reset to idle")
+	_check(member_b.order.is_empty(), "second member squad's regiment_move order is reset to idle")
+
+	# A regiment whose Commander is still alive is left completely untouched.
+	var troops2: Dictionary = {}
+	var live_commander := _make_squad("p1", "commander_vanguard", HexCoord.new(0, 0), 1, troops2)
+	var live_member := _make_squad("p1", "rifleman", HexCoord.new(0, 0), 1, troops2)
+	live_member.commander_id = live_commander.id
+	live_member.order = {"type": "regiment_move", "goal": HexCoord.new(3, 0).to_key()}
+	var live_regiment := RegimentInstance.new("r2", live_commander.id)
+	live_regiment.assign_squad(live_member.id, 4)
+	var live_regiments: Array[RegimentInstance] = [live_regiment]
+	var squads2: Array[SquadInstance] = [live_commander, live_member]
+	CombatResolver.resolve_tick(1.0, squads2, [], troops2, grid, _troop_defs, _building_defs, {}, {}, [], live_regiments)
+	_check(not live_regiments.is_empty(), "a regiment whose Commander survives is not disbanded")
+	_check(live_member.commander_id == live_commander.id, "a living regiment's member commander_id is untouched")
+	_check(live_member.order.get("type") == "regiment_move", "a living regiment's member order is untouched")
+
+## Walls are edge-keyed (BuildingInstance.hex_a/hex_b, hex left null) rather
+## than hex-keyed, but otherwise ride the exact same base.buildings/
+## CombatResolver machinery every other base-attached building already uses
+## (BuildingStats.max_hp, BuildingRegenSystem, _build_targets/_advance_building,
+## _prune_dead) — this proves that reuse actually works end-to-end, plus the
+## two genuinely Wall-specific behaviors: deleting outright (never ruining)
+## and reopening grid.set_wall() on destruction.
+func _test_wall_combat() -> void:
+	var grid := HexGrid.new()
+	grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
+	grid.set_terrain(HexCoord.new(1, 0), Terrain.Type.PLAINS)
+	var base := BaseInstance.new("wbase", "capital", "p2", 1, HexCoord.new(0, 0))
+	var wall := BuildingInstance.new("wall1", "wbase", "wall", 1, "wood")
+	wall.hex_a = HexCoord.new(0, 0)
+	wall.hex_b = HexCoord.new(1, 0)
+	wall.init_hp(_building_defs["wall"], _building_defs)
+	base.buildings.append(wall)
+	grid.set_wall(wall.hex_a, wall.hex_b, true)
+	_check(wall.max_hp > 0.0, "Wood Wall resolves a positive max_hp from materialStats, same as BuildingPlacement.place_wall")
+	_check(grid.is_walled_edge(HexCoord.new(0, 0), HexCoord.new(1, 0)), "the edge is walled before combat")
+
+	var t7: Dictionary = {}
+	var attacker := _make_squad("p1", "basekiller", HexCoord.new(1, 0), 1, t7)
+	var bases: Array[BaseInstance] = [base]
+	for _i in range(200):
+		if not base.buildings.any(func(b): return b.id == "wall1"):
+			break
+		CombatResolver.resolve_tick(1.0, [attacker], bases, t7, grid, _troop_defs, _building_defs)
+	_check(not base.buildings.any(func(b): return b.id == "wall1"), "the Wall is fought down and deleted outright, not ruined")
+	_check(not grid.is_walled_edge(HexCoord.new(0, 0), HexCoord.new(1, 0)), "destroying the Wall reopens its edge for movement/pathing")
+
+	# Air-domain attackers ignore Walls entirely as targets, per
+	# 01-map-and-terrain.md; a Land attacker can target the same Wall fine.
+	var wall2 := BuildingInstance.new("wall2", "wbase2", "wall", 1, "wood")
+	wall2.hex_a = HexCoord.new(0, 0)
+	wall2.hex_b = HexCoord.new(1, 0)
+	wall2.init_hp(_building_defs["wall"], _building_defs)
+	var wall_target := CombatTarget.for_building(wall2, _building_defs["wall"], _building_defs, grid)
+	wall_target.owner_id = "p2"
+	var targets2: Array[CombatTarget] = [wall_target]
+
+	var air_def: Dictionary = _troop_defs["hot_air_balloon"]
+	_check(String(air_def.get("domain")) == "Air", "hot_air_balloon is Air-domain (canTarget includes Defensive, so this isn't a canTarget-mismatch)")
+	var air_candidates := CombatTargeting.candidates(HexCoord.new(1, 0), "p1", 10, air_def, targets2)
+	_check(air_candidates.is_empty(), "an Air-domain attacker ignores a Wall entirely, even in range and canTarget-eligible")
+
+	var land_def: Dictionary = _troop_defs["basekiller"]
+	var land_candidates := CombatTargeting.candidates(HexCoord.new(1, 0), "p1", 10, land_def, targets2)
+	_check(land_candidates.size() == 1, "a Land-domain attacker can target the same Wall")
+
+	# A Wall is in range from EITHER hex it borders, not just one.
+	_check(wall_target.distance_from(HexCoord.new(0, 0)) == 0, "distance_from is 0 when the attacker stands on hex_a")
+	_check(wall_target.distance_from(HexCoord.new(1, 0)) == 0, "distance_from is 0 when the attacker stands on hex_b")
+	_check(wall_target.distance_from(HexCoord.new(2, 0)) == 1, "distance_from is the MIN distance to either endpoint (1 via hex_b, not 2 via hex_a)")

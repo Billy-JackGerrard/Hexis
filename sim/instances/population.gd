@@ -36,8 +36,9 @@ static func population_cap(base: BaseInstance, building_defs: Dictionary) -> int
 	return cap
 
 ## populationUsed = count of placed buildings whose def populationCost (default
-## 1) is > 0 — House/HQ are 0 and don't count; Walls (deferred, not modeled as
-## BuildingInstance yet) are excluded by construction.
+## 1) is > 0 — House/HQ are 0 and don't count; Walls are also 0
+## (wall.json's populationCost: 0), so they're naturally excluded too, per
+## 02-bases-and-buildings.md ("Walls don't consume population").
 static func population_used(base: BaseInstance, building_defs: Dictionary) -> int:
 	var used := 0
 	for b in base.buildings:

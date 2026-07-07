@@ -11,6 +11,12 @@ enum Kind { SQUAD, BUILDING }
 var kind: Kind
 var owner_id: String
 var hex: HexCoord
+## Set only for a Wall target (Kind.BUILDING, building.hex_a/hex_b both set —
+## a Wall has no single occupied hex, it sits on the edge between two). `hex`
+## is set to hex_a as the canonical anchor (splash-radius math, mostly); range
+## checks use distance_from() below instead, which is correct for either edge
+## endpoint.
+var hex_b: HexCoord = null
 ## The keys this target presents for canTarget / damage-modifier matching:
 ## a squad presents its troop Domain + tags; a building presents "Defensive"
 ## (Defensive-category) or "Structure" (any other building/wall).
@@ -75,7 +81,6 @@ static func for_building(p_building: BuildingInstance, building_def: Dictionary,
 	# the base. Only base buildings exist in this slice, so ownership comes from
 	# the caller wiring (set after construction). Left blank here; CombatTargeting
 	# sets owner_id from the owning BaseInstance.
-	t.hex = p_building.hex
 	t.building = p_building
 	var is_defensive: bool = BuildingStats.resolve_def(building_def, building_defs).get("category", "") == "Defensive"
 	var keys: Array[String] = []
@@ -83,11 +88,27 @@ static func for_building(p_building: BuildingInstance, building_def: Dictionary,
 	t.match_keys = keys
 	t.is_tier_a = is_defensive
 	t.damage_received_modifiers = BuildingStats.damage_received_modifiers(building_def, p_building.material, building_defs)
+	# A Wall has no single occupied hex (hex is null; hex_a/hex_b are set
+	# instead) — it never stands "on" terrain, so it skips the
+	# terrain-defense-bonus/stealth lookups below (they'd have no hex to read).
+	if p_building.hex_a != null:
+		t.hex = p_building.hex_a
+		t.hex_b = p_building.hex_b
+		return t
+	t.hex = p_building.hex
 	if grid != null:
 		t.defense_multiplier = Terrain.defense_bonus(grid.get_terrain(p_building.hex))
 		t.is_hidden = BuildingStats.stealth(building_def, building_defs)
 		t.reveal_range = BuildingStats.reveal_range(building_def, building_defs)
 	return t
+
+## Range/proximity distance from `attacker_hex` — plain hex distance for
+## every ordinary target, or the nearer of a Wall's two edge endpoints (a Wall
+## is in range of an attacker adjacent to EITHER hex it borders, not just one).
+func distance_from(attacker_hex: HexCoord) -> int:
+	if hex_b != null:
+		return min(HexCoord.distance(attacker_hex, hex), HexCoord.distance(attacker_hex, hex_b))
+	return HexCoord.distance(attacker_hex, hex)
 
 func target_id() -> String:
 	return building.id if kind == Kind.BUILDING else squad.id

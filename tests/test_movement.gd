@@ -24,6 +24,8 @@ func _init() -> void:
 	_test_movement_resolver()
 	print("Regiment lock-step")
 	_test_regiment_lockstep()
+	print("Attack-move (resolve_attack_move)")
+	_test_attack_move()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -224,3 +226,91 @@ func _test_regiment_lockstep() -> void:
 	_check(not MovementResolver.issue_regiment_move(cmd3, [m3], grid3, HexCoord.new(1, 0), _troop_defs), "Land Commander can't path through Forest -> issue_regiment_move returns false")
 	_check(m3.path.is_empty(), "member path untouched (still empty) on a failed issue_regiment_move")
 	_check(m3.order.is_empty(), "member order untouched on a failed issue_regiment_move")
+
+	# 6. A regiment member boarded as cargo mid-regiment: excluded from
+	# lock-step mirroring while boarded (CargoSystem.board clears its
+	# regiment_move order, and it has no independent position anyway — see
+	# MovementResolver._mirror_boarded_squads), then automatically rejoins
+	# regiment_move on the next regiment tick once CargoSystem.unload()
+	# releases it, per resolve_regiment_tick's broadened idle-rejoin check.
+	var grid6 := _line_grid([
+		Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS,
+		Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS,
+	])
+	var cmd6 := _make_squad("p1", "commander_vanguard", HexCoord.new(0, 0))
+	var m6 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	var truck6 := _make_squad("p1", "transport_truck", HexCoord.new(0, 0))
+	m6.commander_id = cmd6.id
+	MovementResolver.issue_regiment_move(cmd6, [m6], grid6, HexCoord.new(5, 0), _troop_defs)
+	CargoSystem.board(truck6, m6, _troop_defs)
+	_check(m6.boarded_on_squad_id == truck6.id, "member squad boards the carrier")
+	_check(m6.order.is_empty(), "boarding clears the member's regiment_move order")
+	_check(m6.commander_id == cmd6.id, "boarding does not touch commander_id — still a member throughout")
+
+	MovementResolver.resolve_regiment_tick(1.0, cmd6, [m6], grid6, _troop_defs)
+	_check(not cmd6.path.is_empty(), "Commander is still en route (not yet at goal) after this tick")
+	_check(m6.current_hex.equals(HexCoord.new(0, 0)), "boarded member does not mirror the Commander while still cargo")
+
+	CargoSystem.unload(truck6, m6, HexCoord.new(0, 0), grid6, _troop_defs)
+	_check(m6.boarded_on_squad_id == "", "member unloaded, no longer cargo")
+	_check(m6.order.is_empty(), "CargoSystem.unload leaves the member idle ({}), not regiment_move")
+
+	MovementResolver.resolve_regiment_tick(1.0, cmd6, [m6], grid6, _troop_defs)
+	_check(m6.order.get("type") == "regiment_move", "unloaded member automatically rejoins regiment_move on the next regiment tick")
+	_check(m6.current_hex.equals(cmd6.current_hex), "rejoined member mirrors the Commander's hex again")
+
+## --- Attack-move (resolve_attack_move) --------------------------------------
+
+func _make_target(owner: String, troop_type: String, hex: HexCoord) -> CombatTarget:
+	_next_id += 1
+	var squad := SquadInstance.new("tsq%d" % _next_id, owner, troop_type, hex)
+	var tid := "ttr%d" % _next_id
+	squad.add_member(tid)
+	var troops: Dictionary = {tid: TroopInstance.new(tid, troop_type, owner, squad.id, 100.0)}
+	return CombatTarget.for_squad(squad, _troop_defs.get(troop_type, {}), troops)
+
+func _test_attack_move() -> void:
+	# rifleman: range 4, speed 1.2.
+	var grid := _line_grid([
+		Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS,
+		Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS,
+		Terrain.Type.PLAINS,
+	])
+
+	# 1. Target out of range, attacker idle -> chases (issues a fresh path)
+	# toward the target's current hex, WITHOUT clobbering the attack_target
+	# order the way issue_move's own {type:"move"} order would.
+	var attacker := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	var far_target := _make_target("p2", "rifleman", HexCoord.new(8, 0))
+	attacker.order = {"type": "attack_target", "targetId": far_target.target_id()}
+	MovementResolver.resolve_attack_move([attacker], _troop_defs, grid, [far_target])
+	_check(not attacker.path.is_empty(), "attacker out of range (dist 8 > range 4) chases toward the target")
+	_check(attacker.order.get("type") == "attack_target", "chasing does not overwrite the attack_target order")
+	_check(attacker.order.get("targetId") == far_target.target_id(), "attack_target's targetId is preserved while chasing")
+
+	# 2. Once already mid-chase (non-empty path), a further call doesn't
+	# recompute/reissue the path every tick.
+	var path_before := attacker.path.duplicate()
+	MovementResolver.resolve_attack_move([attacker], _troop_defs, grid, [far_target])
+	_check(attacker.path == path_before, "an in-progress chase path is left alone, not recomputed each call")
+
+	# 3. Once the target is in range, any in-progress chase path is cleared
+	# so the squad holds position and fights instead of overshooting.
+	var near_attacker := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	var near_target := _make_target("p2", "rifleman", HexCoord.new(3, 0))
+	near_attacker.order = {"type": "attack_target", "targetId": near_target.target_id()}
+	near_attacker.path = [HexCoord.new(1, 0), HexCoord.new(2, 0)]
+	MovementResolver.resolve_attack_move([near_attacker], _troop_defs, grid, [near_target])
+	_check(near_attacker.path.is_empty(), "target already in range (dist 3 <= range 4) clears any in-progress chase path")
+
+	# 4. A squad with no attack_target order is left completely alone.
+	var idle_squad := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	MovementResolver.resolve_attack_move([idle_squad], _troop_defs, grid, [far_target])
+	_check(idle_squad.path.is_empty(), "a squad with no attack_target order is untouched by resolve_attack_move")
+
+	# 5. A dead/vanished target is a no-op (order is left for CombatTargeting's
+	# own dead-target cleanup, per select_target's existing behavior).
+	var orphan := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	orphan.order = {"type": "attack_target", "targetId": "nonexistent"}
+	MovementResolver.resolve_attack_move([orphan], _troop_defs, grid, [far_target])
+	_check(orphan.path.is_empty(), "a directed order pointing at an untracked/dead target triggers no chase")

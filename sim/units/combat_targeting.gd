@@ -32,7 +32,12 @@ static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_
 	for target in targets:
 		if target.owner_id == attacker_owner or not target.is_alive():
 			continue
-		if HexCoord.distance(attacker_hex, target.hex) > attacker_range:
+		if target.distance_from(attacker_hex) > attacker_range:
+			continue
+		# Air-domain attackers ignore Walls entirely, same as every other
+		# terrain rule (01-map-and-terrain.md) — a Wall target always has
+		# hex_b set (it's the only thing that does).
+		if target.hex_b != null and String(attacker_def.get("domain", "")) == "Air":
 			continue
 		if target.is_hidden and not _is_revealed_to(target, attacker_hex, attacker_owner, detections):
 			continue
@@ -68,7 +73,7 @@ static func _best_in_tier(attacker_hex: HexCoord, attacker_def: Dictionary, tier
 	var best_dist := 1 << 30
 	for target in tier:
 		var mult := _priority_multiplier(attacker_def, target)
-		var dist := HexCoord.distance(attacker_hex, target.hex)
+		var dist := target.distance_from(attacker_hex)
 		if mult > best_mult or (mult == best_mult and dist < best_dist):
 			best = target
 			best_mult = mult

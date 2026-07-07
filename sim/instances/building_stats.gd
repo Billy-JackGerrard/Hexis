@@ -66,11 +66,33 @@ static func _hp_model(resolved: Dictionary, material: String) -> Dictionary:
 		return material_stats.get(material, {})
 	return resolved.get("nonProductionUpgrade", {})
 
-## Resolved defensiveStats block (extends applied), or {} for a non-Defensive
-## building. This is what the CombatResolver reads for a base defense's
-## damage/attackSpeed/range/canTarget/etc.
-static func defensive_stats(def: Dictionary, building_defs: Dictionary) -> Dictionary:
-	return resolve_def(def, building_defs).get("defensiveStats", {})
+## Resolved defensiveStats block (extends applied), merged with the
+## level/material-scaled attack stats for a multi-material Defensive building
+## (Tower — see data/buildings/schema.json's materialStats.canTarget note:
+## "each material restates its own full canTarget/damageTypes/splashRadius...
+## the building-level defensiveStats block still holds the traits that are
+## truly invariant across materials (detector, detectionRange)"). For a
+## single-block Defensive building (Turret variants, Missile Launcher,
+## Landmine) `materialStats` is empty and this is just the plain top-level
+## defensiveStats, unleveled, same as before. This is what CombatResolver
+## reads for a base defense's damage/attackSpeed/range/canTarget/etc.
+static func defensive_stats(def: Dictionary, level: int, material: String, building_defs: Dictionary) -> Dictionary:
+	var resolved := resolve_def(def, building_defs)
+	var stats: Dictionary = resolved.get("defensiveStats", {}).duplicate()
+
+	var material_stats: Dictionary = resolved.get("materialStats", {})
+	if not material_stats.is_empty():
+		var block: Dictionary = material_stats.get(material, {})
+		var base: Dictionary = block.get("baseStats", {})
+		var growth: Dictionary = block.get("statGrowth", {})
+		for key in ["damage", "attackSpeed", "range"]:
+			if base.has(key):
+				stats[key] = _apply_growth(float(base[key]), growth.get(key, {}), level)
+		for key in ["canTarget", "damageTypes", "splashRadius"]:
+			if block.has(key):
+				stats[key] = block[key]
+
+	return stats
 
 ## Vision range for a building of this type/level/material, or 0.0 if it
 ## carries no visionRange anywhere (most Production/Resource buildings don't

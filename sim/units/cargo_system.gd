@@ -75,8 +75,15 @@ static func can_unload(carrier_squad: SquadInstance, boarded_squad: SquadInstanc
 ## an adjacent hex") — provided that hex is passable for the boarded squad's
 ## own Domain/terrainOverrides (a wall or a terrain block for its Domain
 ## rejects the unload the same way it would block ordinary movement).
-## Resumes independent movement/combat on success.
-static func unload(carrier_squad: SquadInstance, boarded_squad: SquadInstance, target_hex: HexCoord, grid: HexGrid, troop_defs: Dictionary, in_combat: bool = false) -> bool:
+## Additionally, per 01-map-and-terrain.md's Naval/Coastline Rules: if the
+## carrier itself is Naval-domain and `target_hex` isn't Naval-passable (i.e.
+## it's land, not more open water), that hex must carry a Dock/Port/Shipyard
+## (BuildingPlacement.is_naval_landing_hex) — a ship can't put troops ashore
+## anywhere along a bare coast/riverbank. `bases`/`standalone_buildings`
+## default to empty (no gating) so existing non-Naval-carrier callers (e.g.
+## Transport Truck/Aircraft Carrier, which never trip the Naval check) don't
+## need to pass them. Resumes independent movement/combat on success.
+static func unload(carrier_squad: SquadInstance, boarded_squad: SquadInstance, target_hex: HexCoord, grid: HexGrid, troop_defs: Dictionary, in_combat: bool = false, bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> bool:
 	if not can_unload(carrier_squad, boarded_squad, troop_defs, in_combat):
 		return false
 	if HexCoord.distance(carrier_squad.current_hex, target_hex) > 1:
@@ -88,6 +95,12 @@ static func unload(carrier_squad: SquadInstance, boarded_squad: SquadInstance, t
 		var overrides: Dictionary = boarded_def.get("terrainOverrides", {})
 		if grid.edge_cost(carrier_squad.current_hex, target_hex, domain, overrides) == Terrain.INF:
 			return false
+
+		var carrier_def: Dictionary = troop_defs.get(carrier_squad.troop_type, {})
+		var carrier_domain := Terrain.domain_from_string(String(carrier_def.get("domain", "Infantry")))
+		if carrier_domain == Terrain.Domain.NAVAL and not Terrain.is_passable(grid.get_terrain(target_hex), Terrain.Domain.NAVAL):
+			if not BuildingPlacement.is_naval_landing_hex(target_hex, bases, standalone_buildings):
+				return false
 
 	boarded_squad.boarded_on_squad_id = ""
 	boarded_squad.current_hex = target_hex

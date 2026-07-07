@@ -39,9 +39,16 @@ writing real UI code does, and it also needs actual game state to bind to.
      per-player pool, production/upkeep netting, deficit detection, and
      BaseDef `resourceModifiers` (e.g. Capital's Oil Rig -50%). `ResourceTick`
      only nets whatever `production`/`upkeep` dicts the caller hands it —
-     troop Food/Fuel upkeep isn't sourced or wired in anywhere yet, and
-     squad-level troop death under deficit isn't wired up either, since
-     squads don't exist until the next item.
+     troop Food/Fuel upkeep sourcing and squad-level troop death under
+     deficit are now wired in by `UpkeepSystem`
+     (`sim/economy/upkeep_system.gd`, `tests/test_resources.gd`): a Land
+     vehicle only pays Fuel while under a move order (empty `path` = idle),
+     an Air unit pays no Fuel while idle and within 1 hex of one of its
+     owner's own base buildings (the "leash range" fuel-free rule), and
+     Naval/Infantry upkeep is always flat, straight off each troop def's
+     `foodUpkeep`/`fuelUpkeep`. `apply_deficit_deaths()` kills a deficit-
+     affected squad's weakest member per tick, disbanding an emptied squad,
+     per `03-resources.md`'s Deficit Consequences.
    - [x] Troop/Squad/Regiment runtime state (`sim/units/troop_instance.gd`,
      `sim/units/squad_instance.gd`, `sim/units/regiment_instance.gd`,
      `sim/units/squad_manager.gd`), backed by a generic `data/*.json` loader
@@ -107,8 +114,21 @@ writing real UI code does, and it also needs actual game state to bind to.
      maps a troop def's `domain` string to `Terrain.Domain`.
      `tests/test_movement.gd`, 32 checks passing. **Deferred**: vision/
      fog-of-war (split into its own item below — it doesn't gate movement),
-     regiment lock-step, cargo/carrier position-driving, and attack-move
-     repathing toward a directed target.
+     regiment lock-step, cargo/carrier position-driving (both landed further
+     down this list). Attack-move repathing toward a directed target now
+     lands too: `MovementResolver.resolve_attack_move()` chases a squad's
+     `{type:"attack_target"}` order when the target is out of the attacker's
+     range and it isn't already mid-chase — a fresh path toward the target's
+     CURRENT hex via a new `_path_toward()` helper `issue_move()` was
+     refactored to share, since `issue_move` itself would've clobbered the
+     `attack_target` order with `{type:"move"}`. Once the target comes into
+     range, any in-progress chase path is cleared so the squad holds
+     position and fights rather than overshooting — movement and combat
+     still resolve independently each tick (this file's own header comment),
+     so this only decides *whether* to chase, never whether to fire.
+     `targets: Array[CombatTarget]` is the same caller-computed-once array
+     `CombatResolver` already builds each tick. `tests/test_movement.gd`
+     extended (new section).
    - [x] Vision / fog-of-war: per-player currently-visible and persistently-
      explored hex sets (`sim/vision/player_vision.gd`'s `PlayerVision`),
      recomputed each tick by `VisionSystem.resolve_tick()`
@@ -192,13 +212,42 @@ writing real UI code does, and it also needs actual game state to bind to.
      naturally contribute nothing to either system). `tests/test_placement.gd`
      (new standalone-placement section), `tests/test_vision.gd`,
      `tests/test_detection.gd`, and `tests/test_combat.gd` (signature-only
-     update) all extended/updated accordingly. **Deferred**: Engineer-must-
-     issue-this enforcement (`canBuildInfrastructure` — no command/order-
-     issuing layer exists yet to check who's calling the placement
-     function), Dock's actual Naval disembark-gating movement logic,
-     CombatResolver targeting standalone buildings, and building-side
-     stealth/detection (Landmine-as-a-hidden-object) — squad-side already
-     exists, buildings don't yet.
+     update) all extended/updated accordingly. Dock's Naval disembark-gating
+     is now wired: `BuildingPlacement.is_naval_landing_hex()` (Dock/Port/
+     Shipyard, base-attached or standalone) is consumed by
+     `CargoSystem.unload()` — a Naval-domain carrier disembarking cargo onto
+     a non-Naval-passable hex (bare land) is rejected unless that hex
+     carries one of those three building types; non-Naval carriers
+     (Transport Truck, Aircraft Carrier) are untouched by the check.
+     `tests/test_cargo.gd` extended. `CombatResolver` now targets standalone
+     buildings too: `resolve_tick()`/`_build_targets()` take a
+     `standalone_buildings` array, owner_id comes from the building's own
+     `owner_id` (not a base's), and `_prune_dead()` deletes a standalone
+     building outright at 0 HP rather than ruining it (Tower/Landmine only —
+     Road/Bridge/Dock carry no combat HP). Fixing this exposed a real,
+     previously-untested gap: `BuildingStats.defensive_stats()` only ever
+     read the top-level `defensiveStats` block, which for multi-material
+     Tower holds just the material-invariant `detector`/`detectionRange` —
+     its actual damage/attackSpeed/range/canTarget/damageTypes/splashRadius
+     live per-material under `materialStats[material]` (schema's own note:
+     "each material restates its own full canTarget... the building-level
+     defensiveStats block still holds the traits that are truly invariant
+     across materials"), so a Tower could never actually fire. `defensive_stats`
+     now takes `level`/`material` and merges the level-scaled per-material
+     attack stats on top of the invariant block, the same `_hp_model`-style
+     shape `max_hp()` already uses. `tests/test_combat.gd` extended (new
+     standalone-Tower-combat section plus a `BuildingStats.defensive_stats`
+     materialStats-merge section). Building-side stealth/detection
+     (Landmine-as-a-hidden-object) turned out to already be wired — once
+     standalone buildings became live `CombatTarget`s (above),
+     `CombatTarget.for_building()`'s existing `is_hidden`/`reveal_range`
+     fields (sourced from `BuildingStats.stealth()`/`.reveal_range()`) and
+     `CombatTargeting.candidates()`'s existing `target.is_hidden` gate — both
+     already Kind-agnostic, shared with squad-side stealth — just needed
+     exercising end-to-end; confirmed with a new integration section in
+     `tests/test_detection.gd`. **Deferred**: Engineer-must-issue-this
+     enforcement (`canBuildInfrastructure` — no command/order-issuing layer
+     exists yet to check who's calling the placement function).
    - [x] Regiment lock-step movement: `MovementResolver.issue_regiment_move()`
      computes one shared path from the Commander's squad and mirrors it onto
      every member squad (clearing any ad hoc split); `resolve_regiment_tick()`
@@ -220,8 +269,30 @@ writing real UI code does, and it also needs actual game state to bind to.
      `commanderId`/`squadIds` into live objects doesn't exist yet (same
      deferral as `assign_to_commander`/`leave_regiment` elsewhere in this
      doc). `tests/test_movement.gd` (new Regiment lock-step section, 41
-     checks total). **Deferred**: Commander-death regiment disband (still a
-     combat-side concern), cargo-boarded regiment members.
+     checks total). Commander-death regiment disband is now wired, in
+     `CombatResolver` (a combat-side concern, as noted, so it landed there
+     rather than in `MovementResolver`):
+     `_disband_regiments_for_dead_commanders()` runs at the end of
+     `_prune_dead()`, taking a new optional `regiments: Array[RegimentInstance]`
+     param on `resolve_tick()` — a regiment whose `commander_id` no longer
+     names a squad still present in `squads` (i.e. the Commander squad was
+     just pruned) has every member squad's `commander_id` cleared and any
+     `{type: "regiment_move"}` order reset to idle (`{}`), then the
+     `RegimentInstance` itself is removed from `regiments`. `tests/test_combat.gd`
+     extended (new section). Cargo-boarded regiment members are now handled
+     too: a boarded member was already excluded from lock-step mirroring
+     (its `boarded_on_squad_id` check predates this) and already tracked its
+     carrier's position via `_mirror_boarded_squads`, but `CargoSystem.unload()`
+     left it idle (order `{}`) rather than `regiment_move` on release, and
+     `resolve_regiment_tick()`'s rejoin check only matched an ad hoc
+     `{type:"move"}` split, not a bare idle squad — so an unloaded member
+     never rejoined lock-step. The rejoin check is broadened to "any
+     non-boarded member whose order isn't already `regiment_move` and whose
+     path is empty," covering both cases with one rule. `tests/test_movement.gd`
+     extended (new section). **Deferred**: none — the two remaining
+     regiment-adjacent items (Commander buff auras' regiment-membership
+     filter, `assign_to_commander`/`leave_regiment` themselves) are already
+     tracked above under the command/order-issuing-layer gap.
    - [x] Status effects (freeze/stun/knockback/emp) + auras:
      `StatusEffectSystem` (`sim/units/status_effect_system.gd`) rolls and
      applies a hit's `statusEffectOnHit` to the PRIMARY target only (splash
@@ -335,10 +406,57 @@ writing real UI code does, and it also needs actual game state to bind to.
      `BaseFactory.seed_base()` (`sim/instances/base_factory.gd`) places the
      mutually-adjacent HQ/Farm/Quarry seed cluster from `BaseDef.initialBuildings`.
      `BaseInstance`/`BuildingInstance` now carry `hex_coord`/`hex`.
-     `tests/test_placement.gd`, 33 checks passing. **Deferred**: Walls
-     (edge-keyed, 1-adjacent-building exception, no population cost — lands
-     with the combat/line-of-sight slice), the Bridge-foothold adjacency
-     exception, and demolish/ruin state.
+     `tests/test_placement.gd`, 33 checks passing. Walls now land:
+     `BuildingPlacement.can_place_wall()`/`.place_wall()` validate/place an
+     edge-keyed Wall (both hexes on-grid and mutually adjacent, the edge not
+     already walled, ≥1 of the two hexes already in `base.occupied_hexes()` —
+     the 1-adjacent-building exception, a placeholder interpretation of "one
+     existing adjacent building" for an edge that has no hex of its own to
+     count neighbors around, same spirit as `hq_build_radius`). A Wall is
+     just a `BuildingInstance` with `hex` left null and new `hex_a`/`hex_b`
+     fields set instead — deliberately reusing `base.buildings` wholesale
+     rather than a parallel registry, so `BuildingStats.max_hp`,
+     `BuildingRegenSystem`, and `CombatResolver`'s existing base-building
+     loops all pick up Walls for free with zero changes. What *did* need
+     changes: `CombatTarget.for_building()` sets `hex`/`hex_b` from
+     `hex_a`/`hex_b` instead of `building.hex` and skips the terrain-bonus/
+     stealth lookups (a Wall stands on no single tile); a new
+     `CombatTarget.distance_from()` (used by `CombatTargeting.candidates()`/
+     `_best_in_tier()` in place of raw `HexCoord.distance`) returns the
+     nearer of a Wall's two endpoints, since it's in range of an attacker
+     adjacent to either hex it borders; `candidates()` also drops any Wall
+     target for an Air-domain attacker (Walls "never attack" and are
+     ignored entirely by Air, per `01-map-and-terrain.md`); `_prune_dead()`
+     deletes a destroyed Wall outright (never ruins) and clears
+     `grid.set_wall()` so the edge reopens for movement; and
+     `AuraSystem`/`Population` each needed a one-line guard/reads-populationCost-0
+     path for a building with a null `hex`. `tests/test_placement.gd` (new
+     Wall-placement section) and `tests/test_combat.gd` (new Wall-combat
+     section) extended. **Deferred**: the actual line-of-sight blocking half
+     of Walls ("an attack whose line from attacker-hex to target-hex crosses
+     a walled edge is blocked" — `01-map-and-terrain.md`) — movement across a
+     walled edge is already blocked (`HexGrid.edge_cost`/`is_walled_edge`,
+     from the very first hex-grid slice), but line-of-sight requires an
+     actual hex-line/raycast algorithm between attacker and target hexes,
+     which is a distinct, larger unit of work from "Walls exist as a
+     targetable, edge-keyed building" and is left as its own future slice;
+     and demolish/ruin state (ruin state itself now exists, from the
+     HQ-capture/ruin item above — only the player-issued demolish action is
+     still missing, gated on the same command/order-issuing layer as
+     everything else in that bucket). The Bridge-foothold adjacency
+     exception is also now wired: `BuildingPlacement._has_bridge_foothold_exemption()`
+     walks each of a candidate hex's 6 neighbor directions looking for one
+     that's a Bridge (`grid.get_infrastructure() == BRIDGE` — no
+     `standalone_buildings` param needed, since Bridge infrastructure is
+     already tracked on the grid itself regardless of which array its
+     `BuildingInstance` lives in); if found, it checks that Bridge's hex
+     *continuing in the same direction* (not the reverse — that would just
+     walk back to the candidate hex itself) against `occupied` — that's the
+     near-bank foothold the Bridge stands in for. `can_place()`'s
+     `NOT_ENOUGH_ADJACENT_BUILDINGS` check now falls through to this
+     exemption instead of failing outright. `tests/test_placement.gd`
+     extended (new section, covering both the exempted and
+     no-foothold-yet-so-still-rejected cases).
 2. **Godot rendering scaffold** — a minimal scene rendering one base,
    click-to-move wired to the sim core.
    - [ ] Not started.

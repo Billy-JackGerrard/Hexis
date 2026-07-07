@@ -12,6 +12,14 @@ var building_type: String
 var material: String
 var level: int
 var hex: HexCoord
+## Wall's edge endpoints — only set when building_type == "wall", per
+## 02-bases-and-buildings.md ("sits on the border between two hexes, not on a
+## hex itself"). `hex` stays null for a Wall (it has no single occupied hex —
+## BuildingPlacement.occupied_hexes()'s `hex != null` guard already skips it,
+## exactly as intended: a Wall doesn't consume a hex-adjacency slot). Null for
+## every other building type.
+var hex_a: HexCoord = null
+var hex_b: HexCoord = null
 ## max_hp/current_hp default 0 = "not combat-tracked yet" — call sites that have
 ## the def (BaseFactory, placement) set them via BuildingStats.max_hp; older
 ## cap-math call sites that only need level keep working untouched.

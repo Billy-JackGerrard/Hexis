@@ -94,6 +94,11 @@ static func _apply_aura(aura: Dictionary, source_owner: String, source_hex: HexC
 		var want_friendly_b := target == "friendly_buildings"
 		for base in bases:
 			for building in base.buildings:
+				# A Wall has no single hex (hex_a/hex_b instead — see
+				# BuildingInstance) and never attacks, so a suppress_targeting/
+				# other building-targeted aura has nothing to do to it anyway.
+				if building.hex == null:
+					continue
 				if building.max_hp > 0.0 and building.current_hp <= 0.0:
 					continue
 				if (base.owner_id == source_owner) != want_friendly_b:

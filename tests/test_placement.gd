@@ -32,12 +32,16 @@ func _init() -> void:
 	_test_terrain()
 	print("BuildingPlacement adjacency")
 	_test_adjacency()
+	print("BuildingPlacement Bridge-foothold adjacency exception")
+	_test_bridge_foothold_exemption()
 	print("BuildingPlacement HQ radius")
 	_test_hq_radius()
 	print("BuildingPlacement population gate (integration)")
 	_test_population_gate()
 	print("BuildingPlacement standalone placement")
 	_test_standalone_placement()
+	print("BuildingPlacement Wall placement")
+	_test_wall_placement()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -164,6 +168,29 @@ func _test_adjacency() -> void:
 	_check(BuildingPlacement.can_place(seeded, capital_def, "turret", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
 		"hex touching 2 existing buildings (HQ+Farm) is accepted")
 
+## Per 02-bases-and-buildings.md's Bridge exception: near_bank(0,0) --
+## bridge(1,0, River+Bridge infrastructure) -- far_bank(2,0). far_bank has
+## zero adjacent buildings of its own (the Bridge hex isn't a "building" for
+## adjacency-counting), so it would normally fail the 2-adjacent-buildings
+## rule -- unless the Bridge's OTHER side (near_bank) already has a building,
+## which stands in as the missing adjacency.
+func _test_bridge_foothold_exemption() -> void:
+	var grid := HexGrid.new()
+	grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
+	grid.set_terrain(HexCoord.new(1, 0), Terrain.Type.RIVER)
+	grid.set_terrain(HexCoord.new(2, 0), Terrain.Type.PLAINS)
+	grid.set_infrastructure(HexCoord.new(1, 0), Terrain.Infrastructure.BRIDGE)
+	var capital_def: Dictionary = _base_defs["capital"]
+
+	var base_with_foothold := BaseInstance.new("bb1", "capital", "p1", 1, HexCoord.new(0, 0))
+	base_with_foothold.buildings.append(BuildingInstance.new("near1", "bb1", "hq", 1, "", HexCoord.new(0, 0)))
+	_check(BuildingPlacement.can_place(base_with_foothold, capital_def, "farm", HexCoord.new(2, 0), grid, _building_defs) == BuildingPlacement.Result.OK,
+		"far-bank hex adjacent to a Bridge is exempt from the 2-adjacent-buildings rule once the near bank has a foothold")
+
+	var base_without_foothold := BaseInstance.new("bb2", "capital", "p1", 1, HexCoord.new(0, 0))
+	_check(BuildingPlacement.can_place(base_without_foothold, capital_def, "farm", HexCoord.new(2, 0), grid, _building_defs) == BuildingPlacement.Result.NOT_ENOUGH_ADJACENT_BUILDINGS,
+		"the Bridge alone doesn't seed a foothold from nothing -- no near-bank building means no exemption")
+
 func _test_hq_radius() -> void:
 	var grid := _plains_grid([HexCoord.new(10, 0), HexCoord.new(11, 0), HexCoord.new(10, 1)])
 	var far_base := BaseInstance.new("b7", "capital", "p1", 1, HexCoord.new(0, 0))
@@ -283,3 +310,44 @@ func _test_standalone_placement() -> void:
 
 	var second_place_result := BuildingPlacement.place_standalone_building([], standalone_buildings, "tower", build_hex, build_grid, _building_defs, "tower1", "p1")
 	_check(second_place_result == BuildingPlacement.Result.HEX_OCCUPIED, "a second standalone building can't be placed on the same hex as the first")
+
+func _test_wall_placement() -> void:
+	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(-1, 0), HexCoord.new(0, 1), HexCoord.new(-1, 1)])
+	var capital_def: Dictionary = _base_defs["capital"]
+	var seeded := _fresh_seeded_base("w1", grid, 2)
+	# Seeded at (0,0)=hq, (1,0)=farm, (1,-1)=quarry.
+
+	# A Wall needs only ONE adjacent existing building, unlike a normal
+	# building's two — the edge between HQ (0,0) and the empty (-1,0) hex
+	# qualifies (HQ alone is enough).
+	_check(BuildingPlacement.can_place_wall(seeded, capital_def, HexCoord.new(0, 0), HexCoord.new(-1, 0), grid, _building_defs) == BuildingPlacement.Result.OK,
+		"a Wall edge touching just 1 existing building (HQ) is accepted, unlike a normal building's 2-adjacency rule")
+
+	# Neither endpoint of this edge ((-1,0) and its neighbor (-1,1), both
+	# unoccupied) is an occupied hex -> rejected.
+	_check(BuildingPlacement.can_place_wall(seeded, capital_def, HexCoord.new(-1, 0), HexCoord.new(-1, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_ENOUGH_ADJACENT_BUILDINGS_FOR_WALL,
+		"a Wall edge touching zero existing buildings is rejected")
+
+	# The two hexes must actually be neighbors — (1,0) and (-1,0) are both
+	# on the grid but 2 hexes apart, not adjacent.
+	_check(BuildingPlacement.can_place_wall(seeded, capital_def, HexCoord.new(1, 0), HexCoord.new(-1, 0), grid, _building_defs) == BuildingPlacement.Result.EDGE_NOT_ADJACENT_HEXES,
+		"a Wall edge between two non-adjacent hexes is rejected")
+
+	# place_wall end-to-end: appends a hex-less BuildingInstance to
+	# base.buildings and wires grid.set_wall() so pathing picks it up.
+	var place_result := BuildingPlacement.place_wall(seeded, capital_def, HexCoord.new(0, 0), HexCoord.new(-1, 0), grid, _building_defs, "wall1", "stone")
+	_check(place_result == BuildingPlacement.Result.OK, "place_wall succeeds for a valid edge")
+	var placed_wall: BuildingInstance = seeded.buildings[seeded.buildings.size() - 1]
+	_check(placed_wall.building_type == "wall", "the new building is a wall")
+	_check(placed_wall.hex == null, "a Wall has no single hex")
+	_check(placed_wall.hex_a.equals(HexCoord.new(0, 0)) and placed_wall.hex_b.equals(HexCoord.new(-1, 0)), "the Wall's hex_a/hex_b record its edge")
+	_check(placed_wall.max_hp > 0.0, "the Wall's max_hp is resolved from its material (stone)")
+	_check(grid.is_walled_edge(HexCoord.new(0, 0), HexCoord.new(-1, 0)), "place_wall wires grid.set_wall so movement/pathing picks it up immediately")
+	_check(not seeded.occupied_hexes().has(HexCoord.new(-1, 0).to_key()), "a Wall doesn't occupy a hex-adjacency slot")
+
+	# The same edge can't be walled twice.
+	_check(BuildingPlacement.can_place_wall(seeded, capital_def, HexCoord.new(0, 0), HexCoord.new(-1, 0), grid, _building_defs) == BuildingPlacement.Result.EDGE_ALREADY_WALLED,
+		"an already-walled edge is rejected")
+
+	# A Wall doesn't consume population.
+	_check(Population.population_used(seeded, _building_defs) == 2, "the placed Wall does not count against population (still just Farm+Quarry)")

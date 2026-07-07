@@ -15,12 +15,13 @@
 ## Simplifications noted for later slices: an attack on a squad focus-fires its
 ## first living member (overflow past a kill is lost); splash hits one member
 ## per other enemy squad in radius (not every stacked member) and never friendly
-## units. A non-HQ building at 0 HP becomes a ruin (stays in base.buildings,
+## units. A non-HQ base building at 0 HP becomes a ruin (stays in base.buildings,
 ## non-functional) rather than being removed; an HQ at 0 HP instead flips its
-## base to the attacker and respawns at full HP (see _prune_dead) — Walls and
-## standalone buildings, which delete outright per 06-building-stats-and-
-## defenses.md, aren't targetable here yet (Walls unimplemented; standalone
-## buildings out of _build_targets' scope), so that exception isn't coded yet.
+## base to the attacker and respawns at full HP (see _prune_dead). Standalone
+## buildings (Tower/Landmine — the only standalone types with combat HP; Road/
+## Bridge/Dock have none, per BuildingStats.max_hp) are now targetable too and,
+## per 06-building-stats-and-defenses.md, delete outright at 0 HP rather than
+## ruining, unlike a base building — Walls remain untargetable (unimplemented).
 ## Terrain defense bonuses and stealth/detection (hill defender bonus, forest
 ## ambush, Tower/Radar Array detector) are handled via CombatTarget's
 ## defense_multiplier/is_hidden/reveal_range (computed from `grid` at
@@ -52,11 +53,17 @@ extends RefCounted
 ## squads: every player's live squads (mutated: dead members/squads pruned).
 ## bases: every player's bases (mutated: destroyed buildings pruned).
 ## troops_by_id: id -> TroopInstance registry (mutated: dead troops removed).
+## standalone_buildings: every Engineer-placed standalone building (mutated:
+## Tower/Landmine deleted outright at 0 HP — see _prune_dead; Road/Bridge/Dock
+## carry no combat HP so they're never touched here).
 ## detections: owner_id -> {hex_key: true}, as produced by
 ## DetectionSystem.resolve_tick() (caller's responsibility, same as `grid`/
 ## the vision system's `visions` dict — not recomputed here).
 ## auras: {"squads": {...}, "buildings": {...}}, as produced by
 ## AuraSystem.resolve_tick() — same caller-computed-once convention.
+## regiments: every live RegimentInstance (mutated: a regiment whose Commander
+## squad died this tick is removed — see _prune_dead's
+## _disband_regiments_for_dead_commanders).
 static func resolve_tick(
 	dt: float,
 	squads: Array[SquadInstance],
@@ -67,11 +74,13 @@ static func resolve_tick(
 	building_defs: Dictionary,
 	detections: Dictionary = {},
 	auras: Dictionary = {},
+	standalone_buildings: Array[BuildingInstance] = [],
+	regiments: Array[RegimentInstance] = [],
 ) -> void:
 	StatusEffectSystem.resolve_tick(dt, squads, bases)
 	AuraSystem.apply_heals(dt, auras, squads, troops_by_id, troop_defs)
 
-	var targets := _build_targets(squads, bases, troops_by_id, grid, troop_defs, building_defs, auras)
+	var targets := _build_targets(squads, bases, troops_by_id, grid, troop_defs, building_defs, auras, standalone_buildings)
 
 	for squad in squads:
 		_advance_squad(squad, dt, targets, troops_by_id, troop_defs, grid, building_defs, detections, auras)
@@ -79,16 +88,19 @@ static func resolve_tick(
 	for base in bases:
 		for building in base.buildings:
 			_advance_building(building, base.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras)
+	for building in standalone_buildings:
+		_advance_building(building, building.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras)
 
-	_prune_dead(squads, bases, troops_by_id)
+	_prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments)
 	BuildingRegenSystem.resolve_tick(dt, bases)
 
 ## Builds the CombatTarget view over every live squad and combat-tracked
-## building. Buildings with max_hp 0 (infrastructure stubs, or defs carrying no
-## HP) are not targetable. `grid` feeds each CombatTarget's terrain-derived
+## building (base-attached or standalone). Buildings with max_hp 0
+## (infrastructure stubs, or defs carrying no HP — Road/Bridge/Dock) are not
+## targetable. `grid` feeds each CombatTarget's terrain-derived
 ## defense_multiplier/is_hidden/reveal_range; `auras` feeds a squad's
 ## damage_reduction-derived aura_damage_reduction_mult.
-static func _build_targets(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, auras: Dictionary = {}) -> Array[CombatTarget]:
+static func _build_targets(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, auras: Dictionary = {}, standalone_buildings: Array[BuildingInstance] = []) -> Array[CombatTarget]:
 	var targets: Array[CombatTarget] = []
 	for squad in squads:
 		if squad.member_ids.is_empty():
@@ -101,6 +113,12 @@ static func _build_targets(squads: Array[SquadInstance], bases: Array[BaseInstan
 			var target := CombatTarget.for_building(building, building_defs.get(building.building_type, {}), building_defs, grid)
 			target.owner_id = base.owner_id
 			targets.append(target)
+	for building in standalone_buildings:
+		if building.max_hp <= 0.0:
+			continue
+		var target := CombatTarget.for_building(building, building_defs.get(building.building_type, {}), building_defs, grid)
+		target.owner_id = building.owner_id
+		targets.append(target)
 	return targets
 
 static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, grid: HexGrid, building_defs: Dictionary, detections: Dictionary = {}, auras: Dictionary = {}) -> void:
@@ -145,7 +163,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 	# under an enemy Disruptor's suppress_targeting aura.
 	if StatusEffectSystem.is_locked_out(building) or AuraSystem.is_suppressed(auras, building.id):
 		return
-	var stats := BuildingStats.defensive_stats(building_defs.get(building.building_type, {}), building_defs)
+	var stats := BuildingStats.defensive_stats(building_defs.get(building.building_type, {}), building.level, building.material, building_defs)
 	if stats.is_empty():
 		return
 	var attack_speed := float(stats.get("attackSpeed", 0.0)) * StatusEffectSystem.attack_speed_mult(building)
@@ -210,9 +228,14 @@ static func _living_members(squad: SquadInstance, troops_by_id: Dictionary) -> A
 
 ## Removes dead troops from their squads and the registry, disbands emptied
 ## squads (taking any boarded cargo down with a destroyed carrier — see
-## 04-combat.md's Cargo section), and deletes destroyed buildings from their
-## bases.
-static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary) -> void:
+## 04-combat.md's Cargo section), deletes destroyed non-Wall buildings from
+## their bases (or ruins them), deletes a destroyed Wall or standalone
+## building (Tower/Landmine) outright — neither ever ruins, per
+## 06-building-stats-and-defenses.md's Destruction & Ruins section — clearing
+## `grid.set_wall()` so a destroyed Wall's edge reopens for movement, and
+## disbands any regiment whose Commander squad died this tick (see
+## _disband_regiments_for_dead_commanders).
+static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, standalone_buildings: Array[BuildingInstance] = [], regiments: Array[RegimentInstance] = []) -> void:
 	for squad in squads:
 		var survivors: Array[String] = []
 		for member_id in squad.member_ids:
@@ -243,8 +266,11 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 		if squads[i].member_ids.is_empty():
 			squads.remove_at(i)
 
+	_disband_regiments_for_dead_commanders(squads, regiments)
+
 	for base in bases:
-		for building in base.buildings:
+		for i in range(base.buildings.size() - 1, -1, -1):
+			var building := base.buildings[i]
 			if building.max_hp <= 0.0 or building.current_hp > 0.0:
 				continue
 			if building.building_type == "hq":
@@ -262,13 +288,50 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 				building.last_damaged_by = ""
 				building.time_since_damage = 0.0
 				building.regen_progress = 0.0
+			elif building.building_type == "wall":
+				# A Wall never ruins — it deletes outright, freeing its edge
+				# for a fresh build at normal cost, per 06-building-stats-and-
+				# defenses.md's Destruction & Ruins section (same treatment as
+				# a standalone building). Clearing grid.set_wall() reopens the
+				# edge for movement/pathing immediately.
+				grid.set_wall(building.hex_a, building.hex_b, false)
+				base.buildings.remove_at(i)
 			else:
-				# Non-HQ buildings become a rebuildable ruin instead of
-				# vanishing: the hex/adjacency slot stays occupied but the
+				# Non-HQ, non-Wall buildings become a rebuildable ruin instead
+				# of vanishing: the hex/adjacency slot stays occupied but the
 				# building no longer functions (every consuming system already
-				# gates on current_hp <= 0). Walls/standalone buildings delete
-				# outright per the same doc, but neither lives in
-				# base.buildings today (Walls aren't implemented yet;
-				# standalone buildings aren't targetable by CombatResolver at
-				# all — see _build_targets), so no exception is needed here yet.
+				# gates on current_hp <= 0).
 				building.is_ruin = true
+
+	for i in range(standalone_buildings.size() - 1, -1, -1):
+		if standalone_buildings[i].max_hp > 0.0 and standalone_buildings[i].current_hp <= 0.0:
+			standalone_buildings.remove_at(i)
+
+## Per 04-combat.md: "if a Commander dies mid-battle, its regiment disbands —
+## every member squad reverts to operating independently (no more shared
+## rally point, no more buff aura)." Called after squads are pruned above, so
+## a regiment whose commander_id no longer names a living squad in `squads`
+## is disbanded: every member squad's commander_id is cleared, and a squad
+## still mid-lock-step (`order.type == "regiment_move"`) is reset to idle
+## (`{}`) rather than left referencing a regiment that no longer exists —
+## same "revert to independent" treatment an ad hoc-split member already gets
+## once its own path drains (see MovementResolver's regiment section), just
+## triggered by the Commander's death instead of a manual leave_regiment
+## order. The regiment itself is then removed from `regiments`.
+static func _disband_regiments_for_dead_commanders(squads: Array[SquadInstance], regiments: Array[RegimentInstance]) -> void:
+	if regiments.is_empty():
+		return
+	var living_ids: Dictionary = {}
+	for squad in squads:
+		living_ids[squad.id] = true
+
+	for i in range(regiments.size() - 1, -1, -1):
+		var regiment := regiments[i]
+		if living_ids.has(regiment.commander_id):
+			continue
+		for squad in squads:
+			if regiment.squad_ids.has(squad.id):
+				squad.commander_id = ""
+				if squad.order.get("type", "") == "regiment_move":
+					squad.order = {}
+		regiments.remove_at(i)

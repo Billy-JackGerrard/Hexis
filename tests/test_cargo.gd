@@ -127,8 +127,17 @@ func _test_unload() -> void:
 	_check(not CargoSystem.can_unload(cuddles, rifles, _troop_defs, true), "HMS Cuddles cannot unload mid-combat (canLaunchCargoMidCombat: false)")
 	_check(not CargoSystem.unload(cuddles, rifles, hex, grid, _troop_defs, true), "unload() rejected mid-combat for HMS Cuddles")
 	_check(CargoSystem.can_unload(cuddles, rifles, _troop_defs, false), "HMS Cuddles can unload while idle/not in combat")
-	_check(CargoSystem.unload(cuddles, rifles, HexCoord.new(1, 0), grid, _troop_defs, false), "unload() succeeds while idle, onto an adjacent hex")
-	_check(rifles.current_hex.equals(HexCoord.new(1, 0)), "unloaded onto the requested adjacent hex")
+
+	# Naval carrier (HMS Cuddles) disembarking onto bare land with no Dock/
+	# Port/Shipyard is rejected, per 01-map-and-terrain.md's Naval/Coastline
+	# Rules — a ship can't put troops ashore anywhere along the coast.
+	_check(not CargoSystem.unload(cuddles, rifles, HexCoord.new(1, 0), grid, _troop_defs, false), "Naval carrier cannot disembark onto a bare Plains hex")
+
+	# The same disembark onto a hex with a standalone Dock succeeds.
+	var dock_buildings: Array[BuildingInstance] = [BuildingInstance.new("dock1", "", "dock", 1, "stone", HexCoord.new(1, 0), "p1")]
+	var no_bases: Array[BaseInstance] = []
+	_check(CargoSystem.unload(cuddles, rifles, HexCoord.new(1, 0), grid, _troop_defs, false, no_bases, dock_buildings), "unload() succeeds onto a Dock hex while idle")
+	_check(rifles.current_hex.equals(HexCoord.new(1, 0)), "unloaded onto the requested Dock hex")
 
 	# Unloading a squad that isn't actually boarded there fails.
 	var truck := _make_squad("p1", "transport_truck", hex, 1, troops)

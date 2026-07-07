@@ -3,11 +3,12 @@
 ## "Population" sections. Stateless, mirrors SquadCap/CommanderProgression:
 ## nothing here is stored, every check reads live BaseInstance/HexGrid state.
 ##
-## Walls are deliberately out of scope for this slice — they're edge-keyed
-## (not hex-keyed), need only ONE adjacent building instead of two, and don't
-## consume population. They land with the combat/line-of-sight slice where
-## their edge-blocking behavior actually matters. The bridge-foothold
-## adjacency exception is deferred alongside them.
+## Walls (see can_place_wall/place_wall below) are edge-keyed, not hex-keyed
+## — sitting on the border between two hexes rather than on one — so they get
+## their own validator rather than reusing can_place: no HEX_OCCUPIED/
+## HEX_OCCUPIED_BY_UNIT/siteTerrain/population checks (a Wall doesn't occupy a
+## hex or cost population), and only ONE adjacent building is required
+## instead of MIN_ADJACENT_BUILDINGS.
 class_name BuildingPlacement
 extends RefCounted
 
@@ -25,6 +26,9 @@ enum Result {
 	OUTSIDE_HQ_RADIUS,
 	POPULATION_FULL,
 	NOT_STANDALONE,
+	EDGE_NOT_ADJACENT_HEXES,
+	EDGE_ALREADY_WALLED,
+	NOT_ENOUGH_ADJACENT_BUILDINGS_FOR_WALL,
 }
 
 ## Minimum adjacent existing buildings required for a normal (non-Wall)
@@ -50,6 +54,31 @@ static func _matches_adjacent_terrain_required(name: String, terrain: Terrain.Ty
 		"Water": return terrain == Terrain.Type.RIVER or terrain == Terrain.Type.OCEAN
 		"Forest": return terrain == Terrain.Type.FOREST
 		_: return true
+
+## Bridge exception to the 2-adjacent-buildings rule, per
+## 02-bases-and-buildings.md: without it, a base could never expand across a
+## River, since the far bank starts with zero adjacent buildings. `hex` is
+## exempt if it's adjacent to a Bridge hex (`grid.get_infrastructure() ==
+## BRIDGE` — Bridge is a hex-based standalone building, tracked on the grid
+## regardless of which array its BuildingInstance lives in, so no
+## standalone_buildings param is needed here) AND that Bridge already has an
+## existing building on its OPPOSITE side from `hex` — the "foothold on the
+## near bank" the Bridge stands in for. If `bridge_hex` is `hex`'s neighbor in
+## direction `d` (`bridge_hex = neighbor(hex, d)`), the far side of that same
+## Bridge — continuing straight across, away from `hex` — is
+## `neighbor(bridge_hex, d)` (the SAME direction again, not its opposite:
+## `neighbor(bridge_hex, (d+3)%6)` would just walk back to `hex` itself).
+## With no foothold on the near-bank end, the far bank still can't be reached
+## this way (the Bridge alone doesn't seed a foothold from nothing).
+static func _has_bridge_foothold_exemption(hex: HexCoord, occupied: Dictionary, grid: HexGrid) -> bool:
+	for d in range(6):
+		var bridge_hex := HexCoord.neighbor(hex, d)
+		if grid.get_infrastructure(bridge_hex) != Terrain.Infrastructure.BRIDGE:
+			continue
+		var other_side := HexCoord.neighbor(bridge_hex, d)
+		if occupied.has(other_side.to_key()):
+			return true
+	return false
 
 static func _hq_hex(base: BaseInstance) -> HexCoord:
 	var hq_buildings := base.buildings_of_type("hq")
@@ -100,7 +129,7 @@ static func can_place(base: BaseInstance, base_def: Dictionary, building_type: S
 	for neighbor in HexCoord.neighbors(hex):
 		if occupied.has(neighbor.to_key()):
 			adjacent_building_count += 1
-	if adjacent_building_count < MIN_ADJACENT_BUILDINGS:
+	if adjacent_building_count < MIN_ADJACENT_BUILDINGS and not _has_bridge_foothold_exemption(hex, occupied, grid):
 		return Result.NOT_ENOUGH_ADJACENT_BUILDINGS
 
 	var hq_hex := _hq_hex(base)
@@ -176,6 +205,69 @@ static func can_place_standalone(building_type: String, hex: HexCoord, grid: Hex
 
 	return Result.OK
 
+## Minimum adjacent existing buildings required for a Wall — per
+## 02-bases-and-buildings.md, only ONE (not MIN_ADJACENT_BUILDINGS's two).
+const MIN_ADJACENT_BUILDINGS_FOR_WALL := 1
+
+## Validates placement of a Wall on the edge between `hex_a` and `hex_b`, per
+## 02-bases-and-buildings.md ("sits on the border between two hexes... Wall
+## blocks movement and line-of-sight... Placement only requires one existing
+## adjacent building, not the usual two... Doesn't consume a population
+## slot"). Unlike can_place, a Wall has no hex of its own, so there's no
+## HEX_OCCUPIED/HEX_OCCUPIED_BY_UNIT/siteTerrain/population check — instead:
+## both hexes must be on the grid and mutually adjacent, the edge mustn't
+## already be walled, and — since a Wall's "1 adjacent building" has no hex of
+## its own to count neighbors around — this reads as "the edge runs along a
+## hex this base has already built on" (at least one of hex_a/hex_b is in
+## base.occupied_hexes()), a placeholder interpretation in the same spirit as
+## hq_build_radius/HILLS_INFANTRY_COST: the design doc pins the *count* (1,
+## not 2) but not the exact adjacency shape for an edge-based building.
+static func can_place_wall(base: BaseInstance, base_def: Dictionary, hex_a: HexCoord, hex_b: HexCoord, grid: HexGrid, building_defs: Dictionary) -> Result:
+	var buildable: Array = base_def.get("buildableBuildings", [])
+	if not buildable.has("wall"):
+		return Result.NOT_BUILDABLE_AT_BASE
+
+	if not grid.has_hex(hex_a) or not grid.has_hex(hex_b):
+		return Result.OUT_OF_HEX_BOUNDS
+	if HexCoord.distance(hex_a, hex_b) != 1:
+		return Result.EDGE_NOT_ADJACENT_HEXES
+	if grid.is_walled_edge(hex_a, hex_b):
+		return Result.EDGE_ALREADY_WALLED
+
+	var occupied := base.occupied_hexes()
+	var adjacent_building_count := 0
+	if occupied.has(hex_a.to_key()):
+		adjacent_building_count += 1
+	if occupied.has(hex_b.to_key()):
+		adjacent_building_count += 1
+	if adjacent_building_count < MIN_ADJACENT_BUILDINGS_FOR_WALL:
+		return Result.NOT_ENOUGH_ADJACENT_BUILDINGS_FOR_WALL
+
+	var hq_hex := _hq_hex(base)
+	if hq_hex != null and min(HexCoord.distance(hex_a, hq_hex), HexCoord.distance(hex_b, hq_hex)) > hq_build_radius(base.hq_level):
+		return Result.OUTSIDE_HQ_RADIUS
+
+	return Result.OK
+
+## Validates via can_place_wall and, on OK, appends a new Wall BuildingInstance
+## (hex null, hex_a/hex_b set instead — see BuildingInstance) to base.buildings
+## and wires it into grid.set_wall() so movement/pathing picks it up
+## immediately. Reuses base.buildings/BuildingRegenSystem/CombatResolver's
+## existing base-building loops wholesale (they already iterate
+## base.buildings generically) rather than a parallel Wall registry — a Wall
+## is just a BuildingInstance whose position is an edge instead of a hex.
+static func place_wall(base: BaseInstance, base_def: Dictionary, hex_a: HexCoord, hex_b: HexCoord, grid: HexGrid, building_defs: Dictionary, id: String, material: String = "") -> Result:
+	var result := can_place_wall(base, base_def, hex_a, hex_b, grid, building_defs)
+	if result != Result.OK:
+		return result
+	var wall := BuildingInstance.new(id, base.id, "wall", 1, material)
+	wall.hex_a = hex_a
+	wall.hex_b = hex_b
+	wall.init_hp(building_defs.get("wall", {}), building_defs)
+	base.buildings.append(wall)
+	grid.set_wall(hex_a, hex_b, true)
+	return Result.OK
+
 ## Union of every base's occupied_hexes() plus every standalone building's
 ## hex, as {hex_key: BuildingInstance} — the standalone-path equivalent of
 ## BaseInstance.occupied_hexes(), since standalone buildings have no owning
@@ -190,13 +282,29 @@ static func standalone_occupied_hexes(bases: Array[BaseInstance], standalone_bui
 			result[building.hex.to_key()] = building
 	return result
 
+## Building types a Naval carrier may disembark land cargo onto per
+## 01-map-and-terrain.md's Naval/Coastline Rules ("Naval troops can only
+## disembark onto land at a Dock or a Port/Shipyard") — consumed by
+## CargoSystem.unload(), not grid pathing (Dock doesn't touch grid
+## infrastructure; a docked ship's cargo disembarks via the Cargo system, it
+## doesn't path there as a Naval-domain move).
+const NAVAL_LANDING_BUILDING_TYPES := ["dock", "port", "shipyard"]
+
+## True if `hex` carries a Dock, Port, or Shipyard — base-attached or
+## standalone, per NAVAL_LANDING_BUILDING_TYPES.
+static func is_naval_landing_hex(hex: HexCoord, bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance]) -> bool:
+	var occupied := standalone_occupied_hexes(bases, standalone_buildings)
+	var building: BuildingInstance = occupied.get(hex.to_key())
+	return building != null and NAVAL_LANDING_BUILDING_TYPES.has(building.building_type)
+
 ## Validates via can_place_standalone and, on OK, appends a new
 ## BuildingInstance (base_id "", owner_id set) to standalone_buildings.
 ## Road/Bridge additionally get wired into grid infrastructure so pathfinding
 ## picks them up immediately (Terrain.effective_cost/edge_cost already
 ## consume get_infrastructure). Dock/Tower/Landmine don't touch
-## infrastructure — Dock's disembark-gating and Tower/Landmine's combat role
-## are separate systems.
+## infrastructure — Dock's disembark-gating (see is_naval_landing_hex above,
+## consumed by CargoSystem.unload) and Tower/Landmine's combat role are
+## separate systems.
 static func place_standalone_building(bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], building_type: String, hex: HexCoord, grid: HexGrid, building_defs: Dictionary, id: String, owner_id: String, material: String = "", occupied_unit_hexes: Dictionary = {}) -> Result:
 	var occupied := standalone_occupied_hexes(bases, standalone_buildings)
 	var result := can_place_standalone(building_type, hex, grid, building_defs, occupied, occupied_unit_hexes)

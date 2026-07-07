@@ -3,6 +3,8 @@
 extends SceneTree
 
 var _failures: int = 0
+var _troop_defs: Dictionary
+var _next_id: int = 0
 
 func _check(condition: bool, label: String) -> void:
 	if condition:
@@ -12,12 +14,18 @@ func _check(condition: bool, label: String) -> void:
 		print("  FAIL ", label)
 
 func _init() -> void:
+	_troop_defs = DataLoader.load_dir("res://data/troops")
+
 	print("ResourcePool")
 	_test_pool()
 	print("ResourceTick")
 	_test_tick()
 	print("ResourceModifier")
 	_test_modifier()
+	print("UpkeepSystem.compute_upkeep")
+	_test_upkeep_compute()
+	print("UpkeepSystem.apply_deficit_deaths")
+	_test_upkeep_deficit_deaths()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -84,3 +92,127 @@ func _test_modifier() -> void:
 		{"scope": "base", "multiplier": 2.0},
 	]
 	_check(ResourceModifier.apply(10.0, "oil_rig", stacked_mods) == 10.0, "building- and base-scoped modifiers stack multiplicatively")
+
+## --- helpers -------------------------------------------------------------
+
+func _make_squad(owner: String, troop_type: String, hex: HexCoord, count: int, troops: Dictionary) -> SquadInstance:
+	_next_id += 1
+	var squad := SquadInstance.new("sq%d" % _next_id, owner, troop_type, hex)
+	var hp: float = float(_troop_defs.get(troop_type, {}).get("hp", 100.0))
+	for i in range(count):
+		_next_id += 1
+		var tid := "tr%d" % _next_id
+		troops[tid] = TroopInstance.new(tid, troop_type, owner, squad.id, hp)
+		squad.add_member(tid)
+	return squad
+
+func _make_base_at(owner: String, hex: HexCoord) -> BaseInstance:
+	var base := BaseInstance.new("base_%s" % owner, "capital", owner, 1, hex)
+	base.buildings.append(BuildingInstance.new("hq_%s" % owner, base.id, "hq", 1, "", hex))
+	return base
+
+## --- UpkeepSystem ---------------------------------------------------------
+
+func _test_upkeep_compute() -> void:
+	var troops: Dictionary = {}
+
+	# Infantry (flamethrower, foodUpkeep 1, fuelUpkeep 0) always pays flat Food
+	# regardless of movement — no domain-based zeroing applies.
+	var infantry := _make_squad("p1", "flamethrower", HexCoord.new(0, 0), 3, troops)
+	var upkeep: Dictionary = UpkeepSystem.compute_upkeep([infantry], [], [], _troop_defs)
+	_check(float(upkeep["p1"].get(ResourceType.Type.FOOD, 0.0)) == 3.0, "3-member Infantry squad draws 3x foodUpkeep")
+	_check(not upkeep["p1"].has(ResourceType.Type.FUEL), "Infantry squad draws no Fuel")
+
+	# Land vehicle (chonky, fuelUpkeep 2) idle (empty path) pays no Fuel.
+	troops = {}
+	var idle_tank := _make_squad("p1", "chonky", HexCoord.new(0, 0), 2, troops)
+	upkeep = UpkeepSystem.compute_upkeep([idle_tank], [], [], _troop_defs)
+	_check(not upkeep.has("p1"), "idle Land vehicle squad pays no Fuel (and no Food, chonky has none)")
+
+	# Same Land vehicle under a move order (non-empty path) pays flat Fuel.
+	troops = {}
+	var moving_tank := _make_squad("p1", "chonky", HexCoord.new(0, 0), 2, troops)
+	moving_tank.path = [HexCoord.new(1, 0)]
+	upkeep = UpkeepSystem.compute_upkeep([moving_tank], [], [], _troop_defs)
+	_check(float(upkeep["p1"].get(ResourceType.Type.FUEL, 0.0)) == 4.0, "moving Land vehicle squad pays 2x fuelUpkeep")
+
+	# Air unit (hot_air_balloon, fuelUpkeep 1) idle NEAR an owned base pays no Fuel.
+	troops = {}
+	var base := _make_base_at("p1", HexCoord.new(0, 0))
+	var idle_air_near_base := _make_squad("p1", "hot_air_balloon", HexCoord.new(1, 0), 1, troops)
+	upkeep = UpkeepSystem.compute_upkeep([idle_air_near_base], [base], [], _troop_defs)
+	_check(not upkeep.has("p1"), "idle Aircraft adjacent to an owned base pays no Fuel")
+
+	# Same Air unit idle but far from any owned base pays flat Fuel.
+	troops = {}
+	var idle_air_far := _make_squad("p1", "hot_air_balloon", HexCoord.new(10, 10), 1, troops)
+	upkeep = UpkeepSystem.compute_upkeep([idle_air_far], [base], [], _troop_defs)
+	_check(float(upkeep["p1"].get(ResourceType.Type.FUEL, 0.0)) == 1.0, "idle Aircraft far from any owned base still pays Fuel")
+
+	# Same Air unit under a move order pays Fuel even next to its own base.
+	troops = {}
+	var moving_air := _make_squad("p1", "hot_air_balloon", HexCoord.new(1, 0), 1, troops)
+	moving_air.path = [HexCoord.new(2, 0)]
+	upkeep = UpkeepSystem.compute_upkeep([moving_air], [base], [], _troop_defs)
+	_check(float(upkeep["p1"].get(ResourceType.Type.FUEL, 0.0)) == 1.0, "Aircraft under a move order pays Fuel regardless of base proximity")
+
+	# Glider: Air-domain but authored with fuelUpkeep 0 / foodUpkeep 1 — the
+	# Air fuel-free rule multiplies out to 0 either way, Food is unaffected.
+	troops = {}
+	var glider := _make_squad("p1", "glider", HexCoord.new(10, 10), 1, troops)
+	upkeep = UpkeepSystem.compute_upkeep([glider], [], [], _troop_defs)
+	_check(float(upkeep["p1"].get(ResourceType.Type.FOOD, 0.0)) == 1.0, "Glider always pays flat Food upkeep")
+	_check(not upkeep["p1"].has(ResourceType.Type.FUEL), "Glider never pays Fuel")
+
+	# Multiple squads/owners accumulate independently.
+	troops = {}
+	var p1_squad := _make_squad("p1", "flamethrower", HexCoord.new(0, 0), 2, troops)
+	var p2_squad := _make_squad("p2", "flamethrower", HexCoord.new(5, 5), 4, troops)
+	upkeep = UpkeepSystem.compute_upkeep([p1_squad, p2_squad], [], [], _troop_defs)
+	_check(float(upkeep["p1"].get(ResourceType.Type.FOOD, 0.0)) == 2.0, "p1's own squad upkeep tallied separately")
+	_check(float(upkeep["p2"].get(ResourceType.Type.FOOD, 0.0)) == 4.0, "p2's own squad upkeep tallied separately")
+
+func _test_upkeep_deficit_deaths() -> void:
+	# A squad whose troop type doesn't consume the deficient resource is untouched.
+	var troops: Dictionary = {}
+	var chonky_squad := _make_squad("p1", "chonky", HexCoord.new(0, 0), 2, troops)
+	var squads: Array[SquadInstance] = [chonky_squad]
+	var killed := UpkeepSystem.apply_deficit_deaths("p1", [ResourceType.Type.FOOD], squads, troops, _troop_defs)
+	_check(killed.is_empty(), "Fuel-only squad untouched by a Food deficit")
+	_check(chonky_squad.member_ids.size() == 2, "no member removed")
+
+	# A squad whose troop type does consume the deficient resource loses its
+	# weakest (lowest current_hp) member.
+	troops = {}
+	var infantry := _make_squad("p1", "flamethrower", HexCoord.new(0, 0), 3, troops)
+	var weak_id: String = infantry.member_ids[1]
+	troops[weak_id].current_hp = 1.0
+	squads = [infantry]
+	killed = UpkeepSystem.apply_deficit_deaths("p1", [ResourceType.Type.FOOD], squads, troops, _troop_defs)
+	_check(killed == [weak_id], "the lowest-HP member is the one killed")
+	_check(infantry.member_ids.size() == 2, "squad shrinks by exactly one member")
+	_check(not troops.has(weak_id), "killed troop removed from the registry")
+
+	# A squad emptied by this (its last member killed) is disbanded entirely.
+	troops = {}
+	var lone_squad := _make_squad("p1", "flamethrower", HexCoord.new(0, 0), 1, troops)
+	squads = [lone_squad]
+	killed = UpkeepSystem.apply_deficit_deaths("p1", [ResourceType.Type.FOOD], squads, troops, _troop_defs)
+	_check(killed.size() == 1, "the squad's only member is killed")
+	_check(squads.is_empty(), "the emptied squad is disbanded/removed")
+
+	# Only the affected owner's squads are touched.
+	troops = {}
+	var p1_inf := _make_squad("p1", "flamethrower", HexCoord.new(0, 0), 2, troops)
+	var p2_inf := _make_squad("p2", "flamethrower", HexCoord.new(5, 5), 2, troops)
+	squads = [p1_inf, p2_inf]
+	killed = UpkeepSystem.apply_deficit_deaths("p1", [ResourceType.Type.FOOD], squads, troops, _troop_defs)
+	_check(killed.size() == 1, "only p1's squad is affected")
+	_check(p2_inf.member_ids.size() == 2, "p2's squad is untouched by p1's deficit")
+
+	# No deficits: no-op.
+	troops = {}
+	var untouched := _make_squad("p1", "flamethrower", HexCoord.new(0, 0), 2, troops)
+	squads = [untouched]
+	killed = UpkeepSystem.apply_deficit_deaths("p1", [], squads, troops, _troop_defs)
+	_check(killed.is_empty(), "empty deficits list kills nothing")

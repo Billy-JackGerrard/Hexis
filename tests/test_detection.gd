@@ -24,6 +24,8 @@ func _init() -> void:
 	_test_building_stats_detector()
 	print("DetectionSystem")
 	_test_detection_system()
+	print("CombatTargeting stealth integration (Landmine)")
+	_test_landmine_combat_targeting()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -135,3 +137,38 @@ func _test_detection_system() -> void:
 	DetectionSystem.resolve_tick([], [], standalone_buildings, grid, _troop_defs, _building_defs, detections6)
 	_check(DetectionSystem.detected_hexes_for(detections6, "p3").size() == _disc_size(3), "standalone Tower's detector coverage is a radius-3 disc (its detectionRange, not its 12-tile visionRange), keyed by its own owner_id")
 	_check(DetectionSystem.detected_hexes_for(detections6, "p1").is_empty(), "standalone Tower's coverage does not leak into an unrelated owner's key")
+
+## --- CombatTargeting stealth integration (Landmine) -------------------------
+
+## Building-side stealth (Landmine's own stealth/revealRange, previously
+## deferred as "not wired up anywhere") turns out to already be consumed
+## generically by CombatTarget.for_building()'s is_hidden/reveal_range fields
+## (shared with squad-side stealth) and CombatTargeting.candidates(), which
+## gates on target.is_hidden regardless of Kind — so this is an integration
+## check confirming it actually works end-to-end for a building target, not
+## new plumbing.
+func _test_landmine_combat_targeting() -> void:
+	var grid := _disc_grid(5, Terrain.Type.PLAINS)
+	var landmine := _standalone("p2", "landmine", "", 1, HexCoord.new(0, 0))
+	landmine.init_hp(_building_defs["landmine"], _building_defs)
+	var target := CombatTarget.for_building(landmine, _building_defs["landmine"], _building_defs, grid)
+	target.owner_id = landmine.owner_id
+	var targets: Array[CombatTarget] = [target]
+	var rifleman_def: Dictionary = _troop_defs["rifleman"]
+
+	_check(target.is_hidden, "a Landmine CombatTarget is hidden by default")
+	_check(target.reveal_range == 1.0, "a Landmine CombatTarget's reveal_range matches its authored revealRange (1)")
+
+	# Beyond revealRange, with no detector coverage: invisible to targeting.
+	var far_candidates := CombatTargeting.candidates(HexCoord.new(3, 0), "p1", 10, rifleman_def, targets)
+	_check(far_candidates.is_empty(), "an attacker beyond the Landmine's revealRange, with no detector coverage, cannot target it")
+
+	# Within revealRange: visible without needing a detector.
+	var near_candidates := CombatTargeting.candidates(HexCoord.new(1, 0), "p1", 10, rifleman_def, targets)
+	_check(near_candidates.size() == 1, "an attacker within the Landmine's revealRange (1) can target it, no detector needed")
+
+	# Beyond revealRange, but the attacker's owner has detector coverage on
+	# the Landmine's hex: visible.
+	var detections: Dictionary = {"p1": {HexCoord.new(0, 0).to_key(): true}}
+	var detected_candidates := CombatTargeting.candidates(HexCoord.new(3, 0), "p1", 10, rifleman_def, targets, detections)
+	_check(detected_candidates.size() == 1, "an attacker beyond revealRange but with detector coverage on the Landmine's hex can target it")

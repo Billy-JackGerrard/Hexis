@@ -61,6 +61,17 @@ static func _mirror_boarded_squads(squads: Array[SquadInstance]) -> void:
 ## convention — CombatTargeting only reacts to "attack_target", so a move
 ## order never interferes with auto-targeting.
 static func issue_move(squad: SquadInstance, grid: HexGrid, goal: HexCoord, troop_defs: Dictionary) -> bool:
+	if not _path_toward(squad, grid, goal, troop_defs):
+		return false
+	squad.order = {"type": "move", "goal": goal.to_key()}
+	return true
+
+## Shared pathing core for issue_move and resolve_attack_move: computes a
+## fresh path/edge_progress toward `goal` for this troop type's Domain/
+## terrainOverrides. Unlike issue_move, this never touches `squad.order` —
+## resolve_attack_move needs the squad to keep its `attack_target` order
+## while it chases, not have it silently overwritten with `{type:"move"}`.
+static func _path_toward(squad: SquadInstance, grid: HexGrid, goal: HexCoord, troop_defs: Dictionary) -> bool:
 	var def: Dictionary = troop_defs.get(squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
@@ -73,8 +84,48 @@ static func issue_move(squad: SquadInstance, grid: HexGrid, goal: HexCoord, troo
 	full.remove_at(0)
 	squad.path = full
 	squad.edge_progress = 0.0
-	squad.order = {"type": "move", "goal": goal.to_key()}
 	return true
+
+## Attack-move: chases a directed `{type:"attack_target"}` order when its
+## target is out of the attacker's range and it isn't already mid-chase,
+## per the "attack-move repathing toward a directed target" gap noted since
+## the very first movement slice. `targets` is the same
+## Array[CombatTarget] CombatResolver already builds each tick (caller-
+## computed-once, same convention as `auras`/`detections`).
+##
+## Once the target IS in range, any in-progress chase path is cleared so the
+## squad holds position and fights instead of overshooting/walking through
+## it — movement and combat resolve independently each tick (see this file's
+## header), so this only decides WHETHER to chase, not whether to fire
+## (CombatTargeting already handles firing off the squad's current position,
+## re-derived after this runs). A squad without an `attack_target` order, a
+## dead/vanished target, or one still mid-chase (non-empty path already) is
+## left alone — this never fights the ordinary move/regiment_move systems for
+## control of `path`.
+static func resolve_attack_move(squads: Array[SquadInstance], troop_defs: Dictionary, grid: HexGrid, targets: Array[CombatTarget]) -> void:
+	for squad in squads:
+		if squad.member_ids.is_empty() or squad.boarded_on_squad_id != "":
+			continue
+		if squad.order.get("type", "") != "attack_target":
+			continue
+		var target := _find_target(String(squad.order.get("targetId", "")), targets)
+		if target == null or not target.is_alive():
+			continue
+
+		var def: Dictionary = troop_defs.get(squad.troop_type, {})
+		var attack_range := int(def.get("range", 0))
+		if HexCoord.distance(squad.current_hex, target.hex) <= attack_range:
+			squad.path = []
+			continue
+
+		if squad.path.is_empty():
+			_path_toward(squad, grid, target.hex, troop_defs)
+
+static func _find_target(target_id: String, targets: Array[CombatTarget]) -> CombatTarget:
+	for target in targets:
+		if target.target_id() == target_id:
+			return target
+	return null
 
 static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}) -> void:
 	if squad.member_ids.is_empty():
@@ -186,12 +237,26 @@ static func issue_regiment_move(commander_squad: SquadInstance, member_squads: A
 		squad.order = {"type": "regiment_move", "goal": goal.to_key()}
 	return true
 
-## Advances a regiment one tick: rejoins any ad hoc squad that's gone idle,
-## advances the Commander along the shared path at the regiment's capped
-## (slowest-member) speed, then mirrors the result onto every lock-step member.
+## Advances a regiment one tick: rejoins any ad hoc-split or cargo-unloaded
+## squad that's gone idle, advances the Commander along the shared path at
+## the regiment's capped (slowest-member) speed, then mirrors the result onto
+## every lock-step member.
+##
+## A member currently boarded as cargo (`boarded_on_squad_id` set — see
+## CargoSystem) never rejoins here: it has no independent position to mirror
+## while carried (MovementResolver's `_mirror_boarded_squads` tracks its
+## carrier instead, same as any non-regiment boarded squad), and it keeps its
+## `commander_id`, so it's still logically a member the whole time. Once
+## `CargoSystem.unload()` clears `boarded_on_squad_id` it leaves the squad
+## idle (order `{}`, empty path) rather than restoring `regiment_move` itself
+## (CargoSystem has no regiment awareness — same order-issuing-layer gap
+## noted throughout this file) — so the idle case below is broadened to catch
+## a freshly-unloaded member too, not just an ad hoc `{type:"move"}` split.
 static func resolve_regiment_tick(dt: float, commander_squad: SquadInstance, member_squads: Array[SquadInstance], grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}) -> void:
 	for squad in member_squads:
-		if squad.order.get("type", "") == "move" and squad.path.is_empty():
+		if squad.boarded_on_squad_id != "":
+			continue
+		if squad.order.get("type", "") != "regiment_move" and squad.path.is_empty():
 			squad.order = {"type": "regiment_move", "goal": commander_squad.order.get("goal", "")}
 
 	if commander_squad.boarded_on_squad_id != "" or commander_squad.path.is_empty():
