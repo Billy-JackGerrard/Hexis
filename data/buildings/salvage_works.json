@@ -1,0 +1,14 @@
+{
+  "id": "salvage_works",
+  "name": "Salvage Works",
+  "category": "Production",
+  "populationCost": 1,
+
+  "notes": "Scrapyard only — a heavy-armor sustainment specialist. Unlocks, in order: Juggernaut, Repair Truck, Granite Crumbler.",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 210, "unlocks": "juggernaut", "cost": { "stone": 600, "steel": 420 } },
+    { "level": 2, "hp": 280, "unlocks": "repair_truck", "cost": { "stone": 850, "steel": 560 } },
+    { "level": 3, "hp": 380, "unlocks": "granite_crumbler", "cost": { "stone": 1200, "steel": 950 } }
+  ]
+}

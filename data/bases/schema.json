@@ -12,7 +12,7 @@
       "enum": [
         "Capital", "Fort Irongrad", "Firebase", "Windy Peaks", "Treehouse",
         "Kraken Point", "Sky Fortress", "Winter Forge", "Foundry Reach",
-        "Signal Ridge", "Rivergate", "Camp Cosy", "Cloudreach"
+        "Signal Ridge", "Rivergate", "Camp Cosy", "Cloudreach", "Scrapyard"
       ],
       "description": "Capital is per-player at match start; all others are Unique — at most one instance of each exists on a given map."
     },

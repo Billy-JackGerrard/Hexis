@@ -37,5 +37,5 @@
     { "troopId": "chonky", "count": 2 }
   ],
 
-  "notes": "Heavy armor specialist Unique base — one instance on the map. Tank Plant builds the full Heavy Tank roster (Juggernaut, Rocket Tank, Granite Crumbler, Chonky); Granite Crumbler and Chonky are Fort Irongrad-exclusive (not built at Winter Forge's Frostworks). Sited on Plains, no terrain exception."
+  "notes": "Heavy armor specialist Unique base — one instance on the map. Tank Plant builds the full Heavy Tank roster (Juggernaut, Rocket Tank, Granite Crumbler, Chonky); Chonky is Fort Irongrad-exclusive (not built at Winter Forge's Frostworks or Scrapyard's Salvage Works). Granite Crumbler is also built at Scrapyard's Salvage Works (see data/bases/scrapyard.json) — no longer Fort Irongrad-exclusive. Sited on Plains, no terrain exception."
 }

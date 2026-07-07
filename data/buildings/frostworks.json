@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Winter Forge only — builds a partial subset of the Heavy Tank roster, distinct from Fort Irongrad's Tank Plant (which builds the full roster). Unlocks, in order: Frost Tank, Juggernaut, Rocket Tank. Frost Tank is Frostworks-exclusive (not built at Tank Plant); Juggernaut and Rocket Tank are shared between both buildings.",
+  "notes": "Winter Forge only. Unlocks, in order: Frost Tank, Juggernaut, Rocket Tank. Frost Tank is Frostworks-exclusive.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 210, "unlocks": "frost_tank", "cost": { "stone": 600, "steel": 420 } },

@@ -22,8 +22,8 @@
 
   "cost": { "food": 0, "steel": 30 },
   "foodUpkeep": 0,
-  "fuelUpkeep": 2,
+  "fuelUpkeep": 1,
   "productionTime": 22,
 
-  "notes": "Air-domain counterpart to Repair Truck (data/troops/repair_truck.json) — same relationship as Repair Truck has to Ambulance, one domain over. Aura is Air-only (filter: \"Air\"), same magnitude as Repair Truck's Land heal, reflecting that aircraft maintenance is as slow/costly as vehicle repair, unlike Ambulance's cheaper/faster Infantry heal. Non-combat (canTarget: []). Unlike Glider/Hot Air Balloon it's not an unpowered exception, so it pays Fuel upkeep like other aircraft, just lighter than combat aircraft since it carries no weapons. Not yet assigned to any building's productionUpgradeLevels."
+  "notes": "Air-domain counterpart to Repair Truck — same relationship as Repair Truck has to Ambulance, one domain over. Aura is Air-only (filter: \"Air\"), lower magnitude as Repair Truck's Land heal, reflecting that aircraft maintenance is more slow/costly than vehicle repair, unlike Ambulance's cheaper/faster Infantry heal. Non-combat (canTarget: []). Unlike Glider/Hot Air Balloon it's not an unpowered exception, so it pays Fuel upkeep like other aircraft, just lighter than combat aircraft since it carries no weapons."
 }

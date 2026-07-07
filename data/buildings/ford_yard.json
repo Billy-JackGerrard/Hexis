@@ -9,7 +9,7 @@
     "adjacentTerrainRequired": "Water"
   },
 
-  "notes": "Rivergate only — Water-adjacency covers Ocean or River tiles alike, same requirement as Port/Shipyard. Unlocks, in order: Amphibious Raider, Submarine. Submarine is also built at Kraken Point's Shipyard.",
+  "notes": "Rivergate only — Water-adjacency covers Ocean or River tiles alike, same requirement as Port/Shipyard. Unlocks, in order: Amphibious Raider, Submarine.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 220, "unlocks": "amphibious_raider", "cost": { "stone": 200, "steel": 120 } },

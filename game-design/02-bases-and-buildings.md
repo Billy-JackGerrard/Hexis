@@ -165,6 +165,7 @@ which is the sole source of truth for building-vs-base eligibility (see
 | Factory | Light land vehicles | Capital, Foundry Reach |
 | Port | Navy (basic roster) | Any base with a water-adjacent tile |
 | Tank Plant | Heavy tanks (full roster, builds 3-5 at a time) | Fort Irongrad only |
+| Salvage Works | Juggernaut, Repair Truck, Granite Crumbler (heavy-armor sustainment subset) | Scrapyard only |
 | Grenade Tower | Defense — splash damage, cheap, short range/low damage | Fort Irongrad only |
 | Blazeworks | Flamecopter, Plasmacopter | Firebase only |
 | Flame Turret (renamed from Flamethrower) | Defense (fire) | Firebase only |
@@ -293,8 +294,9 @@ authoring a new base — extend the JSON and add only the "why" here if there is
 
 ### Fort Irongrad
 Heavy armor specialist. Tank Plant is the most complete source of heavy tanks, but not
-the only one — Winter Forge's Frostworks (below) also builds a subset of the same
-roster, and heavy-tank access is expected to keep spreading to more bases over time.
+the only one — Winter Forge's Frostworks and Scrapyard's Salvage Works (below) also
+build subsets of the same roster, and heavy-tank access is expected to keep spreading
+to more bases over time.
 
 ### Firebase
 Incendiary air power specialist. Its defense building is called **Flame Turret**,
@@ -372,6 +374,16 @@ Barracks is included for the same reason as Camp Cosy — but Cloudreach keeps t
 standard Turret + Missile Launcher pairing rather than going lighter. Hangar is
 pre-seeded alongside Covert Airfield rather than left as an optional build, since
 Cargocopter can't board/unload Infantry without one nearby.
+
+### Scrapyard
+Heavy-armor sustainment specialist — the field-repair counterpart to Fort Irongrad's
+raw production. Its **Salvage Works** builds Juggernaut and Granite Crumbler alongside
+Repair Truck, keeping its own heavy squads running without relying on Camp Cosy;
+Granite Crumbler was previously Fort Irongrad-exclusive and Repair Truck previously
+Camp Cosy-exclusive, so this is the first base to pull a troop out of two different
+prior single-source buildings into one roster. No specialty defense building — relies
+on generic Turret/Missile Launcher plus Walls, same as Kraken Point/Windy Peaks/Sky
+Fortress.
 
 ## Building Categories
 Every building falls into one of five categories, which determines whether it needs

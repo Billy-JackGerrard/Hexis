@@ -43,7 +43,7 @@ doc records design rationale, not the numbers themselves.
 |---|---|---|
 | Tank Plant | **Juggernaut** | Baseline heavy generalist, no damage modifiers — the Heavy Tank roster's Rifleman/Light Tank equivalent. Also built at Winter Forge's Frostworks. Stats implemented, see `data/troops/juggernaut.json` |
 | Tank Plant | **Rocket Tank** | Dedicated AA heavy tank — fills the roster's long-open anti-air gap. **Cannot target Infantry at all** (omitted from `canTarget`, not just a penalty — see Infantry-counters-armor note below). `damageDealtModifiers: {Air: 2.0, Naval: 1.6, Structure: 0.7}`, slight armor (3), 20% chance to `stun` on hit. Also built at Winter Forge's Frostworks. Stats implemented, see `data/troops/rocket_tank.json` |
-| Tank Plant | **Granite Crumbler** | Long-range indirect siege tank — highest range/per-hit damage in the roster, splash. **Cannot target Infantry at all** (omitted from `canTarget`). `damageDealtModifiers: {Structure: 2.0, Defensive: 1.6}`. Irongrad-exclusive (not built at Frostworks). Stats implemented, see `data/troops/granite_crumbler.json` |
+| Tank Plant | **Granite Crumbler** | Long-range indirect siege tank — highest range/per-hit damage in the roster, splash. **Cannot target Infantry at all** (omitted from `canTarget`). `damageDealtModifiers: {Structure: 2.0, Defensive: 1.6}`. Built at Fort Irongrad and Scrapyard (not Frostworks). Stats implemented, see `data/troops/granite_crumbler.json` |
 | Tank Plant | **Chonky** | Armored brawler — highest HP in the roster plus flat armor (8), very short range, bonus vs. Infantry (1.5x, crush). Irongrad-exclusive (not built at Frostworks). Stats implemented, see `data/troops/chonky.json` |
 
 ### Winter Forge
@@ -51,6 +51,14 @@ doc records design rationale, not the numbers themselves.
 |---|---|---|
 | Frostworks | **Frost Tank** | Ice-themed control unit — 25% chance to `freeze` on hit, ties into Winter Forge's Cold Turret/Ice Spire identity. Frostworks-exclusive (not built at Tank Plant). Frostworks' level-1 unlock. Stats implemented, see `data/troops/frost_tank.json` |
 | Frostworks | Juggernaut, Rocket Tank (shared w/ Tank Plant) | Frostworks' level-2/3 unlocks, in that order. See Fort Irongrad above |
+
+### Scrapyard
+| Building | Unit(s) | Notes |
+|---|---|---|
+| Salvage Works | Juggernaut (shared w/ Tank Plant/Frostworks) | Salvage Works' level-1 unlock. See Fort Irongrad above |
+| Salvage Works | **Repair Truck** | Land-vehicle heal aura (see Camp Cosy below for full stats). Also built at Camp Cosy's Supply Depot. Salvage Works' level-2 unlock, keeping Scrapyard's own heavy squads running without a trip back to Camp Cosy |
+| Salvage Works | Granite Crumbler (shared w/ Tank Plant) | Salvage Works' level-3 unlock, no longer Fort Irongrad-exclusive. See Fort Irongrad above |
+| Salvage Works | **Repair Drone** | Salvage Works' level-4 unlock. Air-domain heal aura (see Cloudreach below for full stats) — Scrapyard's heavy-armor sustainment identity extends to any escorting Air squads too, not just its own Land vehicles |
 
 ### Firebase
 | Building | Unit(s) | Notes |
@@ -108,16 +116,23 @@ doc records design rationale, not the numbers themselves.
 |---|---|---|
 | Supply Depot | **Engineer**, **Ambulance**, **Transport Truck**, **Repair Truck**, **Mule**, **Volt Truck** | All non-combat (`can_target: []`) — a support-vehicle-only roster, distinct from Factory's combat vehicles. Engineer/Ambulance/Transport Truck are shared with Factory (see Capital Base above). Repair Truck heals Land vehicles (Ambulance's counterpart, which now heals Infantry only); Mule reduces nearby troops' Food/Fuel upkeep; Volt Truck boosts speed + attack speed for Land/Air/Naval. Stats implemented, see `data/troops/repair_truck.json`, `data/troops/mule.json`, `data/troops/volt_truck.json` |
 
-**Resolved: healing has a deliberate rarity progression by Domain, and Air currently
-has no healing option at all.** Infantry healing (Hospital's passive aura, Ambulance's
-mobile aura) is available to every base via Factory/Capital. Land-vehicle healing
-(Repair Truck) is gated behind Camp Cosy's Supply Depot — one specific Unique base,
-not universally available. Air has no repair/heal unit or building at all — this is
-an intentional gap for now, not an oversight, consistent with healing getting rarer
-by Domain (Infantry → common, Land vehicles → one Unique base, Air → none yet). If a
-future pass adds aircraft healing, it should sit at least as rare as Repair Truck to
-preserve that progression.
+**Resolved: healing has a deliberate rarity progression by Domain.** Infantry healing
+(Hospital's passive aura, Ambulance's mobile aura) is available to every base via
+Factory/Capital. Land-vehicle healing (Repair Truck) is gated behind Camp Cosy's
+Supply Depot and Scrapyard's Salvage Works — two specific Unique bases, not
+universally available. Air healing (Repair Drone) is the rarest tier, gated behind Cloudreach's Covert Airfield
+(level-2 unlock) — still just one specific Unique base, more rare than Repair Truck rather than more common, preserving the progression (Infantry →
+common, Land vehicles → a couple of Unique bases, Air → one, one level deeper).
 | Barracks | Rifleman, Grenadier, Flamethrower, Shielder, Sniper (shared w/ Capital roster) | Camp Cosy's only source of combat troops — Supply Depot's roster can't defend the base at all |
+
+### Cloudreach
+| Building | Unit(s) | Notes |
+|---|---|---|
+| Covert Airfield | **Cargocopter** | Covert Airfield's level-1 unlock. Air-domain troop carrier (see Sky Fortress above for full stats). Cloudreach pre-seeds a Hangar alongside Covert Airfield since Cargocopter's `cargoRequiresBuildingDock` means it can't board/unload Infantry without one nearby |
+| Covert Airfield | **Repair Drone** | Level-2 unlock. Domain: Air · Tags: `[Aircraft, Support]`. Non-combat (`canTarget: []`); aura `{radius: 3, target: friendly_troops, filter: "Air", effect: heal_over_time, magnitude: 2}` — the Air-domain counterpart to Repair Truck, one domain over from Ambulance, same magnitude as Repair Truck's Land heal. Also built at Scrapyard's Salvage Works. Stats implemented, see `data/troops/repair_drone.json` |
+| Covert Airfield | **Kleptocopter** | Level-3 unlock. Domain: Air · Tags: `[Aircraft, Stealth, Support]`. Non-combat (`canTarget: []`), `stealth: true`, no `revealsOnAttack` (it never attacks, so it can't break its own cloak that way — only a detector or wandering within its short `revealRange` exposes it). Aura: `{radius: 5, target: enemy_buildings, filter: "Resource", effect: resource_siphon}` — redirects an enemy Resource building's output to its owner for as long as it sits in range; unlike Signal Ridge's Disruptor (same aura family, `suppress_targeting` instead) it never needs an escort, since stealth lets it slip in alone. Stats implemented, see `data/troops/kleptocopter.json` |
+| Covert Airfield | **Shadowcopter** | Level-4 unlock. Domain: Air · Tags: `[Aircraft, Stealth]`. The roster's one combat-capable Covert Airfield unlock — a stand-off harasser: lowest HP of any combat aircraft and a squad cap of 2, but by far the longest range in the Air roster and `revealsOnAttack: false` (the inverse of Ghost Tank/Sniper/Submarine), so it can fire indefinitely from range without ever exposing itself; only `revealRange` (2) and detectors still apply. Heaviest Fuel upkeep in the roster. Stats implemented, see `data/troops/shadowcopter.json` |
+| Barracks | Rifleman, Shielder (shared w/ Capital roster) | Cloudreach's only source of combat troops — Covert Airfield's roster is either non-combat or a stand-off harasser, so Barracks exists purely so the base isn't a total pushover garrison-wise, same reasoning as Camp Cosy |
 
 ## Fuel/Maintenance Quick Reference
 - Land vehicles: free while stationary, consume Fuel while moving.
@@ -148,3 +163,11 @@ preserve that progression.
       `data/troops/chonky.json`, `data/troops/frost_tank.json`
 - [x] Dedicated siege unit(s) — **Basekiller** (Factory), see `data/troops/basekiller.json`. Also introduced the `Defensive` reserved value (split out from `Structure`) for base-defenses-specific targeting/bonuses, and the "damage-modifier bonus = target-priority hint" rule (see `05-troop-stat-schema.md`/`04-combat.md`)
 - [x] Quad-bike (Treehouse) full stat sheet — see `data/troops/quad_bike.json`
+- [x] Aircraft fuel rework + Hangar docking, and the Cloudreach base/Covert Airfield
+      roster that closes its "nothing can dock yet" gap — Cargocopter, Repair Drone,
+      Kleptocopter, Shadowcopter; see `data/bases/cloudreach.json`,
+      `data/buildings/covert_airfield.json`, `data/troops/{cargocopter,repair_drone,
+      kleptocopter,shadowcopter}.json`
+- [x] Scrapyard base (heavy-armor sustainment specialist) — Salvage Works unlocks
+      Juggernaut, Repair Truck, Granite Crumbler, Repair Drone; see
+      `data/bases/scrapyard.json`, `data/buildings/salvage_works.json`
