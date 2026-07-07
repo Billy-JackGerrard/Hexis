@@ -71,6 +71,9 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 
 	for base in bases:
 		for building in base.buildings:
+			# A ruin (or any building at 0 HP) no longer detects anything.
+			if building.max_hp > 0.0 and building.current_hp <= 0.0:
+				continue
 			var def: Dictionary = building_defs.get(building.building_type, {})
 			if not BuildingStats.detector(def, building_defs):
 				continue

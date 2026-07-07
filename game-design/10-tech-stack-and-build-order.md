@@ -281,17 +281,45 @@ writing real UI code does, and it also needs actual game state to bind to.
      having no living members — cargo does not survive its carrier's
      destruction, no "spills out" recovery. `tests/test_cargo.gd`, 28 checks
      passing.
-   - [ ] HQ capture-flip, building ruin state, and out-of-combat HP regen:
-     `CombatResolver._prune_dead()` currently deletes any building — HQ
-     included — at 0 HP. Per `02-bases-and-buildings.md`, an HQ at 0 HP should
-     instead flip the base to the attacker and respawn at full HP; an
-     ordinary building (Farm, Barracks, Turret, etc.) should become a
-     rebuildable ruin rather than vanish (Walls/standalone buildings are
-     correctly spec'd to delete outright, so those stay as-is); and all
-     buildings/walls should slowly regen HP once out of combat. Shares its
-     ruin data model with the placement slice's "demolish/ruin state"
-     deferral below — same ruin state, two different triggers (voluntary
-     demolish vs. combat destruction).
+   - [x] HQ capture-flip, building ruin state, and out-of-combat HP regen:
+     `CombatResolver._prune_dead()` (`sim/units/combat_resolver.gd`) no longer
+     unconditionally deletes a base's buildings at 0 HP. An HQ instead
+     captures per `02-bases-and-buildings.md`: `base.owner_id` flips to
+     whoever dealt the killing blow (tracked via the new
+     `BuildingInstance.last_damaged_by`, set in `_damage_target()`) and the HQ
+     respawns at full HP in place — since every base-attached building
+     already derives ownership from `base.owner_id`
+     (`building_instance.gd`'s existing convention), flipping just that one
+     field is enough to flip the whole base, with no per-building ownership
+     to update. Garrisoned squads are untouched (they carry their own
+     `owner_id`) — elimination-on-last-base-lost stays a separate, not-yet-
+     built system. A non-HQ building at 0 HP instead becomes a **ruin**
+     (`BuildingInstance.is_ruin`): it stays in `base.buildings`, still
+     occupying its hex and counting for the hex-adjacency placement rule
+     (`BuildingPlacement`'s `occupied_hexes()`-based checks needed no changes
+     — they already don't filter on HP), but no longer functions.
+     `VisionSystem`/`DetectionSystem` (`sim/vision/`) gained an explicit
+     `current_hp <= 0.0` skip for base buildings to match — previously
+     implicit since dead buildings were removed before either system ran;
+     `AuraSystem` already had this check on both the source and
+     `friendly_buildings`/`enemy_buildings` target side. Walls/standalone
+     buildings (which delete outright per `06-building-stats-and-defenses.md`)
+     need no exception yet since neither is targetable by `CombatResolver`
+     today (Walls unimplemented; standalone buildings out of
+     `_build_targets()`'s scope). New `BuildingRegenSystem`
+     (`sim/units/building_regen_system.gd`), called at the end of
+     `CombatResolver.resolve_tick()`: any damaged-but-surviving,
+     non-ruined building regenerates 5% of current max HP per banked 5-second
+     tick once `BuildingInstance.time_since_damage` (reset on every hit
+     alongside `last_damaged_by`) clears a placeholder out-of-combat delay —
+     same accumulator-over-dt shape as `attack_progress`/`edge_progress`,
+     not an assumed fixed external cadence. `tests/test_combat.gd` extended
+     (ruin, HQ capture-flip, and regen sections). **Deferred**: the actual
+     rebuild-on-ruin action/cost and the voluntary `demolish_building` action
+     that shares this same ruin data model (both still need the
+     command/order-issuing layer noted as missing throughout this doc), and
+     Walls/standalone-building delete-outright once either becomes
+     targetable.
    - [x] Base/building placement rules, hex-adjacency validation (see
      `02-bases-and-buildings.md`): `BuildingPlacement.can_place()`
      (`sim/instances/building_placement.gd`) checks base-type eligibility

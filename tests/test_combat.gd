@@ -340,18 +340,40 @@ func _test_combat_resolver() -> void:
 	_check(kill_squads.size() == 1 and kill_squads[0].id == killer.id, "a killed squad is pruned from the squads list")
 	_check(not t3.has(victim_tid), "the dead troop is removed from the registry")
 
-	# a Basekiller sieges a building down to 0 HP and it is removed
+	# a Basekiller sieges a building down to 0 HP and it becomes a ruin, not
+	# removed — the hex/adjacency slot stays occupied per
+	# 06-building-stats-and-defenses.md's Destruction & Ruins section.
 	var t4: Dictionary = {}
 	var siege := _make_squad("p1", "basekiller", HexCoord.new(0, 0), 1, t4)
 	var enemy_base := _p2_base_with("farm", HexCoord.new(1, 0))
-	var farm_hp := enemy_base.buildings[0].max_hp
+	var farm: BuildingInstance = enemy_base.buildings[0]
+	var farm_hp := farm.max_hp
 	_check(farm_hp > 0.0, "seeded Farm has a positive max_hp to fight down")
 	var bases: Array[BaseInstance] = [enemy_base]
 	for _i in range(200):
-		if enemy_base.buildings.is_empty():
+		if farm.is_ruin:
 			break
 		CombatResolver.resolve_tick(1.0, [siege], bases, t4, grid, _troop_defs, _building_defs)
-	_check(enemy_base.buildings.is_empty(), "Basekiller destroys the Structure and it is pruned from the base")
+	_check(farm.is_ruin, "Basekiller fights the Farm down to a ruin")
+	_check(enemy_base.buildings.size() == 1 and enemy_base.buildings[0] == farm, "the ruined Farm stays in base.buildings, not removed")
+	_check(farm.current_hp <= 0.0, "a ruin sits at 0 HP")
+	_check(farm.last_damaged_by == "p1", "the ruin remembers who dealt the killing blow")
+
+	# an HQ sieged to 0 HP captures the base instead of ruining
+	var t_hq: Dictionary = {}
+	var hq_siege := _make_squad("p1", "basekiller", HexCoord.new(0, 0), 1, t_hq)
+	var hq_base := _p2_base_with("hq", HexCoord.new(1, 0))
+	var hq: BuildingInstance = hq_base.buildings[0]
+	var hq_max_hp := hq.max_hp
+	var hq_bases: Array[BaseInstance] = [hq_base]
+	for _i in range(200):
+		if hq_base.owner_id == "p1":
+			break
+		CombatResolver.resolve_tick(1.0, [hq_siege], hq_bases, t_hq, grid, _troop_defs, _building_defs)
+	_check(hq_base.owner_id == "p1", "an HQ fought to 0 HP flips the whole base to the attacker")
+	_check(hq.current_hp == hq_max_hp, "the HQ respawns at full HP under its new owner")
+	_check(not hq.is_ruin, "the HQ is never marked as a ruin")
+	_check(hq_base.buildings.size() == 1, "the HQ is never removed from the base")
 
 	# a Defensive building fires back and damages an attacking squad
 	var t5: Dictionary = {}
@@ -360,3 +382,18 @@ func _test_combat_resolver() -> void:
 	CombatResolver.resolve_tick(1.0, [raider], [turret_base], t5, grid, _troop_defs, _building_defs)
 	_check(t5[raider.member_ids[0]].current_hp < 100.0, "a Defensive Turret fires back and damages the attacking squad")
 	_check(turret_base.buildings[0].current_hp < turret_base.buildings[0].max_hp, "the attacking squad also damages the Turret")
+
+	# out-of-combat regen: a damaged, surviving building slowly heals once it
+	# stops taking damage, per 06-building-stats-and-defenses.md
+	var regen_base := _p2_base_with("farm", HexCoord.new(2, 0))
+	var regen_building: BuildingInstance = regen_base.buildings[0]
+	regen_building.current_hp = regen_building.max_hp - 100.0
+	regen_building.time_since_damage = 0.0
+	var no_squads: Array[SquadInstance] = []
+	var no_troops: Dictionary = {}
+	CombatResolver.resolve_tick(BuildingRegenSystem.OUT_OF_COMBAT_DELAY_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
+	_check(regen_building.current_hp == regen_building.max_hp - 100.0, "no regen before the out-of-combat delay elapses")
+	CombatResolver.resolve_tick(1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
+	_check(regen_building.current_hp == regen_building.max_hp - 100.0, "crossing the delay banks no regen tick yet on its own")
+	CombatResolver.resolve_tick(BuildingRegenSystem.REGEN_TICK_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
+	_check(_approx(regen_building.current_hp, regen_building.max_hp - 100.0 + regen_building.max_hp * BuildingRegenSystem.REGEN_FRACTION_OF_MAX_HP), "once a full 5-second regen tick banks past the delay, it heals 5% of max HP")

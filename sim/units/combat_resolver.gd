@@ -15,8 +15,12 @@
 ## Simplifications noted for later slices: an attack on a squad focus-fires its
 ## first living member (overflow past a kill is lost); splash hits one member
 ## per other enemy squad in radius (not every stacked member) and never friendly
-## units; buildings at 0 HP are simply removed (HQ capture-flip and ruin state
-## are deferred).
+## units. A non-HQ building at 0 HP becomes a ruin (stays in base.buildings,
+## non-functional) rather than being removed; an HQ at 0 HP instead flips its
+## base to the attacker and respawns at full HP (see _prune_dead) — Walls and
+## standalone buildings, which delete outright per 06-building-stats-and-
+## defenses.md, aren't targetable here yet (Walls unimplemented; standalone
+## buildings out of _build_targets' scope), so that exception isn't coded yet.
 ## Terrain defense bonuses and stealth/detection (hill defender bonus, forest
 ## ambush, Tower/Radar Array detector) are handled via CombatTarget's
 ## defense_multiplier/is_hidden/reveal_range (computed from `grid` at
@@ -38,6 +42,10 @@
 ## CombatTarget's aura_damage_reduction_mult (set at _build_targets time, same
 ## as defense_multiplier); heal_over_time/heal_out_of_combat apply as flat HP
 ## regen via AuraSystem.apply_heals() once per tick, before targeting/damage.
+##
+## Out-of-combat building regen (BuildingRegenSystem): runs after this tick's
+## damage/prune step, per 06-building-stats-and-defenses.md's global
+## 5%-max-HP-per-5-second-tick rule for any damaged-but-surviving building.
 class_name CombatResolver
 extends RefCounted
 
@@ -73,6 +81,7 @@ static func resolve_tick(
 			_advance_building(building, base.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras)
 
 	_prune_dead(squads, bases, troops_by_id)
+	BuildingRegenSystem.resolve_tick(dt, bases)
 
 ## Builds the CombatTarget view over every live squad and combat-tracked
 ## building. Buildings with max_hp 0 (infrastructure stubs, or defs carrying no
@@ -162,24 +171,28 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 ## attacker's statusEffectOnHit (if any) is then rolled and applied to the
 ## PRIMARY target only — see StatusEffectSystem's scoping note on splash.
 static func _apply_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> void:
-	_damage_target(target, CombatMath.resolve_damage(attacker_def, base_damage, target), troops_by_id)
+	_damage_target(target, CombatMath.resolve_damage(attacker_def, base_damage, target), attacker_owner, troops_by_id)
 	if splash_radius > 0:
 		for other in targets:
 			if other == target or other.owner_id == attacker_owner or not other.is_alive():
 				continue
 			if HexCoord.distance(target.hex, other.hex) <= splash_radius:
-				_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), troops_by_id)
+				_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
 
 	var status_effect: Dictionary = attacker_def.get("statusEffectOnHit", {})
 	if not status_effect.is_empty() and target.is_alive():
 		var target_def: Dictionary = troop_defs.get(target.squad.troop_type, {}) if target.kind == CombatTarget.Kind.SQUAD else building_defs.get(target.building.building_type, {})
 		StatusEffectSystem.apply_on_hit(status_effect, target, target_def, attacker_hex, grid)
 
-## Applies damage: buildings lose current_hp; a squad's first living member
-## takes the hit (focus-fire).
-static func _damage_target(target: CombatTarget, damage: float, troops_by_id: Dictionary) -> void:
+## Applies damage: buildings lose current_hp (and remember who hit them last,
+## for HQ capture-flip attribution, plus reset their out-of-combat regen
+## clock); a squad's first living member takes the hit (focus-fire).
+static func _damage_target(target: CombatTarget, damage: float, attacker_owner: String, troops_by_id: Dictionary) -> void:
 	if target.kind == CombatTarget.Kind.BUILDING:
 		target.building.current_hp -= damage
+		target.building.last_damaged_by = attacker_owner
+		target.building.time_since_damage = 0.0
+		target.building.regen_progress = 0.0
 		return
 	for member_id in target.squad.member_ids:
 		var troop: TroopInstance = troops_by_id.get(member_id)
@@ -231,7 +244,31 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 			squads.remove_at(i)
 
 	for base in bases:
-		for i in range(base.buildings.size() - 1, -1, -1):
-			var building := base.buildings[i]
-			if building.max_hp > 0.0 and building.current_hp <= 0.0:
-				base.buildings.remove_at(i)
+		for building in base.buildings:
+			if building.max_hp <= 0.0 or building.current_hp > 0.0:
+				continue
+			if building.building_type == "hq":
+				# Capture, per 02-bases-and-buildings.md: ownership of the whole
+				# base flips to whoever dealt the killing blow (buildings derive
+				# ownership from base.owner_id, so flipping it here is enough —
+				# no per-building ownership to update), and the HQ respawns
+				# immediately at full HP under its new owner. It's never ruined
+				# or removed. Garrisoned squads keep their own owner_id and are
+				# untouched (elimination-on-last-base is a separate, not-yet-
+				# built system).
+				if building.last_damaged_by != "" and building.last_damaged_by != base.owner_id:
+					base.owner_id = building.last_damaged_by
+				building.current_hp = building.max_hp
+				building.last_damaged_by = ""
+				building.time_since_damage = 0.0
+				building.regen_progress = 0.0
+			else:
+				# Non-HQ buildings become a rebuildable ruin instead of
+				# vanishing: the hex/adjacency slot stays occupied but the
+				# building no longer functions (every consuming system already
+				# gates on current_hp <= 0). Walls/standalone buildings delete
+				# outright per the same doc, but neither lives in
+				# base.buildings today (Walls aren't implemented yet;
+				# standalone buildings aren't targetable by CombatResolver at
+				# all — see _build_targets), so no exception is needed here yet.
+				building.is_ruin = true

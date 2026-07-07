@@ -44,6 +44,10 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 
 	for base in bases:
 		for building in base.buildings:
+			# A ruin (CombatResolver-set is_ruin, or any building at 0 HP)
+			# no longer functions — it doesn't see anything.
+			if building.max_hp > 0.0 and building.current_hp <= 0.0:
+				continue
 			var def: Dictionary = building_defs.get(building.building_type, {})
 			var vision := BuildingStats.vision_range(def, building.level, building.material, building_defs)
 			if vision <= 0.0:
@@ -73,6 +77,8 @@ static func _global_vision_bonus_by_owner(bases: Array[BaseInstance], building_d
 	var result: Dictionary = {}
 	for base in bases:
 		for building in base.buildings:
+			if building.max_hp > 0.0 and building.current_hp <= 0.0:
+				continue
 			var def: Dictionary = building_defs.get(building.building_type, {})
 			var bonus := BuildingStats.global_vision_bonus(def, building.level, building_defs)
 			if bonus > 0.0:

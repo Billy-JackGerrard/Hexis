@@ -1,6 +1,6 @@
 ## Live per-match state for one built building (see 07-data-architecture.md
-## section 3). Still no ruinState/totalResourcesSpent/lastDamagedAt (those
-## belong to the not-yet-built ruin system), but now carries combat HP and, for
+## section 3). Still no totalResourcesSpent (belongs to the not-yet-built
+## demolish-refund action), but now carries combat HP, ruin state, and, for
 ## Defensive buildings, an attack-speed accumulator so the CombatResolver can
 ## fight it down / let it fire back.
 class_name BuildingInstance
@@ -31,6 +31,27 @@ var owner_id: String = ""
 var lockout_remaining: float = 0.0
 var stun_tail_remaining: float = 0.0
 var stun_tail_queued: float = 0.0
+## True once a non-HQ building has been fought down to 0 HP: per
+## 06-building-stats-and-defenses.md's Destruction & Ruins section, it stays
+## in base.buildings (still occupying its hex / counting for adjacency) but
+## no longer functions — combat/vision/aura systems already gate on
+## current_hp <= 0, so a ruin simply never recovers that on its own. Cleared
+## (back to false) only by a future rebuild-on-ruin action. HQ never sets
+## this — see CombatResolver's capture-flip handling instead. Walls/
+## standalone buildings never set this either — they delete outright.
+var is_ruin: bool = false
+## owner_id of whoever dealt this building's most recent damage — the only
+## thing CombatResolver needs to know who gets an HQ's capture-flip. Reset to
+## "" once consumed by a capture (a building that regens back to full without
+## being finished off shouldn't leave a stale attacker attributed to it).
+var last_damaged_by: String = ""
+## Seconds since this building last took damage, and the accumulator banking
+## toward the next regen application — same accumulator-not-absolute-time
+## shape as attack_progress/edge_progress. Both reset by CombatResolver on
+## every hit; BuildingRegenSystem is the only reader. See
+## 06-building-stats-and-defenses.md's Regeneration rule.
+var time_since_damage: float = 0.0
+var regen_progress: float = 0.0
 
 func _init(p_id: String, p_base_id: String, p_building_type: String, p_level: int = 1, p_material: String = "", p_hex: HexCoord = null, p_owner_id: String = "") -> void:
 	id = p_id
