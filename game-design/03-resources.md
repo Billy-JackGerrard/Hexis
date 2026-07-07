@@ -45,12 +45,12 @@ see `ideas.txt`'s account-perks idea).
   vehicles are free to maintain. Aircraft consume Fuel heavily while active, but are
   Fuel-free whenever not under a move order while occupying or adjacent to a hex that
   is part of **one of that player's own bases** (not an enemy's or a neutral/unowned
-  one, and not gated behind any specific building like a Hangar/Blazeworks — any
+  one, and not gated behind any specific building like an Iron Aviary/Blazeworks — any
   owned base's footprint qualifies) — meaning aircraft have a practical "leash range"
   tied to friendly base coverage, not a landing mechanic. **Resolved: this was
-  deliberately chosen over an alternative "aircraft must land inside a Hangar/
+  deliberately chosen over an alternative "aircraft must land inside an Iron Aviary/
   Blazeworks to refuel" design** — simpler to implement (no land/idle-in-building state,
-  no per-building capacity) at the cost of Hangar/Blazeworks having no fuel-related
+  no per-building capacity) at the cost of Iron Aviary/Blazeworks having no fuel-related
   role beyond production; only the Aircraft Carrier keeps an explicit docking
   mechanic (see `05-troop-stat-schema.md`). Ships consume very little Fuel regardless
   of state.

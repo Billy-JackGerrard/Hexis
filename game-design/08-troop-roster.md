@@ -82,8 +82,8 @@ doc records design rationale, not the numbers themselves.
 ### Sky Fortress
 | Building | Unit(s) | Notes |
 |---|---|---|
-| Hangar | **Wingfighter** | Fast, rapid-fire machine guns. Low damage against buildings/walls — anti-troop dogfighter, not a siege unit. Stats implemented, see `data/troops/wingfighter.json` |
-| Hangar | **Thunder** (renamed from Falcon) | Slower, heavier armored, missile-armed — hits harder per shot, small splash, less mobile than Wingfighter. Stats implemented, see `data/troops/thunder.json` |
+| Iron Aviary | **Wingfighter** | Fast, rapid-fire machine guns. Low damage against buildings/walls — anti-troop dogfighter, not a siege unit. Stats implemented, see `data/troops/wingfighter.json` |
+| Iron Aviary | **Thunder** (renamed from Falcon) | Slower, heavier armored, missile-armed — hits harder per shot, small splash, less mobile than Wingfighter. Stats implemented, see `data/troops/thunder.json` |
 
 ### Foundry Reach
 | Building | Unit(s) | Notes |
@@ -121,7 +121,7 @@ preserve that progression.
 ## Fuel/Maintenance Quick Reference
 - Land vehicles: free while stationary, consume Fuel while moving.
 - Aircraft: heavy Fuel consumption, free while not moving and on/adjacent to one of
-  the owner's own bases (any base's footprint — no Hangar/Blazeworks landing
+  the owner's own bases (any base's footprint — no Iron Aviary/Blazeworks landing
   mechanic; see `03-resources.md`).
 - Ships: consume very little Fuel regardless of state.
 - **Exception — Glider** (Windy Peaks): unpowered, so it uses **no Fuel at all** and

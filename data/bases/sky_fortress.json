@@ -11,7 +11,7 @@
     "mine",
     "oil_rig",
     "lumber_mill",
-    "hangar",
+    "iron_aviary",
     "turret",
     "missile_launcher",
     "hospital",
@@ -24,7 +24,7 @@
     { "buildingType": "quarry", "count": 1 },
     { "buildingType": "turret", "count": 1 },
     { "buildingType": "missile_launcher", "count": 1 },
-    { "buildingType": "hangar", "count": 1 },
+    { "buildingType": "iron_aviary", "count": 1 },
     { "buildingType": "wall", "count": 6, "material": "stone" }
   ],
 
@@ -33,5 +33,5 @@
     { "troopId": "thunder", "count": 3 }
   ],
 
-  "notes": "Elite air-superiority specialist Unique base — one instance on the map, the pure air-combat counterpart to Windy Peaks' scouting/ground-support focus. Hangar builds Wingfighter (anti-troop dogfighter) and Thunder (heavier, missile-armed). Sited on Plains, no terrain exception. No specialty defense building or Barracks — relies on generic Turret/Missile Launcher plus Walls only. Generated with a ring of water terrain (a moat) surrounding the base, making it harder to approach with Land-domain troops (and unreachable by Naval, being landlocked) — Air units ignore it entirely, same as every other terrain restriction."
+  "notes": "Elite air-superiority specialist Unique base — one instance on the map, the pure air-combat counterpart to Windy Peaks' scouting/ground-support focus. Iron Aviary builds Wingfighter (anti-troop dogfighter) and Thunder (heavier, missile-armed). Sited on Plains, no terrain exception. No specialty defense building or Barracks — relies on generic Turret/Missile Launcher plus Walls only. Generated with a ring of water terrain (a moat) surrounding the base, making it harder to approach with Land-domain troops (and unreachable by Naval, being landlocked) — Air units ignore it entirely, same as every other terrain restriction."
 }

@@ -123,7 +123,7 @@ project a passive effect:
 - **HQ level as a global ceiling**: no building in a base can be upgraded past the
   HQ's current level, regardless of building type.
 - **Troop-production buildings** (Barracks, Factory, Port, Tank Plant, Frostworks,
-  Blazeworks, Wind Sanctuary, Hangar, Forest Yard, Shipyard, Covert Works, Ford
+  Blazeworks, Wind Sanctuary, Iron Aviary, Forest Yard, Shipyard, Covert Works, Ford
   Yard) have a **derived max level**: there's no
   separate stored cap — the max level is simply `length(troop_list)` for that
   building. Each level unlocks the next troop in the list, in order. This means the

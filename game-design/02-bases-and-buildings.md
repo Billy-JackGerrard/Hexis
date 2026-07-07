@@ -163,7 +163,7 @@ being destroyed in combat:
 | Wind Spire | Defense — low damage, strong knockback, bonus damage vs. Air | Windy Peaks only (hill tiles) |
 | Lumber Mill | Wood | Any base with a Forest-adjacent tile; Treehouse can additionally place it directly on Forest tiles (its specialty) |
 | Forest Yard | Quad-bike | Treehouse only (forest tiles) |
-| Hangar | Wingfighter, Thunder | Sky Fortress only |
+| Iron Aviary | Wingfighter, Thunder | Sky Fortress only |
 | Command Centre | Commander | Capital only |
 | Hospital | Support — heals nearby friendly troops slowly (passive aura, no production) | Capital, Foundry Reach, Sky Fortress, Camp Cosy (discounted here — see Camp Cosy below) |
 | Supply Depot | Engineer, Ambulance, Transport Truck, Repair Truck, Mule, Volt Truck (support vehicles, all non-combat) | Camp Cosy only |
@@ -292,7 +292,7 @@ Centre's level unlocks a whole tier at once, not one Commander at a time:
 ### Windy Peaks
 - Ground-support and reconnaissance aircraft specialist. Found on hills; its buildings
   can be placed on hill tiles.
-- **Wind Sanctuary** (merged Air Factory + Hangar into a single building): builds, in
+- **Wind Sanctuary** (merged Air Factory + Iron Aviary into a single building): builds, in
   order, Glider (fast scouting air unit, cannot attack at all, cheap, uses no Fuel at
   all — being unpowered, it draws Food upkeep instead, like infantry) and Hot Air
   Balloon (cheap, high splash, low range, ground/naval targets only, slow-moving,
@@ -336,7 +336,7 @@ Centre's level unlocks a whole tier at once, not one Commander at a time:
 ### Sky Fortress
 - Elite air-superiority specialist — the pure air-combat counterpart to Windy Peaks'
   scouting/ground-support focus.
-- **Hangar**: builds **Wingfighter** (fast, rapid-fire machine guns, low damage
+- **Iron Aviary**: builds **Wingfighter** (fast, rapid-fire machine guns, low damage
   against buildings/walls — an anti-troop dogfighter, not a siege unit) and
   **Thunder** (slower, heavier armored, missile-armed — the harder-hitting,
   slower-to-lose alternative).
@@ -457,7 +457,7 @@ player input to function or just runs on its own once built:
 
 | Category | Examples | Requires player action? |
 |---|---|---|
-| **Production** | Barracks, Factory, Port, Tank Plant, Frostworks, Blazeworks, Wind Sanctuary, Forest Yard, Shipyard, Hangar, Command Centre, Covert Works, Ford Yard, Supply Depot | **Yes** — the player must pick a troop from the building's roster to queue; nothing is produced until a choice is made |
+| **Production** | Barracks, Factory, Port, Tank Plant, Frostworks, Blazeworks, Wind Sanctuary, Forest Yard, Shipyard, Iron Aviary, Command Centre, Covert Works, Ford Yard, Supply Depot | **Yes** — the player must pick a troop from the building's roster to queue; nothing is produced until a choice is made |
 | **Resource** | Farm, Quarry, Mine, Oil Rig, Lumber Mill, Harbour, Stone Works | No — ticks automatically every resource tick (see `07-data-architecture.md`) |
 | **Defensive** | Turret, Missile Launcher, Grenade Tower, Flame Turret, Cold Turret, River Battery, Wind Spire, EMP Turret, Walls, Tower | No — auto-fires on any enemy troop that enters range, same as troops (see `04-combat.md`) |
 | **Support** | Hospital, Ice Spire, House, Radar Array | No — passively applies its effect (healing / aura / population capacity / vision) with no queue or target selection involved |
