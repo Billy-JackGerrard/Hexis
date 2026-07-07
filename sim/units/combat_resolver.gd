@@ -196,7 +196,9 @@ static func _living_members(squad: SquadInstance, troops_by_id: Dictionary) -> A
 	return result
 
 ## Removes dead troops from their squads and the registry, disbands emptied
-## squads, and deletes destroyed buildings from their bases.
+## squads (taking any boarded cargo down with a destroyed carrier — see
+## 04-combat.md's Cargo section), and deletes destroyed buildings from their
+## bases.
 static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary) -> void:
 	for squad in squads:
 		var survivors: Array[String] = []
@@ -207,6 +209,22 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 			else:
 				troops_by_id.erase(member_id)
 		squad.member_ids = survivors
+
+	# A carrier squad about to be pruned (no living members) takes every
+	# boarded squad's members with it — cargo does not survive the loss of
+	# its carrier, and there's no "spills out" recovery.
+	var doomed_cargo_ids: Dictionary = {}
+	for squad in squads:
+		if squad.member_ids.is_empty() and not squad.cargo_squad_ids.is_empty():
+			for cargo_id in squad.cargo_squad_ids:
+				doomed_cargo_ids[cargo_id] = true
+			squad.cargo_squad_ids = []
+	if not doomed_cargo_ids.is_empty():
+		for squad in squads:
+			if doomed_cargo_ids.has(squad.id):
+				for member_id in squad.member_ids:
+					troops_by_id.erase(member_id)
+				squad.member_ids = []
 
 	for i in range(squads.size() - 1, -1, -1):
 		if squads[i].member_ids.is_empty():

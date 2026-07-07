@@ -260,10 +260,27 @@ writing real UI code does, and it also needs actual game state to bind to.
      anywhere (see the Resource ticking item above); standalone-building aura
      sources (none authored today, but `AuraSystem` only loops base-attached
      buildings, matching `CombatResolver`/`VisionSystem`'s existing boundary).
-   - [ ] Cargo: `board`/`unload` orders, `cargoAllowedTags` gating, mid-combat
-     launch for Aircraft Carrier/Transport Truck, carrier-death-kills-cargo.
-     `SquadInstance.boarded_on_squad_id`/`cargo_squad_ids` are declared fields
-     with no logic behind them yet.
+   - [x] Cargo: `CargoSystem.board()`/`.unload()` (`sim/units/cargo_system.gd`)
+     — `can_board()` checks same-owner, neither squad already boarded/full-of-
+     nothing, the carrier's free capacity (`cargoCapacity` summed across its
+     own living members, since capacity counts squads not troop headcount —
+     `> cargo_squad_ids.length`), and the boarding squad's Domain/tags against
+     `cargoAllowedTags` (same match mechanism as `canTarget`). `can_unload()`
+     gates mid-battle deploys on the carrier's `canLaunchCargoMidCombat` via a
+     caller-supplied `in_combat` flag (no broader combat-state/order-issuing
+     layer exists yet to derive it, the same gap already deferred for
+     `assign_to_commander` — defaults to false so idle-unload callers don't
+     need to pass it) and `unload()` only allows the carrier's own hex or an
+     immediate neighbor, checked against `grid.edge_cost()` for the unloaded
+     squad's own Domain/terrainOverrides. `MovementResolver.resolve_tick()`
+     gained `_mirror_boarded_squads()`, closing the previously-deferred
+     "cargo position-driving" gap — a boarded squad's `current_hex` now
+     tracks its carrier's every tick instead of just being skipped.
+     `CombatResolver._prune_dead()` now deletes every boarded `SquadInstance`
+     (and its `TroopInstance` members) when its carrier squad is pruned for
+     having no living members — cargo does not survive its carrier's
+     destruction, no "spills out" recovery. `tests/test_cargo.gd`, 28 checks
+     passing.
    - [ ] HQ capture-flip, building ruin state, and out-of-combat HP regen:
      `CombatResolver._prune_dead()` currently deletes any building — HQ
      included — at 0 HP. Per `02-bases-and-buildings.md`, an HQ at 0 HP should

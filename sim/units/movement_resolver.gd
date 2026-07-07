@@ -18,14 +18,39 @@ class_name MovementResolver
 extends RefCounted
 
 ## squads: every player's live squads (mutated: current_hex/path/edge_progress
-## advanced). Boarded squads (cargo) and squads with no path/zero speed are
-## no-ops here — cargo position-driving is deferred, see 10-tech-stack-and-
-## build-order.md. `auras`: AuraSystem.resolve_tick()'s output, feeding each
-## squad's speed_boost/slow-derived speed multiplier (same caller-computed-
-## once convention as CombatResolver's `detections`/`auras`).
+## advanced). Squads with no path/zero speed are no-ops here. A boarded squad
+## (cargo, `boarded_on_squad_id` set — see CargoSystem/04-combat.md's Cargo
+## section) never paths on its own; instead its position is mirrored onto its
+## carrier's each tick by `_mirror_boarded_squads`, the same "position becomes
+## the carrier's" treatment regiment lock-step gives escorted squads.
+## `auras`: AuraSystem.resolve_tick()'s output, feeding each squad's
+## speed_boost/slow-derived speed multiplier (same caller-computed-once
+## convention as CombatResolver's `detections`/`auras`).
 static func resolve_tick(dt: float, squads: Array[SquadInstance], grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}) -> void:
 	for squad in squads:
 		_advance_squad(squad, dt, grid, troop_defs, auras)
+	_mirror_boarded_squads(squads)
+
+## Boarded squads don't path/act independently — their current_hex/path/
+## edge_progress just track whatever carrier squad they're aboard, so a
+## carrier's own movement (advanced above, since a carrier is not itself
+## boarded in the one-level-deep cargo model) silently drags its cargo along.
+## A no-op for any squad whose carrier isn't found in this tick's `squads`
+## (already pruned, or a stale id) — CombatResolver's carrier-death-kills-
+## cargo handles that case by removing the boarded squad outright instead.
+static func _mirror_boarded_squads(squads: Array[SquadInstance]) -> void:
+	var by_id: Dictionary = {}
+	for squad in squads:
+		by_id[squad.id] = squad
+	for squad in squads:
+		if squad.boarded_on_squad_id == "":
+			continue
+		var carrier: SquadInstance = by_id.get(squad.boarded_on_squad_id)
+		if carrier == null:
+			continue
+		squad.current_hex = carrier.current_hex
+		squad.path = []
+		squad.edge_progress = 0.0
 
 ## Issues a move order: paths `squad` from its current hex to `goal` and
 ## starts it moving. Returns false (leaving the squad idle, path cleared) if
