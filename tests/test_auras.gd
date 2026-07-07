@@ -1,5 +1,5 @@
-## Headless assertion suite for the aura slice (sim/units/aura_system.gd,
-## sim/instances/building_stats.gd's auras() helper, plus the AuraSystem
+## Headless assertion suite for the aura slice (sim/combat/aura_system.gd,
+## sim/bases/building_stats.gd's auras() helper, plus the AuraSystem
 ## wiring into MovementResolver/CombatResolver). Run with:
 ##   godot --headless --script res://tests/test_auras.gd
 extends SceneTree
@@ -44,7 +44,7 @@ func _approx(a: float, b: float) -> bool:
 
 ## Percent-based aura effects (speed_boost/attack_speed_boost/slow) apply as
 ## 1 + magnitude/100 — mirrors AuraSystem._percent_factor's non-damage_reduction
-## branch (see sim/units/aura_system.gd's _percent_factor) — so tests can
+## branch (see sim/combat/aura_system.gd's _percent_factor) — so tests can
 ## derive the expected multiplier from a def's authored magnitude instead of
 ## hardcoding the resulting multiplier.
 func _boost_mult(magnitude: float) -> float:

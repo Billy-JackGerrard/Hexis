@@ -20,7 +20,7 @@
   "cost": { "food": 25 },
   "foodUpkeep": 1,
   "fuelUpkeep": 0,
-  "productionTime": 12,
+  "productionTime": 8,
 
   "notes": "Pure tank/meatshield: no attack at all, high HP plus flat armor reduction on every incoming hit. Meant to soak damage in front of squishier squads rather than deal any itself."
 }

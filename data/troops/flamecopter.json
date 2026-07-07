@@ -21,7 +21,7 @@
   "cost": { "food": 15, "steel": 30 },
   "foodUpkeep": 0,
   "fuelUpkeep": 3,
-  "productionTime": 18,
+  "productionTime": 26,
 
   "notes": "Firebase's Blazeworks unit — fast hit-and-run raider, not a hoverer: short range and high splash, but gets in and out quickly rather than camping. Cannot target Air (a ground-support gunship, not a dogfighter). damageTypes:[Fire] gives it the same Wood-tagged bonus as Flamethrower (walls, docks, bridges, Wood Tower) via those targets' own damageReceivedModifiers, with no separate damageDealtModifiers needed. Contrast Hot Air Balloon (data/troops/hot_air_balloon.json), which shares its splash/targeting profile but is the slow, harder-hitting counterpart."
 }

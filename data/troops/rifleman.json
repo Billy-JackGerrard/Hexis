@@ -21,7 +21,7 @@
   "cost": { "food": 20 },
   "foodUpkeep": 1,
   "fuelUpkeep": 0,
-  "productionTime": 10,
+  "productionTime": 6,
 
   "notes": "Baseline Infantry unit; other troops are balanced relative to it. Infantry can target Air by default (no bonus damage vs. it) — dedicated anti-air is a separate vehicle/tank role, not a targeting restriction on infantry."
 }

@@ -1,5 +1,5 @@
 ## Headless assertion suite for the detector-coverage slice
-## (sim/vision/detection_system.gd, sim/instances/building_stats.gd's
+## (sim/vision/detection_system.gd, sim/bases/building_stats.gd's
 ## detector/detection_range/stealth/reveal_range). Run with:
 ##   godot --headless --script res://tests/test_detection.gd
 extends SceneTree

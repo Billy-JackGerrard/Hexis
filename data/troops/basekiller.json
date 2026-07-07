@@ -23,7 +23,7 @@
   "cost": { "food": 25, "steel": 50 },
   "foodUpkeep": 0,
   "fuelUpkeep": 2,
-  "productionTime": 28,
+  "productionTime": 23,
 
   "notes": "Dedicated siege unit. Its Defensive and Structure entries in canTarget already make it auto-fight base defenses and beeline for plain Structures (HQ, Farm, walls, etc.) by default whenever no enemy troop is in range, with no explicit order needed (see game-design/04-combat.md). Its Defensive damage bonus (2.5x) also means it prefers a Defensive building over any other in-range target, structure or troop. Cannot target Infantry."
 }

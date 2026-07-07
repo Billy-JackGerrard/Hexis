@@ -1,4 +1,4 @@
-## Headless assertion suite for sim/instances placement/population logic. Run with:
+## Headless assertion suite for sim/bases placement/population logic. Run with:
 ##   godot --headless --script res://tests/test_placement.gd
 extends SceneTree
 

@@ -21,7 +21,7 @@
   "cost": { "food": 20, "steel": 55 },
   "foodUpkeep": 0,
   "fuelUpkeep": 3.5,
-  "productionTime": 26,
+  "productionTime": 38,
 
   "notes": "Firebase's bigger, slower Blazeworks unit — longer range and plasma impact rather than Flamecopter's close-in fire spray. Versatile enough to hit Air, unlike Flamecopter. No damage modifiers vs. anything, but weaker against buildings; the hard-hitting generalist counterpart to Flamecopter's Wood-bonus specialization."
 }

@@ -21,7 +21,7 @@
   "cost": { "food": 20, "steel": 42 },
   "foodUpkeep": 0,
   "fuelUpkeep": 2,
-  "productionTime": 24,
+  "productionTime": 20,
 
   "notes": "Heavier, longer-range sibling to Light Tank: slower attack speed, higher per-hit damage, longer range, and slight damage bonuses vs. Air-domain targets and vs. Structure (buildings+walls are a single reserved key per the schema, so this also nudges its damage vs. buildings, not walls alone)."
 }

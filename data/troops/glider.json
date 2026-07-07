@@ -21,7 +21,7 @@
   "cost": { "food": 30 },
   "foodUpkeep": 1,
   "fuelUpkeep": 0,
-  "productionTime": 8,
+  "productionTime": 12,
 
   "notes": "Pure scout, cannot attack at all. Unpowered — unlike every other Air-domain unit it draws Food upkeep instead of Fuel, same as ground infantry (see game-design/03-resources.md). empImmune: an unpowered glider has no engine for Signal Ridge's EMP Turret to disable, unlike every other Air-domain unit (see game-design/05-troop-stat-schema.md's Status Effects section)."
 }

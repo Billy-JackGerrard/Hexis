@@ -1,4 +1,4 @@
-## Headless assertion suite for sim/data, sim/instances, sim/units. Run with:
+## Headless assertion suite for sim/data, sim/troops, sim/bases. Run with:
 ##   godot --headless --script res://tests/test_units.gd
 extends SceneTree
 

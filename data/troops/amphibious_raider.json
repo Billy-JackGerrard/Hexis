@@ -23,7 +23,7 @@
   "cost": { "food": 15, "steel": 15 },
   "foodUpkeep": 0,
   "fuelUpkeep": 1,
-  "productionTime": 10,
+  "productionTime": 14,
 
   "notes": "Rivergate's Ford Yard exclusive — a vehicle (not Infantry) that fords rivers directly without a Bridge, via ignoresRiverBlock. Statwise the river-crossing sibling to Quad-bike (Treehouse's forest-crossing equivalent): low HP/damage, fast, cheap. Cannot target Air, same as Quad-bike."
 }

@@ -1,4 +1,4 @@
-## Headless assertion suite for the status-effect slice (sim/units/
+## Headless assertion suite for the status-effect slice (sim/combat/
 ## status_effect_system.gd, plus its wiring into CombatResolver/
 ## MovementResolver). Run with:
 ##   godot --headless --script res://tests/test_status_effects.gd

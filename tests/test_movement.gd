@@ -1,4 +1,4 @@
-## Headless assertion suite for the movement slice (sim/units/movement_resolver.gd,
+## Headless assertion suite for the movement slice (sim/movement/movement_resolver.gd,
 ## the terrainOverrides plumbing in sim/hex/terrain_types.gd + sim/hex/hex_grid.gd).
 ## Run with:
 ##   godot --headless --script res://tests/test_movement.gd

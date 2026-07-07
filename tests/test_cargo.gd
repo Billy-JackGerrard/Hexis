@@ -1,6 +1,6 @@
-## Headless assertion suite for the cargo slice (sim/units/cargo_system.gd,
-## the boarded-squad mirroring in sim/units/movement_resolver.gd, and the
-## carrier-death-kills-cargo pruning in sim/units/combat_resolver.gd).
+## Headless assertion suite for the cargo slice (sim/movement/cargo_system.gd,
+## the boarded-squad mirroring in sim/movement/movement_resolver.gd, and the
+## carrier-death-kills-cargo pruning in sim/combat/combat_resolver.gd).
 ## Run with:
 ##   godot --headless --script res://tests/test_cargo.gd
 extends SceneTree

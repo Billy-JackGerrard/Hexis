@@ -21,7 +21,7 @@
   "cost": { "food": 25, "steel": 65 },
   "foodUpkeep": 0,
   "fuelUpkeep": 4,
-  "productionTime": 30,
+  "productionTime": 55,
 
   "notes": "Sky Fortress's heavier, missile-armed alternative to Wingfighter — slower and less mobile but hits much harder per shot, with a longer range. Slight penalty vs. Infantry (0.7x) — missiles are an inefficient way to hit infantry, the inverse of Wingfighter's anti-troop specialization. Renamed from an earlier 'Falcon' working name."
 }

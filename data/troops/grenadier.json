@@ -23,7 +23,7 @@
   "cost": { "food": 20 },
   "foodUpkeep": 1,
   "fuelUpkeep": 0,
-  "productionTime": 10,
+  "productionTime": 8,
 
   "notes": "Splash damage; bonus vs. Land-domain (vehicle) targets only, does not apply to Air/Naval or Infantry. Cannot target Air (deliberate exception to Infantry's default Air-targeting)."
 }

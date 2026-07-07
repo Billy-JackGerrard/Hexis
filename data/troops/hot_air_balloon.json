@@ -25,7 +25,7 @@
   "cost": { "food": 15, "steel": 10 },
   "foodUpkeep": 0,
   "fuelUpkeep": 1,
-  "productionTime": 14,
+  "productionTime": 25,
 
   "notes": "Cheap high-splash ground bomber; cannot target Air. Strong against buildings. Slow and hits harder per shot than Firebase's Flamecopter (same splash radius, same ground-only targeting) — the deliberate slow/heavy-hitting counterpart to Flamecopter's fast/lower-damage/Wood-specialist profile, see data/troops/flamecopter.json. Fuel upkeep is modest — lighter than most aircraft, which normally carry heavy Fuel consumption. empImmune: a hot-air envelope has no engine for Signal Ridge's EMP Turret to disable, unlike every other Air-domain unit (see game-design/05-troop-stat-schema.md's Status Effects section)."
 }

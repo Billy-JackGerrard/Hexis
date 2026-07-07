@@ -1,5 +1,5 @@
-## Headless assertion suite for the combat slice (sim/units/combat_*.gd,
-## sim/instances/building_stats.gd). Run with:
+## Headless assertion suite for the combat slice (sim/combat/combat_*.gd,
+## sim/bases/building_stats.gd). Run with:
 ##   godot --headless --script res://tests/test_combat.gd
 extends SceneTree
 

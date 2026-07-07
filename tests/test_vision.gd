@@ -1,5 +1,5 @@
 ## Headless assertion suite for the vision/fog-of-war slice
-## (sim/hex/terrain_types.gd's vision_bonus, sim/instances/building_stats.gd's
+## (sim/hex/terrain_types.gd's vision_bonus, sim/bases/building_stats.gd's
 ## vision_range/global_vision_bonus, sim/vision/*.gd). Run with:
 ##   godot --headless --script res://tests/test_vision.gd
 extends SceneTree
