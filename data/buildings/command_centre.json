@@ -10,8 +10,8 @@
   "commanderProgression": {
     "tierLevels": [
       { "level": 1, "unlocksTier": "common", "commanderSlots": 1, "hp": 250, "cost": { "stone": 300, "steel": 150 } },
-      { "level": 2, "unlocksTier": "rare", "commanderSlots": 1, "hp": 290, "cost": { "stone": 350, "steel": 300 } },
-      { "level": 3, "unlocksTier": "epic", "commanderSlots": 1, "hp": 335, "cost": { "stone": 500, "steel": 320 } }
+      { "level": 2, "unlocksTier": "rare", "commanderSlots": 1, "hp": 290, "cost": { "stone": 500, "steel": 230 } },
+      { "level": 3, "unlocksTier": "epic", "commanderSlots": 1, "hp": 335, "cost": { "stone": 800, "steel": 320 } }
     ],
     "postTierGrowth": {
       "hpGrowth": { "mode": "percent", "value": 10 },

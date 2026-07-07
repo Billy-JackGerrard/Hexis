@@ -20,7 +20,7 @@
 
   "cost": { "food": 20, "steel": 30 },
   "foodUpkeep": 0,
-  "fuelUpkeep": 2,
+  "fuelUpkeep": 1,
   "productionTime": 16,
 
   "notes": "Generic all-round light vehicle, the baseline other tanks get balanced relative to. Good against ground troops."

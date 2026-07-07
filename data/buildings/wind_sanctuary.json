@@ -12,6 +12,6 @@
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 180, "unlocks": "glider", "cost": { "stone": 240, "steel": 60 } },
-    { "level": 2, "hp": 210, "unlocks": "hot_air_balloon", "cost": { "stone": 300, "steel": 160 } }
+    { "level": 2, "hp": 210, "unlocks": "hot_air_balloon", "cost": { "stone": 360, "steel": 160 } }
   ]
 }

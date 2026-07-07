@@ -7,9 +7,9 @@
   "notes": "Fort Irongrad only — builds the full Heavy Tank roster in batches of 3-5, the most complete source of heavy armor (Winter Forge's Frostworks builds a partial, overlapping subset). Unlocks, in order: Juggernaut, Rocket Tank, Granite Crumbler, Chonky. Granite Crumbler and Chonky are Tank Plant-exclusive (not built at Frostworks); Juggernaut and Rocket Tank are shared between both buildings. Not fixed/pre-seeded — buildable fresh like any other Production building, same as every other Unique base's specialty producer.",
 
   "productionUpgradeLevels": [
-    { "level": 1, "hp": 250, "unlocks": "juggernaut", "cost": { "stone": 350, "steel": 250 } },
-    { "level": 2, "hp": 330, "unlocks": "rocket_tank", "cost": { "stone": 500, "steel": 380 } },
-    { "level": 3, "hp": 430, "unlocks": "granite_crumbler", "cost": { "stone": 700, "steel": 520 } },
-    { "level": 4, "hp": 560, "unlocks": "chonky", "cost": { "stone": 950, "steel": 700 } }
+    { "level": 1, "hp": 250, "unlocks": "juggernaut", "cost": { "stone": 850, "steel": 560 } },
+    { "level": 2, "hp": 330, "unlocks": "rocket_tank", "cost": { "stone": 1000, "steel": 800 } },
+    { "level": 3, "hp": 430, "unlocks": "granite_crumbler", "cost": { "stone": 1200, "steel": 1100 } },
+    { "level": 4, "hp": 560, "unlocks": "chonky", "cost": { "stone": 1600, "steel": 1400 } }
   ]
 }

@@ -7,7 +7,7 @@
   "notes": "Firebase only. Unlocks, in order: Flamecopter, Plasmacopter.",
 
   "productionUpgradeLevels": [
-    { "level": 1, "hp": 210, "unlocks": "flamecopter", "cost": { "stone": 90, "steel": 60 } },
-    { "level": 2, "hp": 245, "unlocks": "plasmacopter", "cost": { "stone": 140, "steel": 100 } }
+    { "level": 1, "hp": 210, "unlocks": "flamecopter", "cost": { "stone": 400, "steel": 300 } },
+    { "level": 2, "hp": 245, "unlocks": "plasmacopter", "cost": { "stone": 750, "steel": 500 } }
   ]
 }

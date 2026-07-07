@@ -10,7 +10,7 @@
   "attackSpeed": 1.1,
   "range": 6,
   "splashRadius": 0,
-  "visionRange": 9,
+  "visionRange": 8,
   "speed": 1.9,
 
   "maxSquadSize": 4,

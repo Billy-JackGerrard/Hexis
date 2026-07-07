@@ -7,10 +7,10 @@
   "notes": "Shared building type between Capital, Treehouse, Firebase, Windy Peaks, Rivergate, Signal Ridge, and Camp Cosy — same definition, base eligibility is authored on each BaseDef's buildableBuildings list, not here. Unlocks, in order: Rifleman, Grenadier, Flamethrower, Shielder, Sniper. Engineer is a Factory unlock, not Barracks — see data/buildings/factory.json.",
 
   "productionUpgradeLevels": [
-    { "level": 1, "hp": 200, "unlocks": "rifleman", "cost": { "stone": 80, "steel": 40 } },
-    { "level": 2, "hp": 230, "unlocks": "grenadier", "cost": { "stone": 120, "steel": 60 } },
-    { "level": 3, "hp": 265, "unlocks": "flamethrower", "cost": { "stone": 180, "steel": 90 } },
-    { "level": 4, "hp": 305, "unlocks": "shielder", "cost": { "stone": 270, "steel": 135 } },
-    { "level": 5, "hp": 351, "unlocks": "sniper", "cost": { "stone": 400, "steel": 200 } }
+    { "level": 1, "hp": 200, "unlocks": "rifleman", "cost": { "stone": 80, "steel": 20 } },
+    { "level": 2, "hp": 230, "unlocks": "grenadier", "cost": { "stone": 120, "steel": 30 } },
+    { "level": 3, "hp": 265, "unlocks": "flamethrower", "cost": { "stone": 180, "steel": 50 } },
+    { "level": 4, "hp": 305, "unlocks": "shielder", "cost": { "stone": 260, "steel": 75 } },
+    { "level": 5, "hp": 351, "unlocks": "sniper", "cost": { "stone": 380, "steel": 100 } }
   ]
 }

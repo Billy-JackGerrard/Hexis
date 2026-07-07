@@ -7,9 +7,10 @@
   "notes": "Cloudreach only. The Air-domain counterpart to Supply Depot (data/buildings/supply_depot.json) — a support-troop specialist production building, distinct from Iron Aviary's pure-combat roster (Wingfighter, Thunder). Unlocks, in order: Cargocopter, Repair Drone, Kleptocopter (all non-combat Air troops, canTarget: []), then Shadowcopter — a stealthed, very-long-range harasser that never breaks cloak by firing (revealsOnAttack: false), the roster's one combat-capable unlock.",
 
   "productionUpgradeLevels": [
-    { "level": 1, "hp": 150, "unlocks": "cargocopter", "cost": { "stone": 80, "steel": 40 } },
-    { "level": 2, "hp": 200, "unlocks": "repair_drone", "cost": { "stone": 150, "steel": 100 } },
-    { "level": 3, "hp": 260, "unlocks": "kleptocopter", "cost": { "stone": 220, "steel": 160 } },
-    { "level": 4, "hp": 320, "unlocks": "shadowcopter", "cost": { "stone": 290, "steel": 220 } }
+    { "level": 1, "hp": 150, "unlocks": "cargocopter", "cost": { "stone": 350, "steel": 200 } },
+    { "level": 2, "hp": 200, "unlocks": "repair_drone", "cost": { "stone": 400, "steel": 300 } },
+    { "level": 3, "hp": 260, "unlocks": "kleptocopter", "cost": { "stone": 600, "steel": 500 } },
+    { "level": 4, "hp": 320, "unlocks": "shadowcopter", "cost": { "stone": 850, "steel": 1000 } }
   ]
 }
+  

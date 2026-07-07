@@ -12,7 +12,7 @@
   "notes": "Buildable at any base with a water-adjacent tile. Basic navy roster — Kraken Point's Shipyard builds everything Port can plus larger/advanced ships up to Aircraft Carrier. Unlocks, in order: Gunboat, HMS Cuddles.",
 
   "productionUpgradeLevels": [
-    { "level": 1, "hp": 250, "unlocks": "gunboat", "cost": { "stone": 60, "steel": 60 } },
-    { "level": 2, "hp": 288, "unlocks": "hms_cuddles", "cost": { "stone": 90, "steel": 90 } }
+    { "level": 1, "hp": 250, "unlocks": "gunboat", "cost": { "stone": 180, "steel": 120 } },
+    { "level": 2, "hp": 288, "unlocks": "hms_cuddles", "cost": { "stone": 260, "steel": 200 } }
   ]
 }

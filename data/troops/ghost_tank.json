@@ -20,9 +20,9 @@
   "revealRange": 1,
   "revealsOnAttack": true,
 
-  "cost": { "food": 20, "steel": 60 },
+  "cost": { "food": 20, "steel": 40 },
   "foodUpkeep": 0,
-  "fuelUpkeep": 3,
+  "fuelUpkeep": 2,
   "productionTime": 30,
 
   "notes": "Signal Ridge's Covert Works exclusive. Cloaking tech trades raw stats for ambush potential: lower HP/damage than Tonk and no damageDealtModifiers, unlike Light Tank/Tonk. Invisible to non-detector units/buildings beyond revealRange (1 — very short, same convention as Sniper); detector units/buildings (Sniper, Radar Array) see it at their normal visionRange instead. revealsOnAttack means firing makes it visible to everyone until a few seconds pass without attacking, then it re-cloaks."

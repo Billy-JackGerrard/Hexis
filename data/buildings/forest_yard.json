@@ -11,6 +11,6 @@
   "notes": "Treehouse only — sits directly on Forest tiles, the same terrain exception Treehouse's Barracks/Lumber Mill get. Sole unlock: Quad-bike.",
 
   "productionUpgradeLevels": [
-    { "level": 1, "hp": 190, "unlocks": "quad_bike", "cost": { "stone": 80, "steel": 40 } }
+    { "level": 1, "hp": 190, "unlocks": "quad_bike", "cost": { "stone": 180, "steel": 60 } }
   ]
 }

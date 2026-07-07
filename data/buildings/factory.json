@@ -7,11 +7,11 @@
   "notes": "Shared building type between Capital and Foundry Reach — base eligibility is authored on each BaseDef's buildableBuildings list, not here. Only light land vehicles — heavy tanks require Fort Irongrad/Winter Forge. Unlocks, in order: Engineer, Tonk, Ambulance, Light Tank, Transport Truck, Basekiller. Engineer unlocking at level 1 means it's available the moment a base has a Factory at all — its own infrastructure-building role is independent of Factory level after that.",
 
   "productionUpgradeLevels": [
-    { "level": 1, "hp": 220, "unlocks": "engineer", "cost": { "stone": 250, "steel": 100 } },
-    { "level": 2, "hp": 300, "unlocks": "light_tank", "cost": { "stone": 600, "steel": 400 } },
-    { "level": 3, "hp": 400, "unlocks": "ambulance", "cost": { "stone": 900, "steel": 750 } },
-    { "level": 4, "hp": 570, "unlocks": "tonk", "cost": { "stone": 1400, "steel": 1000 } },
-    { "level": 5, "hp": 800, "unlocks": "transport_truck", "cost": { "stone": 2000, "steel": 1200 } },
-    { "level": 6, "hp": 1100, "unlocks": "basekiller", "cost": { "stone": 3000, "steel": 1600 } }
+    { "level": 1, "hp": 220, "unlocks": "engineer", "cost": { "stone": 200, "steel": 80 } },
+    { "level": 2, "hp": 300, "unlocks": "light_tank", "cost": { "stone": 250, "steel": 160 } },
+    { "level": 3, "hp": 400, "unlocks": "ambulance", "cost": { "stone": 380, "steel": 220 } },
+    { "level": 4, "hp": 570, "unlocks": "tonk", "cost": { "stone": 520, "steel": 350 } },
+    { "level": 5, "hp": 800, "unlocks": "transport_truck", "cost": { "stone": 700, "steel": 500 } },
+    { "level": 6, "hp": 1100, "unlocks": "basekiller", "cost": { "stone": 950, "steel": 700 } }
   ]
 }
