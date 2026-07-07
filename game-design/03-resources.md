@@ -42,18 +42,29 @@ see `ideas.txt`'s account-perks idea).
 - **Food**: consumption scales with base size (bigger base = more food required) and
   with troop count/creation.
 - **Fuel**: land vehicles only consume Fuel while **moving** — stationary land
-  vehicles are free to maintain. Aircraft consume Fuel heavily while active, but are
-  Fuel-free whenever not under a move order while occupying or adjacent to a hex that
-  is part of **one of that player's own bases** (not an enemy's or a neutral/unowned
-  one, and not gated behind any specific building like an Iron Aviary/Blazeworks — any
-  owned base's footprint qualifies) — meaning aircraft have a practical "leash range"
-  tied to friendly base coverage, not a landing mechanic. **Resolved: this was
-  deliberately chosen over an alternative "aircraft must land inside an Iron Aviary/
-  Blazeworks to refuel" design** — simpler to implement (no land/idle-in-building state,
-  no per-building capacity) at the cost of Iron Aviary/Blazeworks having no fuel-related
-  role beyond production; only the Aircraft Carrier keeps an explicit docking
-  mechanic (see `05-troop-stat-schema.md`). Ships consume very little Fuel regardless
-  of state.
+  vehicles are free to maintain. Aircraft consume Fuel heavily while active, and
+  **always do so while airborne** — there is no proximity-to-base fuel-free rule.
+  **Resolved: this reverses an earlier decision.** The original design had aircraft
+  go fuel-free simply for occupying/being adjacent to any of that player's own bases
+  (a "leash range" tied to base coverage, not a landing mechanic), chosen for being
+  simpler to implement than a landing mechanic. That tradeoff was later revisited:
+  always-drains-in-flight is more interesting than a passive near-base freebie, and it
+  gives a landing mechanic real teeth — see **Hangar**, below.
+  - **Hangar** (a dedicated storage building, distinct from Iron Aviary/Blazeworks,
+    which remain pure production with no fuel-related role) is where an aircraft
+    actually stops consuming Fuel: landing/docking inside one, the same mechanic the
+    Aircraft Carrier already uses to hold 2 Air squads fuel-free (see
+    `05-troop-stat-schema.md`). A docked aircraft is also hidden from enemy vision/
+    detection/targeting while inside — not spotted by scouts, not hit by long-range
+    AA — so landing trades mobility for safety rather than being a free lunch.
+    Deliberately not split into separate runway/helipad buildings — Air-domain covers
+    both fixed-wing and rotary troops, so one Hangar stores either. Also doubles as
+    Cargocopter's required landing hex for boarding/unloading Infantry cargo (see
+    `04-combat.md`'s Cargo section and `05-troop-stat-schema.md`'s
+    `cargoRequiresBuildingDock`). Buildable at Sky Fortress only so far — see
+    `02-bases-and-buildings.md`'s Building Reference and
+    `10-tech-stack-and-build-order.md` for what's implemented vs. still deferred.
+  - Ships consume very little Fuel regardless of state.
   - **Exception — Glider** (Windy Peaks' Wind Sanctuary): unpowered, so it uses **no
     Fuel at all** — it draws Food upkeep instead, like ground infantry, despite being
     an Aircraft-domain unit.

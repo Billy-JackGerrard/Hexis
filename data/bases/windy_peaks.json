@@ -17,7 +17,8 @@
     "turret",
     "missile_launcher",
     "wind_spire",
-    "wall"
+    "wall",
+    "hangar"
   ],
 
   "initialBuildings": [

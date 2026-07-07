@@ -172,6 +172,32 @@ drops back under the (lower) cap. Full details and the data shape: see
   the game entirely, the same way a losing player's remaining squads are cleared on
   elimination. There's no "cargo spills out" recovery; escorting a loaded carrier
   matters for exactly this reason.
+- **A boarded squad can't be targeted, can't fire, and can't be given orders** while
+  aboard — it has no independent position to fire from or be shot at, and stops
+  reacting to player input entirely until unloaded.
+- **Docking (Hangar)**: the building equivalent of boarding — a squad lands inside a
+  building via a `dock` order (targeting the building instead of a carrier squad),
+  gated by the same open-capacity/`cargoAllowedTags` check. Everything above applies
+  identically: still counts against the squad cap, can't be targeted/fired
+  at/ordered while docked, `undock` mirrors `unload` (including the mid-battle
+  `can_launch_cargo_mid_combat` gate), and a building destroyed while occupied kills
+  every docked squad with it — same "no spills out" rule as a destroyed carrier.
+  **Hangar** is the first (and, as of this design pass, only) building with docking —
+  see `03-resources.md`'s Fuel rules and `05-troop-stat-schema.md`'s Transport/Cargo
+  section.
+- **Building-gated cargo transfer (Cargocopter)**: separate from docking above, a
+  carrier can also be flagged `cargoRequiresBuildingDock` (currently only
+  **Cargocopter**), meaning it can only `board`/`unload` its own Infantry cargo while
+  sitting on a hex that carries a building capable of docking *it* (i.e. a Hangar,
+  matched the same way `dock` matches a squad against a building's `cargoAllowedTags`
+  — see `05-troop-stat-schema.md`). This is distinct from the Naval coastline rule
+  above (Tank Carrier/HMS Cuddles are gated by physics — Land/Infantry cargo simply
+  can't stand on water, so a Dock/Port/Shipyard/Harbour is implicitly required): Air
+  has no terrain that blocks a helicopter from meeting cargo anywhere, so Cargocopter
+  needs this explicit flag instead. Critically, the Cargocopter itself never actually
+  *docks* in the Hangar to transfer cargo — it just needs to be positioned on the
+  Hangar's hex — so this never consumes one of the Hangar's own limited docking slots,
+  which stay reserved for aircraft resting/refueling there.
 
 ## Base Defenses
 - Bases have **static defenses** (Turret, Missile Launcher — universal; plus
@@ -232,6 +258,10 @@ drops back under the (lower) cap. Full details and the data shape: see
   Transport/Cargo fields (`can_launch_cargo_mid_combat`).
 - **Boarding is an explicit order, cargo counts against squad cap, and cargo dies with
   its carrier** — see Cargo section above.
+- **Aircraft fuel always drains while airborne; docking (carrier or Hangar) is the
+  only way to stop it, and also hides the docked squad from targeting/vision** —
+  reverses the earlier "fuel-free near an owned base" rule. See Cargo section above
+  and `03-resources.md`.
 - **Global squad cap formula**: `(sum of hqLevel across owned bases) * 2 + 2` (starts
   at 3) — see Squads section above.
 - **Commander cap is tiered and Command-Centre-count-based**, separate from the squad

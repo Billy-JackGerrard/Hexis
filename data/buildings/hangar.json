@@ -1,0 +1,27 @@
+{
+  "id": "hangar",
+  "name": "Hangar",
+  "category": "Support",
+  "populationCost": 1,
+
+  "notes": "Storage building for the aircraft-landing mechanic (see game-design/03-resources.md's fuel rules): aircraft airborne always drain Fuel, and landing in a Hangar is the only way to stop that drain, mirroring Aircraft Carrier's existing dock mechanic (fuel-free-while-docked: sim/economy/upkeep_system.gd; vision/detection exclusion while docked: sim/vision/vision_system.gd, sim/vision/detection_system.gd). Deliberately not domain-split into a separate runway/helipad — Air-domain covers both fixed-wing and rotary troops, so one building stores either. Also doubles as Cargocopter's required landing pad for boarding/unloading Infantry cargo (data/troops/cargocopter.json's cargoRequiresBuildingDock) — a Cargocopter never actually docks in the Hangar for that, it just needs to be sitting on the Hangar's hex; docking (this building's own cargoAllowedTags/cargoCapacity) is reserved for aircraft resting/refueling. Currently buildable only at Sky Fortress (data/bases/sky_fortress.json) — the only base with an Air-troop-producing building that also needs a landing option today; add it to Firebase/Windy Peaks' buildableBuildings too if/when their aircraft should get the same fuel-free-landing option.",
+
+  "cargoAllowedTags": ["Air"],
+  "canLaunchCargoMidCombat": true,
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 150,
+      "cargoCapacity": 2
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 20 },
+      "cargoCapacity": { "mode": "flat", "value": 1 }
+    },
+    "baseCost": {
+      "stone": 80,
+      "steel": 20
+    },
+    "costGrowth": { "mode": "percent", "value": 30 }
+  }
+}

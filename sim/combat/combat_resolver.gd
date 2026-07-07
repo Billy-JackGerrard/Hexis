@@ -110,7 +110,10 @@ static func resolve_tick(
 static func build_targets(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, auras: Dictionary = {}, standalone_buildings: Array[BuildingInstance] = []) -> Array[CombatTarget]:
 	var targets: Array[CombatTarget] = []
 	for squad in squads:
-		if squad.member_ids.is_empty():
+		# A boarded/docked squad has no independent position and is hidden
+		# inside its carrier/building — not a legal target, same as it can't
+		# fire back (see _advance_squad's matching skip).
+		if squad.member_ids.is_empty() or squad.is_docked():
 			continue
 		targets.append(CombatTarget.for_squad(squad, troop_defs.get(squad.troop_type, {}), troops_by_id, grid, auras))
 	for base in bases:
@@ -130,6 +133,10 @@ static func build_targets(squads: Array[SquadInstance], bases: Array[BaseInstanc
 
 static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, grid: HexGrid, building_defs: Dictionary, detections: Dictionary = {}, auras: Dictionary = {}) -> void:
 	if squad.member_ids.is_empty():
+		return
+	# A boarded/docked squad can't fire — it has no independent position to
+	# fire from and isn't even in `targets` for CombatTargeting to react to.
+	if squad.is_docked():
 		return
 	squad.reveal_cooldown_remaining = max(0.0, squad.reveal_cooldown_remaining - dt)
 	# A freeze/stun full lockout means this squad can't move OR attack — skip
@@ -268,8 +275,9 @@ static func _living_members(squad: SquadInstance, troops_by_id: Dictionary) -> A
 	return result
 
 ## Removes dead troops from their squads and the registry, disbands emptied
-## squads (taking any boarded cargo down with a destroyed carrier — see
-## 04-combat.md's Cargo section), deletes destroyed non-Wall buildings from
+## squads (taking any boarded cargo down with a destroyed carrier, or any
+## docked squad down with a destroyed building — see 04-combat.md's Cargo
+## section), deletes destroyed non-Wall buildings from
 ## their bases (or ruins them), deletes a destroyed Wall or standalone
 ## building (Tower/Landmine) outright — neither ever ruins, per
 ## 06-building-stats-and-defenses.md's Destruction & Ruins section — clearing
@@ -300,6 +308,21 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 			for cargo_id in squad.cargo_squad_ids:
 				doomed_cargo_ids[cargo_id] = true
 			squad.cargo_squad_ids = []
+
+	# Same rule for a building (Hangar) that just hit 0 HP: every squad docked
+	# inside it dies too — no "spills out" recovery here either.
+	for base in bases:
+		for building in base.buildings:
+			if building.max_hp > 0.0 and building.current_hp <= 0.0 and not building.docked_squad_ids.is_empty():
+				for docked_id in building.docked_squad_ids:
+					doomed_cargo_ids[docked_id] = true
+				building.docked_squad_ids = []
+	for building in standalone_buildings:
+		if building.max_hp > 0.0 and building.current_hp <= 0.0 and not building.docked_squad_ids.is_empty():
+			for docked_id in building.docked_squad_ids:
+				doomed_cargo_ids[docked_id] = true
+			building.docked_squad_ids = []
+
 	if not doomed_cargo_ids.is_empty():
 		for squad in squads:
 			if doomed_cargo_ids.has(squad.id):

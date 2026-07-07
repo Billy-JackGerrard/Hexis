@@ -15,6 +15,7 @@
     "supply_depot",
     "port",
     "hospital",
+    "hangar",
     "barracks",
     "turret",
     "wall"

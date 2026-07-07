@@ -39,7 +39,9 @@ extends RefCounted
 ## Fresh per-tick aura view: {"squads": {squad_id: {speed_mult, attack_speed_mult,
 ## damage_reduction_mult, heal_per_second, heal_out_of_combat_per_second,
 ## upkeep_reduction, granted_stealth, granted_stealth_reveal_range}},
-## "buildings": {building_id: {suppressed}}} — every squad/building present in
+## "buildings": {building_id: {suppressed, siphoned_by, siphon_distance}}} —
+## siphoned_by/siphon_distance track resource_siphon's closest-source-wins
+## redirect (see _apply_effect_to_building) — every squad/building present in
 ## `squads`/`bases` gets an entry with neutral defaults even if no aura
 ## reaches it, so callers can always index in without a null check.
 ## `regiments` resolves own_regiment/own_regiment_and_self-filtered Commander
@@ -53,7 +55,7 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 		squad_mods[squad.id] = _default_squad_mods()
 	for base in bases:
 		for building in base.buildings:
-			building_mods[building.id] = {"suppressed": false}
+			building_mods[building.id] = {"suppressed": false, "siphoned_by": "", "siphon_distance": INF}
 
 	for squad in squads:
 		if squad.member_ids.is_empty():
@@ -125,11 +127,12 @@ static func _apply_aura(aura: Dictionary, source_owner: String, source_hex: HexC
 					continue
 				if (base.owner_id == source_owner) != want_friendly_b:
 					continue
-				if HexCoord.distance(source_hex, building.hex) > int(radius):
+				var distance := HexCoord.distance(source_hex, building.hex)
+				if distance > int(radius):
 					continue
 				if filter != "" and not _building_matches_filter(building, filter, building_defs):
 					continue
-				_apply_effect_to_building(building_mods, building.id, effect)
+				_apply_effect_to_building(building_mods, building.id, effect, source_owner, distance)
 
 ## Regiment-membership-filtered aura (Vanguard's speed_boost, Nightfall's
 ## grant_stealth, Warden's heal_out_of_combat): finds the RegimentInstance this
@@ -216,9 +219,17 @@ static func _apply_effect_to_squad(flat_accum: Dictionary, squad_id: String, sou
 	var per_type: Dictionary = flat_accum[squad_id][effect]
 	per_type[source_type] = _stronger_magnitude(per_type.get(source_type, 0.0), magnitude)
 
-static func _apply_effect_to_building(building_mods: Dictionary, building_id: String, effect: String) -> void:
+## `source_owner`/`distance` are only meaningful for resource_siphon (which
+## owner to redirect to, and closest-source-wins); suppress_targeting ignores
+## them, same as it ignores magnitude.
+static func _apply_effect_to_building(building_mods: Dictionary, building_id: String, effect: String, source_owner: String = "", distance: int = 0) -> void:
 	if effect == "suppress_targeting":
 		building_mods[building_id]["suppressed"] = true
+	elif effect == "resource_siphon":
+		var mods: Dictionary = building_mods[building_id]
+		if distance < mods["siphon_distance"]:
+			mods["siphoned_by"] = source_owner
+			mods["siphon_distance"] = distance
 
 ## Collapses flat_accum (per-source-type strongest value, built up across
 ## every aura application this tick) into squad_mods: N Hospitals (or Ice
@@ -254,6 +265,11 @@ static func damage_reduction_mult(auras: Dictionary, squad_id: String) -> float:
 
 static func is_suppressed(auras: Dictionary, building_id: String) -> bool:
 	return bool(auras.get("buildings", {}).get(building_id, {}).get("suppressed", false))
+
+## Owner id currently siphoning this building's production ("" if none) —
+## the closest in-range resource_siphon source, per _apply_effect_to_building.
+static func siphoned_by(auras: Dictionary, building_id: String) -> String:
+	return String(auras.get("buildings", {}).get(building_id, {}).get("siphoned_by", ""))
 
 static func upkeep_reduction(auras: Dictionary, squad_id: String) -> float:
 	return auras.get("squads", {}).get(squad_id, _default_squad_mods()).get("upkeep_reduction", 0.0)

@@ -17,7 +17,8 @@
     "turret",
     "missile_launcher",
     "wall",
-    "hospital"
+    "hospital",
+    "hangar"
   ],
 
   "resourceModifiers": [

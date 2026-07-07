@@ -22,6 +22,7 @@ var attack_progress: float = 0.0
 var reveal_cooldown_remaining: float = 0.0
 var commander_id: String = "" ## set if assigned to a Commander's regiment
 var boarded_on_squad_id: String = "" ## set if currently cargo aboard a carrier squad
+var docked_building_id: String = "" ## set if currently landed/docked inside a building (e.g. Hangar)
 var cargo_squad_ids: Array[String] = [] ## only meaningful if troopType's cargoCapacity > 0
 var order: Dictionary = {} ## { type, targetId }
 
@@ -64,3 +65,12 @@ func add_member(troop_id: String) -> void:
 
 func remove_member(troop_id: String) -> void:
 	member_ids.erase(troop_id)
+
+## True while this squad is cargo aboard a carrier squad OR landed/docked
+## inside a building — either way it has no independent position, can't be
+## targeted, fired at from, or ordered, and mirrors its host's hex instead of
+## acting on its own. The two are mutually exclusive (a squad can only be
+## docked one place at a time) but callers that just need "is this squad
+## inert right now" should check this rather than either field individually.
+func is_docked() -> bool:
+	return boarded_on_squad_id != "" or docked_building_id != ""

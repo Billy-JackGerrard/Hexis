@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Sky Fortress only — the pure air-combat counterpart to Windy Peaks' Wind Sanctuary. No terrain exception; sited on Plains like Fort Irongrad/Firebase/Winter Forge/Foundry Reach/Signal Ridge. Unlocks, in order: Wingfighter, Thunder.",
+  "notes": "Sky Fortress only — the pure air-combat counterpart to Windy Peaks' Wind Sanctuary. No terrain exception; sited on Plains. Unlocks, in order: Wingfighter and Thunder.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 220, "unlocks": "wingfighter", "cost": { "stone": 90, "steel": 70 } },

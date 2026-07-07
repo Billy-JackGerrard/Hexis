@@ -1,0 +1,29 @@
+{
+  "id": "repair_drone",
+  "name": "Repair Drone",
+  "domain": "Air",
+  "tags": ["Aircraft", "Support"],
+
+  "hp": 60,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 2.4,
+
+  "maxSquadSize": 1,
+
+  "canTarget": [],
+
+  "auras": [
+    { "radius": 3, "target": "friendly_troops", "filter": "Air", "effect": "heal_over_time", "magnitude": 2 }
+  ],
+
+  "cost": { "food": 0, "steel": 30 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 2,
+  "productionTime": 22,
+
+  "notes": "Air-domain counterpart to Repair Truck (data/troops/repair_truck.json) — same relationship as Repair Truck has to Ambulance, one domain over. Aura is Air-only (filter: \"Air\"), same magnitude as Repair Truck's Land heal, reflecting that aircraft maintenance is as slow/costly as vehicle repair, unlike Ambulance's cheaper/faster Infantry heal. Non-combat (canTarget: []). Unlike Glider/Hot Air Balloon it's not an unpowered exception, so it pays Fuel upkeep like other aircraft, just lighter than combat aircraft since it carries no weapons. Not yet assigned to any building's productionUpgradeLevels."
+}

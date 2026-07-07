@@ -51,7 +51,7 @@ static func move_squad(state: MatchState, squad_id: String, goal: HexCoord, owne
 		return Result.NOT_FOUND
 	if squad.owner_id != owner_id:
 		return Result.NOT_OWNER
-	if squad.boarded_on_squad_id != "":
+	if squad.is_docked():
 		return Result.INVALID
 
 	for regiment in state.regiments:
@@ -62,10 +62,10 @@ static func move_squad(state: MatchState, squad_id: String, goal: HexCoord, owne
 			var member := state.find_squad(member_id)
 			if member != null:
 				member_squads.append(member)
-		var ok := MovementResolver.issue_regiment_move(squad, member_squads, state.grid, goal, state.troop_defs)
+		var ok := MovementResolver.issue_regiment_move(squad, member_squads, state.grid, goal, state.troop_defs, state.bases, state.standalone_buildings)
 		return Result.OK if ok else Result.INVALID
 
-	return Result.OK if MovementResolver.issue_move(squad, state.grid, goal, state.troop_defs) else Result.INVALID
+	return Result.OK if MovementResolver.issue_move(squad, state.grid, goal, state.troop_defs, state.bases, state.standalone_buildings) else Result.INVALID
 
 ## Sets a directed `attack_target` order — CombatTargeting reads `squad.order`
 ## directly, so assigning the dict IS the action; this just validates the
@@ -78,6 +78,8 @@ static func attack_target(state: MatchState, squad_id: String, target_id: String
 		return Result.NOT_FOUND
 	if squad.owner_id != owner_id:
 		return Result.NOT_OWNER
+	if squad.is_docked():
+		return Result.INVALID
 	var target_owner := _target_owner(state, target_id)
 	if target_owner == "":
 		return Result.NOT_FOUND
@@ -107,7 +109,7 @@ static func board_cargo(state: MatchState, carrier_squad_id: String, boarding_sq
 		return Result.NOT_FOUND
 	if carrier.owner_id != owner_id or boarding.owner_id != owner_id:
 		return Result.NOT_OWNER
-	return Result.OK if CargoSystem.board(carrier, boarding, state.troop_defs, state.grid, state.bases, state.standalone_buildings) else Result.INVALID
+	return Result.OK if CargoSystem.board(carrier, boarding, state.troop_defs, state.grid, state.bases, state.standalone_buildings, state.building_defs) else Result.INVALID
 
 ## `in_combat` is derived on demand via CombatStateSystem — see that class's
 ## doc for why this is queried per-command rather than cached per-tick.
@@ -119,14 +121,52 @@ static func unload_cargo(state: MatchState, carrier_squad_id: String, boarded_sq
 	if carrier.owner_id != owner_id:
 		return Result.NOT_OWNER
 	var in_combat := CombatStateSystem.is_squad_in_combat(carrier, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, state.standalone_buildings)
-	var ok := CargoSystem.unload(carrier, boarded, target_hex, state.grid, state.troop_defs, in_combat, state.bases, state.standalone_buildings)
+	var ok := CargoSystem.unload(carrier, boarded, target_hex, state.grid, state.troop_defs, in_combat, state.bases, state.standalone_buildings, state.building_defs)
+	return Result.OK if ok else Result.INVALID
+
+## --- Docking (Hangar) ---------------------------------------------------
+
+## Lands `squad_id` inside `building_id` — a base-attached building (Hangar,
+## found via find_base_building; a standalone dockable building doesn't exist
+## yet, same scope CargoSystem.can_dock/dock already carry). Ownership of a
+## base-attached building comes from its owning base, not the building
+## instance itself (see BuildingInstance.owner_id's note).
+static func dock_squad(state: MatchState, squad_id: String, building_id: String, owner_id: String) -> Result:
+	var squad := state.find_squad(squad_id)
+	if squad == null:
+		return Result.NOT_FOUND
+	var found := state.find_base_building(building_id)
+	if found.is_empty():
+		return Result.NOT_FOUND
+	var base: BaseInstance = found["base"]
+	var building: BuildingInstance = found["building"]
+	if squad.owner_id != owner_id:
+		return Result.NOT_OWNER
+	return Result.OK if CargoSystem.dock(building, base.owner_id, squad, state.troop_defs, state.building_defs) else Result.INVALID
+
+## `in_combat` is derived on demand via CombatStateSystem.is_hex_in_combat,
+## same "queried per-command, not cached per-tick" rationale as
+## unload_cargo's own in_combat derivation.
+static func undock_squad(state: MatchState, squad_id: String, building_id: String, target_hex: HexCoord, owner_id: String) -> Result:
+	var squad := state.find_squad(squad_id)
+	if squad == null:
+		return Result.NOT_FOUND
+	var found := state.find_base_building(building_id)
+	if found.is_empty():
+		return Result.NOT_FOUND
+	var base: BaseInstance = found["base"]
+	var building: BuildingInstance = found["building"]
+	if squad.owner_id != owner_id:
+		return Result.NOT_OWNER
+	var in_combat := CombatStateSystem.is_hex_in_combat(building.hex, base.owner_id, state.squads, state.bases, state.troop_defs, state.building_defs)
+	var ok := CargoSystem.undock(building, squad, target_hex, state.grid, state.troop_defs, state.building_defs, in_combat)
 	return Result.OK if ok else Result.INVALID
 
 ## --- Regiment assignment (07-data-architecture.md 4b) ----------------------
 
 ## Joins `squad_id` to `commander_squad_id`'s regiment, creating the
 ## RegimentInstance on the Commander's first assigned squad. Rejects a
-## boarded squad (can't act independently while cargo, same as a full
+## boarded/docked squad (can't act independently while cargo, same as a full
 ## regiment) and a `commander_squad_id` that isn't actually a Commander
 ## (maxSquadsLed <= 0 in its def).
 static func assign_to_commander(state: MatchState, squad_id: String, commander_squad_id: String, owner_id: String) -> Result:
@@ -136,7 +176,7 @@ static func assign_to_commander(state: MatchState, squad_id: String, commander_s
 		return Result.NOT_FOUND
 	if squad.owner_id != owner_id or commander_squad.owner_id != owner_id:
 		return Result.NOT_OWNER
-	if squad.boarded_on_squad_id != "":
+	if squad.is_docked():
 		return Result.INVALID
 
 	var max_squads_led := int(state.troop_defs.get(commander_squad.troop_type, {}).get("maxSquadsLed", 0))
@@ -202,7 +242,7 @@ static func merge_squads(state: MatchState, target_squad_id: String, donor_squad
 		return Result.INVALID
 	if int(state.troop_defs.get(donor.troop_type, {}).get("maxSquadsLed", 0)) > 0:
 		return Result.INVALID
-	if target.boarded_on_squad_id != "" or donor.boarded_on_squad_id != "":
+	if target.is_docked() or donor.is_docked():
 		return Result.INVALID
 	if not donor.cargo_squad_ids.is_empty():
 		return Result.INVALID

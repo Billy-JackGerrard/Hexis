@@ -8,13 +8,16 @@
 ## `fuelUpkeep` (data/troops/*.json) is a flat per-troop draw, EXCEPT that a
 ## Land-domain vehicle only pays Fuel while under a move order (an empty
 ## `path` means idle/arrived — see MovementResolver), and an Air-domain unit
-## pays no Fuel at all while idle AND occupying/adjacent to one of its
-## owner's own bases (the "leash range" fuel-free rule — deliberately not a
-## land-in-hangar mechanic). Naval/Infantry upkeep is always flat regardless
-## of movement — Naval's "very little" is just a low authored fuelUpkeep
-## value, not a rule coded here. Glider needs no special case: it's Air-
-## domain but authored with fuelUpkeep 0 in data, so the Air rule multiplies
-## out to 0 either way.
+## pays no Fuel at all while landed/docked (SquadInstance.is_docked() —
+## boarded on a carrier squad, e.g. Aircraft Carrier, or landed inside a
+## building, e.g. Hangar). There is no near-base fuel-free rule any more:
+## an airborne aircraft always drains Fuel regardless of proximity to a
+## friendly base — only actually docking stops the drain (see
+## CargoSystem.dock/CommandProcessor.dock_squad). Naval/Infantry upkeep is
+## always flat regardless of movement — Naval's "very little" is just a low
+## authored fuelUpkeep value, not a rule coded here. Glider needs no special
+## case: it's Air-domain but authored with fuelUpkeep 0 in data, so the Air
+## rule multiplies out to 0 either way.
 class_name UpkeepSystem
 extends RefCounted
 
@@ -24,8 +27,8 @@ extends RefCounted
 ## Mule's upkeep_reduction: a flat per-troop discount applied to BOTH
 ## foodUpkeep and fuelUpkeep simultaneously, floored at 0 per troop (per
 ## troop.schema.json's auras.magnitude note), applied before the movement/
-## near-base fuel-free rules below so an already-zeroed value stays zero.
-static func compute_upkeep(squads: Array[SquadInstance], bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], troop_defs: Dictionary, auras: Dictionary = {}) -> Dictionary:
+## docked fuel-free rules below so an already-zeroed value stays zero.
+static func compute_upkeep(squads: Array[SquadInstance], troop_defs: Dictionary, auras: Dictionary = {}) -> Dictionary:
 	var upkeep: Dictionary = {}
 	for squad in squads:
 		if squad.member_ids.is_empty():
@@ -43,7 +46,7 @@ static func compute_upkeep(squads: Array[SquadInstance], bases: Array[BaseInstan
 			var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 			if domain == Terrain.Domain.LAND:
 				fuel_per_troop = 0.0
-			elif domain == Terrain.Domain.AIR and _near_own_base(squad.current_hex, squad.owner_id, bases, standalone_buildings):
+			elif domain == Terrain.Domain.AIR and squad.is_docked():
 				fuel_per_troop = 0.0
 
 		if food_per_troop == 0.0 and fuel_per_troop == 0.0:
@@ -57,19 +60,6 @@ static func compute_upkeep(squads: Array[SquadInstance], bases: Array[BaseInstan
 			owner_totals[ResourceType.Type.FUEL] = float(owner_totals.get(ResourceType.Type.FUEL, 0.0)) + fuel_per_troop * member_count
 		upkeep[squad.owner_id] = owner_totals
 	return upkeep
-
-## True if `hex` is on or adjacent to any building belonging to one of
-## `owner_id`'s own bases (base-attached only — standalone buildings carry
-## their own owner_id but aren't a "base", so they're excluded from the
-## fuel-free footprint per 03-resources.md's wording).
-static func _near_own_base(hex: HexCoord, owner_id: String, bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance]) -> bool:
-	for base in bases:
-		if base.owner_id != owner_id:
-			continue
-		for building in base.buildings:
-			if building.hex != null and HexCoord.distance(hex, building.hex) <= 1:
-				return true
-	return false
 
 ## Per 03-resources.md's Deficit Consequences: each of `owner_id`'s squads
 ## with at least one member whose troop type inherently draws on a resource

@@ -128,6 +128,21 @@ static func vision_range(def: Dictionary, level: int, material: String, building
 
 	return float(resolved.get("defensiveStats", {}).get("visionRange", 0.0))
 
+## How many squads this building can hold as docked cargo at `level` (0.0 if
+## the resolved block carries no cargoCapacity anywhere — everything but
+## Hangar today). Same lookup/growth shape as vision_range: a leveled
+## nonProductionUpgrade.baseStats.cargoCapacity entry, since capacity is
+## authored as a named growable stat there rather than a dedicated schema
+## field (see data/buildings/schema.json's cargoAllowedTags note).
+static func cargo_capacity(def: Dictionary, level: int, material: String, building_defs: Dictionary) -> float:
+	var resolved := resolve_def(def, building_defs)
+	var upgrade_model := _hp_model(resolved, material)
+	if not upgrade_model.get("baseStats", {}).has("cargoCapacity"):
+		return 0.0
+	var base_capacity: float = float(upgrade_model.get("baseStats", {}).get("cargoCapacity", 0.0))
+	var growth: Dictionary = upgrade_model.get("statGrowth", {}).get("cargoCapacity", {})
+	return _apply_growth(base_capacity, growth, level)
+
 ## Flat, map-wide vision-range bonus this building grants its owner (only
 ## Radar Array uses this today — 02-bases-and-buildings.md), applied on top of
 ## every one of the owner's vision sources, not just this building's own tile.
@@ -198,6 +213,18 @@ static func stealth(def: Dictionary, building_defs: Dictionary) -> bool:
 ## needing a detector.
 static func reveal_range(def: Dictionary, building_defs: Dictionary) -> float:
 	return float(resolve_def(def, building_defs).get("revealRange", 0.0))
+
+## Domains/tags this building is allowed to store as docked cargo (Hangar
+## only today) — same resolve_def-safe top-level lookup as detector()/
+## stealth(). Capacity itself is cargo_capacity() above, not this.
+static func cargo_allowed_tags(def: Dictionary, building_defs: Dictionary) -> Array:
+	return resolve_def(def, building_defs).get("cargoAllowedTags", [])
+
+## Whether docked cargo can launch out of this building mid-combat, building-
+## level equivalent of troop.schema.json's canLaunchCargoMidCombat for a
+## squad-carrier.
+static func can_launch_cargo_mid_combat(def: Dictionary, building_defs: Dictionary) -> bool:
+	return bool(resolve_def(def, building_defs).get("canLaunchCargoMidCombat", false))
 
 ## This building's aura list (Hospital, Ice Spire — Support-category), with any
 ## leveled magnitude override applied. Radius/target/filter/effect are used

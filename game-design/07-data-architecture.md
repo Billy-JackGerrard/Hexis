@@ -61,7 +61,8 @@ BuildingInstance {
   currentHP,            // depletes under attack; building def determines maxHP at current level
   lastDamagedAt,        // used to gate HP regen (see 06-building-stats-and-defenses.md)
   totalResourcesSpent,  // dict per resource; cumulative — original build cost + every upgrade cost paid, used to compute the demolish refund (see below)
-  ruinState: null | { destroyedAt, rebuildCost }   // set when currentHP hits 0, except for HQ and Wall
+  ruinState: null | { destroyedAt, rebuildCost },  // set when currentHP hits 0, except for HQ and Wall
+  dockedSquadIds: [...] // only meaningful if this building's def carries cargoAllowedTags (e.g. Hangar) — squad ids currently landed/docked inside it, same meaning as SquadInstance.cargoSquadIds for a carrier squad (see 4a)
 }
 ```
 - **currentHP is always tracked per instance**, separate from the definition's
@@ -84,6 +85,10 @@ BuildingInstance {
   HQ's `BuildingInstance` row is otherwise untouched.
 - **Wall**: when `currentHP` reaches 0, the row is deleted outright (see `Wall` above)
   rather than gaining a `ruinState`.
+- **A building with non-empty `dockedSquadIds` that hits 0 HP takes every docked squad
+  down with it** — same "no survivors spill out" rule as a destroyed carrier squad (see
+  4a) — regardless of whether the building itself ruins (base-attached) or deletes
+  outright (standalone).
 
 ### Standalone Buildings (Road, Bridge, Dock, Tower, Landmine) — ownerId, no ruin
 Unlike a base-attached building, a standalone `BuildingInstance` has `baseId: null`,
@@ -185,10 +190,10 @@ TroopInstance {
 ```
 Fuel isn't tracked per-instance — there's no refillable tank to store. Fuel is a
 draw against the shared player pool, computed live each resource tick from the
-troop's Domain/tags and whether it's currently under a move order or occupying/
-adjacent to one of the owner's own bases (see `03-resources.md`'s Fuel rules), the
-same "computed live, not baked into stored state" treatment already used for
-terrain-based buffs.
+troop's Domain/tags, whether it's currently under a move order, and whether its
+squad is docked (`boardedOnSquadId`/`dockedBuildingId` set — see 4a below and
+`03-resources.md`'s Fuel rules), the same "computed live, not baked into stored
+state" treatment already used for terrain-based buffs.
 Buffs/debuffs (Shield Tank auras, Food/Fuel deficit drain, terrain bonuses) are
 computed each tick from what's currently in range/in effect, not baked permanently
 into the unit's stats.
@@ -205,6 +210,7 @@ SquadInstance {
   edgeProgress,          // 0-1, how far advanced from currentHex toward path[0]
   commanderId,           // nullable — set if assigned to a Commander's regiment
   boardedOnSquadId,      // nullable — set if this squad is currently cargo aboard a carrier squad; while set, this squad doesn't path/act independently (see 04-combat.md's Cargo section)
+  dockedBuildingId,      // nullable — set if this squad is currently landed/docked inside a building (e.g. Hangar); same "doesn't path/act independently" effect as boardedOnSquadId, just a building host instead of a squad host. Mutually exclusive with boardedOnSquadId — a squad is docked at most one place at a time.
   cargoSquadIds: [...],  // only meaningful if troopType's cargoCapacity > 0 — squad ids currently boarded aboard this carrier squad
   order: { type: "move" | "attack_target" | "board" | "unload" | "assign_to_commander" | "leave_regiment", targetId }
                          // targetId resolves to a Squad, BuildingInstance, or Wall for
@@ -227,6 +233,16 @@ SquadInstance {
   reaches empty) while `cargoSquadIds` is non-empty, every boarded `SquadInstance` and
   all of its `TroopInstance` members are deleted along with it** — cargo does not
   survive the loss of its carrier.
+- **Docking (building cargo)**: same shape, but `dockedBuildingId` names a
+  `BuildingInstance` (e.g. Hangar — see 3 below) instead of a carrier squad — capacity/
+  tag-matching/mid-combat-launch rules are identical, checked against the building's
+  `docked_squad_ids` the same way a carrier's `cargoSquadIds` is checked. A building
+  destroyed while occupied kills every docked squad, same "no survivors" rule as a
+  destroyed carrier.
+- **A boarded or docked squad (`boardedOnSquadId` or `dockedBuildingId` set) is
+  functionally inert**: not a legal combat target, can't fire, can't be moved or given
+  a directed order, and contributes no vision/detection while stored — it only
+  resumes acting once unloaded/undocked.
 - **A `SquadInstance` is always single-type** — "combined arms" doesn't happen by
   mixing troop types inside one squad. It happens one level up, at the
   `RegimentInstance` (4b below): a Commander leads a **regiment of up to 4 squads**,
@@ -459,7 +475,11 @@ Tile {
   buildings feed into one pool on the `Player` record (see Base & Ownership above).
 - **Tick interval: every 5 seconds.** At each tick:
   1. Sum production from all owned bases' resource buildings (Farm/Harbour/Quarry/
-     Mine/Oil Rig/Lumber Mill, at their current level).
+     Mine/Oil Rig/Lumber Mill, at their current level). A building under an enemy
+     `resource_siphon` aura (see `05-troop-stat-schema.md`'s Support Units section)
+     contributes its output to the siphoning player's pool instead of its own
+     owner's — resolved per building, not per base, so an un-sieged building on the
+     same base still credits its owner normally.
   2. Subtract upkeep (Food for all troops/bases; Fuel for moving vehicles and for
      aircraft not currently idle at one of the owner's own bases, per the fuel rules
      in `03-resources.md`).

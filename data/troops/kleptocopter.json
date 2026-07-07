@@ -1,0 +1,32 @@
+{
+  "id": "kleptocopter",
+  "name": "Kleptocopter",
+  "domain": "Air",
+  "tags": ["Aircraft", "Stealth", "Support"],
+
+  "hp": 65,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 7,
+  "speed": 2.2,
+
+  "maxSquadSize": 1,
+
+  "canTarget": [],
+
+  "stealth": true,
+  "revealRange": 2,
+
+  "auras": [
+    { "radius": 5, "target": "enemy_buildings", "filter": "Resource", "effect": "resource_siphon" }
+  ],
+
+  "cost": { "food": 15, "steel": 55 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 3,
+  "productionTime": 30,
+
+  "notes": "First troop to pair stealth with resource_siphon rather than combat. Unlike Signal Ridge's Disruptor (same aura family, suppress_targeting instead of resource_siphon) it never needs an escort: stealth lets it slip into an enemy base alone and redirect a Resource building's output for as long as it sits in range. No revealsOnAttack — canTarget is empty, so it never attacks and can never break its own cloak that way; only stumbling within a detector's range or a non-detector's revealRange exposes it. Fuel upkeep (3) is on the heavier end for Air, reflecting the cloaking hardware, same reasoning as Ghost Tank's Fuel cost among Land vehicles."
+}

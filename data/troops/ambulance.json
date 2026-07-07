@@ -17,10 +17,10 @@
   "canTarget": [],
 
   "auras": [
-    { "radius": 3, "target": "friendly_troops", "filter": "Infantry", "effect": "heal_over_time", "magnitude": 8 }
+    { "radius": 3, "target": "friendly_troops", "filter": "Infantry", "effect": "heal_over_time", "magnitude": 6 }
   ],
 
-  "cost": { "food": 12, "steel": 10 },
+  "cost": { "food": 15, "steel": 10 },
   "foodUpkeep": 0,
   "fuelUpkeep": 1,
   "productionTime": 15,

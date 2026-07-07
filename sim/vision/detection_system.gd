@@ -66,12 +66,12 @@ static func squad_reveal_range(squad: SquadInstance, troop_def: Dictionary, grid
 ## Recomputes detector coverage from scratch: detections[owner_id] ->
 ## {hex_key: true} for every hex within a detector's detectionRange (falling
 ## back to full visionRange if omitted, per schema). Base-attached
-## troops/buildings only; boarded squads have no independent position.
+## troops/buildings only; boarded/docked squads have no independent position.
 static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, detections: Dictionary) -> void:
 	detections.clear()
 
 	for squad in squads:
-		if squad.member_ids.is_empty() or squad.boarded_on_squad_id != "":
+		if squad.member_ids.is_empty() or squad.is_docked():
 			continue
 		var def: Dictionary = troop_defs.get(squad.troop_type, {})
 		if not def.get("detector", false):

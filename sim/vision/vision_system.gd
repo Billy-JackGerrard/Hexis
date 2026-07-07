@@ -29,10 +29,11 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 	for squad in squads:
 		if squad.member_ids.is_empty():
 			continue
-		# Boarded squads have no independent authoritative position while
-		# carried (they move with the carrier) — same skip MovementResolver
-		# applies to advancement.
-		if squad.boarded_on_squad_id != "":
+		# Boarded/docked squads have no independent authoritative position
+		# while carried/landed (they move with the carrier/host building) and
+		# are hidden inside it — same skip MovementResolver applies to
+		# advancement.
+		if squad.is_docked():
 			continue
 		var def: Dictionary = troop_defs.get(squad.troop_type, {})
 		var vision := float(def.get("visionRange", 0.0))

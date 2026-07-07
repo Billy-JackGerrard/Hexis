@@ -25,10 +25,20 @@ func _init() -> void:
 	_test_board()
 	print("CargoSystem.unload")
 	_test_unload()
+	print("CargoSystem: cargoRequiresBuildingDock (Cargocopter/Hangar)")
+	_test_cargo_requires_building_dock()
 	print("MovementResolver boarded-squad mirroring")
 	_test_movement_mirroring()
 	print("CombatResolver carrier-death-kills-cargo")
 	_test_carrier_death_kills_cargo()
+	print("CargoSystem.dock (Hangar)")
+	_test_dock()
+	print("CargoSystem.undock (Hangar)")
+	_test_undock()
+	print("MovementResolver docked-squad mirroring")
+	_test_dock_movement_mirroring()
+	print("CombatResolver building-death-kills-docked-cargo")
+	_test_building_death_kills_docked_cargo()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -54,6 +64,13 @@ func _line_grid(terrains: Array) -> HexGrid:
 	for i in range(terrains.size()):
 		grid.set_terrain(HexCoord.new(i, 0), terrains[i])
 	return grid
+
+func _make_hangar_at(owner: String, hex: HexCoord) -> Dictionary:
+	var base := BaseInstance.new("hangar_base_%s" % owner, "capital", owner, 1, hex)
+	var hangar := BuildingInstance.new("hangar_%s" % owner, base.id, "hangar", 1, "", hex)
+	hangar.init_hp(_building_defs["hangar"], _building_defs)
+	base.buildings.append(hangar)
+	return {"base": base, "hangar": hangar}
 
 ## --- CargoSystem.board -----------------------------------------------------
 
@@ -186,6 +203,52 @@ func _test_unload() -> void:
 	CargoSystem.board(truck2, rifles2, _troop_defs)
 	_check(not CargoSystem.unload(truck2, rifles2, HexCoord.new(2, 0), far_grid, _troop_defs), "unload() rejected onto a hex >1 away from the carrier")
 
+## --- CargoSystem: cargoRequiresBuildingDock (Cargocopter/Hangar) -----------
+
+func _test_cargo_requires_building_dock() -> void:
+	var troops: Dictionary = {}
+	var no_bases: Array[BaseInstance] = []
+	var no_buildings: Array[BuildingInstance] = []
+
+	# Cargocopter (cargoRequiresBuildingDock: true) sitting on a bare Plains
+	# hex cannot board Infantry, even though distance/capacity/tag checks
+	# would otherwise all pass.
+	var bare_hex := HexCoord.new(0, 0)
+	var copter := _make_squad("p1", "cargocopter", bare_hex, 1, troops)
+	var rifles := _make_squad("p1", "rifleman", bare_hex, 1, troops)
+	_check(not CargoSystem.can_board(copter, rifles, _troop_defs, null, no_bases, no_buildings, _building_defs), "Cargocopter cannot board Infantry away from a Hangar")
+
+	# The same pickup succeeds once the Cargocopter is sitting on a Hangar hex
+	# (the Cargocopter itself is never docked in it — just positioned there).
+	var hangar_hex := HexCoord.new(1, 0)
+	var setup := _make_hangar_at("p1", hangar_hex)
+	var bases: Array[BaseInstance] = [setup["base"]]
+	var copter2 := _make_squad("p1", "cargocopter", hangar_hex, 1, troops)
+	var rifles2 := _make_squad("p1", "rifleman", hangar_hex, 1, troops)
+	_check(CargoSystem.can_board(copter2, rifles2, _troop_defs, null, bases, no_buildings, _building_defs), "Cargocopter can board Infantry while sitting on a Hangar hex")
+	_check(CargoSystem.board(copter2, rifles2, _troop_defs, null, bases, no_buildings, _building_defs), "board() succeeds")
+	_check(copter2.docked_building_id == "", "boarding cargo does not itself dock the Cargocopter in the Hangar")
+
+	# Once loaded, flying to a bare hex and trying to unload there is rejected
+	# — the drop-off hex needs a Hangar too, checked even when target_hex is
+	# the carrier's own current hex (the common "land and drop off" case).
+	copter2.current_hex = HexCoord.new(2, 0)
+	_check(not CargoSystem.unload(copter2, rifles2, HexCoord.new(2, 0), HexGrid.new(), _troop_defs, false, no_bases, no_buildings, _building_defs), "Cargocopter cannot unload Infantry away from a Hangar")
+
+	# Flying back onto a Hangar hex, the drop-off succeeds.
+	var hangar_hex2 := HexCoord.new(3, 0)
+	var setup2 := _make_hangar_at("p1", hangar_hex2)
+	var bases2: Array[BaseInstance] = [setup2["base"]]
+	copter2.current_hex = hangar_hex2
+	_check(CargoSystem.unload(copter2, rifles2, hangar_hex2, HexGrid.new(), _troop_defs, false, bases2, no_buildings, _building_defs), "Cargocopter can unload Infantry onto a Hangar hex")
+	_check(rifles2.current_hex.equals(hangar_hex2), "unloaded onto the requested Hangar hex")
+
+	# A Transport Truck (no cargoRequiresBuildingDock) is unaffected: it still
+	# boards/unloads anywhere, exactly as before this feature existed.
+	var truck := _make_squad("p1", "transport_truck", bare_hex, 1, troops)
+	var rifles3 := _make_squad("p1", "rifleman", bare_hex, 1, troops)
+	_check(CargoSystem.can_board(truck, rifles3, _troop_defs, null, no_bases, no_buildings, _building_defs), "Transport Truck (no cargoRequiresBuildingDock) still boards away from any building")
+
 ## --- MovementResolver boarded-squad mirroring ------------------------------
 
 func _test_movement_mirroring() -> void:
@@ -225,3 +288,123 @@ func _test_carrier_death_kills_cargo() -> void:
 	_check(not squads.any(func(s): return s.id == rifles.id), "boarded squad is pruned along with its destroyed carrier")
 	for member_id in rifles.member_ids:
 		_check(not troops.has(member_id), "boarded squad's troop members removed from the registry too")
+
+## --- CargoSystem.dock (Hangar) ----------------------------------------------
+
+func _test_dock() -> void:
+	var troops: Dictionary = {}
+	var hex := HexCoord.new(0, 0)
+
+	# Hangar: cargoCapacity 2, cargoAllowedTags [Air].
+	var setup := _make_hangar_at("p1", hex)
+	var hangar: BuildingInstance = setup["hangar"]
+	var glider := _make_squad("p1", "glider", hex, 1, troops)
+
+	_check(CargoSystem.can_dock(hangar, "p1", glider, _troop_defs, _building_defs), "Air squad (glider) can dock in a Hangar")
+	_check(CargoSystem.dock(hangar, "p1", glider, _troop_defs, _building_defs), "dock() succeeds")
+	_check(glider.docked_building_id == hangar.id, "docked squad's docked_building_id set to the Hangar")
+	_check(hangar.docked_squad_ids.has(glider.id), "Hangar's docked_squad_ids records the docked squad")
+	_check(glider.path.is_empty(), "docking clears the docked squad's path")
+
+	# A second Air squad also fits (capacity 2).
+	var wingfighter := _make_squad("p1", "wingfighter", hex, 1, troops)
+	_check(CargoSystem.dock(hangar, "p1", wingfighter, _troop_defs, _building_defs), "second Air squad also docks (capacity 2)")
+
+	# Capacity is now full: a third squad can't dock.
+	var glider2 := _make_squad("p1", "glider", hex, 1, troops)
+	_check(not CargoSystem.can_dock(hangar, "p1", glider2, _troop_defs, _building_defs), "Hangar at capacity rejects a third squad")
+
+	# Tag mismatch: a Land squad can't dock in an Air-only Hangar.
+	var setup2 := _make_hangar_at("p1", HexCoord.new(5, 0))
+	var quad_bike := _make_squad("p1", "quad_bike", HexCoord.new(5, 0), 1, troops)
+	_check(not CargoSystem.can_dock(setup2["hangar"], "p1", quad_bike, _troop_defs, _building_defs), "Land squad cannot dock (cargoAllowedTags: [Air])")
+
+	# Different owner can't dock.
+	var enemy_glider := _make_squad("p2", "glider", hex, 1, troops)
+	_check(not CargoSystem.can_dock(hangar, "p1", enemy_glider, _troop_defs, _building_defs), "a different owner's squad cannot dock")
+
+	# Already-docked squad can't dock again elsewhere.
+	_check(not CargoSystem.can_dock(setup2["hangar"], "p1", glider, _troop_defs, _building_defs), "an already-docked squad cannot dock a second time")
+
+	# Docking requires adjacency.
+	var far_glider := _make_squad("p1", "glider", HexCoord.new(9, 9), 1, troops)
+	_check(not CargoSystem.can_dock(hangar, "p1", far_glider, _troop_defs, _building_defs), "a squad far from the Hangar cannot dock")
+
+	# A ruined/0-HP Hangar can't shelter anyone.
+	var setup3 := _make_hangar_at("p1", HexCoord.new(10, 0))
+	var ruined_hangar: BuildingInstance = setup3["hangar"]
+	ruined_hangar.current_hp = 0.0
+	var glider3 := _make_squad("p1", "glider", HexCoord.new(10, 0), 1, troops)
+	_check(not CargoSystem.can_dock(ruined_hangar, "p1", glider3, _troop_defs, _building_defs), "a destroyed/ruined Hangar rejects docking")
+
+## --- CargoSystem.undock (Hangar) --------------------------------------------
+
+func _test_undock() -> void:
+	var troops: Dictionary = {}
+	var hex := HexCoord.new(0, 0)
+	var grid := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS])
+
+	var setup := _make_hangar_at("p1", hex)
+	var hangar: BuildingInstance = setup["hangar"]
+	var glider := _make_squad("p1", "glider", hex, 1, troops)
+	CargoSystem.dock(hangar, "p1", glider, _troop_defs, _building_defs)
+
+	# Hangar's canLaunchCargoMidCombat is true, so mid-combat undock works.
+	_check(CargoSystem.can_undock(hangar, glider, true, _building_defs), "Hangar can launch mid-combat (canLaunchCargoMidCombat: true)")
+	_check(CargoSystem.undock(hangar, glider, hex, grid, _troop_defs, _building_defs, true), "undock() succeeds mid-combat onto the Hangar's own hex")
+	_check(glider.docked_building_id == "", "undocked squad's docked_building_id cleared")
+	_check(glider.current_hex.equals(hex), "undocked squad's current_hex set to target hex")
+	_check(not hangar.docked_squad_ids.has(glider.id), "Hangar's docked_squad_ids no longer references the undocked squad")
+
+	# Undocking a squad that isn't actually docked there fails.
+	var loose_glider := _make_squad("p1", "glider", hex, 1, troops)
+	_check(not CargoSystem.undock(hangar, loose_glider, hex, grid, _troop_defs, _building_defs), "undock() rejected for a squad never docked in this Hangar")
+
+	# Undocking more than one hex away from the Hangar fails.
+	var far_grid := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])
+	var setup2 := _make_hangar_at("p1", HexCoord.new(0, 0))
+	var glider2 := _make_squad("p1", "glider", HexCoord.new(0, 0), 1, troops)
+	CargoSystem.dock(setup2["hangar"], "p1", glider2, _troop_defs, _building_defs)
+	_check(not CargoSystem.undock(setup2["hangar"], glider2, HexCoord.new(2, 0), far_grid, _troop_defs, _building_defs), "undock() rejected onto a hex >1 away from the Hangar")
+
+## --- MovementResolver docked-squad mirroring -------------------------------
+
+func _test_dock_movement_mirroring() -> void:
+	var troops: Dictionary = {}
+	var setup := _make_hangar_at("p1", HexCoord.new(3, 0))
+	var hangar: BuildingInstance = setup["hangar"]
+	var base: BaseInstance = setup["base"]
+	var glider := _make_squad("p1", "glider", HexCoord.new(3, 0), 1, troops)
+	CargoSystem.dock(hangar, "p1", glider, _troop_defs, _building_defs)
+
+	glider.current_hex = HexCoord.new(99, 99) # simulate a stale position
+	var bases: Array[BaseInstance] = [base]
+	MovementResolver.resolve_tick(1.0, [glider], HexGrid.new(), _troop_defs, {}, bases)
+
+	_check(glider.current_hex.equals(hangar.hex), "docked squad's current_hex mirrors its Hangar's each tick")
+	_check(glider.path.is_empty(), "docked squad never accumulates its own path")
+
+## --- CombatResolver building-death-kills-docked-cargo ----------------------
+
+func _test_building_death_kills_docked_cargo() -> void:
+	var troops: Dictionary = {}
+	var setup := _make_hangar_at("p1", HexCoord.new(0, 0))
+	var base: BaseInstance = setup["base"]
+	var hangar: BuildingInstance = setup["hangar"]
+	var grid := HexGrid.new()
+	grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
+
+	var glider := _make_squad("p1", "glider", HexCoord.new(0, 0), 1, troops)
+	CargoSystem.dock(hangar, "p1", glider, _troop_defs, _building_defs)
+	var glider_member_ids := glider.member_ids.duplicate()
+
+	hangar.current_hp = 0.0
+
+	var squads: Array[SquadInstance] = [glider]
+	var bases: Array[BaseInstance] = [base]
+	CombatResolver.resolve_tick(0.1, squads, bases, troops, grid, _troop_defs, _building_defs)
+
+	_check(not squads.any(func(s): return s.id == glider.id), "docked squad is pruned along with its destroyed Hangar")
+	for member_id in glider_member_ids:
+		_check(not troops.has(member_id), "docked squad's troop members removed from the registry too")
+	_check(hangar.docked_squad_ids.is_empty(), "destroyed Hangar's docked_squad_ids cleared")

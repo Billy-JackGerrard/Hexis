@@ -17,7 +17,8 @@
     "missile_launcher",
     "radar_array",
     "emp_turret",
-    "wall"
+    "wall",
+    "hangar"
   ],
 
   "initialBuildings": [

@@ -19,6 +19,18 @@ func _check(condition: bool, label: String) -> void:
 func _init() -> void:
 	_troop_defs = DataLoader.load_dir("res://data/troops")
 	_building_defs = DataLoader.load_dir("res://data/buildings")
+	# Synthetic fixture standing in for a real resource-siphon vehicle troop
+	# (deliberately not authored as data yet — this change scopes just the
+	# resource_siphon aura mechanic, not the actual troop/roster slot).
+	_troop_defs["siphon_test_unit"] = {
+		"id": "siphon_test_unit",
+		"domain": "Land",
+		"tags": ["Vehicle", "Support"],
+		"hp": 80,
+		"auras": [
+			{"radius": 5, "target": "enemy_buildings", "filter": "Resource", "effect": "resource_siphon"},
+		],
+	}
 
 	print("BuildingStats.auras")
 	_test_building_stats_auras()
@@ -28,6 +40,8 @@ func _init() -> void:
 	_test_building_auras()
 	print("AuraSystem: enemy_buildings suppress_targeting")
 	_test_suppress_targeting()
+	print("AuraSystem: enemy_buildings resource_siphon")
+	_test_resource_siphon()
 	print("Integration: MovementResolver/CombatResolver consuming auras")
 	_test_integration()
 
@@ -245,6 +259,47 @@ func _test_suppress_targeting() -> void:
 	var far_squads: Array[SquadInstance] = [far_disruptor]
 	var far_auras := AuraSystem.resolve_tick(far_squads, bases, _troop_defs, _building_defs)
 	_check(not AuraSystem.is_suppressed(far_auras, turret.id), "a Disruptor out of range does not suppress the Turret")
+
+## --- resource_siphon ---------------------------------------------------------
+
+func _test_resource_siphon() -> void:
+	var troops := {}
+	var base := BaseInstance.new("b1", "capital", "p1", 1, HexCoord.new(5, 0))
+	var farm_def: Dictionary = _building_defs["farm"]
+	var farm := BuildingInstance.new("f1", "b1", "farm", 1, "", HexCoord.new(5, 0))
+	farm.init_hp(farm_def, _building_defs)
+	base.buildings.append(farm)
+	var bases: Array[BaseInstance] = [base]
+
+	var siphoner := _make_squad("p2", "siphon_test_unit", HexCoord.new(6, 0), 1, troops)
+	var squads: Array[SquadInstance] = [siphoner]
+	var auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
+	_check(AuraSystem.siphoned_by(auras, farm.id) == "p2", "an in-range enemy resource_siphon redirects the Farm to its owner")
+
+	var far_siphoner := _make_squad("p2", "siphon_test_unit", HexCoord.new(20, 0), 1, troops)
+	var far_squads: Array[SquadInstance] = [far_siphoner]
+	var far_auras := AuraSystem.resolve_tick(far_squads, bases, _troop_defs, _building_defs)
+	_check(AuraSystem.siphoned_by(far_auras, farm.id) == "", "an out-of-range resource_siphon unit does not redirect the Farm")
+
+	# Two different enemy owners in range at different distances -> the
+	# closer one wins the redirect, regardless of squad array order.
+	var near_p2 := _make_squad("p2", "siphon_test_unit", HexCoord.new(6, 0), 1, troops) # distance 1
+	var far_p3 := _make_squad("p3", "siphon_test_unit", HexCoord.new(9, 0), 1, troops) # distance 4
+	var closer_wins_auras := AuraSystem.resolve_tick([near_p2, far_p3], bases, _troop_defs, _building_defs)
+	_check(AuraSystem.siphoned_by(closer_wins_auras, farm.id) == "p2", "closer enemy (p2, distance 1) wins the redirect over a farther one (p3, distance 4)")
+
+	var near_p3 := _make_squad("p3", "siphon_test_unit", HexCoord.new(6, 0), 1, troops) # distance 1
+	var far_p2 := _make_squad("p2", "siphon_test_unit", HexCoord.new(9, 0), 1, troops) # distance 4
+	var swapped_auras := AuraSystem.resolve_tick([far_p2, near_p3], bases, _troop_defs, _building_defs)
+	_check(AuraSystem.siphoned_by(swapped_auras, farm.id) == "p3", "closer enemy (p3, distance 1) wins even when it's last in the squads array")
+
+	# Two siphon units from the SAME owner near the same building must not
+	# stack/double the theft -- there's only one recipient to redirect to, so
+	# this just resolves to that one owner regardless of how many are in range.
+	var same_owner_a := _make_squad("p2", "siphon_test_unit", HexCoord.new(6, 0), 1, troops)
+	var same_owner_b := _make_squad("p2", "siphon_test_unit", HexCoord.new(7, 0), 1, troops)
+	var no_stack_auras := AuraSystem.resolve_tick([same_owner_a, same_owner_b], bases, _troop_defs, _building_defs)
+	_check(AuraSystem.siphoned_by(no_stack_auras, farm.id) == "p2", "two of the same owner's siphon units near the same building still just redirect to that one owner, not doubled")
 
 ## --- Integration -------------------------------------------------------------
 

@@ -20,7 +20,7 @@
     { "radius": 3, "target": "friendly_troops", "filter": "Land", "effect": "heal_over_time", "magnitude": 4 }
   ],
 
-  "cost": { "food": 25, "steel": 30 },
+  "cost": { "food": 10, "steel": 25 },
   "foodUpkeep": 0,
   "fuelUpkeep": 1,
   "productionTime": 18,

@@ -1,0 +1,45 @@
+{
+  "id": "cloudreach",
+  "baseType": "Cloudreach",
+  "isCapital": false,
+
+  "buildableBuildings": [
+    "hq",
+    "house",
+    "farm",
+    "quarry",
+    "mine",
+    "oil_rig",
+    "lumber_mill",
+    "covert_airfield",
+    "hangar",
+    "barracks",
+    "missile_launcher",
+    "wall"
+  ],
+
+  "costModifiers": [
+    { "scope": "building", "buildingType": "missile_launcher", "multiplier": 0.5 }
+  ],
+
+  "resourceModifiers": [
+    { "scope": "building", "buildingType": "oil_rig", "multiplier": 1.5 }
+  ],
+
+  "initialBuildings": [
+    { "buildingType": "hq", "count": 1 },
+    { "buildingType": "farm", "count": 1 },
+    { "buildingType": "quarry", "count": 1 },
+    { "buildingType": "missile_launcher", "count": 2 },
+    { "buildingType": "covert_airfield", "count": 1 },
+    { "buildingType": "hangar", "count": 1 },
+    { "buildingType": "wall", "count": 6, "material": "stone" }
+  ],
+
+  "initialGarrison": [
+    { "troopId": "rifleman", "count": 4 },
+    { "troopId": "shielder", "count": 4 }
+  ],
+
+  "notes": "Air-logistics/covert-resupply specialist Unique base — one instance on the map, sited on Plains, no terrain exception. The aerial mirror of Camp Cosy: three of Covert Airfield's four unlocks (Repair Drone, Cargocopter, Kleptocopter) are non-combat (damage 0, empty canTarget); Shadowcopter is the roster's one combat-capable unlock, but its low HP and squad cap of 2 keep it a stand-off harasser rather than a real defender — Barracks and its Rifleman/Shielder line exist so Cloudreach isn't a total pushover garrison-wise, same reasoning as Camp Cosy. Unlike Camp Cosy, Cloudreach keeps the standard Turret + Missile Launcher defense pairing rather than going lighter. Hangar is pre-seeded alongside Covert Airfield rather than left as an optional build: Cargocopter's cargoRequiresBuildingDock means it can't board/unload Infantry without one nearby, and Repair Drone/Kleptocopter/Shadowcopter all benefit from the fuel-free landing option. +50% Oil Rig bonus (resourceModifiers, multiplier 1.5, same shape as Winter Forge's) reflects that its whole roster is the heaviest Fuel-upkeep troop line in the game — the base's economic hook is subsidizing its own aircraft, not raw output for its own sake."
+}

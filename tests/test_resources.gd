@@ -106,11 +106,6 @@ func _make_squad(owner: String, troop_type: String, hex: HexCoord, count: int, t
 		squad.add_member(tid)
 	return squad
 
-func _make_base_at(owner: String, hex: HexCoord) -> BaseInstance:
-	var base := BaseInstance.new("base_%s" % owner, "capital", owner, 1, hex)
-	base.buildings.append(BuildingInstance.new("hq_%s" % owner, base.id, "hq", 1, "", hex))
-	return base
-
 ## --- UpkeepSystem ---------------------------------------------------------
 
 func _test_upkeep_compute() -> void:
@@ -120,7 +115,7 @@ func _test_upkeep_compute() -> void:
 	# no domain-based zeroing applies.
 	var flamethrower_food_upkeep: float = float(_troop_defs["flamethrower"]["foodUpkeep"])
 	var infantry := _make_squad("p1", "flamethrower", HexCoord.new(0, 0), 3, troops)
-	var upkeep: Dictionary = UpkeepSystem.compute_upkeep([infantry], [], [], _troop_defs)
+	var upkeep: Dictionary = UpkeepSystem.compute_upkeep([infantry], _troop_defs)
 	var expected_infantry_food := 3 * flamethrower_food_upkeep
 	_check(float(upkeep["p1"].get(ResourceType.Type.FOOD, 0.0)) == expected_infantry_food, "3-member Infantry squad draws 3x flamethrower's foodUpkeep (%s) = %s" % [flamethrower_food_upkeep, expected_infantry_food])
 	_check(not upkeep["p1"].has(ResourceType.Type.FUEL), "Infantry squad draws no Fuel")
@@ -128,7 +123,7 @@ func _test_upkeep_compute() -> void:
 	# Land vehicle (chonky) idle (empty path) pays no Fuel.
 	troops = {}
 	var idle_tank := _make_squad("p1", "chonky", HexCoord.new(0, 0), 2, troops)
-	upkeep = UpkeepSystem.compute_upkeep([idle_tank], [], [], _troop_defs)
+	upkeep = UpkeepSystem.compute_upkeep([idle_tank], _troop_defs)
 	_check(not upkeep.has("p1"), "idle Land vehicle squad pays no Fuel (and no Food, chonky has none)")
 
 	# Same Land vehicle under a move order (non-empty path) pays flat Fuel.
@@ -136,37 +131,42 @@ func _test_upkeep_compute() -> void:
 	var chonky_fuel_upkeep: float = float(_troop_defs["chonky"]["fuelUpkeep"])
 	var moving_tank := _make_squad("p1", "chonky", HexCoord.new(0, 0), 2, troops)
 	moving_tank.path = [HexCoord.new(1, 0)]
-	upkeep = UpkeepSystem.compute_upkeep([moving_tank], [], [], _troop_defs)
+	upkeep = UpkeepSystem.compute_upkeep([moving_tank], _troop_defs)
 	var expected_moving_tank_fuel := 2 * chonky_fuel_upkeep
 	_check(float(upkeep["p1"].get(ResourceType.Type.FUEL, 0.0)) == expected_moving_tank_fuel, "moving 2-member Land vehicle squad pays 2x chonky's fuelUpkeep (%s) = %s" % [chonky_fuel_upkeep, expected_moving_tank_fuel])
 
-	# Air unit (hot_air_balloon) idle NEAR an owned base pays no Fuel.
-	troops = {}
-	var base := _make_base_at("p1", HexCoord.new(0, 0))
-	var idle_air_near_base := _make_squad("p1", "hot_air_balloon", HexCoord.new(1, 0), 1, troops)
-	upkeep = UpkeepSystem.compute_upkeep([idle_air_near_base], [base], [], _troop_defs)
-	_check(not upkeep.has("p1"), "idle Aircraft adjacent to an owned base pays no Fuel")
-
-	# Same Air unit idle but far from any owned base pays flat Fuel.
+	# Air unit (hot_air_balloon) idle but NOT docked still pays flat Fuel —
+	# there is no more near-base fuel-free rule, only actually landing/
+	# docking (SquadInstance.is_docked()) stops the drain.
 	troops = {}
 	var hot_air_balloon_fuel_upkeep: float = float(_troop_defs["hot_air_balloon"]["fuelUpkeep"])
-	var idle_air_far := _make_squad("p1", "hot_air_balloon", HexCoord.new(10, 10), 1, troops)
-	upkeep = UpkeepSystem.compute_upkeep([idle_air_far], [base], [], _troop_defs)
-	_check(float(upkeep["p1"].get(ResourceType.Type.FUEL, 0.0)) == hot_air_balloon_fuel_upkeep, "idle Aircraft far from any owned base still pays hot_air_balloon's fuelUpkeep (%s)" % hot_air_balloon_fuel_upkeep)
+	var idle_air := _make_squad("p1", "hot_air_balloon", HexCoord.new(1, 0), 1, troops)
+	upkeep = UpkeepSystem.compute_upkeep([idle_air], _troop_defs)
+	_check(float(upkeep["p1"].get(ResourceType.Type.FUEL, 0.0)) == hot_air_balloon_fuel_upkeep, "idle Aircraft always pays hot_air_balloon's fuelUpkeep (%s) — near-base is no longer fuel-free" % hot_air_balloon_fuel_upkeep)
 
-	# Same Air unit under a move order pays Fuel even next to its own base.
+	# Same Air unit, docked (boarded_on_squad_id/docked_building_id set), pays
+	# no Fuel regardless of position.
+	troops = {}
+	var docked_air := _make_squad("p1", "hot_air_balloon", HexCoord.new(10, 10), 1, troops)
+	docked_air.docked_building_id = "hangar_1"
+	upkeep = UpkeepSystem.compute_upkeep([docked_air], _troop_defs)
+	_check(not upkeep.has("p1"), "docked Aircraft pays no Fuel regardless of position")
+
+	# Same Air unit under a move order pays Fuel even if somehow flagged docked
+	# (a docked squad never has a path in practice, but the rule is gated on
+	# path.is_empty() first regardless).
 	troops = {}
 	var moving_air := _make_squad("p1", "hot_air_balloon", HexCoord.new(1, 0), 1, troops)
 	moving_air.path = [HexCoord.new(2, 0)]
-	upkeep = UpkeepSystem.compute_upkeep([moving_air], [base], [], _troop_defs)
-	_check(float(upkeep["p1"].get(ResourceType.Type.FUEL, 0.0)) == hot_air_balloon_fuel_upkeep, "Aircraft under a move order pays fuelUpkeep (%s) regardless of base proximity" % hot_air_balloon_fuel_upkeep)
+	upkeep = UpkeepSystem.compute_upkeep([moving_air], _troop_defs)
+	_check(float(upkeep["p1"].get(ResourceType.Type.FUEL, 0.0)) == hot_air_balloon_fuel_upkeep, "Aircraft under a move order pays fuelUpkeep (%s)" % hot_air_balloon_fuel_upkeep)
 
-	# Glider: Air-domain but authored with fuelUpkeep 0 — the Air fuel-free
-	# rule multiplies out to 0 either way, Food is unaffected.
+	# Glider: Air-domain but authored with fuelUpkeep 0 — the Air rule
+	# multiplies out to 0 either way, Food is unaffected.
 	troops = {}
 	var glider_food_upkeep: float = float(_troop_defs["glider"]["foodUpkeep"])
 	var glider := _make_squad("p1", "glider", HexCoord.new(10, 10), 1, troops)
-	upkeep = UpkeepSystem.compute_upkeep([glider], [], [], _troop_defs)
+	upkeep = UpkeepSystem.compute_upkeep([glider], _troop_defs)
 	_check(float(upkeep["p1"].get(ResourceType.Type.FOOD, 0.0)) == glider_food_upkeep, "Glider always pays flat foodUpkeep (%s)" % glider_food_upkeep)
 	_check(not upkeep["p1"].has(ResourceType.Type.FUEL), "Glider never pays Fuel")
 
@@ -174,7 +174,7 @@ func _test_upkeep_compute() -> void:
 	troops = {}
 	var p1_squad := _make_squad("p1", "flamethrower", HexCoord.new(0, 0), 2, troops)
 	var p2_squad := _make_squad("p2", "flamethrower", HexCoord.new(5, 5), 4, troops)
-	upkeep = UpkeepSystem.compute_upkeep([p1_squad, p2_squad], [], [], _troop_defs)
+	upkeep = UpkeepSystem.compute_upkeep([p1_squad, p2_squad], _troop_defs)
 	var expected_p1_food := 2 * flamethrower_food_upkeep
 	var expected_p2_food := 4 * flamethrower_food_upkeep
 	_check(float(upkeep["p1"].get(ResourceType.Type.FOOD, 0.0)) == expected_p1_food, "p1's own 2-member squad upkeep tallied separately = %s" % expected_p1_food)

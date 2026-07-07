@@ -18,39 +18,60 @@ class_name MovementResolver
 extends RefCounted
 
 ## squads: every player's live squads (mutated: current_hex/path/edge_progress
-## advanced). Squads with no path/zero speed are no-ops here. A boarded squad
-## (cargo, `boarded_on_squad_id` set — see CargoSystem/04-combat.md's Cargo
-## section) never paths on its own; instead its position is mirrored onto its
-## carrier's each tick by `_mirror_boarded_squads`, the same "position becomes
-## the carrier's" treatment regiment lock-step gives escorted squads.
-## `auras`: AuraSystem.resolve_tick()'s output, feeding each squad's
+## advanced). Squads with no path/zero speed are no-ops here. A boarded/docked
+## squad (cargo, `boarded_on_squad_id`/`docked_building_id` set — see
+## SquadInstance.is_docked(), CargoSystem, 04-combat.md's Cargo section) never
+## paths on its own; instead its position is mirrored onto its carrier
+## squad's or host building's each tick by `_mirror_boarded_squads`, the same
+## "position becomes the host's" treatment regiment lock-step gives escorted
+## squads. `auras`: AuraSystem.resolve_tick()'s output, feeding each squad's
 ## speed_boost/slow-derived speed multiplier (same caller-computed-once
-## convention as CombatResolver's `detections`/`auras`).
-static func resolve_tick(dt: float, squads: Array[SquadInstance], grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}) -> void:
+## convention as CombatResolver's `detections`/`auras`). `bases`/
+## `standalone_buildings` resolve a docked squad's host building by id, and
+## also feed BuildingPlacement.land_blocking_hexes() (01-map-and-terrain.md:
+## a standing building blocks Land-domain movement, Road/Bridge/ruins excepted)
+## — default to empty so existing callers with no buildings on their grid at
+## all don't need to pass them.
+static func resolve_tick(dt: float, squads: Array[SquadInstance], grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}, bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> void:
+	var blocked_land_hexes := BuildingPlacement.land_blocking_hexes(bases, standalone_buildings)
 	for squad in squads:
-		_advance_squad(squad, dt, grid, troop_defs, auras)
-	_mirror_boarded_squads(squads)
+		_advance_squad(squad, dt, grid, troop_defs, auras, blocked_land_hexes)
+	_mirror_boarded_squads(squads, bases, standalone_buildings)
 
-## Boarded squads don't path/act independently — their current_hex/path/
-## edge_progress just track whatever carrier squad they're aboard, so a
-## carrier's own movement (advanced above, since a carrier is not itself
-## boarded in the one-level-deep cargo model) silently drags its cargo along.
-## A no-op for any squad whose carrier isn't found in this tick's `squads`
-## (already pruned, or a stale id) — CombatResolver's carrier-death-kills-
-## cargo handles that case by removing the boarded squad outright instead.
-static func _mirror_boarded_squads(squads: Array[SquadInstance]) -> void:
+## Boarded/docked squads don't path/act independently — their current_hex/
+## path/edge_progress just track whatever carrier squad or host building
+## they're aboard, so the host's own movement (advanced above, since a
+## carrier is not itself boarded in the one-level-deep cargo model; a
+## building never moves at all) silently drags its cargo along. A no-op for
+## any squad whose carrier/building isn't found this tick (already pruned, or
+## a stale id) — CombatResolver's carrier/building-death-kills-cargo handles
+## that case by removing the boarded/docked squad outright instead.
+static func _mirror_boarded_squads(squads: Array[SquadInstance], bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> void:
 	var by_id: Dictionary = {}
 	for squad in squads:
 		by_id[squad.id] = squad
+	var buildings_by_id: Dictionary = {}
+	for base in bases:
+		for building in base.buildings:
+			buildings_by_id[building.id] = building
+	for building in standalone_buildings:
+		buildings_by_id[building.id] = building
+
 	for squad in squads:
-		if squad.boarded_on_squad_id == "":
-			continue
-		var carrier: SquadInstance = by_id.get(squad.boarded_on_squad_id)
-		if carrier == null:
-			continue
-		squad.current_hex = carrier.current_hex
-		squad.path = []
-		squad.edge_progress = 0.0
+		if squad.boarded_on_squad_id != "":
+			var carrier: SquadInstance = by_id.get(squad.boarded_on_squad_id)
+			if carrier == null:
+				continue
+			squad.current_hex = carrier.current_hex
+			squad.path = []
+			squad.edge_progress = 0.0
+		elif squad.docked_building_id != "":
+			var building: BuildingInstance = buildings_by_id.get(squad.docked_building_id)
+			if building == null or building.hex == null:
+				continue
+			squad.current_hex = building.hex
+			squad.path = []
+			squad.edge_progress = 0.0
 
 ## Issues a move order: paths `squad` from its current hex to `goal` and
 ## starts it moving. Returns false (leaving the squad idle, path cleared) if
@@ -60,8 +81,8 @@ static func _mirror_boarded_squads(squads: Array[SquadInstance]) -> void:
 ## stays symmetric with the existing `{type:"attack_target", targetId}`
 ## convention — CombatTargeting only reacts to "attack_target", so a move
 ## order never interferes with auto-targeting.
-static func issue_move(squad: SquadInstance, grid: HexGrid, goal: HexCoord, troop_defs: Dictionary) -> bool:
-	if not _path_toward(squad, grid, goal, troop_defs):
+static func issue_move(squad: SquadInstance, grid: HexGrid, goal: HexCoord, troop_defs: Dictionary, bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> bool:
+	if not _path_toward(squad, grid, goal, troop_defs, bases, standalone_buildings):
 		return false
 	squad.order = {"type": "move", "goal": goal.to_key()}
 	return true
@@ -71,12 +92,13 @@ static func issue_move(squad: SquadInstance, grid: HexGrid, goal: HexCoord, troo
 ## terrainOverrides. Unlike issue_move, this never touches `squad.order` —
 ## resolve_attack_move needs the squad to keep its `attack_target` order
 ## while it chases, not have it silently overwritten with `{type:"move"}`.
-static func _path_toward(squad: SquadInstance, grid: HexGrid, goal: HexCoord, troop_defs: Dictionary) -> bool:
+static func _path_toward(squad: SquadInstance, grid: HexGrid, goal: HexCoord, troop_defs: Dictionary, bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> bool:
 	var def: Dictionary = troop_defs.get(squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
+	var blocked_land_hexes := BuildingPlacement.land_blocking_hexes(bases, standalone_buildings)
 
-	var full := grid.find_path(squad.current_hex, goal, domain, overrides)
+	var full := grid.find_path(squad.current_hex, goal, domain, overrides, blocked_land_hexes)
 	if full.size() <= 1:
 		squad.path = []
 		return false
@@ -102,9 +124,9 @@ static func _path_toward(squad: SquadInstance, grid: HexGrid, goal: HexCoord, tr
 ## dead/vanished target, or one still mid-chase (non-empty path already) is
 ## left alone — this never fights the ordinary move/regiment_move systems for
 ## control of `path`.
-static func resolve_attack_move(squads: Array[SquadInstance], troop_defs: Dictionary, grid: HexGrid, targets: Array[CombatTarget]) -> void:
+static func resolve_attack_move(squads: Array[SquadInstance], troop_defs: Dictionary, grid: HexGrid, targets: Array[CombatTarget], bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> void:
 	for squad in squads:
-		if squad.member_ids.is_empty() or squad.boarded_on_squad_id != "":
+		if squad.member_ids.is_empty() or squad.is_docked():
 			continue
 		if squad.order.get("type", "") != "attack_target":
 			continue
@@ -119,7 +141,7 @@ static func resolve_attack_move(squads: Array[SquadInstance], troop_defs: Dictio
 			continue
 
 		if squad.path.is_empty():
-			_path_toward(squad, grid, target.hex, troop_defs)
+			_path_toward(squad, grid, target.hex, troop_defs, bases, standalone_buildings)
 
 static func _find_target(target_id: String, targets: Array[CombatTarget]) -> CombatTarget:
 	for target in targets:
@@ -127,10 +149,10 @@ static func _find_target(target_id: String, targets: Array[CombatTarget]) -> Com
 			return target
 	return null
 
-static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}) -> void:
+static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}, blocked_land_hexes: Dictionary = {}) -> void:
 	if squad.member_ids.is_empty():
 		return
-	if squad.boarded_on_squad_id != "":
+	if squad.is_docked():
 		return
 	if squad.path.is_empty():
 		return
@@ -155,9 +177,9 @@ static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop
 	var replanned_this_tick := false
 	while remaining_time > 0.0 and not squad.path.is_empty():
 		var next_hex: HexCoord = squad.path[0]
-		var cost := grid.edge_cost(squad.current_hex, next_hex, domain, overrides)
+		var cost := grid.edge_cost(squad.current_hex, next_hex, domain, overrides, blocked_land_hexes)
 		if cost == Terrain.INF:
-			if replanned_this_tick or not _replan(squad, grid, domain, overrides):
+			if replanned_this_tick or not _replan(squad, grid, domain, overrides, blocked_land_hexes):
 				break
 			replanned_this_tick = true
 			continue
@@ -178,7 +200,7 @@ static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop
 ## edge blocked — e.g. a wall raised mid-route. Clears path (halts in place)
 ## if no route exists. find_path never returns a blocked first edge, so the
 ## caller's post-replan retry cannot hit Terrain.INF again on the same edge.
-static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain, overrides: Dictionary) -> bool:
+static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain, overrides: Dictionary, blocked_land_hexes: Dictionary = {}) -> bool:
 	var goal: HexCoord
 	var order_type := String(squad.order.get("type", ""))
 	if order_type == "move" or order_type == "regiment_move":
@@ -186,7 +208,7 @@ static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain,
 	else:
 		goal = squad.path.back()
 
-	var new_path := grid.find_path(squad.current_hex, goal, domain, overrides)
+	var new_path := grid.find_path(squad.current_hex, goal, domain, overrides, blocked_land_hexes)
 	if new_path.size() <= 1:
 		squad.path = []
 		return false
@@ -216,12 +238,13 @@ static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain,
 ## `member_squads`, clearing any ad hoc split. Returns false (no-op, mirroring
 ## issue_move's failure behavior) if the goal is unreachable for the
 ## Commander's domain.
-static func issue_regiment_move(commander_squad: SquadInstance, member_squads: Array[SquadInstance], grid: HexGrid, goal: HexCoord, troop_defs: Dictionary) -> bool:
+static func issue_regiment_move(commander_squad: SquadInstance, member_squads: Array[SquadInstance], grid: HexGrid, goal: HexCoord, troop_defs: Dictionary, bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> bool:
 	var def: Dictionary = troop_defs.get(commander_squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
+	var blocked_land_hexes := BuildingPlacement.land_blocking_hexes(bases, standalone_buildings)
 
-	var full := grid.find_path(commander_squad.current_hex, goal, domain, overrides)
+	var full := grid.find_path(commander_squad.current_hex, goal, domain, overrides, blocked_land_hexes)
 	if full.size() <= 1:
 		commander_squad.path = []
 		return false
@@ -242,24 +265,25 @@ static func issue_regiment_move(commander_squad: SquadInstance, member_squads: A
 ## the regiment's capped (slowest-member) speed, then mirrors the result onto
 ## every lock-step member.
 ##
-## A member currently boarded as cargo (`boarded_on_squad_id` set — see
-## CargoSystem) never rejoins here: it has no independent position to mirror
-## while carried (MovementResolver's `_mirror_boarded_squads` tracks its
-## carrier instead, same as any non-regiment boarded squad), and it keeps its
-## `commander_id`, so it's still logically a member the whole time. Once
-## `CargoSystem.unload()` clears `boarded_on_squad_id` it leaves the squad
-## idle (order `{}`, empty path) rather than restoring `regiment_move` itself
-## (CargoSystem has no regiment awareness — same order-issuing-layer gap
-## noted throughout this file) — so the idle case below is broadened to catch
-## a freshly-unloaded member too, not just an ad hoc `{type:"move"}` split.
-static func resolve_regiment_tick(dt: float, commander_squad: SquadInstance, member_squads: Array[SquadInstance], grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}) -> void:
+## A member currently boarded/docked (`is_docked()` — see CargoSystem) never
+## rejoins here: it has no independent position to mirror while carried
+## (MovementResolver's `_mirror_boarded_squads` tracks its carrier/host
+## building instead, same as any non-regiment boarded/docked squad), and it
+## keeps its `commander_id`, so it's still logically a member the whole time.
+## Once `CargoSystem.unload()`/`undock()` clears its docked state it leaves
+## the squad idle (order `{}`, empty path) rather than restoring
+## `regiment_move` itself (CargoSystem has no regiment awareness — same
+## order-issuing-layer gap noted throughout this file) — so the idle case
+## below is broadened to catch a freshly-unloaded/undocked member too, not
+## just an ad hoc `{type:"move"}` split.
+static func resolve_regiment_tick(dt: float, commander_squad: SquadInstance, member_squads: Array[SquadInstance], grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}, bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> void:
 	for squad in member_squads:
-		if squad.boarded_on_squad_id != "":
+		if squad.is_docked():
 			continue
 		if squad.order.get("type", "") != "regiment_move" and squad.path.is_empty():
 			squad.order = {"type": "regiment_move", "goal": commander_squad.order.get("goal", "")}
 
-	if commander_squad.boarded_on_squad_id != "" or commander_squad.path.is_empty():
+	if commander_squad.is_docked() or commander_squad.path.is_empty():
 		return
 	# A locked-out Commander (freeze/stun/emp) halts the whole regiment — its
 	# path is the shared anchor, so nothing can advance without it.
@@ -268,7 +292,7 @@ static func resolve_regiment_tick(dt: float, commander_squad: SquadInstance, mem
 
 	var lockstep: Array[SquadInstance] = [commander_squad]
 	for squad in member_squads:
-		if squad.boarded_on_squad_id != "" or squad.order.get("type", "") != "regiment_move":
+		if squad.is_docked() or squad.order.get("type", "") != "regiment_move":
 			continue
 		# A member that's individually locked out just doesn't advance/mirror
 		# this tick (temporarily falling out of sync) rather than halting the
@@ -288,14 +312,15 @@ static func resolve_regiment_tick(dt: float, commander_squad: SquadInstance, mem
 	var commander_def: Dictionary = troop_defs.get(commander_squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(commander_def.get("domain", "Infantry")))
 	var overrides: Dictionary = commander_def.get("terrainOverrides", {})
+	var blocked_land_hexes := BuildingPlacement.land_blocking_hexes(bases, standalone_buildings)
 
 	var remaining_time := dt
 	var replanned_this_tick := false
 	while remaining_time > 0.0 and not commander_squad.path.is_empty():
 		var next_hex: HexCoord = commander_squad.path[0]
-		var cost := grid.edge_cost(commander_squad.current_hex, next_hex, domain, overrides)
+		var cost := grid.edge_cost(commander_squad.current_hex, next_hex, domain, overrides, blocked_land_hexes)
 		if cost == Terrain.INF:
-			if replanned_this_tick or not _replan(commander_squad, grid, domain, overrides):
+			if replanned_this_tick or not _replan(commander_squad, grid, domain, overrides, blocked_land_hexes):
 				break
 			replanned_this_tick = true
 			continue

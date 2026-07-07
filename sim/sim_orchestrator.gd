@@ -42,8 +42,8 @@ static func _resolve_fine_tick(state: MatchState, dt: float, auras: Dictionary) 
 	# computed once and reused across both Movement and Combat this same
 	# tick).
 	var pre_move_targets := CombatResolver.build_targets(state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, auras, state.standalone_buildings)
-	MovementResolver.resolve_attack_move(state.squads, state.troop_defs, state.grid, pre_move_targets)
-	MovementResolver.resolve_tick(dt, state.squads, state.grid, state.troop_defs, auras)
+	MovementResolver.resolve_attack_move(state.squads, state.troop_defs, state.grid, pre_move_targets, state.bases, state.standalone_buildings)
+	MovementResolver.resolve_tick(dt, state.squads, state.grid, state.troop_defs, auras, state.bases, state.standalone_buildings)
 	_resolve_regiment_movement(state, dt, auras)
 
 	CombatResolver.resolve_tick(dt, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, state.detections, auras, state.standalone_buildings, state.regiments, state.production_queues)
@@ -65,7 +65,7 @@ static func _resolve_regiment_movement(state: MatchState, dt: float, auras: Dict
 			var member := state.find_squad(squad_id)
 			if member != null:
 				member_squads.append(member)
-		MovementResolver.resolve_regiment_tick(dt, commander_squad, member_squads, state.grid, state.troop_defs, auras)
+		MovementResolver.resolve_regiment_tick(dt, commander_squad, member_squads, state.grid, state.troop_defs, auras, state.bases, state.standalone_buildings)
 
 ## Advances and pumps every Production building's queue. A queue whose
 ## building can no longer be found (e.g. removed this tick — demolished, or a
@@ -102,11 +102,11 @@ static func _advance_production(state: MatchState, dt: float) -> void:
 
 ## Resources/upkeep/deficits — the 5-second cadence from
 ## 07-data-architecture.md section 7. `auras` is the same tick-start snapshot
-## _resolve_fine_tick used (Mule's upkeep_reduction is the only aura effect
-## the economy side reads).
+## _resolve_fine_tick used — Mule's upkeep_reduction and resource_siphon's
+## building redirect are the aura effects the economy side reads.
 static func _resolve_economy_tick(state: MatchState, auras: Dictionary) -> void:
-	var production := ProductionOutputSystem.compute_production(state.bases, state.base_defs, state.building_defs)
-	var upkeep := UpkeepSystem.compute_upkeep(state.squads, state.bases, state.standalone_buildings, state.troop_defs, auras)
+	var production := ProductionOutputSystem.compute_production(state.bases, state.base_defs, state.building_defs, auras)
+	var upkeep := UpkeepSystem.compute_upkeep(state.squads, state.troop_defs, auras)
 
 	var owner_ids: Dictionary = {}
 	for base in state.bases:

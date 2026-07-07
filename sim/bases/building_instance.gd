@@ -69,6 +69,12 @@ var regen_progress: float = 0.0
 ## time via init_cost() and topped up by rebuild_building and
 ## upgrade_building.
 var total_resources_spent: Dictionary = {}
+## Ids of squads currently landed/docked inside this building (Hangar) — only
+## meaningful if the def carries cargoAllowedTags, same "only meaningful if
+## cargoCapacity > 0" convention as SquadInstance.cargo_squad_ids for a
+## carrier squad. Docked squads die with this building — see
+## CombatResolver._prune_dead.
+var docked_squad_ids: Array[String] = []
 
 func _init(p_id: String, p_base_id: String, p_building_type: String, p_level: int = 1, p_material: String = "", p_hex: HexCoord = null, p_owner_id: String = "") -> void:
 	id = p_id

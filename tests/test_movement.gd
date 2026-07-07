@@ -26,6 +26,8 @@ func _init() -> void:
 	_test_regiment_lockstep()
 	print("Attack-move (resolve_attack_move)")
 	_test_attack_move()
+	print("Buildings block Land vehicles")
+	_test_building_blocking()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -332,3 +334,34 @@ func _test_attack_move() -> void:
 	orphan.order = {"type": "attack_target", "targetId": "nonexistent"}
 	MovementResolver.resolve_attack_move([orphan], _troop_defs, grid, [far_target])
 	_check(orphan.path.is_empty(), "a directed order pointing at an untracked/dead target triggers no chase")
+
+## --- Buildings block Land vehicles (BuildingPlacement.land_blocking_hexes) --
+
+func _test_building_blocking() -> void:
+	# 1. A standing (base-attached) building on the only route blocks a Land
+	# vehicle from pathing through it...
+	var grid1 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])
+	var base1 := BaseInstance.new("b1", "capital", "p2", 1, HexCoord.new(1, 0))
+	base1.buildings.append(BuildingInstance.new("bld1", "b1", "barracks", 1, "", HexCoord.new(1, 0)))
+	var land1 := _make_squad("p1", "basekiller", HexCoord.new(0, 0))
+	_check(not MovementResolver.issue_move(land1, grid1, HexCoord.new(2, 0), _troop_defs, [base1]), "a Land vehicle cannot path through a standing building")
+
+	# 2. ...but Infantry passes through the same hex freely (only Domain.LAND
+	# consults blocked_land_hexes).
+	var infantry1 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	_check(MovementResolver.issue_move(infantry1, grid1, HexCoord.new(2, 0), _troop_defs, [base1]), "Infantry ignores building occupancy")
+
+	# 3. A Road hex stays passable for Land vehicles (infrastructure exception).
+	var grid2 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])
+	var road := BuildingInstance.new("bld2", "", "road", 1, "", HexCoord.new(1, 0))
+	var land2 := _make_squad("p1", "basekiller", HexCoord.new(0, 0))
+	_check(MovementResolver.issue_move(land2, grid2, HexCoord.new(2, 0), _troop_defs, [], [road]), "a Road hex stays passable for Land vehicles")
+
+	# 4. A ruined building (destroyed, not yet rebuilt) no longer blocks.
+	var grid3 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])
+	var base3 := BaseInstance.new("b3", "capital", "p2", 1, HexCoord.new(1, 0))
+	var ruin := BuildingInstance.new("bld3", "b3", "barracks", 1, "", HexCoord.new(1, 0))
+	ruin.is_ruin = true
+	base3.buildings.append(ruin)
+	var land3 := _make_squad("p1", "basekiller", HexCoord.new(0, 0))
+	_check(MovementResolver.issue_move(land3, grid3, HexCoord.new(2, 0), _troop_defs, [base3]), "a ruin no longer blocks Land movement")

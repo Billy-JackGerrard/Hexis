@@ -86,7 +86,7 @@ These use the same combat-facing fields as troops:
   carries the top-level `detector: true` flag; no Defensive building currently doubles
   as a detector.
 
-## Support Buildings (Hospital, Ice Spire, House)
+## Support Buildings (Hospital, Ice Spire, House, Hangar)
 Support buildings reuse the troop schema's **auras** field (`05-troop-stat-schema.md`)
 rather than a combat-facing stat block — most don't attack, don't produce, they just
 project a passive effect:
@@ -111,9 +111,20 @@ project a passive effect:
   to its base; unlike every other building, a House itself doesn't consume a
   population slot. See `02-bases-and-buildings.md`'s Population section and
   `03-resources.md`.
-- Like other non-production buildings, Hospital/Ice Spire/House have no inherent level
-  cap — upgrades scale magnitude/radius/population-capacity, bottlenecked only by the
-  HQ ceiling, using the same formula-based growth model as other uncapped buildings.
+- **Hangar**: also structural rather than an aura, same shape as House but for cargo
+  instead of population — `cargoCapacity` is an ordinary leveled stat (grows with
+  upgrades, bottlenecked only by the HQ ceiling like everything else here) and
+  `cargoAllowedTags: [Air]` is fixed. Lets Air-domain squads land/dock inside it,
+  stopping their Fuel drain and hiding them from enemy vision/targeting while docked —
+  see `03-resources.md`'s Fuel rules, `04-combat.md`'s Cargo section, and
+  `05-troop-stat-schema.md`'s Transport/Cargo fields. Deliberately one building type
+  rather than a runway/helipad split — Air-domain already covers both fixed-wing and
+  rotary troops. As of this design pass, Hangar is not yet in any base's buildable
+  list (data/mechanics only so far — see `10-tech-stack-and-build-order.md`).
+- Like other non-production buildings, Hospital/Ice Spire/House/Hangar have no inherent
+  level cap — upgrades scale magnitude/radius/population-capacity/cargo-capacity,
+  bottlenecked only by the HQ ceiling, using the same formula-based growth model as
+  other uncapped buildings.
 - Aura effects stack with terrain/wall/other-aura bonuses, consistent with the general
   "bonuses stack" rule (see `04-combat.md`).
 

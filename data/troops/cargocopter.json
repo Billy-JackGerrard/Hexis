@@ -1,0 +1,33 @@
+{
+  "id": "cargocopter",
+  "name": "Cargocopter",
+  "domain": "Air",
+  "tags": ["Aircraft", "Transport"],
+
+  "hp": 110,
+  "damage": 0,
+  "attackSpeed": 0,
+  "range": 0,
+  "splashRadius": 0,
+  "visionRange": 8,
+  "speed": 2.1,
+
+  "maxSquadSize": 1,
+
+  "canTarget": [],
+
+  "stealth": true,
+  "revealRange": 3,
+
+  "cargoCapacity": 2,
+  "cargoAllowedTags": ["Infantry"],
+  "canLaunchCargoMidCombat": false,
+  "cargoRequiresBuildingDock": true,
+
+  "cost": { "food": 25, "steel": 55 },
+  "foodUpkeep": 0,
+  "fuelUpkeep": 2.5,
+  "productionTime": 34,
+
+  "notes": "The Air-domain counterpart to Transport Truck (Land) and HMS Cuddles/Tank Carrier (Naval). Its stealth enables undetected transport of Infantry across bases. Fully unarmed like the other transports (canTarget: []). cargoAllowedTags is Infantry-only, unlike Tank Carrier's Land+Infantry mix — a helicopter airlift, not an armor landing craft. cargoRequiresBuildingDock is true: unlike every other transport, it can only board/unload Infantry while sitting on a Hangar hex (a helicopter needs a landing pad, not open ground) — see data/troops/schema.json's cargoRequiresBuildingDock note and CargoSystem."
+}

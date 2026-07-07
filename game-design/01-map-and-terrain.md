@@ -148,6 +148,13 @@ occupies a hex, and moves hex-to-hex:
   line from attacker-hex to target-hex crosses a walled edge is blocked, forcing an
   attacker to path around or destroy the wall first. Air-domain units/attacks ignore
   Walls entirely, same as every other terrain rule.
+- **Buildings block Land-vehicle movement, but not Infantry**: a `Land`-domain unit
+  cannot enter a hex occupied by a standing building (base-attached or standalone) —
+  Infantry, Air, and Naval are unaffected, consistent with the Domain-specific terrain
+  rules above. Two exceptions: **Road/Bridge** hexes stay traversable (they're
+  infrastructure meant to be driven over, not obstacles), and a **ruin** (a destroyed,
+  not-yet-rebuilt building — see `06-building-stats-and-defenses.md`'s Destruction &
+  Ruins) no longer blocks either, since nothing is actually standing there anymore.
 
 ## Rendering Notes (2.5D Cartoon Style)
 - **Resolved: Godot, 2D sprite-based, not true 3D** (see `10-tech-stack-and-build-order.md`

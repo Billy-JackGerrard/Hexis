@@ -119,6 +119,13 @@
       }
     },
 
+    "cargoAllowedTags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Domains/tags this building is allowed to store as docked cargo, same mechanism as troop.schema.json's cargoAllowedTags (e.g. Aircraft Carrier). Capacity itself is NOT a dedicated field here — for a leveling building it lives as a named stat under nonProductionUpgrade.baseStats/statGrowth (e.g. \"cargoCapacity\"), the same way House's populationCapacity works, rather than a flat top-level number, so it can grow per level. Currently only Hangar uses this."
+    },
+    "canLaunchCargoMidCombat": { "type": "boolean", "default": false, "description": "Building-level equivalent of troop.schema.json's canLaunchCargoMidCombat — if true, docked cargo can be deployed mid-battle rather than only while idle/docked. Currently only Hangar sets this." },
+
     "productionUpgradeLevels": {
       "type": "array",
       "description": "Only present for Production-category buildings (except Command Centre — see commanderProgression below). This is the SOLE source of truth for which troop(s) this building produces and at what level: an explicit per-level table, one row per level, ordered. The building's max level is derived as length(productionUpgradeLevels), never stored separately; the ordered troop list is derived as productionUpgradeLevels.map(l => l.unlocks) rather than kept as a separate troopList array, so there's no second copy that can drift out of sync. A troop id may legitimately appear in more than one building's table (e.g. Rifleman unlocks from both Capital's and Treehouse's Barracks).",

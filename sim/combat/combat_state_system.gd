@@ -52,3 +52,35 @@ static func _in_attacker_range(attacker_hex: HexCoord, attacker_owner: String, a
 			continue
 		return target.distance_from(attacker_hex) <= attacker_range and CombatTargeting.can_target(attacker_def, target)
 	return false
+
+## True if `hex` (belonging to `owner_id`) is within range of at least one
+## living enemy attacker (squad or Defensive building) armed and able to
+## fire — same coarse "is anything close enough and armed" question as
+## is_squad_in_combat, but keyed on a bare hex instead of a specific
+## CombatTarget. The only consumer is CommandProcessor.undock_squad's
+## `in_combat` flag: a docked-cargo building (Hangar) isn't itself a
+## CombatTarget squads dock in and out of, so there's no per-squad distance
+## check to reuse — this asks the coarser "is the building under threat"
+## question directly against its hex.
+static func is_hex_in_combat(hex: HexCoord, owner_id: String, squads: Array[SquadInstance], bases: Array[BaseInstance], troop_defs: Dictionary, building_defs: Dictionary) -> bool:
+	for attacker in squads:
+		if attacker.owner_id == owner_id or attacker.member_ids.is_empty() or attacker.is_docked():
+			continue
+		var def: Dictionary = troop_defs.get(attacker.troop_type, {})
+		if float(def.get("attackSpeed", 0.0)) <= 0.0 or def.get("canTarget", []).is_empty():
+			continue
+		if HexCoord.distance(attacker.current_hex, hex) <= int(def.get("range", 0)):
+			return true
+
+	for base in bases:
+		if base.owner_id == owner_id:
+			continue
+		for building in base.buildings:
+			if building.max_hp > 0.0 and building.current_hp <= 0.0:
+				continue
+			var stats := BuildingStats.defensive_stats(building_defs.get(building.building_type, {}), building.level, building.material, building_defs)
+			if stats.is_empty() or float(stats.get("attackSpeed", 0.0)) <= 0.0 or stats.get("canTarget", []).is_empty():
+				continue
+			if building.hex != null and HexCoord.distance(building.hex, hex) <= int(stats.get("range", 0)):
+				return true
+	return false

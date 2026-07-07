@@ -19,12 +19,8 @@ but we could also add click + use arrow keys to control them?
 
 
 AIRCRAFT:
-Could have a runway / helipad, changing the no fuel used requirements to be actually grounded.
-Could also have support aircraft like troop carrier helicopter, supply drops, repair drones. This could be another base, similar to Camp Cosy.
-If troop carrier copter, they need to land to board/unload, and they can only land on built helipads?
-If we have separate runway/helipad then maybe rename fire helipad to be something like Copter Oven
-Could filter aircraft based on tags; Helicopter or Plane
-Gliders and Hot Air Balloons can't land at all? Or they can, but hot air balloon counts as a helicopter, and gliders.. see below.
+Gliders and Hot Air Balloons can't land at all?
+Or they can, but hot air balloon counts as a helicopter, and gliders.. see below.
 
 Gliders. Maybe they're actually infantry? But when spawned and when walking off a hill, they "glide" by flying for X seconds before returning to infantry mode?
 

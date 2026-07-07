@@ -139,8 +139,8 @@ func _test_mule_upkeep_reduction() -> void:
 	_check(AuraSystem.upkeep_reduction(auras, infantry.id) == mule_upkeep_reduction, "Mule's proximity aura reduces upkeep by its authored flat magnitude (%s)" % mule_upkeep_reduction)
 
 	var without_mule: Dictionary = AuraSystem.resolve_tick([infantry], [], _troop_defs, {})
-	var upkeep_without_mule := UpkeepSystem.compute_upkeep([infantry], [], [], _troop_defs, without_mule)
-	var upkeep_with_mule := UpkeepSystem.compute_upkeep(squads, [], [], _troop_defs, auras)
+	var upkeep_without_mule := UpkeepSystem.compute_upkeep([infantry], _troop_defs, without_mule)
+	var upkeep_with_mule := UpkeepSystem.compute_upkeep(squads, _troop_defs, auras)
 
 	var food_without: float = float(upkeep_without_mule.get("p1", {}).get(ResourceType.Type.FOOD, 0.0))
 	var food_with: float = float(upkeep_with_mule.get("p1", {}).get(ResourceType.Type.FOOD, 0.0))

@@ -228,6 +228,16 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
     immediately restores them. This is why the Disruptor has to be escorted into range
     rather than sitting at its own base — unlike other auras, it only matters deep in
     enemy territory.
+  - `resource_siphon` — another `enemy_buildings` effect, narrowed with `filter:
+    "Resource"` (Farm/Quarry/Mine/Oil Rig/Lumber Mill/Stone Works/Harbour). Binary
+    like `suppress_targeting` — no `magnitude` — and, for as long as the source stays
+    in range, fully redirects that building's production for the tick from its
+    owner's resource pool to the siphoning player's instead (see
+    `07-data-architecture.md` section 7 and `AuraSystem.siphoned_by`). Resource type
+    and amount already fall out of the building's own type/level, so the aura needs
+    no tuning knob. If sources from more than one owner reach the same building, only
+    the closest wins the redirect (no split, no double-counting from two of the same
+    owner's units both sitting in range).
   - `upkeep_reduction` — a flat (not percent) reduction applied to **both**
     `foodUpkeep` and `fuelUpkeep` simultaneously, floored at 0 per troop. E.g. Camp
     Cozy's Mule → `{radius: 3, target: friendly_troops, effect: upkeep_reduction,
@@ -271,15 +281,39 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   and Transport Truck: cargo isn't just passive storage, it can be deployed mid-battle
   rather than only when idle/docked. **HMS Cuddles is the one exception** — `false`,
   must be idle/docked to unload.
-- Fuel/upkeep for cargo while stored: aircraft aboard an Aircraft Carrier don't consume
-  Fuel while docked — a distinct mechanic from the general "Fuel-free adjacent to an
-  owned base" rule (see `03-resources.md`), not an application of it; the Carrier is
-  the one unit that grants fuel-free storage away from an owned base's footprint.
+- Fuel/upkeep for cargo while stored: **a squad pays no Fuel while docked, full stop**
+  — there is no separate "Fuel-free near an owned base" rule to distinguish this from
+  (see `03-resources.md`: that rule no longer exists at all). Aircraft aboard an
+  Aircraft Carrier, or landed inside a Hangar (below), are simply exempt from Fuel
+  upkeep for as long as they stay docked, wherever the carrier/building happens to be.
 - **Resolved: boarding/unloading are explicit orders** (`board` targeting a carrier
   squad; `unload` naming which boarded squad to deploy) — see `04-combat.md`'s Cargo
   section. A boarded squad keeps counting against its owner's global squad cap while
   aboard, and **if the carrier squad is destroyed while loaded, every boarded squad
   and its troops are destroyed along with it** — no survivors spill out.
+- **Building-level docking (Hangar)**: the same cargo mechanism, but the "carrier" is
+  a building instead of a squad. A **Hangar** (`cargoCapacity`/`cargoAllowedTags: [Air]`
+  authored on the building def, not a troop def — see `06-building-stats-and-defenses.md`)
+  lets Air-domain squads land inside it via `dock`/`undock` orders, mirroring
+  `board`/`unload` exactly: same capacity/tag-matching rules, same
+  `can_launch_cargo_mid_combat` mid-battle gate, same "no survivors spill out" rule if
+  the Hangar is destroyed while occupied, and the same combat/vision exemption a
+  boarded squad already gets — a docked squad can't be targeted, can't fire, can't be
+  ordered, and projects no vision/detection while landed. Deliberately not split into
+  separate runway/helipad building types — Air-domain already covers both fixed-wing
+  and rotary troops, so one Hangar type stores either.
+- **cargo_requires_building_dock** (bool, default false) — if true, this carrier can
+  only `board`/`unload` its own cargo while sitting on a hex that carries a building
+  capable of docking THIS carrier itself (its Domain/tags intersect that building's own
+  `cargoAllowedTags` — same match `dock` uses). Unlike the Naval coastline rule (a
+  physics-driven restriction: Land/Infantry cargo can't stand on water, so a landing
+  building is implicitly required), Air-domain carriers face no terrain restriction that
+  would force this on its own, so it needs an explicit opt-in. **Cargocopter** is the
+  only carrier that sets this today — it can only load/unload Infantry on a Hangar hex,
+  the helicopter-airlift equivalent of the Naval rule. This is purely a location check:
+  the carrier itself doesn't run a `dock` order or consume any of the building's own
+  `cargoCapacity` just to transfer cargo — that stays reserved for aircraft actually
+  resting/refueling there.
 
 ### Status Effects (on-hit)
 - **status_effect_on_hit** (optional object: `{type, duration, magnitude?, chance?}`) —
@@ -376,6 +410,7 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 | cargo_capacity | number | counts SQUADS, not troop headcount; 0 = cannot transport; e.g. Aircraft Carrier, Transport Truck |
 | cargo_allowed_tags | list of tags | what it's allowed to load, same mechanism as `can_target` |
 | can_launch_cargo_mid_combat | bool | true for Aircraft Carrier and Transport Truck — cargo can deploy mid-battle, not just while idle |
+| cargo_requires_building_dock | bool | true only for Cargocopter — can only board/unload cargo on a hex with a building that could dock it (a Hangar); no other carrier restricts where it transfers cargo this way |
 | can_build_infrastructure | bool | default false; true = can construct standalone Road/Bridge/Dock/Tower/Landmine. Only Engineer has this |
 | auras | list of `{radius, target, filter, effect, magnitude}` | for support units/buildings; `target` = friendly_troops / enemy_troops / friendly_buildings |
 | status_effect_on_hit | object `{type, duration, magnitude?, chance?}` | e.g. `{type: freeze, duration: 2s}` — applied to target on hit, alongside damage. `chance` (default 100) makes it probabilistic. `stun` is a distinct type from `freeze` — same lockout shape, but always followed by a global, fixed -30% move/attack-speed tail debuff lasting the same `duration` as the lockout (not a separate stored number — see Status Effects section above) |
@@ -418,8 +453,8 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 **Aircraft Carrier** (Kraken Point Shipyard)
 - Domain: Naval · Tags: `[Ship, Carrier]`
 - cargo_capacity: > 0 · cargo_allowed_tags: `[Air]` · can_launch_cargo_mid_combat: true
-- Docked aircraft use no Fuel while stored — its own mechanic, distinct from the
-  general "Fuel-free adjacent to an owned base" rule (see `03-resources.md`)
+- Docked aircraft use no Fuel while stored — the general docking rule every carrier/
+  Hangar shares (see the Transport/Cargo section above and `03-resources.md`)
 
 **Shield Tank** (future/planned)
 - Domain: Land · Tags: `[Vehicle, Tank, Support]`

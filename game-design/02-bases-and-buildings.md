@@ -152,7 +152,7 @@ being destroyed in combat:
 | House | Population capacity (does not itself consume a population slot) | All — see Population section below |
 | Turret | Defense (generic) | All |
 | Missile Launcher | Defense (generic) | All except Camp Cosy (deliberately lighter on fixed defense — see Camp Cosy below) |
-| Barracks | Infantry | Capital, Treehouse, Firebase, Windy Peaks, Rivergate, Signal Ridge, Camp Cosy |
+| Barracks | Infantry | Capital, Treehouse, Firebase, Windy Peaks, Rivergate, Signal Ridge, Camp Cosy, Cloudreach |
 | Factory | Light land vehicles | Capital, Foundry Reach |
 | Port | Navy (basic roster) | Any base with a water-adjacent tile |
 | Tank Plant | Heavy tanks (full roster, builds 3-5 at a time) | Fort Irongrad only |
@@ -164,6 +164,8 @@ being destroyed in combat:
 | Lumber Mill | Wood | Any base with a Forest-adjacent tile; Treehouse can additionally place it directly on Forest tiles (its specialty) |
 | Forest Yard | Quad-bike | Treehouse only (forest tiles) |
 | Iron Aviary | Wingfighter, Thunder | Sky Fortress only |
+| Covert Airfield | Repair Drone, Cargocopter, Kleptocopter (support aircraft, all non-combat), Shadowcopter (stealth long-range harasser) | Cloudreach only |
+| Hangar | Support — fuel-free aircraft landing/storage, hides docked squads from enemy vision/detection; also the required landing-hex for Cargocopter to board/unload Infantry cargo (see `04-combat.md`'s Cargo section and `05-troop-stat-schema.md`) | Capital, Firebase, Fort Irongrad, Foundry Reach, Sky Fortress, Windy Peaks, Winter Forge, Camp Cosy, Cloudreach (not Kraken Point, Rivergate, Signal Ridge, or Treehouse — see `03-resources.md`) |
 | Command Centre | Commander | Capital only |
 | Hospital | Support — heals nearby friendly troops slowly (passive aura, no production) | Capital, Foundry Reach, Sky Fortress, Camp Cosy (discounted here — see Camp Cosy below) |
 | Supply Depot | Engineer, Ambulance, Transport Truck, Repair Truck, Mule, Volt Truck (support vehicles, all non-combat) | Camp Cosy only |
@@ -451,6 +453,32 @@ Centre's level unlocks a whole tier at once, not one Commander at a time:
   identity is entirely the cost discounts plus Supply Depot's roster, not raw
   output or damage.
 
+### Cloudreach
+- Air-logistics/covert-resupply specialist — the aerial mirror of Camp Cosy. Sited
+  on Plains, no terrain exception.
+- **Covert Airfield**: builds, in order, **Repair Drone** (Air-domain counterpart
+  to Repair Truck — heals nearby friendly Air troops), **Cargocopter** (Infantry
+  transport, `cargoRequiresBuildingDock` so it can only board/unload while sitting on
+  a Hangar hex), **Kleptocopter** (stealthed, pairs with a `resource_siphon` aura
+  targeting enemy Resource buildings rather than combat), and **Shadowcopter**
+  (stealthed, very-long-range harasser; `revealsOnAttack: false` means firing never
+  breaks its cloak, unlike every other stealth troop) — a support-aircraft-first
+  roster, distinct from Iron Aviary's/Wind Sanctuary's combat and recon rosters. The
+  first three are non-combat (`canTarget: []`); Shadowcopter is the roster's one
+  combat-capable unlock, but its low HP and squad cap of 2 make it a stand-off
+  harasser rather than a base defender.
+- **Barracks** included for the same reason as Camp Cosy — Covert Airfield's
+  roster can't reliably defend the base — but unlike Camp Cosy, Cloudreach keeps the
+  standard Turret + Missile Launcher pairing rather than going lighter on fixed
+  defense.
+- **Hangar** is pre-seeded alongside Covert Airfield rather than left as an
+  optional build: Cargocopter can't board/unload Infantry without one nearby, and
+  Repair Drone/Kleptocopter both benefit from the fuel-free landing option.
+- **+50% Oil Rig production**: a building-scoped `resourceModifiers` bonus (same
+  shape as Winter Forge's), reflecting that this roster carries the heaviest Fuel
+  upkeep of any troop line in the game — the base's economic hook is subsidizing its
+  own aircraft, not raw output for its own sake.
+
 ## Building Categories
 Every building falls into one of five categories, which determines whether it needs
 player input to function or just runs on its own once built:
@@ -460,7 +488,7 @@ player input to function or just runs on its own once built:
 | **Production** | Barracks, Factory, Port, Tank Plant, Frostworks, Blazeworks, Wind Sanctuary, Forest Yard, Shipyard, Iron Aviary, Command Centre, Covert Works, Ford Yard, Supply Depot | **Yes** — the player must pick a troop from the building's roster to queue; nothing is produced until a choice is made |
 | **Resource** | Farm, Quarry, Mine, Oil Rig, Lumber Mill, Harbour, Stone Works | No — ticks automatically every resource tick (see `07-data-architecture.md`) |
 | **Defensive** | Turret, Missile Launcher, Grenade Tower, Flame Turret, Cold Turret, River Battery, Wind Spire, EMP Turret, Walls, Tower | No — auto-fires on any enemy troop that enters range, same as troops (see `04-combat.md`) |
-| **Support** | Hospital, Ice Spire, House, Radar Array | No — passively applies its effect (healing / aura / population capacity / vision) with no queue or target selection involved |
+| **Support** | Hospital, Ice Spire, House, Radar Array, Hangar | No — passively applies its effect (healing / aura / population capacity / vision) with no queue or target selection involved |
 | **Infrastructure** | Road, Bridge, Dock | No — passive, but must be placed by an Engineer rather than built from a base's menu |
 
 - This is why Production buildings are the only ones with a visible **queue** in the

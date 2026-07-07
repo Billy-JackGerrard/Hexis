@@ -29,6 +29,8 @@ func _init() -> void:
 	_test_attack_target()
 	print("board_cargo / unload_cargo")
 	_test_cargo()
+	print("dock_squad / undock_squad")
+	_test_dock()
 	print("assign_to_commander / leave_regiment")
 	_test_regiment_assignment()
 	print("merge_squads")
@@ -124,6 +126,12 @@ func _test_attack_target() -> void:
 	_check(result == CommandProcessor.Result.OK, "attacking a live enemy squad -> OK")
 	_check(attacker.order.get("type", "") == "attack_target" and attacker.order.get("targetId", "") == enemy.id, "the directed order is set on the squad")
 
+	# A boarded/docked squad can't be given an attack order either — it has
+	# no independent position to fire from.
+	var carrier := _make_squad(state, "p1", "transport_truck", HexCoord.new(0, 0))
+	CargoSystem.board(carrier, attacker, _troop_defs)
+	_check(CommandProcessor.attack_target(state, attacker.id, enemy.id, "p1") == CommandProcessor.Result.INVALID, "a boarded squad can't be given an attack order")
+
 func _test_cargo() -> void:
 	var state := _new_state(_flat_grid(10))
 	# HMS Cuddles: canLaunchCargoMidCombat false, per its own notes ("must be
@@ -156,6 +164,38 @@ func _test_cargo() -> void:
 	result = CommandProcessor.unload_cargo(state, carrier.id, cargo.id, carrier.current_hex, "p1")
 	_check(result == CommandProcessor.Result.INVALID, "unloading a non-mid-combat carrier while an armed enemy is in range is rejected")
 	_check(cargo.boarded_on_squad_id == carrier.id, "the rejected unload left cargo still boarded")
+
+func _make_hangar(state: MatchState, owner: String, hex: HexCoord) -> BuildingInstance:
+	var base := BaseInstance.new(state.next_id("base"), "capital", owner, 1, hex)
+	var hangar := BuildingInstance.new(state.next_id("hangar"), base.id, "hangar", 1, "", hex)
+	hangar.init_hp(_building_defs["hangar"], _building_defs)
+	base.buildings.append(hangar)
+	state.bases.append(base)
+	return hangar
+
+func _test_dock() -> void:
+	var state := _new_state(_flat_grid(10))
+	var hangar := _make_hangar(state, "p1", HexCoord.new(0, 0))
+	var glider := _make_squad(state, "p1", "glider", HexCoord.new(0, 0))
+
+	_check(CommandProcessor.dock_squad(state, glider.id, hangar.id, "p2") == CommandProcessor.Result.NOT_OWNER, "docking someone else's squad is rejected")
+	_check(CommandProcessor.dock_squad(state, glider.id, "nonexistent", "p1") == CommandProcessor.Result.NOT_FOUND, "unknown building id -> NOT_FOUND")
+	_check(CommandProcessor.dock_squad(state, glider.id, hangar.id, "p1") == CommandProcessor.Result.OK, "docking succeeds")
+	_check(glider.docked_building_id == hangar.id, "docked squad now tracks its Hangar")
+
+	# Idle, no enemy nearby -> not in combat -> undock succeeds even for a
+	# building without canLaunchCargoMidCombat (moot here since Hangar's is
+	# true, but exercises the same code path unload_cargo's test does).
+	var result := CommandProcessor.undock_squad(state, glider.id, hangar.id, hangar.hex, "p1")
+	_check(result == CommandProcessor.Result.OK, "undocking while not in combat succeeds")
+	_check(glider.docked_building_id == "", "squad is no longer docked")
+
+	# Re-dock, then put a living, armed enemy in range -> in_combat -> still
+	# succeeds because Hangar's canLaunchCargoMidCombat is true.
+	CommandProcessor.dock_squad(state, glider.id, hangar.id, "p1")
+	var enemy := _make_squad(state, "p2", "rifleman", HexCoord.new(1, 0))
+	result = CommandProcessor.undock_squad(state, glider.id, hangar.id, hangar.hex, "p1")
+	_check(result == CommandProcessor.Result.OK, "Hangar can still launch mid-combat (canLaunchCargoMidCombat: true)")
 
 func _test_regiment_assignment() -> void:
 	var state := _new_state(_flat_grid(10))

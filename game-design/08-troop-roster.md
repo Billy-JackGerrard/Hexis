@@ -84,6 +84,7 @@ doc records design rationale, not the numbers themselves.
 |---|---|---|
 | Iron Aviary | **Wingfighter** | Fast, rapid-fire machine guns. Low damage against buildings/walls — anti-troop dogfighter, not a siege unit. Stats implemented, see `data/troops/wingfighter.json` |
 | Iron Aviary | **Thunder** (renamed from Falcon) | Slower, heavier armored, missile-armed — hits harder per shot, small splash, less mobile than Wingfighter. Stats implemented, see `data/troops/thunder.json` |
+| Iron Aviary | **Cargocopter** | Level-3 unlock. Fully unarmed (`canTarget: []`), `cargoCapacity: 2`, `cargoAllowedTags: [Infantry]`, `canLaunchCargoMidCombat: true` — the Air-domain troop carrier, rounding out Transport Truck (Land)/HMS Cuddles & Tank Carrier (Naval) with an Infantry-only helicopter airlift. **`cargoRequiresBuildingDock: true`** — unlike every other transport, it can only board/unload Infantry while sitting on a Hangar hex (see `04-combat.md`'s Cargo section and `05-troop-stat-schema.md`'s Transport/Cargo section) — a helicopter needs a landing pad, and Air has no terrain-driven pickup restriction the way Naval carriers get from the coastline rule. Stats implemented, see `data/troops/cargocopter.json`; Hangar is buildable at Sky Fortress (`data/bases/sky_fortress.json`) |
 
 ### Foundry Reach
 | Building | Unit(s) | Notes |
@@ -120,9 +121,11 @@ preserve that progression.
 
 ## Fuel/Maintenance Quick Reference
 - Land vehicles: free while stationary, consume Fuel while moving.
-- Aircraft: heavy Fuel consumption, free while not moving and on/adjacent to one of
-  the owner's own bases (any base's footprint — no Iron Aviary/Blazeworks landing
-  mechanic; see `03-resources.md`).
+- Aircraft: heavy Fuel consumption, **always paid while airborne** — no near-base
+  fuel-free rule. Fuel-free only while actually docked: aboard an Aircraft Carrier, or
+  landed inside a Hangar (a dedicated storage building, distinct from Iron Aviary/
+  Blazeworks — see `03-resources.md`). Docked aircraft are also hidden from enemy
+  vision/detection/targeting.
 - Ships: consume very little Fuel regardless of state.
 - **Exception — Glider** (Windy Peaks): unpowered, so it uses **no Fuel at all** and
   draws Food upkeep instead, same as ground infantry.

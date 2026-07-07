@@ -570,6 +570,63 @@ writing real UI code does, and it also needs actual game state to bind to.
      HQ hit 0 HP) has every one of its buildings' entries erased, per
      `07-data-architecture.md` 3b's "resources already spent on those entries
      are not refunded" rule.
+   - [x] Aircraft fuel rework + Hangar docking. **Reverses the "leash range"
+     fuel-free rule** from the Resource ticking item above: an Air-domain
+     squad now always pays `fuelUpkeep` while airborne, regardless of
+     proximity to an owned base — `UpkeepSystem.compute_upkeep()` dropped its
+     `bases`/`standalone_buildings` params and `_near_own_base()` entirely,
+     replaced by a single `squad.is_docked()` check. `is_docked()`
+     (`sim/troops/squad_instance.gd`) is a new generalization over the
+     existing `boarded_on_squad_id` (cargo aboard a carrier squad, e.g.
+     Aircraft Carrier) plus a new `docked_building_id` field (landed inside a
+     building) — either makes a squad "docked": no independent position, not
+     a legal combat target, can't fire, can't be moved/ordered, contributes
+     no vision/detection. A new **Hangar** building
+     (`data/buildings/hangar.json`, Support category, `cargoAllowedTags:
+     [Air]`, `cargoCapacity` a leveled `nonProductionUpgrade.baseStats` entry
+     like House's `populationCapacity`) is the first building with cargo —
+     deliberately not wired into any base's `buildableBuildings` list yet, so
+     it exists as data/mechanics only for now. `BuildingInstance` gained
+     `docked_squad_ids` (`sim/bases/building_instance.gd`); `BuildingStats`
+     gained `cargo_capacity()`/`cargo_allowed_tags()`/
+     `can_launch_cargo_mid_combat()` (`sim/bases/building_stats.gd`), same
+     leveled-lookup shape as `vision_range()`/`detector()`. `CargoSystem`
+     gained building-target `can_dock`/`dock`/`can_undock`/`undock`
+     (`sim/movement/cargo_system.gd`), mirroring `can_board`/`board`/
+     `can_unload`/`unload` but keyed on a `BuildingInstance` — a base-attached
+     building carries no `owner_id` of its own, so callers pass the owning
+     base's `owner_id` explicitly, same as `CombatResolver.build_targets`/
+     `_advance_building` already do. `CombatResolver.build_targets()` now
+     excludes any `is_docked()` squad (was previously a live gap even for
+     existing carrier cargo — a boarded squad could be targeted and could
+     fire back, since neither `build_targets` nor `_advance_squad` checked
+     `boarded_on_squad_id` before this pass); `_prune_dead()` now also kills
+     every squad in a building's `docked_squad_ids` when that building hits 0
+     HP, merged into the same `doomed_cargo_ids` pass that already handles
+     carrier-death. `MovementResolver._mirror_boarded_squads()` (renamed
+     conceptually, not literally, to also cover building docking) takes new
+     optional `bases`/`standalone_buildings` params to resolve a docked
+     squad's host building by id and mirror its hex, same "position becomes
+     the host's" treatment as carrier mirroring. `VisionSystem`/
+     `DetectionSystem` swapped their `boarded_on_squad_id != ""` skips for
+     `is_docked()`. `CommandProcessor` gained `dock_squad`/`undock_squad`
+     (mirroring `board_cargo`/`unload_cargo`), `attack_target` now rejects a
+     docked squad (previously unguarded — another live gap this pass closed),
+     and `move_squad`/`assign_to_commander`/`merge_squads` swapped their
+     `boarded_on_squad_id` checks for `is_docked()` so a Hangar-docked squad
+     is rejected the same way a carrier-boarded one already was.
+     `CombatStateSystem` gained `is_hex_in_combat()` — a building isn't itself
+     a `CombatTarget` a squad docks in and out of, so `undock_squad`'s
+     mid-combat gate checks proximity to the building's hex directly rather
+     than reusing `is_squad_in_combat()`'s per-target distance check.
+     `tests/test_cargo.gd` extended (Hangar dock/undock, mirroring,
+     building-death-kills-docked-cargo), `tests/test_resources.gd` rewritten
+     (near-base cases replaced with docked-vs-not), `tests/test_command_processor.gd`
+     extended (`dock_squad`/`undock_squad`, docked-squad `attack_target`
+     rejection). **Deferred**: Hangar is not yet in any base's
+     `buildableBuildings` list, so nothing can actually place or dock into
+     one in a real match yet; `03-resources.md`/`05-troop-stat-schema.md`/
+     `07-data-architecture.md`/`08-troop-roster.md` updated to match.
 2. **Godot rendering scaffold** — a minimal scene rendering one base,
    click-to-move wired to the sim core.
    - [ ] Not started.
