@@ -140,6 +140,15 @@ being destroyed in combat:
 
 ## Building Reference
 
+The "Buildable at" column below is a *rule* (all bases, a terrain/adjacency
+requirement, or one specific Unique base) where the rule is short and stable. For
+buildings available at a hand-picked subset of bases with no single unifying rule
+(Barracks, Hangar, Hospital), don't trust a hard-coded list here — it drifts as new
+bases gain access (e.g. Hangar has since spread to more bases than originally
+authored). Check that base's `buildableBuildings` array in `data/bases/*.json`,
+which is the sole source of truth for building-vs-base eligibility (see
+`data/bases/schema.json`).
+
 | Building | Function | Buildable at |
 |---|---|---|
 | HQ | Base core (pre-seeded, capturable by destruction — see Base Seeding above) | All |
@@ -152,7 +161,7 @@ being destroyed in combat:
 | House | Population capacity (does not itself consume a population slot) | All — see Population section below |
 | Turret | Defense (generic) | All |
 | Missile Launcher | Defense (generic) | All except Camp Cosy (deliberately lighter on fixed defense — see Camp Cosy below) |
-| Barracks | Infantry | Capital, Treehouse, Firebase, Windy Peaks, Rivergate, Signal Ridge, Camp Cosy, Cloudreach |
+| Barracks | Infantry | See `data/bases/*.json` — a hand-picked subset of bases, no unifying rule |
 | Factory | Light land vehicles | Capital, Foundry Reach |
 | Port | Navy (basic roster) | Any base with a water-adjacent tile |
 | Tank Plant | Heavy tanks (full roster, builds 3-5 at a time) | Fort Irongrad only |
@@ -165,9 +174,9 @@ being destroyed in combat:
 | Forest Yard | Quad-bike | Treehouse only (forest tiles) |
 | Iron Aviary | Wingfighter, Thunder | Sky Fortress only |
 | Covert Airfield | Repair Drone, Cargocopter, Kleptocopter (support aircraft, all non-combat), Shadowcopter (stealth long-range harasser) | Cloudreach only |
-| Hangar | Support — fuel-free aircraft landing/storage, hides docked squads from enemy vision/detection; also the required landing-hex for Cargocopter to board/unload Infantry cargo (see `04-combat.md`'s Cargo section and `05-troop-stat-schema.md`) | Capital, Firebase, Fort Irongrad, Foundry Reach, Sky Fortress, Windy Peaks, Winter Forge, Camp Cosy, Cloudreach (not Kraken Point, Rivergate, Signal Ridge, or Treehouse — see `03-resources.md`) |
+| Hangar | Support — fuel-free aircraft landing/storage, hides docked squads from enemy vision/detection; also the required landing-hex for Cargocopter to board/unload Infantry cargo (see `04-combat.md`'s Cargo section and `05-troop-stat-schema.md`) | See `data/bases/*.json` — a hand-picked, growing subset of bases, no unifying rule |
 | Command Centre | Commander | Capital only |
-| Hospital | Support — heals nearby friendly troops slowly (passive aura, no production) | Capital, Foundry Reach, Sky Fortress, Camp Cosy (discounted here — see Camp Cosy below) |
+| Hospital | Support — heals nearby friendly troops slowly (passive aura, no production) | See `data/bases/*.json` — a hand-picked subset of bases, discounted at Camp Cosy (see Camp Cosy below) |
 | Supply Depot | Engineer, Ambulance, Transport Truck, Repair Truck, Mule, Volt Truck (support vehicles, all non-combat) | Camp Cosy only |
 | Shipyard (renamed from Harbour) | Full navy incl. Aircraft Carrier; base carries a +50% Harbour production bonus | Kraken Point only |
 | Dock | Ship landing point (no production) | Anywhere adjacent to Ocean or River (sits on the adjoining Plains hex, not on the water tile itself — same siteTerrain/adjacency shape as Port), Engineer-built, not tied to a base. Buildable in Stone or Wood (Wood cheaper, weaker, fire-vulnerable) |
@@ -275,209 +284,94 @@ Centre's level unlocks a whole tier at once, not one Commander at a time:
 
 ## Unique Bases (defined so far)
 
+Each entry below is the *identity* and non-obvious design rationale for that base —
+the exact buildable list, initial buildings/garrison, and any `resourceModifiers`/
+`costModifiers` numbers all live in that base's own `data/bases/<id>.json`, which is
+self-contained on purpose (see its schema's description) and is the source of truth;
+don't re-derive those specifics from this section, and don't add them here when
+authoring a new base — extend the JSON and add only the "why" here if there is one.
+
 ### Fort Irongrad
-- Heavy armor specialist.
-- **Tank Plant**: builds the full Heavy Tank roster; Capital's Factory only makes light
-  vehicles. Winter Forge's Frostworks (below) also builds a subset of this roster, so
-  Fort Irongrad is the most complete source of heavy armor but no longer the *only*
-  source — heavy-tank access will keep spreading across more Unique bases over time as
-  the roster grows.
-- **Grenade Tower** (defense): cheap, short range, low damage, splash.
+Heavy armor specialist. Tank Plant is the most complete source of heavy tanks, but not
+the only one — Winter Forge's Frostworks (below) also builds a subset of the same
+roster, and heavy-tank access is expected to keep spreading to more bases over time.
 
 ### Firebase
-- Incendiary air power specialist.
-- **Blazeworks**: builds Flamecopter (short range, high splash, fire damage) and
-  Plasmacopter (bigger, slower, longer range, explosive impact damage).
-- **Flame Turret** (defense) — renamed from Flamethrower to avoid colliding with the
-  Barracks infantry unit of the same name (see `08-troop-roster.md`).
+Incendiary air power specialist. Its defense building is called **Flame Turret**,
+renamed from Flamethrower specifically to avoid colliding with the Barracks infantry
+unit of the same name (see `08-troop-roster.md`).
 
 ### Windy Peaks
-- Ground-support and reconnaissance aircraft specialist. Found on hills; its buildings
-  can be placed on hill tiles.
-- **Wind Sanctuary** (merged Air Factory + Iron Aviary into a single building): builds, in
-  order, Glider (fast scouting air unit, cannot attack at all, cheap, uses no Fuel at
-  all — being unpowered, it draws Food upkeep instead, like infantry) and Hot Air
-  Balloon (cheap, high splash, low range, ground/naval targets only, slow-moving,
-  modest Fuel upkeep).
-- **Wind Spire** (defense): a Turret variant (see `data/buildings/schema.json`'s
-  `extends`) trading raw damage for control — low base damage, but every hit applies a
-  strong `knockback` (shoves the target back several hexes, see
-  `05-troop-stat-schema.md`'s Status Effects section for how `knockback` differs from
-  `freeze`/`stun`), plus a large damage bonus against Air targets. Sits on Hill tiles
-  like Wind Sanctuary.
+Ground-support/recon aircraft specialist. Found on hills; its buildings can be placed
+on hill tiles. **Wind Sanctuary** merges what would otherwise be a separate Air
+Factory and Iron Aviary into one building. **Wind Spire** is a Turret variant that
+trades raw damage for control (knockback) plus a large bonus vs. Air.
 
 ### Treehouse
-- Forest/infantry/economy specialist. Found in a large forest biome; its buildings can
-  be placed on forest tiles.
-- **Barracks** (standard infantry — shared building type, see Building Reference above
-  for the full list of bases that build it).
-- **Lumber Mill**: produces Wood. Treehouse can place its Lumber Mill directly on
-  Forest tiles (its specialty); any other base can also build a Lumber Mill if it has
-  a Forest-adjacent tile (see Building Reference above) — Wood is no longer exclusive
-  to holding a Treehouse.
-- **Forest Yard**: builds Quad-bike (fast, forest-capable — ignores the forest
-  vehicle-block rule — low armor/damage).
-- Only **one Treehouse** exists on a given map (see `01-map-and-terrain.md`) — like
-  every Unique base type, it's a genuinely unique, non-repeating base.
+Forest/infantry/economy specialist; its buildings can be placed on forest tiles. Wood
+is no longer capture-gated — any base with a Forest-adjacent tile can build its own
+Lumber Mill, so Treehouse is no longer the sole route to Wood, just the base that can
+site its Lumber Mill directly on Forest. Only one Treehouse exists on a given map (see
+`01-map-and-terrain.md`), same as every Unique base type.
 
 ### Kraken Point (renamed from Atlantis)
-- Naval capstone. Found along the map's ocean edge.
-- **Shipyard** (renamed from Harbour — an unrelated, later-introduced building has
-  since reused that name for a Farm-equivalent, see Harbour above): builds everything
-  Port can, plus larger/advanced ships, topping out at the **Aircraft Carrier**.
-- **+50% Harbour production**: a building-scoped bonus authored directly on
-  Kraken Point's own `BaseDef` (a `scope: "building", buildingType: "harbour"`
-  `resourceModifiers` entry — same shape as Foundry Reach's/Treehouse's building-scoped
-  bonuses, see `07-data-architecture.md`), not a Shipyard aura — making Kraken Point a
-  strong Food-economy base as well as a military one, provided it has a Harbour built.
-- Aircraft Carriers can *hold* most air troops (they don't consume fuel while docked
-  there) but do not produce them. **Resolved**: they can launch stored aircraft
-  mid-battle, not just while idle — see `05-troop-stat-schema.md`'s
-  `can_launch_cargo_mid_combat` field.
+Naval capstone, found along the map's ocean edge. Its production building is
+**Shipyard** — renamed from Harbour after an unrelated, later-introduced building
+reused that name for a Farm-equivalent (see the Harbour building above; the two are
+unrelated). Aircraft Carriers can *hold* most air troops fuel-free without producing
+them, and can launch stored aircraft mid-battle, not just while idle (see
+`05-troop-stat-schema.md`'s `can_launch_cargo_mid_combat` field).
 
 ### Sky Fortress
-- Elite air-superiority specialist — the pure air-combat counterpart to Windy Peaks'
-  scouting/ground-support focus.
-- **Iron Aviary**: builds **Wingfighter** (fast, rapid-fire machine guns, low damage
-  against buildings/walls — an anti-troop dogfighter, not a siege unit) and
-  **Thunder** (slower, heavier armored, missile-armed — the harder-hitting,
-  slower-to-lose alternative).
-- **Moat**: generated with a ring of water terrain surrounding the base, making it
-  harder to approach with Land-domain troops (Infantry/Land vehicles) — Naval units
-  can't reach it either, being landlocked, but Air units ignore it entirely, same as
-  every other terrain restriction. Reinforces the base's air-superiority identity by
-  making ground sieges specifically harder, not just defended by stronger units.
+Elite air-superiority specialist — the pure air-combat counterpart to Windy Peaks'
+scouting/ground-support focus. Generated with a **Moat**: a ring of water terrain
+around the base that blocks Land and Naval approach (Air ignores it, like every other
+terrain restriction) — this is a world-gen/terrain feature, not a `BaseDef` field.
 
 ### Winter Forge
-- Cold/ice specialist — a second, partial route into heavy armor, plus area
-  control via slow and freeze effects.
-- **Ice Spire**: not a production or defensive building — a pure aura structure.
-  Carries a single aura that slows nearby *enemy* troops (a debuff aura, unlike the
-  friendly-only auras seen so far — see `05-troop-stat-schema.md`). **Fixed/pre-seeded,
-  cannot be freshly built** — see below. Winter Forge's Oil Rig boost is instead a
-  base-wide bonus authored on its own `BaseDef`, not an Ice Spire aura (see
-  `03-resources.md`).
-- **Cold Turret** (defense): ice bombs, medium-low range, low damage, but **freezes**
-  its target for a couple seconds on hit (target can't move or attack while frozen) —
-  a crowd-control defense rather than a raw-damage one.
-- **Frostworks**: builds a **subset** of the Heavy Tank roster (not the full list Fort
-  Irongrad's Tank Plant offers) — the first case of a troop type being split across
-  more than one building/base; see `08-troop-roster.md`.
+Cold/ice specialist — a second, partial route into heavy armor, plus area control via
+slow/freeze effects. Its **Ice Spire** is a pure-aura structure (not production or
+defensive) and is fixed/pre-seeded — see Fixed/Unique Structures below. **Frostworks**
+building a subset of the Heavy Tank roster was the first case of a troop type split
+across more than one building/base (see `08-troop-roster.md`).
 
 ### Foundry Reach
-- Economic specialist — the first Unique base built entirely around resource output
-  rather than a troop roster. No terrain exception; it's sited on Plains like Fort
-  Irongrad, Firebase, Sky Fortress, and Winter Forge.
-- **+100% Steel production**: a building-scoped bonus on Mine authored directly on
-  Foundry Reach's own `BaseDef` (a `scope: "building", buildingType: "mine"` entry in
-  `resourceModifiers` — see `03-resources.md` and `07-data-architecture.md`), not a
-  base-wide multiplier.
-- **Stone Works**: Foundry Reach's one exclusive building — a Resource-category
-  building mechanically equivalent to Quarry (Stone output, steep compounding growth
-  curve), gated by base eligibility rather than terrain (see Harbour above for the
-  identical pattern applied to Food). Stacks with the +100% Steel bonus to make
-  Foundry Reach a strong dual resource-economy base. Its sole offensive/defensive
-  option beyond the generic Turret/Missile Launcher and Stone Works is a **Factory**
-  (Capital, Foundry Reach), the same light-vehicle roster a Capital gets.
-- Because it can never out-produce a dedicated combat base on troops, Foundry Reach's
-  value is largely in **capturing** it — taking it is what gets you (or denies a
-  rival) the doubled Steel output plus Stone Works' output, a bigger incentive than
-  sabotaging a single building would be. This echoes the Food/Fuel deficit pillar in
-  `00-overview.md`.
+Economic specialist — the first Unique base built entirely around resource output
+rather than a troop roster. Because it can never out-produce a dedicated combat base
+on troops, its value is largely in *capturing* it — denying/gaining its doubled Steel
+output plus Stone Works is a bigger incentive than sabotaging a single building would
+be (echoes the Food/Fuel deficit pillar in `00-overview.md`).
 
 ### Signal Ridge
-- Stealth-detection and electronic-warfare specialist. No terrain exception; sited on
-  Plains.
-- **Radar Array**: extends this player's vision range map-wide and reveals stealthed
-  units within its own range (its full, long `visionRange` — no short `detectionRange`
-  restriction, unlike Tower) — the first building whose effect isn't local to its own
-  base. `isFixed: true`, same pattern as HQ/Ice Spire: pre-seeded only, never freshly
-  built, so there's exactly one and its global vision bonus can't be stacked.
-- **Covert Works**: builds **Ghost Tank** (stealth armor — visible to non-detectors
-  only at very short range, visible to `detector` units like Sniper at their normal
-  vision range, and it breaks its own stealth the instant it fires — see
-  `05-troop-stat-schema.md`'s `reveals_on_attack` flag) and **Disruptor** (an EW
-  troop, not a building — while alive it projects an `enemy_buildings`-targeted aura
-  that suppresses enemy defensive buildings' targeting within its radius; killing the
-  Disruptor immediately restores them). See `08-troop-roster.md` for full stats.
-- **EMP Turret** (defense): a Turret variant (see `data/buildings/schema.json`'s
-  `extends`) — low damage, but every hit applies an `emp` status effect
-  (`05-troop-stat-schema.md`'s Status Effects section): immobilizes Land-domain
-  vehicles (movement disabled, can still attack) for a few seconds, and **destroys
-  Air-domain troops outright** — except Hot Air Balloon and Glider, both flagged
-  `empImmune` as unpowered/non-electronic exceptions. No effect on Infantry or Naval
-  beyond normal damage.
+Stealth-detection and electronic-warfare specialist. Its **Radar Array** is the first
+building whose effect isn't local to its own base (map-wide vision), and is
+fixed/pre-seeded — same reasoning as Ice Spire, so its global bonus can't be stacked.
+Its **EMP Turret** destroys Air-domain troops outright rather than just damaging them,
+except troops flagged `empImmune` (Hot Air Balloon, Glider — unpowered/non-electronic).
 
 ### Rivergate
-- River-crossing specialist — the first Unique base whose identity comes from
-  adjacency to River terrain rather than Forest or Hills. It's still seeded on Plains
-  like every other base (see Base Seeding above); no buildings are ever placed on the
-  river itself.
-- **Ford Yard**: builds, in order, **Amphibious Raider** — a light *vehicle* (not
-  infantry) that ignores the River-blocked movement rule, fording rivers directly
-  without needing a Bridge — and **Submarine** (also built at Kraken Point's Shipyard).
-  See `08-troop-roster.md`.
-- **+25% Harbour production**: a building-scoped bonus authored directly on
-  Rivergate's own `BaseDef` (same `resourceModifiers` shape as Kraken Point's +50%
-  Harbour bonus above), given the base's water/river adjacency.
-- **River Battery** (defense): a Turret variant — trades Air targeting for bonus
-  damage against **Naval** targets. Rivers are naval-passable all the way inland
-  from the sea (see `01-map-and-terrain.md`), so without this, an enemy fleet could
-  otherwise sail straight past a river base uncontested — River Battery is what
-  makes holding Rivergate matter for denying that route, not just for the
-  Amphibious Raider. Must be placed adjacent to a Water tile (Ocean or River),
-  same adjacency rule as Port/Shipyard, so it can't be built somewhere that
-  doesn't actually cover the crossing.
+River-crossing specialist — the first Unique base whose identity comes from River
+adjacency rather than Forest or Hills (still seeded on Plains, like every base). Its
+**River Battery** exists because rivers are naval-passable all the way inland (see
+`01-map-and-terrain.md`) — without it, an enemy fleet could sail straight past a river
+base uncontested.
 
 ### Camp Cosy
-- Logistics/support specialist — the first Unique base built around sustaining an
-  army rather than fighting or producing resources. Sited on Plains, no terrain
-  exception.
-- **Supply Depot**: builds, in order, **Engineer**, **Ambulance**, **Transport
-  Truck**, **Repair Truck** (Ambulance's vehicle-repair counterpart — heals Land
-  vehicles instead of Infantry), **Mule** (upkeep-reduction aura, easing Food/Fuel
-  deficit pressure), and **Volt Truck** (speed + attack-speed boost aura for
-  Land/Air/Naval) — a support-vehicle-only roster, distinct from Factory's combat
-  vehicles. All six are non-combat (`canTarget: []`), so Camp Cosy produces no
-  defenders of its own from this building.
-- **Barracks** included specifically so the base isn't a total pushover
-  garrison-wise, given Supply Depot's roster can't defend it — but deliberately
-  **no Missile Launcher**, only Turret plus Walls, keeping its fixed defenses
-  lighter than other Unique bases too.
-- **Hospital** is buildable here (unlike most bases, which don't get it at all) at
-  a **25% cost discount** (`costModifiers`, a new `BaseDef` field mirroring
-  `resourceModifiers` but discounting build/upgrade cost instead of production
-  output — see `07-data-architecture.md`), plus a **50% Wall cost discount** —
-  cheap to wall in and keep supplied is the whole point.
-- No specialty defense building and no base-wide `resourceModifiers` bonus — its
-  identity is entirely the cost discounts plus Supply Depot's roster, not raw
-  output or damage.
+Logistics/support specialist — the first Unique base built around sustaining an army
+rather than fighting or producing resources. Supply Depot's entire roster is
+non-combat, so Barracks is included specifically so the base isn't a total pushover
+garrison-wise; deliberately no Missile Launcher, keeping its fixed defenses lighter
+than other Unique bases. No specialty defense building and no output bonus — its
+identity is entirely the Hospital/Wall cost discounts plus Supply Depot's roster.
 
 ### Cloudreach
-- Air-logistics/covert-resupply specialist — the aerial mirror of Camp Cosy. Sited
-  on Plains, no terrain exception.
-- **Covert Airfield**: builds, in order, **Repair Drone** (Air-domain counterpart
-  to Repair Truck — heals nearby friendly Air troops), **Cargocopter** (Infantry
-  transport, `cargoRequiresBuildingDock` so it can only board/unload while sitting on
-  a Hangar hex), **Kleptocopter** (stealthed, pairs with a `resource_siphon` aura
-  targeting enemy Resource buildings rather than combat), and **Shadowcopter**
-  (stealthed, very-long-range harasser; `revealsOnAttack: false` means firing never
-  breaks its cloak, unlike every other stealth troop) — a support-aircraft-first
-  roster, distinct from Iron Aviary's/Wind Sanctuary's combat and recon rosters. The
-  first three are non-combat (`canTarget: []`); Shadowcopter is the roster's one
-  combat-capable unlock, but its low HP and squad cap of 2 make it a stand-off
-  harasser rather than a base defender.
-- **Barracks** included for the same reason as Camp Cosy — Covert Airfield's
-  roster can't reliably defend the base — but unlike Camp Cosy, Cloudreach keeps the
-  standard Turret + Missile Launcher pairing rather than going lighter on fixed
-  defense.
-- **Hangar** is pre-seeded alongside Covert Airfield rather than left as an
-  optional build: Cargocopter can't board/unload Infantry without one nearby, and
-  Repair Drone/Kleptocopter both benefit from the fuel-free landing option.
-- **+50% Oil Rig production**: a building-scoped `resourceModifiers` bonus (same
-  shape as Winter Forge's), reflecting that this roster carries the heaviest Fuel
-  upkeep of any troop line in the game — the base's economic hook is subsidizing its
-  own aircraft, not raw output for its own sake.
+Air-logistics/covert-resupply specialist — the aerial mirror of Camp Cosy. Covert
+Airfield's roster is mostly non-combat (Shadowcopter is the one combat-capable
+unlock, but low HP and a squad cap of 2 make it a harasser, not a defender), so
+Barracks is included for the same reason as Camp Cosy — but Cloudreach keeps the
+standard Turret + Missile Launcher pairing rather than going lighter. Hangar is
+pre-seeded alongside Covert Airfield rather than left as an optional build, since
+Cargocopter can't board/unload Infantry without one nearby.
 
 ## Building Categories
 Every building falls into one of five categories, which determines whether it needs

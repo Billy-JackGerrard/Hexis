@@ -381,85 +381,19 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   building (e.g. two Barracks = double infantry output) — each building has its own
   independent queue and its own production-time countdown per unit.
 
-## Full Schema Reference (implementation-ready shape)
+## Schema Reference
+The field-by-field sections above explain the *why* behind each field. For the
+literal implementation-ready shape (types, required/default values, enum lists) —
+which is also the more current and complete source, since new fields get added there
+first — see `data/troops/schema.json` directly rather than a second table here that
+can drift out of sync with it.
 
-| Field | Type | Notes |
-|---|---|---|
-| Domain | enum | Infantry / Land / Air / Naval — Land means land *vehicles*; also usable as a modifier-dictionary key, same as tags |
-| Category/Trait tags | list | e.g. `[Vehicle, Tank, Heavy]` |
-| HP | number | |
-| Armor | number | default 0; flat damage reduction per hit, applied after damage_received_modifiers, floored at 1 damage; stacks with (doesn't replace) the multiplier-based modifiers; bypassed entirely by a `Piercing` attacker |
-| Damage | number | base, before modifiers |
-| Attack speed | number | attacks per time unit |
-| Range | number | separate from vision |
-| Splash radius | number | 0 = single-target |
-| Vision range | number | separate from engagement range |
-| Speed | number | |
-| Terrain overrides | flags | e.g. `ignores_forest_block` |
-| can_target | list of tags | empty list = non-combat (e.g. Engineer); reserved value `Structure` covers buildings+walls EXCEPT Defensive-category buildings, auto-targeted by default once no enemy troop/Defensive building is in range; reserved value `Defensive` covers those separately, must be listed to be attackable, and takes priority over plain `Structure` — auto-targeted by default like an enemy troop, no order needed |
-| max_squad_size | number | default common baseline; 1 for troops that never merge (Engineer, Commander, Disruptor) |
-| max_squads_led | number | Commander-tagged troops only; baseline 4 |
-| commander_tier | enum: common/rare/epic | Commander-tagged troops only; which Command Centre level unlocks this Commander (see `02-bases-and-buildings.md`) |
-| Damage dealt modifiers | dict `{tag_or_domain: multiplier}` | "strong against"; key may be a Domain value (e.g. `Land`), a tag, a damage type, or `Structure`/`Defensive`; any entry above 1.0 also acts as a target-priority hint (see Damage Modifiers section) |
-| Damage received modifiers | dict `{tag_or_domain: multiplier}` | "weak against"; key may be a Domain value, a tag, or a damage type |
-| damage_types | list | e.g. `[Fire]`, `[Piercing]`; matched against damage received modifiers same as any other value (no bypass — `Piercing` instead bypasses the target's flat Armor, see above); splash is NOT a damage type (see splash_radius) |
-| stealth | bool | |
-| reveal_range | number | distance at which stealth breaks vs. non-detectors |
-| detector | bool | sees stealth at detection_range, or full vision range if detection_range is omitted |
-| detection_range | number | optional; overrides detector's stealth-sight radius when shorter than normal vision range (e.g. Tower) |
-| cargo_capacity | number | counts SQUADS, not troop headcount; 0 = cannot transport; e.g. Aircraft Carrier, Transport Truck |
-| cargo_allowed_tags | list of tags | what it's allowed to load, same mechanism as `can_target` |
-| can_launch_cargo_mid_combat | bool | true for Aircraft Carrier and Transport Truck — cargo can deploy mid-battle, not just while idle |
-| cargo_requires_building_dock | bool | true only for Cargocopter — can only board/unload cargo on a hex with a building that could dock it (a Hangar); no other carrier restricts where it transfers cargo this way |
-| can_build_infrastructure | bool | default false; true = can construct standalone Road/Bridge/Dock/Tower/Landmine. Only Engineer has this |
-| auras | list of `{radius, target, filter, effect, magnitude}` | for support units/buildings; `target` = friendly_troops / enemy_troops / friendly_buildings |
-| status_effect_on_hit | object `{type, duration, magnitude?, chance?}` | e.g. `{type: freeze, duration: 2s}` — applied to target on hit, alongside damage. `chance` (default 100) makes it probabilistic. `stun` is a distinct type from `freeze` — same lockout shape, but always followed by a global, fixed -30% move/attack-speed tail debuff lasting the same `duration` as the lockout (not a separate stored number — see Status Effects section above) |
-| Cost | dict per resource | Food/Steel/Stone/Fuel |
-| Food upkeep | number | ongoing |
-| Fuel upkeep | number | rules vary by Domain |
-| Production time | number | per-unit training duration, per production building's own queue |
+For real, implemented example units, see `08-troop-roster.md` (design rationale per
+troop) and `data/troops/*.json` (exact stats) — every unit that would have been
+listed here (Engineer, Hot Air Balloon, Glider, Quad-bike, Transport Truck, Aircraft
+Carrier, Ghost Tank/Submarine/Sniper) is now fully implemented and documented there.
+The one still-genuine placeholder:
 
-## Example Units Under This Schema (illustrative, not final stats)
-
-**Engineer**
-- Domain: Land · Tags: `[Vehicle, Support]`
-- can_target: `[]` (cannot attack)
-- Special: only unit that can build Roads/Bridges/Docks; Factory level-1 unlock
-
-**Hot Air Balloon**
-- Domain: Air · Tags: `[Aircraft, Balloon]`
-- can_target: `[Land, Naval]` (cannot target Air)
-- Splash radius: high · Range: low · Speed: slow
-- Fuel upkeep: modest (lighter than most aircraft)
-
-**Glider** (Windy Peaks' Wind Sanctuary)
-- Domain: Air · Tags: `[Aircraft, Scout]`
-- can_target: `[]` (cannot attack — pure scout, like Engineer)
-- Vision range: high · Speed: fast · Cost: cheap
-- Fuel upkeep override: unpowered, so it uses **Food** upkeep instead of the Air
-  domain's usual heavy Fuel upkeep — another example of a per-unit flag overriding a
-  Domain default, same pattern as Quad-bike's terrain override below.
-
-**Quad-bike**
-- Domain: Land · Tags: `[Vehicle, Light]`
-- Terrain override: `ignores_forest_block: true`
-- HP/Damage: low (fragile, fast scout/harassment unit)
-
-**Transport Truck** (Capital Factory)
-- Domain: Land · Tags: `[Vehicle, Support]`
-- can_target: `[]` or minimal (little/no attack — see `08-troop-roster.md`)
-- cargo_capacity: > 0 · cargo_allowed_tags: `[Infantry]` · can_launch_cargo_mid_combat: true
-
-**Aircraft Carrier** (Kraken Point Shipyard)
-- Domain: Naval · Tags: `[Ship, Carrier]`
-- cargo_capacity: > 0 · cargo_allowed_tags: `[Air]` · can_launch_cargo_mid_combat: true
-- Docked aircraft use no Fuel while stored — the general docking rule every carrier/
-  Hangar shares (see the Transport/Cargo section above and `03-resources.md`)
-
-**Shield Tank** (future/planned)
+**Shield Tank** (future/planned, not yet implemented)
 - Domain: Land · Tags: `[Vehicle, Tank, Support]`
 - aura: `{radius: 3, effect: damage_reduction, magnitude: 20%}`
-
-**Stealth Unit** (implemented — Ghost Tank, Submarine, Sniper)
-- stealth: true · reveal_range: short
-- Countered specifically by units/buildings with `detector: true`
