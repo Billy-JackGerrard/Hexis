@@ -30,6 +30,7 @@ enum Result {
 	REGIMENT_FULL,
 	IS_FIXED,
 	INSUFFICIENT_RESOURCES,
+	NOT_UNLOCKED,
 }
 
 ## --- Movement --------------------------------------------------------------
@@ -344,7 +345,84 @@ static func rebuild_building(state: MatchState, building_id: String, owner_id: S
 	building.regen_progress = 0.0
 	return Result.OK
 
+## Raises `building_id` by one level, per 06-building-stats-and-defenses.md's
+## Upgrades section: instant (no build timer), paid via
+## BuildingStats.upgrade_cost (costGrowth intentionally outpaces stat growth),
+## and capped by BuildingStats.max_level (Production buildings only — length
+## of their productionUpgradeLevels table) plus, for any base-attached
+## building other than the HQ itself, "no building in a base can be upgraded
+## past the HQ's current level" — the HQ's own upgrade instead raises that
+## ceiling (and, since HQ level also drives Population.population_cap/
+## SquadCap/BuildingPlacement.hq_build_radius via BaseInstance.hq_level rather
+## than this BuildingInstance's own `level`, this keeps the two in lockstep).
+## A standalone building (no `base`) has no HQ to be capped by. Blocked on a
+## ruin/0-HP building same as enqueue_production; not blocked by isFixed
+## (that only gates demolish — HQ/Ice Spire are meant to be upgraded).
+static func upgrade_building(state: MatchState, building_id: String, owner_id: String) -> Result:
+	var found := state.find_any_building(building_id)
+	if found.is_empty():
+		return Result.NOT_FOUND
+	var base: BaseInstance = found.get("base")
+	var building: BuildingInstance = found["building"]
+	var current_owner := base.owner_id if base != null else building.owner_id
+	if current_owner != owner_id:
+		return Result.NOT_OWNER
+	if building.is_ruin or (building.max_hp > 0.0 and building.current_hp <= 0.0):
+		return Result.INVALID
+
+	var def: Dictionary = state.building_defs.get(building.building_type, {})
+	var target_level := building.level + 1
+	var max_level := BuildingStats.max_level(def, state.building_defs)
+	if max_level > 0 and target_level > max_level:
+		return Result.INVALID
+	if base != null and building.building_type != "hq" and target_level > base.hq_level:
+		return Result.INVALID
+
+	if building.building_type == "hq":
+		var resolved := BuildingStats.resolve_def(def, state.building_defs)
+		var min_pop_per_level := float(resolved.get("nonProductionUpgrade", {}).get("minPopulationPerLevel", 0.0))
+		var required_pop := min_pop_per_level * (target_level - 1)
+		if Population.population_used(base, state.building_defs) < required_pop:
+			return Result.INVALID
+
+	var cost := ResourceType.dict_from_named(BuildingStats.upgrade_cost(def, building.level, building.material, state.building_defs))
+	var pool := state.pool_for(owner_id)
+	if not _can_afford(pool, cost):
+		return Result.INSUFFICIENT_RESOURCES
+	_spend(pool, cost)
+	for type in cost:
+		building.total_resources_spent[type] = float(building.total_resources_spent.get(type, 0.0)) + cost[type]
+
+	building.level = target_level
+	building.upgrade_hp(def, state.building_defs)
+	if building.building_type == "hq":
+		base.hq_level = target_level
+	return Result.OK
+
 ## --- Production (07-data-architecture.md 3b) -------------------------------
+
+## True if `troop_type` is unlocked at `building`'s current level: for a
+## Command Centre (commanderProgression), the troop's own commanderTier must
+## be unlocked at that level (CommanderProgression.tier_unlocked); for a
+## standard Production building (productionUpgradeLevels), troop_type must
+## appear in some row's `unlocks` at or below that level. A building def with
+## neither block gates nothing (nothing to check against).
+static func _troop_unlocked(state: MatchState, building: BuildingInstance, building_def: Dictionary, troop_type: String) -> bool:
+	var resolved := BuildingStats.resolve_def(building_def, state.building_defs)
+
+	var commander_progression: Dictionary = resolved.get("commanderProgression", {})
+	if not commander_progression.is_empty():
+		var tier := String(state.troop_defs.get(troop_type, {}).get("commanderTier", ""))
+		return CommanderProgression.tier_unlocked(commander_progression, building.level, tier)
+
+	var production_levels: Array = resolved.get("productionUpgradeLevels", [])
+	if not production_levels.is_empty():
+		for row in production_levels:
+			if String(row.get("unlocks", "")) == troop_type and int(row.get("level", 0)) <= building.level:
+				return true
+		return false
+
+	return true
 
 static func enqueue_production(state: MatchState, building_id: String, troop_type: String, owner_id: String) -> Result:
 	var found := state.find_base_building(building_id)
@@ -356,6 +434,10 @@ static func enqueue_production(state: MatchState, building_id: String, troop_typ
 		return Result.NOT_OWNER
 	if building.is_ruin or (building.max_hp > 0.0 and building.current_hp <= 0.0):
 		return Result.INVALID
+
+	var building_def: Dictionary = state.building_defs.get(building.building_type, {})
+	if not _troop_unlocked(state, building, building_def, troop_type):
+		return Result.NOT_UNLOCKED
 
 	var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
 	var pool := state.pool_for(owner_id)

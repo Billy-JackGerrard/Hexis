@@ -21,7 +21,7 @@
     },
 
     "hp": { "type": "number", "description": "Damage the unit can take before dying." },
-    "armor": { "type": "number", "default": 0, "description": "Flat damage reduction applied to each incoming hit, after damageReceivedModifiers/Piercing are resolved, floored so a hit always does at least 1 damage. E.g. armor 5 turns a 10-damage hit into 5. Distinct from damageReceivedModifiers (which is a multiplier, not a flat subtraction)." },
+    "armor": { "type": "number", "default": 0, "description": "Flat damage reduction applied to each incoming hit, after damageReceivedModifiers are resolved, floored so a hit always does at least 1 damage. E.g. armor 5 turns a 10-damage hit into 5. Distinct from damageReceivedModifiers (which is a multiplier, not a flat subtraction). Bypassed entirely by an attacker whose damageTypes include Piercing." },
     "damage": { "type": "number", "description": "Base damage per attack, before modifiers." },
     "attackSpeed": { "type": "number", "description": "Attacks per time unit." },
     "range": { "type": "number", "description": "Max engagement distance. Separate from visionRange." },
@@ -63,7 +63,7 @@
       "type": "array",
       "items": { "type": "string" },
       "default": [],
-      "description": "Labels describing the nature of this unit's attack, matched against targets' damageReceivedModifiers exactly like a tag/Domain (e.g. \"Fire\" lets Flamethrower trigger a Wood Wall's {\"Fire\": 2.0} entry). Kept separate from descriptive Category/Trait tags so combat-relevant labels don't get mixed with matchmaking-only ones. Reserved value \"Piercing\" bypasses the target's damageReceivedModifiers entirely (armor-ignoring damage, e.g. Sniper) — it only cancels the target's received-side modifiers, not the attacker's own damageDealtModifiers. Splash is NOT a damage type — it's already fully expressed by splashRadius below."
+      "description": "Labels describing the nature of this unit's attack, matched against targets' damageReceivedModifiers exactly like a tag/Domain (e.g. \"Fire\" lets Flamethrower trigger a Wood Wall's {\"Fire\": 2.0} entry). Kept separate from descriptive Category/Trait tags so combat-relevant labels don't get mixed with matchmaking-only ones. Reserved value \"Piercing\" does NOT bypass damageReceivedModifiers (a target vulnerability keyed on \"Piercing\" still applies in full) — instead it bypasses the target's flat armor stat entirely (e.g. Sniper). Splash is NOT a damage type — it's already fully expressed by splashRadius below."
     },
 
     "stealth": { "type": "boolean", "default": false },

@@ -118,7 +118,8 @@ solve, since a ruin still occupies the hex):
   freed immediately — no ruin is left behind, unlike combat destruction.
 - Frees the building's `populationCost` back to the base's available population
   immediately (see `populationUsed` in Base & Ownership below).
-- **Blocked for any building whose def has `isFixed: true`** (HQ, Ice Spire) — since
+- **Blocked for any building whose def has `isFixed: true`** (HQ, Command Centre, Ice
+  Spire, Radar Array) — since
   these can never be freshly built from a menu, demolishing one would create a
   permanent hole. The action simply isn't offered for them.
 - Applies equally to Walls and standalone buildings (Road/Bridge/Dock/Tower/Landmine), which

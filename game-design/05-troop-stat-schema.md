@@ -35,11 +35,12 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 ### Core Combat Stats
 - **HP** — how much damage a unit can take before dying.
 - **Armor** (number, default 0) — flat damage reduction applied to each incoming hit,
-  after `damage_received_modifiers`/`Piercing` are resolved, floored so a hit always
-  deals at least 1 damage. Distinct from `damage_received_modifiers`, which is a
-  multiplier rather than a flat subtraction — the two stack (multiplier first, then
-  flat reduction). Introduced for **Shielder** (see `08-troop-roster.md`), a pure
-  tank/meatshield with no attack of its own.
+  after `damage_received_modifiers` are resolved, floored so a hit always deals at
+  least 1 damage. Distinct from `damage_received_modifiers`, which is a multiplier
+  rather than a flat subtraction — the two stack (multiplier first, then flat
+  reduction). Bypassed entirely by an attacker whose `damage_types` include
+  `Piercing` (see below). Introduced for **Shielder** (see `08-troop-roster.md`), a
+  pure tank/meatshield with no attack of its own.
 - **Damage** — base damage per attack, before any modifiers are applied.
 - **Attack speed** — how often it attacks (attacks per time unit).
 - **Range** — max distance at which it can engage a target. Deliberately separate
@@ -128,18 +129,22 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   match any entry, the multiplier defaults to 1.0 (no bonus/penalty). **Basekiller**
   carries `{Defensive: 2.5}` — a large bonus specifically vs. Defensive-category
   buildings, using the `Defensive` reserved key split out from `Structure` above.
-- **Resolved: a multiplier entry doubles as a target-priority hint.** If a troop has
-  any `damage_dealt_modifiers` entry above 1.0 for a tag/Domain/reserved value, and a
-  target matching that entry is in range, the troop's default auto-targeting prefers
-  it over the plain nearest-enemy rule — e.g. Grenadier prefers a `Land`-domain target
-  over an equally-near Rifleman, and **Basekiller** (with a `Defensive` bonus) prefers
-  the nearest Defensive building over any other Structure in range. This only
-  re-orders *which* in-range/allowed target is picked first; it doesn't expand
-  `can_target` or override an explicit directed order (see `04-combat.md`).
+- **Resolved: a multiplier entry doubles as a target-priority hint, proportional to
+  the actual damage it changes.** The troop's default auto-targeting compares
+  targets by their `damage_dealt_modifiers` product (matching entries multiply
+  together, same as the real damage calculation) rather than just whether it clears
+  1.0: a value **above** 1.0 is preferred over the neutral no-modifier default (e.g.
+  Grenadier prefers a `Land`-domain target over an equally-near Rifleman, and
+  **Basekiller** prefers the nearest Defensive building over any other Structure in
+  range), while a value **below** 1.0 — a dampener, e.g. `0.5` — is deprioritized
+  *below* that same neutral default rather than tied with it, since it deals
+  strictly less damage. This only re-orders *which* in-range/allowed target is
+  picked first; it doesn't expand `can_target` or override an explicit directed
+  order (see `04-combat.md`).
 - **Damage received modifiers** (`{tag_or_domain: multiplier}`) — the same idea from
   the receiving end. E.g. a Wood Wall might carry `{Fire: 2.0}`, taking double damage
   from any attacker whose `damage_types` includes `Fire`. A Turret might carry
-  `{Air: -0.5}` (meaning it takes only half damage from air attackers) if that's a
+  `{Air: 0.5}` (meaning it takes only half damage from air attackers) if that's a
   bonus you want towers to have vs. air raids.
 - Both dictionaries stack multiplicatively with each other and with terrain/aura
   bonuses (consistent with the "bonuses stack" rule already established for base
@@ -153,13 +158,15 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   matched against a target's `damage_received_modifiers` exactly like a Domain or tag
   — e.g. Flamethrower/Flame Turret carry `[Fire]`, which is what triggers a Wood
   Wall's `{Fire: 2.0}` entry.
-- **Reserved value `Piercing`**: rather than being matched against
-  `damage_received_modifiers`, it **bypasses them entirely** — the attack ignores
-  whatever armor-type modifiers the target has. This is how **Sniper**'s "damage
-  bypasses target armor/damage-received modifiers" is expressed as data rather than a
-  special case. Piercing only cancels the *target's* received-side modifiers; the
-  attacker's own `damage_dealt_modifiers` (its Domain/tag-based bonuses) still apply
-  normally on top.
+- **Reserved value `Piercing`**: bypasses the target's flat `armor` stat (see
+  below) — it does **not** bypass `damage_received_modifiers`, which continue to
+  apply exactly like any other damage type (matched by key like Domain/tag/damage
+  type). A target's `Fire`-keyed vulnerability doesn't fire off a `Piercing`
+  attacker just because it's Piercing, and conversely a `Piercing`-keyed
+  vulnerability still boosts a `Piercing` hit — bypassing modifiers outright would
+  have let Piercing dodge a deliberately-authored weakness, so it only cancels
+  `armor`. This is how **Sniper**'s "damage bypasses target armor" is expressed as
+  data rather than a special case.
 - **Splash is not a damage type.** It's a delivery mechanism, not a resistance label,
   and it's already fully expressed by the `splash_radius` field above — a splash
   attack can independently carry `damage_types: [Fire]` (or nothing at all) on top of
@@ -345,7 +352,7 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 | Domain | enum | Infantry / Land / Air / Naval — Land means land *vehicles*; also usable as a modifier-dictionary key, same as tags |
 | Category/Trait tags | list | e.g. `[Vehicle, Tank, Heavy]` |
 | HP | number | |
-| Armor | number | default 0; flat damage reduction per hit, applied after damage_received_modifiers/Piercing, floored at 1 damage; stacks with (doesn't replace) the multiplier-based modifiers |
+| Armor | number | default 0; flat damage reduction per hit, applied after damage_received_modifiers, floored at 1 damage; stacks with (doesn't replace) the multiplier-based modifiers; bypassed entirely by a `Piercing` attacker |
 | Damage | number | base, before modifiers |
 | Attack speed | number | attacks per time unit |
 | Range | number | separate from vision |
@@ -359,7 +366,7 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 | commander_tier | enum: common/rare/epic | Commander-tagged troops only; which Command Centre level unlocks this Commander (see `02-bases-and-buildings.md`) |
 | Damage dealt modifiers | dict `{tag_or_domain: multiplier}` | "strong against"; key may be a Domain value (e.g. `Land`), a tag, a damage type, or `Structure`/`Defensive`; any entry above 1.0 also acts as a target-priority hint (see Damage Modifiers section) |
 | Damage received modifiers | dict `{tag_or_domain: multiplier}` | "weak against"; key may be a Domain value, a tag, or a damage type |
-| damage_types | list | e.g. `[Fire]`, `[Piercing]`; matched against damage received modifiers, except `Piercing` which bypasses them entirely; splash is NOT a damage type (see splash_radius) |
+| damage_types | list | e.g. `[Fire]`, `[Piercing]`; matched against damage received modifiers same as any other value (no bypass — `Piercing` instead bypasses the target's flat Armor, see above); splash is NOT a damage type (see splash_radius) |
 | stealth | bool | |
 | reveal_range | number | distance at which stealth breaks vs. non-detectors |
 | detector | bool | sees stealth at detection_range, or full vision range if detection_range is omitted |

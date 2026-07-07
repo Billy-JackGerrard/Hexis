@@ -25,7 +25,9 @@ var match_keys: Array[String] = []
 ## before B (plain Structures).
 var is_tier_a: bool
 var damage_received_modifiers: Dictionary = {}
-## Flat per-hit reduction (troop `armor`; buildings have no armor stat -> 0).
+## Flat per-hit reduction — troop_def.armor for a squad, or
+## BuildingStats.armor() for a building (e.g. Steel Tower/Steel Wall); 0.0
+## for a material/building with no armor entry.
 var armor: float = 0.0
 ## Received-damage multiplier from standing on this hex's terrain
 ## (Terrain.defense_bonus(), e.g. Hills' defender bonus). Live-computed at
@@ -88,6 +90,7 @@ static func for_building(p_building: BuildingInstance, building_def: Dictionary,
 	t.match_keys = keys
 	t.is_tier_a = is_defensive
 	t.damage_received_modifiers = BuildingStats.damage_received_modifiers(building_def, p_building.material, building_defs)
+	t.armor = BuildingStats.armor(building_def, p_building.level, p_building.material, building_defs)
 	# A Wall has no single occupied hex (hex is null; hex_a/hex_b are set
 	# instead) — it never stands "on" terrain, so it skips the
 	# terrain-defense-bonus/stealth lookups below (they'd have no hex to read).

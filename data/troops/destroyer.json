@@ -5,6 +5,7 @@
   "tags": ["Ship"],
 
   "hp": 220,
+  "armor": 2,
   "damage": 31,
   "attackSpeed": 0.9,
   "range": 6,
@@ -12,16 +13,16 @@
   "visionRange": 10,
   "speed": 1.5,
 
-  "maxSquadSize": 4,
+  "maxSquadSize": 3,
 
-  "canTarget": ["Infantry", "Land", "Naval", "Structure", "Defensive"],
+  "canTarget": ["Infantry", "Land", "Naval", "Air", "Structure", "Defensive"],
 
-  "damageDealtModifiers": { "Land": 1.4, "Structure": 1.2 },
+  "damageDealtModifiers": { "Land": 1.4, "Structure": 1.2, "Air": 0.4 },
 
   "cost": { "food": 30, "steel": 55 },
   "foodUpkeep": 0,
   "fuelUpkeep": 1,
   "productionTime": 26,
 
-  "notes": "Kraken Point Shipyard's heavier warship — not built at Rivergate's Ford Yard, which builds Amphibious Raider and Submarine instead. Deliberately NOT just a stronger Gunboat: Gunboat stays the fast, cheap, always-relevant early pick (speed 2.2, cost food20/steel15), while Destroyer trades speed for power — slower (1.5), pricier (food30/steel55), tankier (220 vs 130 HP), and specializes with bonuses vs. Land (1.4x) and Structure (1.2x), a bombardment/shore-support role rather than a straight upgrade or a dedicated anti-ship counter (that's Submarine's job — canTarget: Naval only)."
+  "notes": "Kraken Point Shipyard's heavier warship. Deliberately NOT just a stronger Gunboat: Gunboat stays the fast, cheap, always-relevant early pick (speed 2.2, cost food20/steel15), while Destroyer trades speed for power — slower (1.5), pricier (food30/steel55), tankier (220 vs 130 HP), and specializes with bonuses vs. Land (1.4x) and Structure (1.2x), a bombardment/shore-support role rather than a straight upgrade or a dedicated anti-ship counter (that's Submarine's job — canTarget: Naval only)."
 }

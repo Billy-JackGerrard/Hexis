@@ -6,7 +6,7 @@
 
   "materials": ["wood", "stone", "steel"],
 
-  "notes": "Sits on the border between two hexes, not on a hex itself — blocks movement and line-of-sight/projectiles across that edge; Air units ignore Walls entirely. Placement only requires one existing adjacent building, not the usual two. Walls never attack — purely passive HP barriers, no contact/spike damage. Doesn't consume a population slot. A destroyed Wall disappears entirely rather than ruining, freeing its edge for a fresh build at normal cost (any material) rather than a discounted ruin-rebuild, so rebuildCost does not apply here. Wood is cheapest/weakest and Fire-vulnerable; Stone is mid (no damageReceivedModifiers entries); Steel is priciest/strongest (also none).",
+  "notes": "Sits on the border between two hexes, not on a hex itself — blocks movement and line-of-sight/projectiles across that edge; Air units ignore Walls entirely. Placement only requires one existing adjacent building, not the usual two. Walls never attack — purely passive HP barriers, no contact/spike damage. Doesn't consume a population slot. A destroyed Wall disappears entirely rather than ruining, freeing its edge for a fresh build at normal cost (any material) rather than a discounted ruin-rebuild, so rebuildCost does not apply here. Wood is cheapest/weakest and Fire-vulnerable; Stone is mid (no damageReceivedModifiers entries, no armor); Steel is priciest/strongest and adds flat armor (5), mirroring Steel Tower — bypassed entirely by a Piercing attacker (e.g. Sniper, though Sniper's canTarget omits Structure so this only matters vs. other Piercing sources).",
 
   "materialStats": {
     "wood": {
@@ -18,14 +18,14 @@
     },
     "stone": {
       "baseStats": { "hp": 200 },
-      "statGrowth": { "hp": { "mode": "percent", "value": 10 } },
+      "statGrowth": { "hp": { "mode": "percent", "value": 12 } },
       "baseCost": { "stone": 40 },
       "costGrowth": { "mode": "percent", "value": 22 },
       "damageReceivedModifiers": {}
     },
     "steel": {
-      "baseStats": { "hp": 400 },
-      "statGrowth": { "hp": { "mode": "percent", "value": 10 } },
+      "baseStats": { "hp": 400, "armor": 5 },
+      "statGrowth": { "hp": { "mode": "percent", "value": 15 }, "armor": { "mode": "flat", "value": 0 } },
       "baseCost": { "steel": 70 },
       "costGrowth": { "mode": "percent", "value": 25 },
       "damageReceivedModifiers": {}

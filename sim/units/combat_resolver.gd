@@ -172,22 +172,55 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 	if stats.is_empty():
 		return
 	var attack_speed := float(stats.get("attackSpeed", 0.0)) * StatusEffectSystem.attack_speed_mult(building)
-	# attackSpeed omitted/0 = a non-repeating trap (Landmine selfDestructOnTrigger)
-	# — deferred, so it never fires here.
+	# attackSpeed omitted/0 with selfDestructOnTrigger = a one-shot trap
+	# (Landmine): no accumulator, it fires the instant a valid enemy is in
+	# range and is destroyed by its own blast — see _trigger_self_destruct.
+	if attack_speed <= 0.0 and stats.get("selfDestructOnTrigger", false):
+		_trigger_self_destruct(building, owner_id, stats, targets, troops_by_id, troop_defs, building_defs, grid, detections)
+		return
 	if attack_speed <= 0.0 or stats.get("canTarget", []).is_empty():
 		return
 
-	building.attack_progress += dt * attack_speed
 	var attacker_range := int(stats.get("range", 0))
 	var base_damage := float(stats.get("damage", 0.0))
 	var splash := int(stats.get("splashRadius", 0))
-	while building.attack_progress >= 1.0:
-		var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections, grid)
-		if target == null:
-			building.attack_progress = min(building.attack_progress, 1.0)
-			return
-		_apply_attack(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid)
-		building.attack_progress -= 1.0
+	# Wood Tower fires one independent accumulator per turret (BuildingStats.
+	# turret_count via BuildingInstance.turret_progress) instead of the usual
+	# single one — every other Defensive building has exactly one entry here,
+	# so this loop is a no-op wrapper around the old single-shot behaviour.
+	# `claimed_this_tick` steers each later turret away from a target an
+	# earlier turret already picked this tick (see select_auto's exclude_ids),
+	# so a multi-turret tower spreads across separate enemies.
+	var claimed_this_tick: Dictionary = {}
+	for i in building.turret_progress.size():
+		building.turret_progress[i] += dt * attack_speed
+		while building.turret_progress[i] >= 1.0:
+			var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections, grid, claimed_this_tick)
+			if target == null:
+				building.turret_progress[i] = min(building.turret_progress[i], 1.0)
+				break
+			_apply_attack(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid)
+			claimed_this_tick[target.target_id()] = true
+			building.turret_progress[i] -= 1.0
+
+## A selfDestructOnTrigger building (Landmine) has no attackSpeed to bank
+## against — it fires at most once, the instant a valid enemy comes into
+## range, dealing full damage + splash exactly like a normal attack, then
+## zeroes its own HP so _prune_dead deletes it outright this same tick
+## (standalone buildings never ruin, per 06-building-stats-and-defenses.md —
+## matches the data notes' "deals its damage ... and is destroyed
+## immediately" rather than persisting as a repeating attacker).
+static func _trigger_self_destruct(building: BuildingInstance, owner_id: String, stats: Dictionary, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary) -> void:
+	if stats.get("canTarget", []).is_empty():
+		return
+	var attacker_range := int(stats.get("range", 0))
+	var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections, grid)
+	if target == null:
+		return
+	var base_damage := float(stats.get("damage", 0.0))
+	var splash := int(stats.get("splashRadius", 0))
+	_apply_attack(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid)
+	building.current_hp = 0.0
 
 ## One attack: full damage to the primary target, then the same computed damage
 ## to every OTHER enemy target within splash radius of the impact hex. The

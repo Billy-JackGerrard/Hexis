@@ -12,7 +12,7 @@
   "visionRange": 8,
   "speed": 3.0,
 
-  "maxSquadSize": 4,
+  "maxSquadSize": 6,
 
   "canTarget": ["Infantry", "Land", "Structure", "Defensive"],
 

@@ -6,9 +6,14 @@
 ##   1. Only enemies in range that the attacker canTarget are candidates.
 ##   2. Tier A (enemy troops + Defensive buildings) is engaged before Tier B
 ##      (plain Structures) — Tier B is only considered when A is empty.
-##   3. Within the chosen tier, prefer the target matching the attacker's
-##      HIGHEST qualifying damageDealtModifiers entry (>1.0); distance is the
-##      tie-break among equal multipliers (and among targets with none).
+##   3. Within the chosen tier, prefer the target the attacker deals the most
+##      damage to, per its damageDealtModifiers product for that target (same
+##      product CombatMath uses for the real hit, so priority always tracks
+##      actual expected damage): a value above 1.0 is preferred over the
+##      neutral default (1.0, no matching entry); a value below 1.0 — a
+##      dampener, e.g. 0.5x — is deprioritized *below* that same neutral
+##      default, not tied with it, since it deals strictly less damage.
+##      Distance only tie-breaks targets with exactly equal values.
 ##
 ## A directed `attack_target` order overrides all of the above when its target
 ## is still a valid, in-range enemy; otherwise it's cleared and auto applies.
@@ -61,28 +66,24 @@ static func _is_revealed_to(target: CombatTarget, attacker_hex: HexCoord, attack
 		return true
 	return DetectionSystem.detected_hexes_for(detections, attacker_owner).has(target.hex.to_key())
 
-## The attacker's highest damageDealtModifiers entry (>1.0) matching this
-## target, or 1.0 if none qualify — the target-priority hint from 04-combat.md.
+## The attacker's damageDealtModifiers product for this target (every matching
+## entry multiplies together, mirroring CombatMath.dealt_multiplier exactly so
+## priority tracks real expected damage), or 1.0 if none match.
 static func _priority_multiplier(attacker_def: Dictionary, target: CombatTarget) -> float:
-	var best := 1.0
-	var modifiers: Dictionary = attacker_def.get("damageDealtModifiers", {})
-	for key in target.match_keys:
-		if modifiers.has(key):
-			var value := float(modifiers[key])
-			if value > best:
-				best = value
-	return best
+	return CombatMath.dealt_multiplier(attacker_def, target)
 
 ## Picks the best target from an already-tier-filtered candidate list: highest
-## priority multiplier first, nearest as the tie-break.
+## priority multiplier first (above the 1.0 neutral default is a bonus, below
+## it is a dampener and loses to the neutral default), nearest as the
+## tie-break among exactly equal multipliers.
 static func _best_in_tier(attacker_hex: HexCoord, attacker_def: Dictionary, tier: Array[CombatTarget]) -> CombatTarget:
 	var best: CombatTarget = null
-	var best_mult := -1.0
+	var best_mult := 0.0
 	var best_dist := 1 << 30
 	for target in tier:
 		var mult := _priority_multiplier(attacker_def, target)
 		var dist := target.distance_from(attacker_hex)
-		if mult > best_mult or (mult == best_mult and dist < best_dist):
+		if best == null or mult > best_mult or (mult == best_mult and dist < best_dist):
 			best = target
 			best_mult = mult
 			best_dist = dist
@@ -90,15 +91,30 @@ static func _best_in_tier(attacker_hex: HexCoord, attacker_def: Dictionary, tier
 
 ## Auto tier/priority selection from a given position — the shared core used by
 ## both squads (after order handling) and Defensive buildings (which have no
-## orders). Returns null if nothing is engageable.
-static func select_auto(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null) -> CombatTarget:
+## orders). Returns null if nothing is engageable. `exclude_ids` (target_id() ->
+## true) lets a multi-turret building (Wood Tower — BuildingStats.turret_count)
+## steer its later turrets away from targets an earlier turret already claimed
+## this same tick, so several turrets spread across separate enemies rather
+## than all focus-firing the single best target; if excluding would leave
+## nothing in range, it's ignored and the normal best-target is picked instead
+## (turrets are allowed to double up rather than skip a shot).
+static func select_auto(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null, exclude_ids: Dictionary = {}) -> CombatTarget:
 	var in_range := candidates(attacker_hex, attacker_owner, attacker_range, attacker_def, targets, detections, grid)
 	if in_range.is_empty():
 		return null
 
+	var pool := in_range
+	if not exclude_ids.is_empty():
+		var unclaimed: Array[CombatTarget] = []
+		for target in in_range:
+			if not exclude_ids.has(target.target_id()):
+				unclaimed.append(target)
+		if not unclaimed.is_empty():
+			pool = unclaimed
+
 	var tier_a: Array[CombatTarget] = []
 	var tier_b: Array[CombatTarget] = []
-	for target in in_range:
+	for target in pool:
 		if target.is_tier_a:
 			tier_a.append(target)
 		else:

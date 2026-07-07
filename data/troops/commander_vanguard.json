@@ -15,7 +15,7 @@
 
   "maxSquadSize": 1,
   "maxSquadsLed": 4,
-  "commanderTier": "basic",
+  "commanderTier": "common",
 
   "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
 
@@ -36,5 +36,5 @@
   "fuelUpkeep": 4,
   "productionTime": 45,
 
-  "notes": "Basic-tier Commander, Capital-only via Command Centre. maxSquadsLed caps its regiment at 4 squads (see game-design/07-data-architecture.md's 4b/4d). Speed-boost aura is scoped by filter \"own_regiment\" rather than proximity — radius is set high purely so distance never gates it; the regiment membership (commanderId) is what actually determines who gets the 1.8x boost, not being physically nearby."
+  "notes": "Common-tier Commander, Capital-only via Command Centre. maxSquadsLed caps its regiment at 4 squads (see game-design/07-data-architecture.md's 4b/4d). Speed-boost aura is scoped by filter \"own_regiment\" rather than proximity — radius is set high purely so distance never gates it; the regiment membership (commanderId) is what actually determines who gets the 1.8x boost, not being physically nearby."
 }

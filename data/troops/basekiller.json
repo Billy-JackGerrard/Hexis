@@ -16,6 +16,8 @@
 
   "canTarget": ["Land", "Air", "Naval", "Structure", "Defensive"],
 
+  "damageTypes": ["Piercing"],
+  
   "damageDealtModifiers": { "Defensive": 2.5, "Structure": 1.8 },
 
   "cost": { "food": 25, "steel": 50 },

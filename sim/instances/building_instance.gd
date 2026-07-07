@@ -24,9 +24,13 @@ var hex_b: HexCoord = null
 ## cap-math call sites that only need level keep working untouched.
 var max_hp: float = 0.0
 var current_hp: float = 0.0
-## Attack-speed accumulator for Defensive buildings, same meaning as
-## SquadInstance.attack_progress. Unused (stays 0) for non-Defensive buildings.
-var attack_progress: float = 0.0
+## Attack-speed accumulator(s) for Defensive buildings, one entry per turret,
+## same per-entry meaning as SquadInstance.attack_progress. Every Defensive
+## building fires with a single turret (array stays size 1) except Wood Tower,
+## which carries one independent accumulator per level (BuildingStats.
+## turret_count) — see CombatResolver._advance_building. Unused ([0.0]) for
+## non-Defensive buildings.
+var turret_progress: Array[float] = [0.0]
 ## Owner for a standalone building (base_id == ""), which has no BaseInstance
 ## to derive ownership from. Unused ("") for base-attached buildings — those
 ## keep deriving ownership from base.owner_id, per 02-bases-and-buildings.md.
@@ -62,10 +66,8 @@ var regen_progress: float = 0.0
 ## Dict per ResourceType.Type -> float, cumulative — original build cost plus
 ## every upgrade/rebuild cost paid, per 07-data-architecture.md. The basis
 ## demolish_building refunds 50% of (CommandProcessor); set at construction
-## time via init_cost() and topped up by rebuild_building. Since no
-## upgrade-building action exists yet, this equals the def's level-1
-## base_cost for the building's whole lifetime unless it's rebuilt from a
-## ruin at least once.
+## time via init_cost() and topped up by rebuild_building and
+## upgrade_building.
 var total_resources_spent: Dictionary = {}
 
 func _init(p_id: String, p_base_id: String, p_building_type: String, p_level: int = 1, p_material: String = "", p_hex: HexCoord = null, p_owner_id: String = "") -> void:
@@ -78,12 +80,38 @@ func _init(p_id: String, p_base_id: String, p_building_type: String, p_level: in
 	owner_id = p_owner_id
 
 ## Sets max_hp from the building's def and starts current_hp at full. No-op
-## (leaves HP at 0) if the def carries no HP anywhere.
+## (leaves HP at 0) if the def carries no HP anywhere. Also sizes
+## turret_progress to this building's level-1 turret count (1, except a fresh
+## Wood Tower).
 func init_hp(def: Dictionary, building_defs: Dictionary) -> void:
 	max_hp = BuildingStats.max_hp(def, level, material, building_defs)
 	current_hp = max_hp
+	_sync_turret_progress(def, building_defs)
+
+## Resizes turret_progress to match this building's current level/material
+## turret count (BuildingStats.turret_count), preserving already-banked
+## accumulators on the kept slots and starting any newly added slot at 0.0 —
+## a Wood Tower upgrade adds a fresh turret rather than resetting its existing
+## ones' charge.
+func _sync_turret_progress(def: Dictionary, building_defs: Dictionary) -> void:
+	var count := BuildingStats.turret_count(def, level, material, building_defs)
+	while turret_progress.size() < count:
+		turret_progress.append(0.0)
+	if turret_progress.size() > count:
+		turret_progress.resize(count)
 
 ## Records this instance's level-1 build cost as its initial
 ## total_resources_spent — called once at placement, alongside init_hp.
 func init_cost(def: Dictionary, building_defs: Dictionary) -> void:
 	total_resources_spent = ResourceType.dict_from_named(BuildingStats.base_cost(def, material, building_defs))
+
+## Rescales current_hp to the new max_hp after `level` has been bumped by an
+## upgrade, preserving the fraction of HP already lost instead of free-healing
+## (unlike init_hp/rebuild_building's full-heal, which only applies to a fresh
+## build or a ruin coming back — an upgrade isn't either of those, so a
+## damaged building stays damaged, proportionally, at its new HP pool).
+func upgrade_hp(def: Dictionary, building_defs: Dictionary) -> void:
+	var new_max_hp := BuildingStats.max_hp(def, level, material, building_defs)
+	current_hp = (current_hp / max_hp * new_max_hp) if max_hp > 0.0 else new_max_hp
+	max_hp = new_max_hp
+	_sync_turret_progress(def, building_defs)

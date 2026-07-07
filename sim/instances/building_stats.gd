@@ -94,6 +94,21 @@ static func defensive_stats(def: Dictionary, level: int, material: String, build
 
 	return stats
 
+## Number of independently-targeting turrets this Defensive building fires
+## with at `level` — Wood Tower only (materialStats[material].addsTurretPerLevel
+## true), per 06-building-stats-and-defenses.md: "each upgrade level adds an
+## additional turret" instead of pure stat scaling, so level N fires N volleys
+## a tick, each free to pick its own target (see CombatResolver._advance_
+## building's exclude_ids handling). Every other Defensive building — a single
+## defensiveStats block, or a Tower material without the flag (Stone/Steel) —
+## always fires with exactly 1.
+static func turret_count(def: Dictionary, level: int, material: String, building_defs: Dictionary) -> int:
+	var resolved := resolve_def(def, building_defs)
+	var material_stats: Dictionary = resolved.get("materialStats", {})
+	if bool(material_stats.get(material, {}).get("addsTurretPerLevel", false)):
+		return max(level, 1)
+	return 1
+
 ## Vision range for a building of this type/level/material, or 0.0 if it
 ## carries no visionRange anywhere (most Production/Resource buildings don't
 ## emit vision on their own). Checked in the same shape as max_hp: multi-
@@ -125,6 +140,22 @@ static func global_vision_bonus(def: Dictionary, level: int, building_defs: Dict
 	var base_bonus: float = float(upgrade.get("baseStats", {}).get("globalVisionRangeBonus", 0.0))
 	var growth: Dictionary = upgrade.get("statGrowth", {}).get("globalVisionRangeBonus", {})
 	return _apply_growth(base_bonus, growth, level)
+
+## Flat per-hit damage reduction this building/material grants at `level`
+## (0.0 if the resolved block carries no armor entry) — data/buildings/
+## schema.json's materialStats/nonProductionUpgrade baseStats.armor, e.g.
+## Steel Tower/Steel Wall. Same lookup shape as max_hp/vision_range
+## (materialStats[material] first, else the plain nonProductionUpgrade
+## block), so it grows with level the same way HP does if a material ever
+## authors non-flat statGrowth for it.
+static func armor(def: Dictionary, level: int, material: String, building_defs: Dictionary) -> float:
+	var resolved := resolve_def(def, building_defs)
+	var upgrade_model := _hp_model(resolved, material)
+	if not upgrade_model.get("baseStats", {}).has("armor"):
+		return 0.0
+	var base_armor: float = float(upgrade_model.get("baseStats", {}).get("armor", 0.0))
+	var growth: Dictionary = upgrade_model.get("statGrowth", {}).get("armor", {})
+	return _apply_growth(base_armor, growth, level)
 
 ## The damageReceivedModifiers that apply to this building instance — per
 ## material for multi-material buildings (e.g. Wood Wall's {Fire: 2.0}), else
@@ -217,6 +248,60 @@ static func base_cost(def: Dictionary, material: String, building_defs: Dictiona
 				return row.get("cost", {})
 
 	return _hp_model(resolved, material).get("baseCost", {})
+
+## This building's max level, or 0 for uncapped (bottlenecked only by the
+## HQ ceiling elsewhere — see CommandProcessor.upgrade_building). Only
+## Production-category buildings have a real cap, derived as
+## length(productionUpgradeLevels) per schema.json's note that this is the
+## sole source of truth for a Production building's level range — Command
+## Centre is the documented exception (commanderProgression keeps growing
+## past its tierLevels via postTierGrowth, so it stays uncapped like every
+## other non-production building).
+static func max_level(def: Dictionary, building_defs: Dictionary) -> int:
+	var resolved := resolve_def(def, building_defs)
+	var production_levels: Array = resolved.get("productionUpgradeLevels", [])
+	if not production_levels.is_empty():
+		return production_levels.size()
+	return 0
+
+## Resource cost to upgrade a building from `level` to `level + 1`, in the
+## def's raw named-key shape (like base_cost()). Checked in the same
+## three-shape dispatch as base_cost: an explicit productionUpgradeLevels row
+## (cost to reach that row's level), Command Centre's commanderProgression
+## (explicit tierLevels rows for 1-3, then postTierGrowth.costGrowth
+## compounding off the last explicit row for level 4+), else the generic
+## baseCost * (1+costGrowth)^(level-1) formula every other building uses (same
+## shape as _apply_growth's stat growth, since costGrowth is itself a
+## growthRate block).
+static func upgrade_cost(def: Dictionary, level: int, material: String, building_defs: Dictionary) -> Dictionary:
+	var resolved := resolve_def(def, building_defs)
+	var target_level := level + 1
+
+	for row in resolved.get("productionUpgradeLevels", []):
+		if int(row.get("level", 0)) == target_level:
+			return row.get("cost", {})
+
+	var commander_progression: Dictionary = resolved.get("commanderProgression", {})
+	if not commander_progression.is_empty():
+		var tier_levels: Array = commander_progression.get("tierLevels", [])
+		for row in tier_levels:
+			if int(row.get("level", 0)) == target_level:
+				return row.get("cost", {})
+		var last_row: Dictionary = tier_levels[tier_levels.size() - 1]
+		var last_level := int(last_row.get("level", 1))
+		var growth: Dictionary = commander_progression.get("postTierGrowth", {}).get("costGrowth", {})
+		var cost: Dictionary = {}
+		for key in last_row.get("cost", {}):
+			cost[key] = _apply_growth(float(last_row["cost"][key]), growth, target_level - last_level + 1)
+		return cost
+
+	var upgrade_model := _hp_model(resolved, material)
+	var base_cost: Dictionary = upgrade_model.get("baseCost", {})
+	var growth: Dictionary = upgrade_model.get("costGrowth", {})
+	var cost: Dictionary = {}
+	for key in base_cost:
+		cost[key] = _apply_growth(float(base_cost[key]), growth, target_level)
+	return cost
 
 ## Percent of base_cost() a ruined (non-HQ, non-Wall, non-standalone) building
 ## costs to rebuild at level 1, per 06-building-stats-and-defenses.md — the

@@ -6,15 +6,17 @@
 
   "hp": 100,
   "damage": 20,
-  "attackSpeed": 0.8,
+  "attackSpeed": 0.6,
   "range": 1,
   "splashRadius": 2,
   "visionRange": 5,
   "speed": 0.8,
 
-  "maxSquadSize": 4,
+  "maxSquadSize": 2,
 
   "canTarget": ["Infantry", "Land", "Naval", "Structure", "Defensive"],
+
+  "damageTypes": ["Piercing"],
 
   "damageDealtModifiers": { "Structure": 1.5, "Defensive": 1.5 },
 

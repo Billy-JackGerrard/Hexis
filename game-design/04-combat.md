@@ -7,20 +7,26 @@
 - Units **hold position and fight** rather than breaking formation to chase fleeing
   enemies — this keeps squad positioning predictable and readable.
 - **Target priority**: nearest enemy in range, by default.
-- **Resolved: a damage-dealt-modifier bonus re-orders that default.** If a troop has
-  a `damageDealtModifiers` entry above 1.0 matching something in range, it prefers
-  that target over an equally-or-nearer plain target — e.g. Grenadier prefers a
-  `Land`-domain vehicle over an equally-near Rifleman. This only changes *which*
-  already-allowed target gets picked first; it never expands `canTarget` or overrides
-  an explicit directed order (see `05-troop-stat-schema.md`'s Damage Modifiers
-  section).
-  - **Resolved: if several in-range targets each match a different qualifying (>1.0)
-    `damageDealtModifiers` entry, the troop prefers whichever target matches its
-    *highest* multiplier**, regardless of distance — e.g. a troop with
-    `{"Defensive": 2.5, "Land": 1.5}` picks a Defensive building over an equally- or
-    even nearer Land vehicle, since 2.5 > 1.5. Distance is only the tie-breaker among
-    targets matching the *same* multiplier (or among targets with no qualifying
-    modifier at all, which fall back to the plain nearest-enemy default).
+- **Resolved: `damageDealtModifiers` re-orders that default, in proportion to how
+  much damage it actually changes.** A troop's priority value for an in-range
+  target is its `damageDealtModifiers` product for that target (every matching
+  entry multiplies together, exactly like the real damage calculation in
+  `05-troop-stat-schema.md` — no matching entry defaults to 1.0). Highest value
+  wins:
+  - A value **above 1.0** (a bonus) is preferred over the neutral 1.0 default —
+    e.g. Grenadier (`{"Land": 1.5}`) prefers a `Land`-domain vehicle over an
+    equally-near Rifleman it has no modifier against.
+  - A value **below 1.0** (a dampener, e.g. `0.5`) is *not* tied with the neutral
+    default — it's deprioritized *below* it, since it deals strictly less damage
+    than a target the troop has no modifier against. A troop only engages a
+    dampened target once nothing better (bonus or neutral) is in range.
+  - Distance is only the tie-breaker among targets with **exactly equal** values
+    (including two neutral targets, or two targets sharing the same bonus/dampener
+    value) — e.g. a troop with `{"Defensive": 2.5, "Land": 1.5}` picks a Defensive
+    building over an equally- or even nearer Land vehicle, since 2.5 > 1.5.
+  - This only changes *which* already-allowed target gets picked first; it never
+    expands `canTarget` or overrides an explicit directed order (see
+    `05-troop-stat-schema.md`'s Damage Modifiers section).
 - **Focus-fire / structure-targeting override**: with a squad selected, clicking
   directly on a specific enemy **troop, squad, building, or wall** issues a
   **directed-target order** (`order: { type: "attack_target", targetId }` — see

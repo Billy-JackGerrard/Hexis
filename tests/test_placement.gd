@@ -77,18 +77,20 @@ func _test_population() -> void:
 	_check(Population.has_capacity_for(fresh_base, "hq", _building_defs), "HQ is always placeable regardless of capacity")
 
 func _test_seeding() -> void:
-	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1)])
+	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(0, -1)])
 	var capital_def: Dictionary = _base_defs["capital"]
 	var seeded := BaseFactory.seed_base("b2", capital_def, "p1", HexCoord.new(0, 0), grid)
 
-	_check(seeded.buildings.size() == 3, "capital seeds exactly 3 buildings (HQ/Farm/Quarry)")
+	_check(seeded.buildings.size() == 4, "capital seeds exactly 4 buildings (HQ/Farm/Quarry/Command Centre)")
 	var hq := seeded.buildings_of_type("hq")[0]
 	var farm := seeded.buildings_of_type("farm")[0]
 	var quarry := seeded.buildings_of_type("quarry")[0]
+	var command_centre := seeded.buildings_of_type("command_centre")[0]
 	_check(hq.hex.equals(HexCoord.new(0, 0)), "HQ seeded at the given hq_hex")
 	_check(HexCoord.distance(hq.hex, farm.hex) == 1, "Farm seeded adjacent to HQ")
 	_check(HexCoord.distance(hq.hex, quarry.hex) == 1, "Quarry seeded adjacent to HQ")
 	_check(HexCoord.distance(farm.hex, quarry.hex) == 1, "Farm and Quarry are mutually adjacent")
+	_check(HexCoord.distance(hq.hex, command_centre.hex) == 1, "Command Centre seeded adjacent to HQ")
 	for b in seeded.buildings:
 		_check(grid.get_terrain(b.hex) == Terrain.Type.PLAINS, "%s seeded on Plains" % b.building_type)
 
@@ -102,11 +104,14 @@ func _test_eligibility() -> void:
 	var capital_def: Dictionary = _base_defs["capital"]
 	var seeded := _fresh_seeded_base("b3", grid, 2)
 
-	_check(BuildingPlacement.can_place(seeded, capital_def, "command_centre", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
-		"Command Centre placeable at Capital, adjacent to HQ+Farm, within population/radius")
+	_check(BuildingPlacement.can_place(seeded, capital_def, "barracks", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
+		"Barracks placeable at Capital, adjacent to HQ+Farm, within population/radius")
 
 	_check(BuildingPlacement.can_place(seeded, capital_def, "hq", HexCoord.new(99, 99), grid, _building_defs) == BuildingPlacement.Result.IS_FIXED,
 		"HQ can never be freshly built (isFixed)")
+
+	_check(BuildingPlacement.can_place(seeded, capital_def, "command_centre", HexCoord.new(99, 99), grid, _building_defs) == BuildingPlacement.Result.IS_FIXED,
+		"Command Centre can never be freshly built (isFixed)")
 
 	_check(BuildingPlacement.can_place(seeded, capital_def, "stone_works", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_BUILDABLE_AT_BASE,
 		"Stone Works is Foundry Reach-exclusive, not buildable at Capital")
@@ -129,7 +134,7 @@ func _test_hex_occupancy() -> void:
 	var infantry_squad := SquadInstance.new("s1", "p2", "rifleman", HexCoord.new(0, 1))
 	var ground_occupied := BuildingPlacement.ground_unit_hexes([infantry_squad], _troop_defs)
 	_check(ground_occupied.has(HexCoord.new(0, 1).to_key()), "Infantry squad blocks its hex for placement")
-	_check(BuildingPlacement.can_place(seeded, capital_def, "command_centre", HexCoord.new(0, 1), grid, _building_defs, ground_occupied) == BuildingPlacement.Result.HEX_OCCUPIED_BY_UNIT,
+	_check(BuildingPlacement.can_place(seeded, capital_def, "barracks", HexCoord.new(0, 1), grid, _building_defs, ground_occupied) == BuildingPlacement.Result.HEX_OCCUPIED_BY_UNIT,
 		"can't build on a hex occupied by a ground troop")
 
 	var air_squad := SquadInstance.new("s2", "p2", "flamecopter", HexCoord.new(0, 1))
@@ -143,10 +148,12 @@ func _test_terrain() -> void:
 	grid.set_terrain(HexCoord.new(5, 5), Terrain.Type.FOREST)
 	for h in [HexCoord.new(4, 4), HexCoord.new(5, 4), HexCoord.new(5, 3), HexCoord.new(4, 3), HexCoord.new(3, 4), HexCoord.new(3, 5), HexCoord.new(4, 5)]:
 		grid.set_terrain(h, Terrain.Type.PLAINS)
-	grid.set_terrain(HexCoord.new(0, -2), Terrain.Type.OCEAN)
+	grid.set_terrain(HexCoord.new(0, 1), Terrain.Type.PLAINS)
+	grid.set_terrain(HexCoord.new(0, 2), Terrain.Type.OCEAN)
 
 	var capital_def: Dictionary = _base_defs["capital"]
 	var seeded := _fresh_seeded_base("b5", grid, 2)
+	# Seeded at (0,0)=hq, (1,0)=farm, (1,-1)=quarry, (0,-1)=command_centre.
 
 	_check(BuildingPlacement.can_place(seeded, capital_def, "farm", HexCoord.new(5, 5), grid, _building_defs) == BuildingPlacement.Result.WRONG_SITE_TERRAIN,
 		"Farm (siteTerrain Plains) rejected on a Forest hex")
@@ -154,8 +161,8 @@ func _test_terrain() -> void:
 	_check(BuildingPlacement.can_place(seeded, capital_def, "harbour", HexCoord.new(4, 4), grid, _building_defs) == BuildingPlacement.Result.MISSING_ADJACENT_TERRAIN,
 		"Harbour rejected when no neighboring hex is Water")
 
-	_check(BuildingPlacement.can_place(seeded, capital_def, "harbour", HexCoord.new(0, -1), grid, _building_defs) == BuildingPlacement.Result.OK,
-		"Harbour placeable on Plains adjacent to Water, with 2 adjacent buildings (HQ+Quarry)")
+	_check(BuildingPlacement.can_place(seeded, capital_def, "harbour", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
+		"Harbour placeable on Plains adjacent to Water, with 2 adjacent buildings (HQ+Farm)")
 
 	## Treehouse's terrainException ("Forest") is a base-level, not per-building,
 	## exception -- per data/bases/treehouse.json's notes, ALL of its buildable
@@ -189,21 +196,25 @@ func _test_terrain() -> void:
 	windy_peaks_grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.PLAINS)
 	windy_peaks_grid.set_terrain(HexCoord.new(-1, 0), Terrain.Type.PLAINS)
 	windy_peaks_grid.set_terrain(HexCoord.new(0, -1), Terrain.Type.HILLS)
+	windy_peaks_grid.set_terrain(HexCoord.new(-10, -10), Terrain.Type.HILLS)
 	var windy_peaks_base := BaseInstance.new("wp1", "windy_peaks", "p1", 1, HexCoord.new(0, 0))
 	windy_peaks_base.buildings.append(BuildingInstance.new("wp_hq", "wp1", "hq", 1, "", HexCoord.new(0, 0)))
 	windy_peaks_base.buildings.append(BuildingInstance.new("wp_q", "wp1", "quarry", 1, "", HexCoord.new(-1, 0)))
 
 	_check(BuildingPlacement.can_place(windy_peaks_base, windy_peaks_def, "farm", HexCoord.new(0, -1), windy_peaks_grid, _building_defs) == BuildingPlacement.Result.OK,
 		"Windy Peaks: Farm (default siteTerrain Plains) also placeable directly on Hill via terrainException")
-	_check(BuildingPlacement.can_place(seeded, capital_def, "farm", HexCoord.new(0, -1), windy_peaks_grid, _building_defs) == BuildingPlacement.Result.WRONG_SITE_TERRAIN,
+	_check(BuildingPlacement.can_place(seeded, capital_def, "farm", HexCoord.new(-10, -10), windy_peaks_grid, _building_defs) == BuildingPlacement.Result.WRONG_SITE_TERRAIN,
 		"Capital (no terrainException): Farm still rejected on Hill")
 
 func _test_adjacency() -> void:
-	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(-1, 0), HexCoord.new(0, 1)])
+	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(-1, 1), HexCoord.new(0, 1)])
 	var capital_def: Dictionary = _base_defs["capital"]
 	var seeded := _fresh_seeded_base("b6", grid, 2)
+	# Seeded at (0,0)=hq, (1,0)=farm, (1,-1)=quarry, (0,-1)=command_centre.
+	# (-1,1) touches only HQ among these four (unlike (-1,0), which would now
+	# also touch the seeded Command Centre at (0,-1)).
 
-	_check(BuildingPlacement.can_place(seeded, capital_def, "turret", HexCoord.new(-1, 0), grid, _building_defs) == BuildingPlacement.Result.NOT_ENOUGH_ADJACENT_BUILDINGS,
+	_check(BuildingPlacement.can_place(seeded, capital_def, "turret", HexCoord.new(-1, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_ENOUGH_ADJACENT_BUILDINGS,
 		"hex touching only 1 existing building (HQ) is rejected")
 
 	_check(BuildingPlacement.can_place(seeded, capital_def, "turret", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
@@ -391,4 +402,4 @@ func _test_wall_placement() -> void:
 		"an already-walled edge is rejected")
 
 	# A Wall doesn't consume population.
-	_check(Population.population_used(seeded, _building_defs) == 2, "the placed Wall does not count against population (still just Farm+Quarry)")
+	_check(Population.population_used(seeded, _building_defs) == 3, "the placed Wall does not count against population (still just Farm+Quarry+Command Centre)")

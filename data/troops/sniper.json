@@ -5,14 +5,14 @@
   "tags": ["Stealth"],
 
   "hp": 60,
-  "damage": 25,
+  "damage": 30,
   "attackSpeed": 0.5,
   "range": 12,
   "splashRadius": 0,
   "visionRange": 12,
   "speed": 1.0,
 
-  "maxSquadSize": 4,
+  "maxSquadSize": 1,
 
   "canTarget": ["Infantry", "Land", "Air", "Naval"],
 
@@ -28,5 +28,5 @@
   "fuelUpkeep": 0,
   "productionTime": 15,
 
-  "notes": "Deliberately omits Structure from canTarget — cannot attack buildings/walls, unlike most combat troops. Piercing bypasses target damageReceivedModifiers entirely."
+  "notes": "Deliberately omits Structure from canTarget — cannot attack buildings/walls, unlike most combat troops. Piercing bypasses the target's flat armor stat (not damageReceivedModifiers, which still apply normally)."
 }

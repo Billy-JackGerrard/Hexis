@@ -12,7 +12,7 @@
   "visionRange": 6,
   "speed": 2.2,
 
-  "maxSquadSize": 2,
+  "maxSquadSize": 1,
 
   "canTarget": [],
 

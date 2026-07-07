@@ -13,7 +13,7 @@
   "visionRange": 8,
   "speed": 2.0,
 
-  "maxSquadSize": 3,
+  "maxSquadSize": 4,
 
   "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
 
@@ -22,5 +22,5 @@
   "fuelUpkeep": 2,
   "productionTime": 34,
 
-  "notes": "Fort Irongrad Tank Plant's baseline heavy tank (also built at Winter Forge's Frostworks) — no damage modifiers vs. anything, the Heavy Tank roster's generalist that the other heavy tanks get balanced against, same role Light Tank plays at the Factory tier. maxSquadSize 3 (lower than the usual 4) reflects the heavier, costlier tier."
+  "notes": "Fort Irongrad Tank Plant's baseline heavy tank (also built at Winter Forge's Frostworks) — no damage modifiers vs. anything, the Heavy Tank roster's generalist that the other heavy tanks get balanced against, same role Light Tank plays at the Factory tier."
 }

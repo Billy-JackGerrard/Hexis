@@ -15,31 +15,31 @@
 
   "materialStats": {
     "stone": {
-      "baseStats": { "hp": 300, "damage": 24, "attackSpeed": 0.7, "range": 6, "visionRange": 12 },
+      "baseStats": { "hp": 300, "damage": 28, "attackSpeed": 0.7, "range": 6, "visionRange": 10 },
       "statGrowth": {
         "hp": { "mode": "percent", "value": 10 },
         "damage": { "mode": "percent", "value": 8 },
         "attackSpeed": { "mode": "flat", "value": 0 },
-        "range": { "mode": "flat", "value": 0 },
-        "visionRange": { "mode": "flat", "value": 0 }
+        "range": { "mode": "flat", "value": 0.25 },
+        "visionRange": { "mode": "flat", "value": 0.5 }
       },
       "baseCost": { "stone": 150, "steel": 100 },
-      "costGrowth": { "mode": "percent", "value": 25 },
+      "costGrowth": { "mode": "percent", "value": 50 },
       "canTarget": ["Infantry", "Land", "Air", "Naval"],
-      "damageTypes": [],
+      "damageTypes": ["Piercing"],
       "splashRadius": 0
     },
     "wood": {
-      "baseStats": { "hp": 150, "damage": 10, "attackSpeed": 1.6, "range": 5, "visionRange": 12 },
+      "baseStats": { "hp": 150, "damage": 10, "attackSpeed": 1.6, "range": 5, "visionRange": 10 },
       "statGrowth": {
-        "hp": { "mode": "percent", "value": 10 },
-        "damage": { "mode": "flat", "value": 0 },
+        "hp": { "mode": "percent", "value": 15 },
+        "damage": { "mode": "flat", "value": 1 },
         "attackSpeed": { "mode": "flat", "value": 0 },
         "range": { "mode": "flat", "value": 0 },
-        "visionRange": { "mode": "flat", "value": 0 }
+        "visionRange": { "mode": "flat", "value": 0.5 }
       },
       "baseCost": { "wood": 80 },
-      "costGrowth": { "mode": "percent", "value": 20 },
+      "costGrowth": { "mode": "percent", "value": 50 },
       "addsTurretPerLevel": true,
       "damageReceivedModifiers": { "Fire": 2.0 },
       "canTarget": ["Infantry", "Land", "Air", "Naval"],
@@ -47,7 +47,7 @@
       "splashRadius": 0
     },
     "steel": {
-      "baseStats": { "hp": 450, "armor": 5, "damage": 14, "attackSpeed": 0.6, "range": 4, "visionRange": 12 },
+      "baseStats": { "hp": 450, "armor": 5, "damage": 14, "attackSpeed": 0.9, "range": 4, "visionRange": 12 },
       "statGrowth": {
         "hp": { "mode": "percent", "value": 10 },
         "armor": { "mode": "flat", "value": 0 },
@@ -57,7 +57,7 @@
         "visionRange": { "mode": "flat", "value": 0 }
       },
       "baseCost": { "steel": 200, "stone": 50 },
-      "costGrowth": { "mode": "percent", "value": 25 },
+      "costGrowth": { "mode": "percent", "value": 50 },
       "canTarget": ["Infantry", "Land", "Naval"],
       "damageTypes": [],
       "splashRadius": 2

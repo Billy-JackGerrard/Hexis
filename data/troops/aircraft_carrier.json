@@ -5,8 +5,9 @@
   "tags": ["Ship", "Carrier"],
 
   "hp": 260,
-  "damage": 10,
-  "attackSpeed": 1.0,
+  "armor": 1,
+  "damage": 25,
+  "attackSpeed": 1.1,
   "range": 5,
   "splashRadius": 0,
   "visionRange": 10,

@@ -41,6 +41,12 @@ func _init() -> void:
 	_test_demolish()
 	print("rebuild_building")
 	_test_rebuild()
+	print("upgrade_building")
+	_test_upgrade()
+	print("upgrade_building (Production max level)")
+	_test_upgrade_max_level()
+	print("upgrade_building (HQ ceiling + population gate)")
+	_test_upgrade_hq()
 	print("enqueue_production")
 	_test_enqueue_production()
 
@@ -307,6 +313,102 @@ func _test_rebuild() -> void:
 	_check(farm.current_hp == farm.max_hp, "the rebuilt building is at full HP")
 	_check(state.pool_for("p1").get_amount(ResourceType.Type.STONE) < 1000.0, "rebuild cost was actually deducted from the pool")
 
+func _test_upgrade() -> void:
+	var state := _new_state(_flat_grid(5))
+	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
+	state.bases.append(base)
+	var farm := base.buildings_of_type("farm")[0]
+
+	_check(CommandProcessor.upgrade_building(state, farm.id, "p2") == CommandProcessor.Result.NOT_OWNER, "upgrading someone else's building is rejected")
+	_check(CommandProcessor.upgrade_building(state, farm.id, "p1") == CommandProcessor.Result.INVALID, "upgrading past the HQ's own level (still 1) is rejected")
+	_check(farm.level == 1, "the rejected upgrade left the farm's level untouched")
+
+	# Raise the HQ ceiling by hand (isolating this test from HQ's own upgrade
+	# path, covered separately in _test_upgrade_hq) so the Farm has room to
+	# climb.
+	base.hq_level = 5
+	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 0.0)
+	_check(CommandProcessor.upgrade_building(state, farm.id, "p1") == CommandProcessor.Result.INSUFFICIENT_RESOURCES, "upgrading without enough resources is rejected")
+
+	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 1000.0)
+	var stone_before := state.pool_for("p1").get_amount(ResourceType.Type.STONE)
+	var level1_hp := farm.max_hp
+	var result := CommandProcessor.upgrade_building(state, farm.id, "p1")
+	_check(result == CommandProcessor.Result.OK, "upgrading with enough resources under the HQ ceiling succeeds")
+	_check(farm.level == 2, "the farm's level incremented")
+	_check(farm.max_hp > level1_hp, "max_hp grew with the level (statGrowth)")
+	_check(farm.current_hp == farm.max_hp, "an undamaged building stays at full HP after upgrading")
+	_check(state.pool_for("p1").get_amount(ResourceType.Type.STONE) < stone_before, "the upgrade cost was deducted from the pool")
+	_check(float(farm.total_resources_spent.get(ResourceType.Type.STONE, 0.0)) > 50.0, "total_resources_spent grew past the level-1 build cost")
+
+	# Damage it partway, then upgrade again -- HP should scale proportionally
+	# with the new max, not free-heal back to full (that's rebuild_building's
+	# behavior, not upgrade's).
+	farm.current_hp = farm.max_hp * 0.5
+	var damaged_ratio := farm.current_hp / farm.max_hp
+	CommandProcessor.upgrade_building(state, farm.id, "p1")
+	_check(farm.level == 3, "the farm upgraded a second time")
+	_check(absf(farm.current_hp / farm.max_hp - damaged_ratio) < 0.001, "upgrading preserves the damaged HP fraction instead of free-healing")
+
+	farm.is_ruin = true
+	_check(CommandProcessor.upgrade_building(state, farm.id, "p1") == CommandProcessor.Result.INVALID, "a ruined building can't be upgraded")
+
+func _test_upgrade_max_level() -> void:
+	var state := _new_state(_flat_grid(5))
+	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
+	state.bases.append(base)
+	base.hq_level = 10 # room enough that only Barracks' own cap is being tested
+	var barracks := BuildingInstance.new("barracks1", base.id, "barracks", 1, "", HexCoord.new(1, -1))
+	barracks.init_hp(_building_defs["barracks"], _building_defs)
+	barracks.init_cost(_building_defs["barracks"], _building_defs)
+	base.buildings.append(barracks)
+
+	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 100000.0)
+	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 100000.0)
+	for i in range(4):
+		_check(CommandProcessor.upgrade_building(state, barracks.id, "p1") == CommandProcessor.Result.OK, "upgrading Barracks up through its productionUpgradeLevels table succeeds")
+	_check(barracks.level == 5, "Barracks reached its max level (5, the length of its productionUpgradeLevels table)")
+	_check(CommandProcessor.upgrade_building(state, barracks.id, "p1") == CommandProcessor.Result.INVALID, "upgrading past a Production building's derived max level is rejected")
+
+func _test_upgrade_hq() -> void:
+	var state := _new_state(_flat_grid(5))
+	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
+	state.bases.append(base)
+	var hq := base.buildings_of_type("hq")[0]
+	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 100000.0)
+	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 100000.0)
+
+	# Capital seeds HQ + Farm + Quarry + Command Centre -- populationUsed is
+	# already 3 (Farm/Quarry/Command Centre cost 1 each; HQ itself is
+	# populationCost 0), which already meets hq.json's minPopulationPerLevel:3
+	# requirement for level 2 (3 * (2-1)), so the very first HQ upgrade
+	# succeeds immediately with no further building needed.
+	var first_upgrade := CommandProcessor.upgrade_building(state, hq.id, "p1")
+	_check(first_upgrade == CommandProcessor.Result.OK, "level-1->2 HQ upgrade succeeds immediately (seeded populationUsed already meets the level-2 gate)")
+	_check(base.hq_level == 2, "hq_level advanced to 2")
+
+	# Level 3 requires populationUsed >= 6 (3 * (3-1)) -- still short at 3.
+	_check(CommandProcessor.upgrade_building(state, hq.id, "p1") == CommandProcessor.Result.INVALID, "upgrading HQ without enough populationUsed is rejected")
+	_check(base.hq_level == 2, "the rejected HQ upgrade left hq_level untouched")
+
+	# Level 2's populationCap is only 4 (hq_level*2), already used up by the
+	# seeded Farm/Quarry/Command Centre plus one more building -- a House
+	# (populationCost 0, always placeable, grants +4 capacity) clears room,
+	# then three more Farms at hexes each already doubly-adjacent to two of
+	# the four seeded buildings raise populationUsed to 6.
+	CommandProcessor.place_building(state, base.id, "house", HexCoord.new(2, -1), "", "p1")
+	CommandProcessor.place_building(state, base.id, "farm", HexCoord.new(-1, 0), "", "p1")
+	CommandProcessor.place_building(state, base.id, "farm", HexCoord.new(0, 1), "", "p1")
+	CommandProcessor.place_building(state, base.id, "farm", HexCoord.new(1, -2), "", "p1")
+	_check(Population.population_used(base, _building_defs) == 6, "three more Farms raised populationUsed to meet HQ's level-3 gate")
+
+	var result := CommandProcessor.upgrade_building(state, hq.id, "p1")
+	_check(result == CommandProcessor.Result.OK, "upgrading HQ once populationUsed meets the gate succeeds")
+	_check(hq.level == 3, "the HQ BuildingInstance's own level incremented")
+	_check(base.hq_level == 3, "BaseInstance.hq_level stays in lockstep with the HQ building's level")
+	# hq_level*2 (3*2=6) plus the House's own +4 capacity contribution (house.json).
+	_check(Population.population_cap(base, _building_defs) == 10, "population_cap grew from the HQ upgrade (it reads BaseInstance.hq_level, not the HQ BuildingInstance's own level)")
+
 func _test_enqueue_production() -> void:
 	var state := _new_state(_flat_grid(5))
 	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
@@ -330,3 +432,33 @@ func _test_enqueue_production() -> void:
 	_check(state.production_queues.has(barracks.id), "a ProductionQueue was created and registered for this building")
 	_check(state.production_queues[barracks.id].entries.size() == 1, "the troop was enqueued")
 	_check(state.pool_for("p1").get_amount(ResourceType.Type.FOOD) == 80.0, "enqueuing deducted the troop's Food cost from the pool")
+
+	# Level-gating: Barracks unlocks Grenadier at level 2 (data/buildings/barracks.json).
+	# A level-1 Barracks must reject it, with nothing enqueued and nothing spent.
+	var not_unlocked := CommandProcessor.enqueue_production(state, barracks.id, "grenadier", "p1")
+	_check(not_unlocked == CommandProcessor.Result.NOT_UNLOCKED, "queuing a not-yet-unlocked troop is rejected")
+	_check(state.production_queues[barracks.id].entries.size() == 1, "the rejected order enqueued nothing")
+
+	barracks.level = 2
+	var unlocked := CommandProcessor.enqueue_production(state, barracks.id, "grenadier", "p1")
+	_check(unlocked == CommandProcessor.Result.OK, "queuing a troop unlocked by the building's current level succeeds")
+
+	# Commander tier-gating: Command Centre level 1 unlocks only `common`
+	# (Vanguard); `rare` (Nightfall) and `epic` (Warden) require levels 2/3.
+	var cc := BuildingInstance.new("cc1", base.id, "command_centre", 1, "", HexCoord.new(0, 1))
+	cc.init_hp(_building_defs["command_centre"], _building_defs)
+	base.buildings.append(cc)
+	state.pool_for("p1").set_amount(ResourceType.Type.FOOD, 1000.0)
+	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 1000.0)
+	state.pool_for("p1").set_amount(ResourceType.Type.FUEL, 1000.0)
+
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_vanguard", "p1") == CommandProcessor.Result.OK, "a level-1 Command Centre can train a common-tier Commander")
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_nightfall", "p1") == CommandProcessor.Result.NOT_UNLOCKED, "a level-1 Command Centre cannot train a rare-tier Commander")
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_warden", "p1") == CommandProcessor.Result.NOT_UNLOCKED, "a level-1 Command Centre cannot train an epic-tier Commander")
+
+	cc.level = 2
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_nightfall", "p1") == CommandProcessor.Result.OK, "a level-2 Command Centre can train a rare-tier Commander")
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_warden", "p1") == CommandProcessor.Result.NOT_UNLOCKED, "a level-2 Command Centre still cannot train an epic-tier Commander")
+
+	cc.level = 3
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_warden", "p1") == CommandProcessor.Result.OK, "a level-3 Command Centre can train an epic-tier Commander")

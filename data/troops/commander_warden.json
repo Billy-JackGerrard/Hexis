@@ -15,7 +15,7 @@
 
   "maxSquadSize": 1,
   "maxSquadsLed": 4,
-  "commanderTier": "best",
+  "commanderTier": "epic",
 
   "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
 
@@ -34,5 +34,5 @@
   "fuelUpkeep": 6,
   "productionTime": 75,
 
-  "notes": "Best-tier Commander, Capital-only via Command Centre — completes the basic/rare/best set alongside Vanguard and Nightfall. Unlike Ambulance/Repair Truck's always-on heal_over_time, heal_out_of_combat only ticks once a squad hasn't taken damage recently (same lastDamagedAt-gated pattern buildings already use for their 5%-per-5-tick regen, see 06-building-stats-and-defenses.md/07-data-architecture.md) — troops otherwise have no passive regen at all, so this is Warden's whole niche: sustain between fights rather than in the middle of one. filter: \"own_regiment_and_self\" is a variant of Vanguard/Nightfall's \"own_regiment\" that also includes the Commander's own squad (which isn't a member of its own regiment's squadIds) — Warden heals itself as well as every squad it leads, still capped at maxSquadsLed: 4. Stacks with Ambulance/Repair Truck if both are present, since those apply unconditionally."
+  "notes": "Epic-tier Commander, Capital-only via Command Centre — completes the common/rare/epic set alongside Vanguard and Nightfall. Unlike Ambulance/Repair Truck's always-on heal_over_time, heal_out_of_combat only ticks once a squad hasn't taken damage recently (same lastDamagedAt-gated pattern buildings already use for their 5%-per-5-tick regen, see 06-building-stats-and-defenses.md/07-data-architecture.md) — troops otherwise have no passive regen at all, so this is Warden's whole niche: sustain between fights rather than in the middle of one. filter: \"own_regiment_and_self\" is a variant of Vanguard/Nightfall's \"own_regiment\" that also includes the Commander's own squad (which isn't a member of its own regiment's squadIds) — Warden heals itself as well as every squad it leads, still capped at maxSquadsLed: 4. Stacks with Ambulance/Repair Truck if both are present, since those apply unconditionally."
 }

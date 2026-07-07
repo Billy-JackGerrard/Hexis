@@ -7,16 +7,18 @@
 ##   dealtMult    — product of the attacker's damageDealtModifiers whose key
 ##                  matches any of the target's match-keys (Domain/tags/reserved).
 ##   receivedMult — product of the target's damageReceivedModifiers whose key
-##                  matches the attacker's Domain/tags/damageTypes, UNLESS the
-##                  attacker's damageTypes include "Piercing" (armor-ignoring),
-##                  which skips the target's received-side modifiers entirely.
+##                  matches the attacker's Domain/tags/damageTypes. Applies
+##                  normally regardless of damage type, including "Piercing" —
+##                  a vulnerability modifier (>1.0) still boosts a Piercing hit.
 ##   terrainMult  — target.defense_multiplier (04-combat.md's hill defender
 ##                  bonus, Terrain.defense_bonus() looked up at CombatTarget
 ##                  construction time); 1.0 on any non-bonus terrain.
 ##   auraMult     — target.aura_damage_reduction_mult (AuraSystem's
 ##                  damage_reduction effect, e.g. Shield Tank); 1.0 with no
 ##                  aura coverage.
-##   armor        — flat, applied last; a hit always deals at least 1.
+##   armor        — flat, applied last; a hit always deals at least 1. Skipped
+##                  entirely when the attacker's damageTypes include "Piercing"
+##                  (armor-ignoring damage).
 ##
 ## Multiple matching keys within a dict multiply together (every authored
 ## modifier applies) rather than taking the single best — a deliberate choice,
@@ -50,8 +52,6 @@ static func attacker_keys(attacker_def: Dictionary) -> Array[String]:
 	return keys
 
 static func received_multiplier(attacker_def: Dictionary, target: CombatTarget) -> float:
-	if PIERCING in attacker_def.get("damageTypes", []):
-		return 1.0
 	return _product_for_keys(target.damage_received_modifiers, attacker_keys(attacker_def))
 
 ## Damage a single attack from `attacker_def` deals to `target`. `base_damage`
@@ -59,4 +59,5 @@ static func received_multiplier(attacker_def: Dictionary, target: CombatTarget) 
 ## defensiveStats block, not at the def's top level like a troop's.
 static func resolve_damage(attacker_def: Dictionary, base_damage: float, target: CombatTarget) -> float:
 	var raw := base_damage * dealt_multiplier(attacker_def, target) * received_multiplier(attacker_def, target) * target.defense_multiplier * target.aura_damage_reduction_mult
-	return max(1.0, raw - target.armor)
+	var armor := 0.0 if PIERCING in attacker_def.get("damageTypes", []) else target.armor
+	return max(1.0, raw - armor)

@@ -27,6 +27,12 @@ always sited on **Plains** (see `01-map-and-terrain.md`) regardless of base type
 - **Farm** — Food.
 - **Quarry** — Stone.
 
+Every **Capital** additionally seeds a fourth pre-placed building on top of this
+universal trio: a **Command Centre**, `isFixed` just like HQ (see Command Centre &
+the Commander Cap below) — so a fresh Capital, and any Capital gained by capturing a
+rival's, always already has one. It's never freshly built from a menu and can't be
+demolished, only rebuilt from a ruin if destroyed.
+
 ## Initial Garrison (Unique Bases)
 Unlike a player's Capital (which starts bare and is built up from scratch over the
 match), a neutral **Unique base already has a working base built** when the match
@@ -124,10 +130,10 @@ being destroyed in combat:
   the hex), demolishing frees the hex and the population slot immediately — the
   player can place something new there right away. This is the intended fix for a
   misplaced/regretted building, which combat-ruin rules alone don't provide.
-- **`isFixed` buildings cannot be demolished** — HQ and Ice Spire (and any future
-  pre-seeded-only building) can never be freshly built from a menu, so voluntarily
-  removing one would create a hole nothing can refill. The demolish action is simply
-  not offered for them.
+- **`isFixed` buildings cannot be demolished** — HQ, Command Centre, Ice Spire, and
+  Radar Array (and any future pre-seeded-only building) can never be freshly built
+  from a menu, so voluntarily removing one would create a hole nothing can refill.
+  The demolish action is simply not offered for them.
 - Walls and standalone buildings (Road/Bridge/Dock/Tower/Landmine) can also be demolished under
   the same 50%-of-spend refund rule — consistent with them already deleting outright
   (no ruin) on combat destruction.
@@ -166,7 +172,7 @@ being destroyed in combat:
 | Road | Unblocks Forest tiles for land vehicles | Anywhere in Forest, Engineer-built |
 | Bridge | Unblocks River tiles for infantry & land vehicles | Anywhere on River, Engineer-built. Buildable in Stone or Wood (Wood cheaper, weaker, fire-vulnerable) |
 | Tower | Standalone defense + long-range fog-of-war clearing + short-range stealth detection (`detector: true`, `detectionRange: 3`) | Anywhere, Engineer-built, not tied to a base. Buildable in Stone or Wood — see `06-building-stats-and-defenses.md` for the two variants |
-| Walls | Defense — sits on hex border. Tiers: Wood (cheapest/weakest, vulnerable to flame troops) / Stone (mid) / Steel (priciest/strongest) | All (Wood tier requires access to Wood, produced by any base's Lumber Mill) |
+| Walls | Defense — sits on hex border. Tiers: Wood (cheapest/weakest, vulnerable to flame troops) / Stone (mid) / Steel (priciest/strongest, flat armor 5) | All (Wood tier requires access to Wood, produced by any base's Lumber Mill) |
 | Ice Spire | Aura — slows nearby enemy troops | Winter Forge only — **fixed/pre-seeded, cannot be freshly built** (see below) |
 | Cold Turret | Defense — ice bombs, medium-low range, low damage, freezes target briefly on hit | Winter Forge only |
 | Frostworks | Heavy tanks (partial roster — a subset of Tank Plant's) | Winter Forge only |
@@ -216,6 +222,15 @@ being destroyed in combat:
   a fresh build at full cost, never a discounted ruin-rebuild.
 
 ## Command Centre & the Commander Cap
+**Resolved: Command Centre is `isFixed`**, same pattern as HQ — every Capital is
+pre-seeded with exactly one at level 1 (see Base Seeding above), it's never freshly
+built from a menu even after capture, and it cannot be voluntarily demolished (only
+rebuilt from a ruin if destroyed in combat). This is deliberate: unlike a generic
+Production building (no cap on how many you can build — see Building Reference
+above), Command Centre's level directly grows a player-wide cap (below), so letting
+a player freely build extra ones in a single base would let commander-cap growth be
+farmed by population/hex-tile spend alone rather than by capturing more Capitals.
+
 **Resolved**: the Command Centre does **not** use the standard production-building
 model (one troop unlocked per level, max level = `length(troopList)`). Commanders are
 a small named roster split into three **tiers** — `common` / `rare` / `epic` (a field on
@@ -227,9 +242,12 @@ Centre's level unlocks a whole tier at once, not one Commander at a time:
 - **Level 2**: unlocks every `rare`-tier Commander, in addition to `common`.
 - **Level 3**: unlocks every `epic`-tier Commander, in addition to `common`/`rare` — the
   full roster is now trainable at this Command Centre.
-- **Not yet implemented**: `data/buildings/command_centre.json` fully implements this
-  progression model, but no troop file in `data/troops/` carries a `commanderTier`
-  field or a `Commander` tag yet — the Commander roster itself doesn't exist in data.
+- Implemented: the Commander roster (`commander_vanguard` (`common`), `commander_nightfall`
+  (`rare`), `commander_warden` (`epic`)) carries `commanderTier`/`Commander` tag per
+  `05-troop-stat-schema.md`, and `CommandProcessor.enqueue_production` rejects
+  (`Result.NOT_UNLOCKED`) queuing a Commander whose tier isn't yet unlocked at the
+  Command Centre's current level (`CommanderProgression.tier_unlocked`) — same
+  check gates a standard Production building's `productionUpgradeLevels.unlocks`.
 - **Level 4 and beyond**: no further unlocks (all tiers are already available) — each
   additional level is pure stat growth (HP, following the standard non-production
   growth-curve model) **plus +1 Commander-cap slot per level**.

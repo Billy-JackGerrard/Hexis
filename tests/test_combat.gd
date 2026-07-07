@@ -35,6 +35,8 @@ func _init() -> void:
 	_test_commander_death_regiment_disband()
 	print("CombatResolver Wall combat")
 	_test_wall_combat()
+	print("CombatResolver Wood Tower turrets")
+	_test_wood_tower_turrets()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -78,6 +80,9 @@ func _test_building_stats() -> void:
 	_check(_approx(BuildingStats.max_hp(wall, 1, "wood", _building_defs), 80.0), "Wood Wall level 1 max_hp from materialStats")
 	_check(_approx(BuildingStats.max_hp(wall, 1, "steel", _building_defs), 400.0), "Steel Wall level 1 max_hp from materialStats")
 	_check(BuildingStats.damage_received_modifiers(wall, "wood", _building_defs).get("Fire", 1.0) == 2.0, "Wood Wall has {Fire: 2.0} damageReceivedModifiers")
+	_check(_approx(BuildingStats.armor(wall, 1, "steel", _building_defs), 5.0), "Steel Wall has flat armor (5) from materialStats.baseStats.armor")
+	_check(_approx(BuildingStats.armor(wall, 1, "stone", _building_defs), 0.0), "Stone Wall has no armor entry -> 0")
+	_check(_approx(BuildingStats.armor(wall, 1, "wood", _building_defs), 0.0), "Wood Wall has no armor entry -> 0")
 
 	# extends inheritance: a synthetic Turret variant that omits every block
 	# inherits Turret's defensiveStats + nonProductionUpgrade wholesale.
@@ -101,6 +106,8 @@ func _test_building_stats() -> void:
 	var stone_damage_l1: float = BuildingStats.defensive_stats(tower, 1, "stone", _building_defs).get("damage", 0.0)
 	var stone_damage_l2: float = BuildingStats.defensive_stats(tower, 2, "stone", _building_defs).get("damage", 0.0)
 	_check(stone_damage_l2 > stone_damage_l1, "Stone Tower's damage grows with level (8% percent growth)")
+	_check(_approx(BuildingStats.armor(tower, 1, "steel", _building_defs), 5.0), "Steel Tower has flat armor (5) from materialStats.baseStats.armor")
+	_check(_approx(BuildingStats.armor(tower, 1, "stone", _building_defs), 0.0), "Stone Tower has no armor entry -> 0")
 
 	# a real Turret variant still resolves an HP even though it restates blocks.
 	_check(BuildingStats.max_hp(_building_defs["cold_turret"], 1, "", _building_defs) > 0.0, "real Turret variant (cold_turret) resolves a positive max_hp")
@@ -126,15 +133,26 @@ func _test_combat_math() -> void:
 	var wood_target := _synthetic_target({"domain": "Land", "damageReceivedModifiers": {"Fire": 2.0}}, "p2", HexCoord.new(1, 0), troops)
 	_check(_approx(CombatMath.resolve_damage(fire_attacker, 10.0, wood_target), 20.0), "Fire attacker vs {Fire:2.0} target = 20")
 
-	# Piercing bypasses the target's received modifiers entirely (but not armor)
+	# Piercing does NOT bypass damageReceivedModifiers -- it only matches keys
+	# the attacker actually presents, same as any other damage type. A
+	# Piercing attacker without "Fire" doesn't trigger the Fire-only target.
 	var piercing_attacker := {"domain": "Land", "tags": [], "damageTypes": ["Piercing"], "damageDealtModifiers": {}}
-	_check(_approx(CombatMath.resolve_damage(piercing_attacker, 10.0, wood_target), 10.0), "Piercing bypasses {Fire:2.0} -> 10")
+	_check(_approx(CombatMath.resolve_damage(piercing_attacker, 10.0, wood_target), 10.0), "Piercing attacker without Fire vs {Fire:2.0} target = 10 (no match)")
+
+	# ...but a vulnerability keyed on "Piercing" itself still applies in full --
+	# Piercing does not cancel the target's received-side modifiers.
+	var piercing_vulnerable := _synthetic_target({"domain": "Land", "damageReceivedModifiers": {"Piercing": 2.0}}, "p2", HexCoord.new(1, 0), troops)
+	_check(_approx(CombatMath.resolve_damage(piercing_attacker, 10.0, piercing_vulnerable), 20.0), "Piercing attacker vs {Piercing:2.0} target = 20 (vulnerability still applies)")
 
 	# armor is flat, applied last, floored so a hit always deals >= 1
 	var armored := _synthetic_target({"domain": "Land", "armor": 3.0}, "p2", HexCoord.new(1, 0), troops)
 	_check(_approx(CombatMath.resolve_damage(rifleman, 10.0, armored), 7.0), "armor 3 on a 10 hit -> 7")
 	var tank := _synthetic_target({"domain": "Land", "armor": 100.0}, "p2", HexCoord.new(1, 0), troops)
 	_check(_approx(CombatMath.resolve_damage(rifleman, 10.0, tank), 1.0), "armor floor: a hit always deals at least 1")
+
+	# Piercing bypasses armor entirely (the flat reduction), unlike a normal attack
+	_check(_approx(CombatMath.resolve_damage(piercing_attacker, 10.0, armored), 10.0), "Piercing ignores armor 3 on a 10 hit -> 10")
+	_check(_approx(CombatMath.resolve_damage(piercing_attacker, 10.0, tank), 10.0), "Piercing ignores armor 100 on a 10 hit -> 10")
 
 	# dealt x received stack multiplicatively
 	var stack_attacker := {"domain": "Infantry", "tags": [], "damageTypes": ["Fire"], "damageDealtModifiers": {"Land": 1.5}}
@@ -194,6 +212,25 @@ func _test_combat_targeting() -> void:
 	]
 	var gpick := CombatTargeting.select_target(gren2, grenadier, mixed)
 	_check(gpick != null and gpick.target_id() == enemy_land.id, "Grenadier prefers the Land target (1.5x) over an equally-near Infantry")
+
+	# dampener avoidance: a troop with {Land: 0.5} (deals HALF damage to Land)
+	# prefers a farther neutral target (no modifier, full damage) over a nearer
+	# one it's dampened against, but still engages the dampened target when
+	# it's the only option in range.
+	var weak_vs_land: Dictionary = rifleman.duplicate(true)
+	weak_vs_land["damageDealtModifiers"] = {"Land": 0.5}
+	var wv_attacker := _make_squad("p1", "rifleman", HexCoord.new(0, 0), 1, troops)
+	var near_land := _make_squad("p2", "basekiller", HexCoord.new(1, 0), 1, troops)
+	var far_inf := _make_squad("p2", "rifleman", HexCoord.new(3, 0), 1, troops)
+	var dampened_mixed: Array[CombatTarget] = [
+		CombatTarget.for_squad(near_land, basekiller, troops),
+		CombatTarget.for_squad(far_inf, rifleman, troops),
+	]
+	var wvpick := CombatTargeting.select_target(wv_attacker, weak_vs_land, dampened_mixed)
+	_check(wvpick != null and wvpick.target_id() == far_inf.id, "Avoids a nearer target it's dampened (0.5x) against, in favor of a farther neutral one")
+	var dampened_only: Array[CombatTarget] = [CombatTarget.for_squad(near_land, basekiller, troops)]
+	var wvpick2 := CombatTargeting.select_target(wv_attacker, weak_vs_land, dampened_only)
+	_check(wvpick2 != null and wvpick2.target_id() == near_land.id, "Still engages a dampened target once it's the only option")
 
 	# tier gating: a plain Structure is only chosen when no troop/Defensive is in
 	# range. enemy_troop is an Engineer (Land) since Basekiller can't target Infantry.
@@ -453,6 +490,18 @@ func _test_combat_resolver() -> void:
 		CombatResolver.resolve_tick(1.0, [attacker], no_bases, t6, grid, _troop_defs, _building_defs, {}, {}, standalone)
 	_check(standalone.is_empty(), "a standalone Tower fought to 0 HP is deleted outright, not ruined")
 
+	# A Landmine (selfDestructOnTrigger, no attackSpeed) fires once the instant
+	# a valid enemy is in range and is deleted outright the same tick, rather
+	# than sitting inert (its attackSpeed-gated repeat-fire path never engages).
+	var t7: Dictionary = {}
+	var intruder := _make_squad("p1", "rifleman", HexCoord.new(1, 0), 1, t7)
+	var mine := BuildingInstance.new("mine1", "", "landmine", 1, "", HexCoord.new(0, 0), "p2")
+	mine.init_hp(_building_defs["landmine"], _building_defs)
+	var mine_standalone: Array[BuildingInstance] = [mine]
+	CombatResolver.resolve_tick(1.0, [intruder], no_bases, t7, grid, _troop_defs, _building_defs, {}, {}, mine_standalone)
+	_check(t7[intruder.member_ids[0]].current_hp < 100.0, "a Landmine deals its splash damage the instant an Infantry/Land enemy is in range")
+	_check(mine_standalone.is_empty(), "the Landmine is deleted outright the same tick it triggers, not left inert")
+
 ## Per 04-combat.md: "if a Commander dies mid-battle, its regiment disbands —
 ## every member squad reverts to operating independently." RegimentInstance
 ## itself was previously untouched by any resolver (only exercised directly
@@ -558,3 +607,73 @@ func _test_wall_combat() -> void:
 	_check(wall_target.distance_from(HexCoord.new(0, 0)) == 0, "distance_from is 0 when the attacker stands on hex_a")
 	_check(wall_target.distance_from(HexCoord.new(1, 0)) == 0, "distance_from is 0 when the attacker stands on hex_b")
 	_check(wall_target.distance_from(HexCoord.new(2, 0)) == 1, "distance_from is the MIN distance to either endpoint (1 via hex_b, not 2 via hex_a)")
+
+	# Steel Wall's flat armor (5) reaches CombatMath the same way a troop's
+	# armor stat does, and a Piercing attacker (e.g. Sniper) bypasses it.
+	var steel_wall := BuildingInstance.new("wall3", "wbase3", "wall", 1, "steel")
+	steel_wall.hex_a = HexCoord.new(0, 0)
+	steel_wall.hex_b = HexCoord.new(1, 0)
+	steel_wall.init_hp(_building_defs["wall"], _building_defs)
+	var steel_wall_target := CombatTarget.for_building(steel_wall, _building_defs["wall"], _building_defs, grid)
+	_check(_approx(steel_wall_target.armor, 5.0), "Steel Wall's CombatTarget carries armor 5")
+	_check(_approx(CombatMath.resolve_damage(_troop_defs["rifleman"], 10.0, steel_wall_target), 5.0), "a normal 10-damage hit vs Steel Wall's armor 5 -> 5")
+	var piercing_attacker: Dictionary = {"domain": "Land", "tags": [], "damageTypes": ["Piercing"], "damageDealtModifiers": {}}
+	_check(_approx(CombatMath.resolve_damage(piercing_attacker, 10.0, steel_wall_target), 10.0), "a Piercing attacker ignores Steel Wall's armor entirely")
+
+## Wood Tower's addsTurretPerLevel (06-building-stats-and-defenses.md: "each
+## upgrade level adds an additional turret" that "independently targets"):
+## proves turret_count scales with level (Wood only), turret_progress sizes to
+## match, and — the actual behavioral payoff — a multi-turret tower spreads
+## its shots across several separate weak enemies in one tick instead of
+## focus-firing whichever single target it would otherwise pick.
+func _test_wood_tower_turrets() -> void:
+	var grid := HexGrid.new()
+
+	_check(BuildingStats.turret_count(_building_defs["tower"], 1, "wood", _building_defs) == 1, "Wood Tower turret_count == level (1 turret at level 1)")
+	_check(BuildingStats.turret_count(_building_defs["tower"], 3, "wood", _building_defs) == 3, "Wood Tower turret_count == level (3 turrets at level 3)")
+	_check(BuildingStats.turret_count(_building_defs["tower"], 3, "stone", _building_defs) == 1, "Stone Tower has no addsTurretPerLevel -> always 1 turret regardless of level")
+
+	# A level-1 Wood Tower has exactly one turret, so only the nearest of
+	# three separate weak squads in range takes a killing hit this tick.
+	var troops_l1: Dictionary = {}
+	var tower_l1 := BuildingInstance.new("wood_tower_l1", "", "tower", 1, "wood", HexCoord.new(0, 0), "p2")
+	tower_l1.init_hp(_building_defs["tower"], _building_defs)
+	_check(tower_l1.turret_progress.size() == 1, "a fresh level-1 Wood Tower's turret_progress array has 1 accumulator")
+	var enemies_l1: Array[SquadInstance] = [
+		_make_squad("p1", "rifleman", HexCoord.new(1, 0), 1, troops_l1, 5.0),
+		_make_squad("p1", "rifleman", HexCoord.new(2, 0), 1, troops_l1, 5.0),
+		_make_squad("p1", "rifleman", HexCoord.new(3, 0), 1, troops_l1, 5.0),
+	]
+	var standalone_l1: Array[BuildingInstance] = [tower_l1]
+	CombatResolver.resolve_tick(1.0, enemies_l1, [], troops_l1, grid, _troop_defs, _building_defs, {}, {}, standalone_l1)
+	# _prune_dead removes a fully-dead squad from the array outright (not just
+	# empties its member_ids), so "how many died" is the shrinkage in size.
+	_check(enemies_l1.size() == 2, "level-1 Wood Tower (1 turret) kills exactly one of three separate weak squads in a single tick")
+
+	# A level-3 Wood Tower has three independently-targeting turrets, so all
+	# three separate weak squads die the same tick instead of one being
+	# focus-fired three times over — this is the swarm-clearing payoff
+	# 06-building-stats-and-defenses.md describes.
+	var troops_l3: Dictionary = {}
+	var tower_l3 := BuildingInstance.new("wood_tower_l3", "", "tower", 3, "wood", HexCoord.new(0, 0), "p2")
+	tower_l3.init_hp(_building_defs["tower"], _building_defs)
+	_check(tower_l3.turret_progress.size() == 3, "a fresh level-3 Wood Tower's turret_progress array has 3 accumulators")
+	var enemies_l3: Array[SquadInstance] = [
+		_make_squad("p1", "rifleman", HexCoord.new(1, 0), 1, troops_l3, 5.0),
+		_make_squad("p1", "rifleman", HexCoord.new(2, 0), 1, troops_l3, 5.0),
+		_make_squad("p1", "rifleman", HexCoord.new(3, 0), 1, troops_l3, 5.0),
+	]
+	var standalone_l3: Array[BuildingInstance] = [tower_l3]
+	CombatResolver.resolve_tick(1.0, enemies_l3, [], troops_l3, grid, _troop_defs, _building_defs, {}, {}, standalone_l3)
+	_check(enemies_l3.is_empty(), "level-3 Wood Tower's 3 independently-targeting turrets each kill a separate squad in the same tick")
+
+	# Upgrading a live Wood Tower grows turret_progress by one slot without
+	# resetting the slots it already had banked.
+	var upgrading_tower := BuildingInstance.new("wood_tower_upgrade", "", "tower", 1, "wood", HexCoord.new(0, 0), "p2")
+	upgrading_tower.init_hp(_building_defs["tower"], _building_defs)
+	upgrading_tower.turret_progress[0] = 0.75
+	upgrading_tower.level = 2
+	upgrading_tower.upgrade_hp(_building_defs["tower"], _building_defs)
+	_check(upgrading_tower.turret_progress.size() == 2, "upgrading a Wood Tower from level 1 to 2 grows turret_progress to 2 slots")
+	_check(_approx(upgrading_tower.turret_progress[0], 0.75), "the pre-existing turret's banked progress survives the upgrade")
+	_check(_approx(upgrading_tower.turret_progress[1], 0.0), "the newly added turret starts with no banked progress")

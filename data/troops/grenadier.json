@@ -12,11 +12,13 @@
   "visionRange": 8,
   "speed": 1.1,
 
-  "maxSquadSize": 4,
+  "maxSquadSize": 8,
 
   "canTarget": ["Infantry", "Land", "Naval", "Structure", "Defensive"],
 
-  "damageDealtModifiers": { "Land": 1.5 },
+  "damageTypes": ["Piercing"],
+  
+  "damageDealtModifiers": { "Land": 2.0 },
 
   "cost": { "food": 20 },
   "foodUpkeep": 1,

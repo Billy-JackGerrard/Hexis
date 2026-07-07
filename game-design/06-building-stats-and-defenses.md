@@ -141,8 +141,9 @@ project a passive effect:
     level) so that a maxed-out Harbour ends up out-producing a maxed-out Farm despite
     the lower starting point — see `02-bases-and-buildings.md`.
   - **Walls**: each level grants a flat HP boost only — `damageReceivedModifiers`
-    (e.g. Wood's Fire weakness) are fixed per material tier and don't currently
-    improve with level in `data/buildings/wall.json`.
+    (e.g. Wood's Fire weakness) and flat `armor` (Steel's 5, mirroring Steel
+    Tower) are fixed per material tier and don't currently improve with level
+    in `data/buildings/wall.json`.
   - **Defensive buildings** (Turret, Missile Launcher, Grenade Tower, Flame Turret):
     each level grants a boost to HP, Damage, and possibly Range.
 - **Effective reachable level** for a production building = `min(HQ level,
@@ -190,7 +191,11 @@ upgrades a real pacing lever rather than a rubber-stamp:
 production-building model (alongside HQ being the exception to the non-production
 model) — it has a `troopList`-shaped roster of Commanders, but doesn't unlock them
 one-per-level. Instead it uses a dedicated `commanderProgression` shape
-(`data/buildings/schema.json`) with two parts:
+(`data/buildings/schema.json`) with two parts. It's also **`isFixed`** (`true` in
+`data/buildings/command_centre.json`), same pattern as HQ: pre-seeded on every
+Capital at match start (`data/bases/capital.json`'s `initialBuildings`), never
+freshly built even after capture, and not demolishable — only rebuildable from a
+ruin. Its own level (not building count) is what grows the Commander cap, so:
 - **`tierLevels`** (explicit per-level table, levels 1-3): each level unlocks a whole
   Commander **tier** at once (`common` at 1, `rare` at 2, `epic` at 3 — see
   `05-troop-stat-schema.md`'s `commander_tier` field), plus an absolute `hp` value and
