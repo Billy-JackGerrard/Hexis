@@ -4,7 +4,7 @@
   "category": "Defensive",
   "populationCost": 1,
 
-  "notes": "Generic default defense, buildable at every base. Base for every Turret variant (extends: \"turret\" — see cold_turret/emp_turret/flame_turret/grenade_tower/river_battery/wind_spire).",
+  "notes": "Generic default defense, buildable at every base. Base for every Turret variant (extends: \"turret\" — see cold_turret/emp_turret/flame_turret/grenade_tower/sniper_turret/wind_spire/wood_turret). Water Turret is multi-material rather than an extends-variant, like Tower/Wall/Dock/Bridge.",
 
   "defensiveStats": {
     "damage": 18,

@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Firebase only. Unlocks, in order: Flamecopter, Plasmacopter.",
+  "notes": "Tinder Box only. Unlocks, in order: Flamecopter, Plasmacopter.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 210, "unlocks": "flamecopter", "cost": { "stone": 400, "steel": 300 } },

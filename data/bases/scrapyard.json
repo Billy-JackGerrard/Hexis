@@ -14,6 +14,7 @@
     "salvage_works",
     "turret",
     "missile_launcher",
+    "sniper_turret",
     "wall",
     "hangar"
   ],
@@ -24,6 +25,7 @@
     { "buildingType": "quarry", "count": 1 },
     { "buildingType": "turret", "count": 1 },
     { "buildingType": "missile_launcher", "count": 1 },
+    { "buildingType": "sniper_turret", "count": 1 },
     { "buildingType": "salvage_works", "count": 1 },
     { "buildingType": "wall", "count": 6, "material": "stone" }
   ],
@@ -33,5 +35,5 @@
     { "troopId": "granite_crumbler", "count": 2 }
   ],
 
-  "notes": "Heavy-armor sustainment specialist Unique base — one instance on the map, sited on Plains, no terrain exception. Salvage Works builds Juggernaut, Repair Truck, and Granite Crumbler; Granite Crumbler was previously Fort Irongrad-exclusive and is now shared, same pattern as Juggernaut/Rocket Tank across Tank Plant/Frostworks. No specialty defense building — relies on generic Turret/Missile Launcher plus Walls, same as Kraken Point/Windy Peaks/Sky Fortress. initialGarrison omits Repair Truck (damage 0, empty canTarget — a pure support unit, not a combatant, same reasoning as excluding Engineer/Disruptor/Glider elsewhere)."
+  "notes": "Heavy-armor sustainment specialist Unique base — one instance on the map, sited on Plains, no terrain exception. Salvage Works builds Juggernaut, Repair Truck, and Granite Crumbler; Granite Crumbler was previously Fort Irongrad-exclusive and is now shared, same pattern as Juggernaut/Rocket Tank across Tank Plant/Frostworks. Sniper Turret is its specialty defense — a Turret variant scaled up from the Sniper troop (highest damage/range, slowest attack speed of any Turret variant, damageTypes: [Piercing] to bypass armor — see data/buildings/sniper_turret.json), the counter-side of the base's heavy-armor theme. initialGarrison omits Repair Truck (damage 0, empty canTarget — a pure support unit, not a combatant, same reasoning as excluding Engineer/Disruptor/Glider elsewhere)."
 }

@@ -28,7 +28,7 @@
   players can start close enough for an early rush to reach an enemy Capital before a
   defense can be organized.
 - **Every Unique base is genuinely unique**: at most one instance of each Unique base
-  type (Fort Irongrad, Firebase, Windy Peaks, Treehouse, Kraken Point, Sky Fortress,
+  type (Fort Irongrad, Tinder Box, Windy Peaks, Treehouse, Kraken Point, Sky Fortress,
   Winter Forge, ...) can exist on a map at any time — no duplicates. This means the
   2-Unique-bases-per-player ratio is drawn from the collective pool of distinct types,
   not "2 of whichever type," so whoever secures a given Unique base has an exclusive

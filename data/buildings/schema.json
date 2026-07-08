@@ -68,7 +68,7 @@
         "range": { "type": "number" },
         "splashRadius": { "type": "number", "default": 0 },
         "canTarget": { "type": "array", "items": { "type": "string" } },
-        "damageTypes": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Same mechanism as troop.schema.json's damageTypes — e.g. Flame Turret (Firebase) carries [\"Fire\"]." },
+        "damageTypes": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Same mechanism as troop.schema.json's damageTypes — e.g. Flame Turret (Tinder Box) carries [\"Fire\"]." },
         "damageDealtModifiers": { "type": "object", "additionalProperties": { "type": "number" } },
         "detector": { "type": "boolean", "default": false, "description": "Reveals stealthed units within detectionRange (or full visionRange if detectionRange is omitted), ignoring their revealRange. Revealing means the stealthed unit becomes visible/targetable to ANY of the owning player's troops/buildings within that same local radius, not just to this building itself — matters for Tower, whose own combat stats can lose to a full squad even once it reveals them; the point is stripping stealth for a garrison/wall/other defenses to finish, not necessarily soloing the kill." },
         "detectionRange": { "type": "number", "description": "Optional override for detector's stealth-sight radius, when it should differ from this building's own visionRange. Defaults to visionRange if omitted. Used by Tower (short detectionRange despite a long visionRange, so it clears normal fog-of-war far but only spots stealthed units up close) — Landmine's detector-side visibility (being spotted, not spotting) uses stealth/revealRange instead, an unrelated pair of fields." },

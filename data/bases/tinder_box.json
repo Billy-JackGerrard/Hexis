@@ -1,6 +1,6 @@
 {
-  "id": "firebase",
-  "baseType": "Firebase",
+  "id": "tinder_box",
+  "baseType": "Tinder Box",
   "isCapital": false,
 
   "buildableBuildings": [
@@ -10,7 +10,6 @@
     "quarry",
     "mine",
     "oil_rig",
-    "lumber_mill",
     "blazeworks",
     "barracks",
     "turret",
@@ -37,5 +36,5 @@
     { "troopId": "rifleman", "count": 4 }
   ],
 
-  "notes": "Incendiary air power specialist Unique base — one instance on the map. Blazeworks builds Flamecopter and Plasmacopter; Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Firebase its own infantry roster too. Flame Turret is the specialty defense (renamed from Flamethrower to avoid colliding with the Barracks infantry unit of the same name). Sited on Plains, no terrain exception."
+  "notes": "Incendiary air power specialist Unique base — one instance on the map. Blazeworks builds Flamecopter and Plasmacopter; Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Tinder Box its own infantry roster too. Flame Turret is the specialty defense (renamed from Flamethrower to avoid colliding with the Barracks infantry unit of the same name). Sited on Plains, no terrain exception."
 }

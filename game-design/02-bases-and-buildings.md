@@ -167,8 +167,8 @@ which is the sole source of truth for building-vs-base eligibility (see
 | Tank Plant | Heavy tanks (full roster, builds 3-5 at a time) | Fort Irongrad only |
 | Salvage Works | Juggernaut, Repair Truck, Granite Crumbler (heavy-armor sustainment subset) | Scrapyard only |
 | Grenade Tower | Defense — splash damage, cheap, short range/low damage | Fort Irongrad only |
-| Blazeworks | Flamecopter, Plasmacopter | Firebase only |
-| Flame Turret (renamed from Flamethrower) | Defense (fire) | Firebase only |
+| Blazeworks | Flamecopter, Plasmacopter | Tinder Box only |
+| Flame Turret (renamed from Flamethrower) | Defense (fire) | Tinder Box only |
 | Wind Sanctuary | Glider, Hot Air Balloon | Windy Peaks only (hill tiles) |
 | Wind Spire | Defense — low damage, strong knockback, bonus damage vs. Air | Windy Peaks only (hill tiles) |
 | Lumber Mill | Wood | Any base with a Forest-adjacent tile; Treehouse can additionally place it directly on Forest tiles (its specialty) |
@@ -298,7 +298,7 @@ the only one — Winter Forge's Frostworks and Scrapyard's Salvage Works (below)
 build subsets of the same roster, and heavy-tank access is expected to keep spreading
 to more bases over time.
 
-### Firebase
+### Tinder Box
 Incendiary air power specialist. Its defense building is called **Flame Turret**,
 renamed from Flamethrower specifically to avoid colliding with the Barracks infantry
 unit of the same name (see `08-troop-roster.md`).

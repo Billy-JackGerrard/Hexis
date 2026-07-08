@@ -10,7 +10,7 @@
     "baseType": {
       "type": "string",
       "enum": [
-        "Capital", "Fort Irongrad", "Firebase", "Windy Peaks", "Treehouse",
+        "Capital", "Fort Irongrad", "Tinder Box", "Windy Peaks", "Treehouse",
         "Kraken Point", "Sky Fortress", "Winter Forge", "Foundry Reach",
         "Signal Ridge", "Rivergate", "Camp Cosy", "Cloudreach", "Scrapyard"
       ],

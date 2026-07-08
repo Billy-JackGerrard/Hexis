@@ -13,18 +13,19 @@
     "lumber_mill",
     "iron_aviary",
     "hangar",
-    "turret",
+    "sniper_turret",
     "missile_launcher",
     "hospital",
-    "wall"
+    "wall",
+    "harbour"
   ],
 
   "initialBuildings": [
     { "buildingType": "hq", "count": 1 },
     { "buildingType": "farm", "count": 1 },
     { "buildingType": "quarry", "count": 1 },
-    { "buildingType": "turret", "count": 1 },
-    { "buildingType": "missile_launcher", "count": 1 },
+    { "buildingType": "sniper_turret", "count": 1 },
+    { "buildingType": "missile_launcher", "count": 2 },
     { "buildingType": "iron_aviary", "count": 1 },
     { "buildingType": "wall", "count": 6, "material": "stone" }
   ],

@@ -1,0 +1,37 @@
+{
+  "id": "sniper_turret",
+  "name": "Sniper Turret",
+  "category": "Defensive",
+  "populationCost": 1,
+  "extends": "turret",
+
+  "notes": "Scrapyard's specialty defense. A Turret variant - highest single-hit damage and longest range of any Turret variant, but the slowest attack speed, and damageTypes: [Piercing] bypasses the target's flat armor stat entirely. Fits Scrapyard's heavy-armor theme from the counter side — Salvage Works produces heavy armor, Sniper Turret is what picks off an approaching heavy tank at range before it closes distance, rather than needing to out-tank it up close. No splash, no status effect, no domain bonus — pure high-damage precision shot is the whole specialization.",
+
+  "defensiveStats": {
+    "damage": 35,
+    "attackSpeed": 0.5,
+    "range": 7,
+    "splashRadius": 0,
+    "canTarget": ["Infantry", "Land", "Naval", "Air"],
+    "damageTypes": ["Piercing"],
+    "visionRange": 9
+  },
+
+  "nonProductionUpgrade": {
+    "baseStats": {
+      "hp": 220,
+      "damage": 35,
+      "range": 7
+    },
+    "statGrowth": {
+      "hp": { "mode": "percent", "value": 12 },
+      "damage": { "mode": "percent", "value": 10 },
+      "range": { "mode": "flat", "value": 0.3 }
+    },
+    "baseCost": {
+      "stone": 110,
+      "steel": 90
+    },
+    "costGrowth": { "mode": "percent", "value": 25 }
+  }
+}

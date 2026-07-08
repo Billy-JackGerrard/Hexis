@@ -60,7 +60,7 @@ doc records design rationale, not the numbers themselves.
 | Salvage Works | Granite Crumbler (shared w/ Tank Plant) | Salvage Works' level-3 unlock, no longer Fort Irongrad-exclusive. See Fort Irongrad above |
 | Salvage Works | **Repair Drone** | Salvage Works' level-4 unlock. Air-domain heal aura (see Cloudreach below for full stats) — Scrapyard's heavy-armor sustainment identity extends to any escorting Air squads too, not just its own Land vehicles |
 
-### Firebase
+### Tinder Box
 | Building | Unit(s) | Notes |
 |---|---|---|
 | Blazeworks | **Flamecopter** (renamed from Flame Helicopter) | Short range, high splash, fire damage. Cannot target Air. Stats implemented, see `data/troops/flamecopter.json` |

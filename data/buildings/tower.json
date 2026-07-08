@@ -23,7 +23,7 @@
         "range": { "mode": "flat", "value": 0.25 },
         "visionRange": { "mode": "flat", "value": 0.5 }
       },
-      "baseCost": { "stone": 150, "steel": 100 },
+      "baseCost": { "stone": 150 },
       "costGrowth": { "mode": "percent", "value": 50 },
       "canTarget": ["Infantry", "Land", "Air", "Naval"],
       "damageTypes": ["Piercing"],
@@ -56,7 +56,7 @@
         "range": { "mode": "flat", "value": 0 },
         "visionRange": { "mode": "flat", "value": 0 }
       },
-      "baseCost": { "steel": 200, "stone": 50 },
+      "baseCost": { "steel": 200 },
       "costGrowth": { "mode": "percent", "value": 50 },
       "canTarget": ["Infantry", "Land", "Naval"],
       "damageTypes": [],

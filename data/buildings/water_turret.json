@@ -1,0 +1,67 @@
+{
+  "id": "water_turret",
+  "name": "Water Turret",
+  "category": "Defensive",
+  "populationCost": 1,
+
+  "materials": ["stone", "wood", "steel"],
+
+  "notes": "Rivergate and Kraken Point's shared specialty defense (renamed from River Battery), in addition to the generic Turret/Missile Launcher every base gets. A literal high-pressure water cannon — the jet is the weapon, no explosive/ballistic payload involved, which is why it trades Air targeting for a bonus against Naval targets instead: hard to aim a water jet skyward at a moving aircraft, but devastating against a hull at the waterline. At Rivergate it covers a river crossing (rivers are naval-passable all the way inland from the sea, so without this an enemy fleet could otherwise sail straight past uncontested); at Kraken Point it's the naval capstone base's coastal defense, reusing the same building rather than inventing a second one, same pattern as Granite Crumbler/Juggernaut sharing across bases. Must be placed adjacent to Water (Ocean or River) so it can actually cover the crossing/coastline it exists to defend. Multi-material like Tower/Wall/Dock/Bridge (materials/materialStats) rather than a Turret extends-variant, since each material plays genuinely differently, matching Tower's split: Stone is the balanced baseline. Wood is cheap/fragile/Fire-vulnerable but attacks fastest and is priced to spam early against small raiding fleets, at the cost of the smallest per-hit Naval bonus. Steel is the priciest, tankiest (flat armor, mirroring Steel Tower/Steel Wall), splashes on hit (like Steel Tower's bunker role) and carries the largest single-target Naval multiplier — a slow-firing coastal bunker built to punish a grouped push rather than chase individual raiders.",
+
+  "placementRequirement": {
+    "adjacentTerrainRequired": "Water"
+  },
+
+  "materialStats": {
+    "stone": {
+      "baseStats": { "hp": 250, "damage": 16, "attackSpeed": 1.2, "range": 4, "visionRange": 8 },
+      "statGrowth": {
+        "hp": { "mode": "percent", "value": 12 },
+        "damage": { "mode": "percent", "value": 10 },
+        "attackSpeed": { "mode": "flat", "value": 0 },
+        "range": { "mode": "flat", "value": 0.5 },
+        "visionRange": { "mode": "flat", "value": 0.5 }
+      },
+      "baseCost": { "stone": 140 },
+      "costGrowth": { "mode": "percent", "value": 25 },
+      "canTarget": ["Infantry", "Land", "Naval"],
+      "damageTypes": [],
+      "splashRadius": 0,
+      "damageDealtModifiers": { "Naval": 2.5 }
+    },
+    "wood": {
+      "baseStats": { "hp": 150, "damage": 10, "attackSpeed": 1.6, "range": 4, "visionRange": 8 },
+      "statGrowth": {
+        "hp": { "mode": "percent", "value": 15 },
+        "damage": { "mode": "flat", "value": 1 },
+        "attackSpeed": { "mode": "flat", "value": 0 },
+        "range": { "mode": "flat", "value": 0 },
+        "visionRange": { "mode": "flat", "value": 0 }
+      },
+      "baseCost": { "wood": 70 },
+      "costGrowth": { "mode": "percent", "value": 20 },
+      "canTarget": ["Infantry", "Land", "Naval"],
+      "damageTypes": [],
+      "splashRadius": 0,
+      "damageDealtModifiers": { "Naval": 1.5 },
+      "damageReceivedModifiers": { "Fire": 2.0 }
+    },
+    "steel": {
+      "baseStats": { "hp": 350, "armor": 3, "damage": 15, "attackSpeed": 0.9, "range": 4, "visionRange": 8 },
+      "statGrowth": {
+        "hp": { "mode": "percent", "value": 10 },
+        "armor": { "mode": "flat", "value": 0 },
+        "damage": { "mode": "percent", "value": 8 },
+        "attackSpeed": { "mode": "flat", "value": 0 },
+        "range": { "mode": "flat", "value": 0 },
+        "visionRange": { "mode": "flat", "value": 0 }
+      },
+      "baseCost": { "steel": 180 },
+      "costGrowth": { "mode": "percent", "value": 25 },
+      "canTarget": ["Infantry", "Land", "Naval"],
+      "damageTypes": [],
+      "splashRadius": 1,
+      "damageDealtModifiers": { "Naval": 2.0 }
+    }
+  }
+}

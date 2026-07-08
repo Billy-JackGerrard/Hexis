@@ -17,7 +17,7 @@
     "ford_yard",
     "turret",
     "missile_launcher",
-    "river_battery",
+    "water_turret",
     "wall"
   ],
 
@@ -31,7 +31,7 @@
     { "buildingType": "quarry", "count": 1 },
     { "buildingType": "turret", "count": 1 },
     { "buildingType": "missile_launcher", "count": 1 },
-    { "buildingType": "river_battery", "count": 2 },
+    { "buildingType": "water_turret", "count": 2 },
     { "buildingType": "ford_yard", "count": 1 },
     { "buildingType": "wall", "count": 6, "material": "stone" }
   ],
@@ -42,5 +42,5 @@
     { "troopId": "rifleman", "count": 4 }
   ],
 
-  "notes": "River-crossing specialist Unique base — one instance on the map, sited on Plains like every other base, no buildings placed on the river itself. Ford Yard builds Amphibious Raider (fords rivers directly, no Bridge needed) and Submarine (also built at Kraken Point's Shipyard); Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Rivergate its own infantry roster too; Port/Harbour are also buildable given this base's water/river adjacency. River Battery is the specialty defense — a Turret variant trading Air targeting for bonus damage vs. Naval, must be placed adjacent to a Water tile (Ocean or River) to actually cover the crossing. +25% Harbour bonus is a building-scoped resourceModifiers entry (multiplier 1.25)."
+  "notes": "River-crossing specialist Unique base — one instance on the map, sited on Plains like every other base, no buildings placed on the river itself. Ford Yard builds Amphibious Raider (fords rivers directly, no Bridge needed) and Submarine (also built at Kraken Point's Shipyard); Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Rivergate its own infantry roster too; Port/Harbour are also buildable given this base's water/river adjacency. Water Turret is the specialty defense (shared with Kraken Point) — a high-pressure water-cannon turret trading Air targeting for bonus damage vs. Naval, must be placed adjacent to a Water tile (Ocean or River) to actually cover the crossing. +25% Harbour bonus is a building-scoped resourceModifiers entry (multiplier 1.25)."
 }

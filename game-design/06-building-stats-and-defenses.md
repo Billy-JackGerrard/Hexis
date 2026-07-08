@@ -73,18 +73,23 @@ These use the same combat-facing fields as troops:
 | Building | Available at | Known character |
 |---|---|---|
 | Turret | All bases | Generic default defense |
-| Missile Launcher | All bases | Generic default defense — confirmed anti-air generalist (`damageDealtModifiers: {Air: 1.5}`), since Grenade Tower/Flame Turret are already ground-specialized |
+| Missile Launcher | All bases | Generic default defense — confirmed anti-air generalist (`damageDealtModifiers: {Air: 1.5}`), since Grenade Tower/Flame Turret are already ground-specialized. Also carries `statusEffectOnHit: {type: stun, duration: 1.5, chance: 10}` — a low-chance stun proc on top of its raw damage/anti-air role |
 | Grenade Tower | Fort Irongrad only | Cheap, short range, low damage, splash |
-| Flame Turret (renamed from Flamethrower) | Firebase only | Fire-tagged damage, bonus vs Wood-tagged targets/walls |
+| Flame Turret (renamed from Flamethrower) | Tinder Box only | Fire-tagged damage, bonus vs Wood-tagged targets/walls |
 | Cold Turret | Winter Forge only | Ice bombs, medium-low range, low damage, applies `status_effect_on_hit: {type: freeze}` for a couple seconds — crowd control over raw damage |
-| River Battery | Rivergate only | Turret variant, trades Air targeting for a bonus vs. Naval targets; must be placed adjacent to Water |
+| Water Turret (renamed from River Battery) | Rivergate and Kraken Point | A literal high-pressure water cannon — trades Air targeting for a bonus vs. Naval targets; must be placed adjacent to Water. Shared between Rivergate (covers the river crossing) and Kraken Point (ocean-edge site trivially satisfies the Water-adjacency requirement, so it doubles as the naval capstone's coastal defense), same shared-building pattern as Granite Crumbler/Juggernaut. Multi-material like Tower (Stone/Wood/Steel), each playing differently: Wood is cheap/fast/Fire-vulnerable with the smallest Naval bonus, Stone is the balanced baseline, Steel is tanky/armored/splashes on hit with the largest Naval bonus |
 | Wind Spire | Windy Peaks only (hill tiles) | Turret variant, low damage, applies `status_effect_on_hit: {type: knockback}` on every hit, large damage bonus vs. Air |
 | EMP Turret | Signal Ridge only | Turret variant, low damage, applies `status_effect_on_hit: {type: emp}` on every hit — immobilizes Land vehicles, destroys Air troops outright (except empImmune troops: Hot Air Balloon, Glider), no effect on Infantry/Naval beyond direct damage |
+| Wood Turret | Treehouse only | Turret variant carrying over Wood Tower's stats and `addsTurretPerLevel` mechanic wholesale — low damage, fast attack speed, each upgrade level adds an independently-targeting turret rather than scaling its own stats. Swarm-clearing identity matching Treehouse's Quad-bike-heavy garrison. Fire-vulnerable like every other Wood structure. Single-material (no Stone/Steel variant) and tied to a base (normal populationCost/ruin rules), unlike standalone Tower |
+| Sniper Turret | Scrapyard only | Turret variant scaled up from the Sniper troop's identity — highest single-hit damage and longest range of any Turret variant, but the slowest attack speed; `damageTypes: [Piercing]` bypasses target armor entirely (see `05-troop-stat-schema.md`'s armor field). No splash, no status effect — the counter-side of Scrapyard's heavy-armor theme, picking off Juggernaut/Chonky/Granite Crumbler/Rocket Tank/Frost Tank-grade armor at range rather than out-tanking it up close |
 | Walls (Wood/Stone/Steel) | All (Wood requires access to Wood, from any base's Lumber Mill) | Not a "defense" that attacks, but has HP + damage-received modifiers (Wood: weak vs Fire). Disappears on destruction rather than ruining (see Destruction & Ruins above) |
+| Landmine | Anywhere (standalone, Engineer-built) | Stealthed trap (`stealth: true`, `revealRange: 1`) — invisible until an enemy Infantry/Land troop is within 1 hex or a detector spots it at full `visionRange`. Very low HP; on trigger it deals a splash hit and self-destructs (`selfDestructOnTrigger: true`) rather than persisting as a repeating attacker. Standalone like Road/Bridge/Dock/Tower — deletes outright on destruction, no ruin, no rebuild discount |
 
 - **Stealth detection is resolved**: Radar Array (Signal Ridge, Support-category)
-  carries the top-level `detector: true` flag; no Defensive building currently doubles
-  as a detector.
+  carries the top-level `detector: true` flag as its map-wide, fixed detector. Tower
+  also carries `detector: true` (short `detectionRange`, see the Tower section below)
+  — it is a Defensive building that doubles as a detector, unlike every other
+  Defensive building.
 
 ## Support Buildings (Hospital, Ice Spire, House, Hangar)
 Support buildings reuse the troop schema's **auras** field (`05-troop-stat-schema.md`)
@@ -329,11 +334,21 @@ Docks and Bridges (in addition to Walls) can now be built in **either Stone or W
 - Defensive buildings use pure stat scaling per level (hp/damage/range via
   `nonProductionUpgrade`) — no new `can_target` entries unlock at higher levels.
 
-## Known Data Inconsistencies (need a decision, not yet fixed)
-- `data/buildings/emp_turret.json`'s `defensiveStats` omits `canTarget` entirely; per
+## Fixed Data Inconsistencies
+- `data/buildings/emp_turret.json`'s `defensiveStats` omitted `canTarget` entirely; per
   the `extends` rule in `data/buildings/schema.json` (a variant's `defensiveStats`
-  overrides the base wholesale, not merged key-by-key), this Turret variant may not be
-  able to target anything as authored.
+  overrides the base wholesale, not merged key-by-key), this left the Turret variant
+  unable to target anything as authored. **Fixed**: `canTarget` now restates Turret's
+  full four domains (Infantry/Land/Naval/Air).
+- `data/buildings/river_battery.json`'s `defensiveStats` had the same wholesale-override
+  gap, but worse — it stated only `canTarget`/`damageDealtModifiers`, silently dropping
+  `damage`/`attackSpeed`/`range`/`splashRadius`/`visionRange`/`damageTypes`, and had no
+  `nonProductionUpgrade` block at all (relying on an unstated inherit from Turret,
+  unlike every other Turret variant which restates its own block explicitly). **Fixed**,
+  then **superseded**: River Battery was subsequently converted to a multi-material
+  building (Stone/Wood/Steel, see below), which sidesteps the `extends` wholesale-
+  override trap entirely since it no longer uses `extends` — each material fully
+  restates its own block, the same pattern Tower/Wall/Dock/Bridge already use.
 
 ## Resolved Decisions
 - **Walls never attack** — purely passive HP barriers, no contact/spike damage. This is
