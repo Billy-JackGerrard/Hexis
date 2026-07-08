@@ -1,0 +1,13 @@
+{
+  "id": "demolition_plant",
+  "name": "Demolition Plant",
+  "category": "Production",
+  "populationCost": 1,
+
+  "notes": "",
+
+  "productionUpgradeLevels": [
+    { "level": 1, "hp": 430, "unlocks": "tank_obliterator", "cost": { "stone": 780, "steel": 620 } },
+    { "level": 2, "hp": 660, "unlocks": "earthshaker", "cost": { "stone": 1300, "steel": 900 } }
+  ]
+}

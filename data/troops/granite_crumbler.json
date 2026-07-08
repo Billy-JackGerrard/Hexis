@@ -8,9 +8,9 @@
   "armor": 2,
   "damage": 40,
   "attackSpeed": 0.5,
-  "range": 8,
+  "range": 7,
   "splashRadius": 1,
-  "visionRange": 10,
+  "visionRange": 8,
   "speed": 1.6,
 
   "maxSquadSize": 4,

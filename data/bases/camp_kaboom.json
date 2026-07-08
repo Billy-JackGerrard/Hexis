@@ -1,0 +1,38 @@
+{
+  "id": "camp_kaboom",
+  "baseType": "Camp Kaboom",
+  "isCapital": false,
+
+  "buildableBuildings": [
+    "hq",
+    "house",
+    "farm",
+    "quarry",
+    "mine",
+    "oil_rig",
+    "lumber_mill",
+    "demolition_plant",
+    "grenade_tower",
+    "missile_launcher",
+    "emp_turret",
+    "wall"
+  ],
+
+  "initialBuildings": [
+    { "buildingType": "hq", "count": 1 },
+    { "buildingType": "farm", "count": 1 },
+    { "buildingType": "quarry", "count": 1 },
+    { "buildingType": "grenade_tower", "count": 2 },
+    { "buildingType": "missile_launcher", "count": 1 },
+    { "buildingType": "emp_turret", "count": 1 },
+    { "buildingType": "demolition_plant", "count": 1 },
+    { "buildingType": "wall", "count": 6, "material": "stone" }
+  ],
+
+  "initialGarrison": [
+    { "troopId": "earthshaker", "count": 2 },
+    { "troopId": "tank_obliterator", "count": 2 }
+  ],
+
+  "notes": ""
+}

@@ -25,10 +25,39 @@ Or they can, but hot air balloon counts as a helicopter, and gliders.. see below
 Gliders. Maybe they're actually infantry? But when spawned and when walking off a hill, they "glide" by flying for X seconds before returning to infantry mode?
 
 
+should flamecopter have a burning effect?
+
 
 Should amphibious raider be able to be turned into Naval class, so it can be targeted by submarines etc
 
 
 NEW TROOPS:
 
-possibly some kind of rail gun, that can go through troops, area damage in the form of a line 1 hex wide and like 4-6 hexes long?
+TANK OBLITERATOR
+possibly some kind of rail gun (Tank slicer? Rail tank? Tankkiller?)
+that originates at the tank and goes through troops (but blocked by buildings), area damage in the form of a line 1 hex wide and like 4-6 hexes long?
+lower damage to structures and defensive
+can't hit air or naval, slow attack speed (or maybe each attack lasts for 2 seconds, doing damage every tick or whatever, but then takes 4-6 seconds to recharge?)
+NEED TO ADD
+
+
+EARTHSHAKER
+NEED TO ADD MINIMUM RANGE
+SLOW PROJECTILE
+
+
+
+
+BUILDINGS:
+
+Should we rename grenade tower to be grenade turret?
+
+
+
+OTHER
+
+How does splash damage work?
+0 = one target
+1 = one hex around it (i think? worth asking)
+
+so what about only one hex/same hex, but all troops in it?
