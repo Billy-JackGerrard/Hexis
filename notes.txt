@@ -1,4 +1,4 @@
-private notes - not for ai
+notes/ideas to get back to later
 
 
 TROOP POSITIONING:
@@ -27,3 +27,8 @@ Gliders. Maybe they're actually infantry? But when spawned and when walking off 
 
 
 Should amphibious raider be able to be turned into Naval class, so it can be targeted by submarines etc
+
+
+NEW TROOPS:
+
+possibly some kind of rail gun, that can go through troops, area damage in the form of a line 1 hex wide and like 4-6 hexes long?
