@@ -68,8 +68,34 @@ writing real UI code does, and it also needs actual game state to bind to.
      base siting with spacing/terrain/uniqueness constraints
      (`sim/worldgen/`, `sim/map_generator.gd`, `tests/test_map_generation.gd`).
 2. **Godot rendering scaffold** — a minimal scene rendering one base,
-   click-to-move wired to the sim core.
-   - [ ] Not started.
+   click-to-move wired to the sim core. New `client/` folder, sibling to
+   `sim/`, never the reverse — `sim/` stays engine/scene-free per
+   `07-data-architecture.md` section 8.
+   - [x] `client/main.gd`/`main.tscn` — builds a demo `MatchState` (reusing
+     the construction pattern already proven in
+     `tests/test_sim_orchestrator.gd`) and drives
+     `SimOrchestrator.resolve_tick()` every frame.
+   - [x] `client/hex_view.gd` — axial↔pixel projection (flat-top). The one
+     genuinely new piece of math this slice needs:
+     `sim/hex/hex_coord.gd` explicitly leaves orientation as "a rendering
+     concern, not decided here."
+   - [x] `client/board.gd` — terrain as flat-color hex fills (`Terrain.Type`
+     → color, drawn via `_draw()` rather than one `Polygon2D` node per hex),
+     no `TileMap`, per the Rendering Notes in `01-map-and-terrain.md`.
+   - [x] `client/base_view.gd` / `client/squad_view.gd` — one base's
+     buildings and a squad of Riflemen as placeholder shapes, owner-tinted,
+     position read from sim state each frame (`squad_view.gd` interpolates
+     `current_hex` → `path[0]` over `edge_progress`, rendering-only per
+     section 7/8's "counting up between ticks is visual only").
+   - [x] `client/input_controller.gd` — click → hex, single-squad select,
+     click-to-move calls `CommandProcessor.move_squad()` (already fully
+     validated — no new sim logic needed).
+   - **Deferred to a later rendering pass** (known and postponed, not
+     forgotten): fog-of-war overlay/shader (`VisionSystem` output already
+     exists in `state.visions`, just not wired to a visual yet), multiple
+     bases / the full procedural map, camera pan/zoom polish, control
+     groups/drag-select/regiment visuals, real art. Build menu, production
+     queue UI, resource HUD, and minimap are item 3 below, not this slice.
 3. **UI layer** — `Control`-node HUD (resources, build menu, minimap) bound to
    sim state via signals.
    - [ ] Not started.
