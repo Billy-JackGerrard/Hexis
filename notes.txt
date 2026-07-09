@@ -37,11 +37,6 @@ NEW TROOPS:
 
 
 
-BUILDINGS:
-
-Should we rename grenade tower to be grenade turret?
-
-
 
 OTHER
 

@@ -90,12 +90,26 @@ writing real UI code does, and it also needs actual game state to bind to.
    - [x] `client/input_controller.gd` — click → hex, single-squad select,
      click-to-move calls `CommandProcessor.move_squad()` (already fully
      validated — no new sim logic needed).
-   - **Deferred to a later rendering pass** (known and postponed, not
-     forgotten): fog-of-war overlay/shader (`VisionSystem` output already
-     exists in `state.visions`, just not wired to a visual yet), multiple
-     bases / the full procedural map, camera pan/zoom polish, control
-     groups/drag-select/regiment visuals, real art. Build menu, production
-     queue UI, resource HUD, and minimap are item 3 below, not this slice.
+   - [x] Fog-of-war overlay (`client/fog_of_war.gd`) — reads `state.visions`
+     (already computed every tick by `VisionSystem.resolve_tick`), draws an
+     opaque hex over unexplored tiles and a dimmed one over explored-but-not-
+     currently-visible tiles, read-only like every other `client/` node.
+   - [x] Multiple bases / full procedural map — the demo scene now calls
+     `MapGenerator.generate()` for a 2-player map instead of a hand-built
+     flat grid, rendering every Capital/Unique base it sites
+     (`client/main.gd`).
+   - [x] Camera pan/zoom (`client/camera_controller.gd`) — right-mouse-drag
+     pans, scroll wheel zooms; left button stays exclusively
+     `InputController`'s.
+   - [x] Drag-select + control groups + regiment visuals
+     (`client/input_controller.gd`, `client/squad_view.gd`) — left-drag a
+     box to multi-select, shift-click/-drag to add, number keys 1-9 recall a
+     control group (Ctrl+number assigns one); `SquadView` draws a ring
+     around each Commander and a line to each of its escorts straight off
+     `state.regiments`.
+   - **Still deferred to a later rendering pass** (known and postponed, not
+     forgotten): real art. Build menu, production queue UI, resource HUD,
+     and minimap are item 3 below, not this slice.
 3. **UI layer** — `Control`-node HUD (resources, build menu, minimap) bound to
    sim state via signals.
    - [ ] Not started.
