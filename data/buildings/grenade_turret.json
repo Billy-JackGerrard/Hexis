@@ -11,7 +11,7 @@
     "damage": 10,
     "attackSpeed": 0.9,
     "range": 3,
-    "splashRadius": 2,
+    "splashRadius": 3,
     "canTarget": ["Infantry", "Land"],
     "visionRange": 5
   },

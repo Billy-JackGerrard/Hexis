@@ -11,7 +11,7 @@
     "damage": 14,
     "attackSpeed": 1.1,
     "range": 3,
-    "splashRadius": 1,
+    "splashRadius": 2,
     "canTarget": ["Infantry", "Land"],
     "damageTypes": ["Fire"],
     "visionRange": 5

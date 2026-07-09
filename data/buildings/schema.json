@@ -66,7 +66,7 @@
         "damage": { "type": "number" },
         "attackSpeed": { "type": "number" },
         "range": { "type": "number" },
-        "splashRadius": { "type": "number", "default": 0 },
+        "splashRadius": { "type": "number", "default": 0, "description": "0 = single-target. 1-indexed against the impact hex: 1 = impact hex only, 2 = impact hex + the ring at distance 1, 3 = + the ring at distance 2, etc. — see troop.schema.json's splashRadius for the full rule (same field, same resolver code path)." },
         "canTarget": { "type": "array", "items": { "type": "string" } },
         "damageTypes": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Same mechanism as troop.schema.json's damageTypes — e.g. Flame Turret (Tinder Box) carries [\"Fire\"]." },
         "damageDealtModifiers": { "type": "object", "additionalProperties": { "type": "number" } },

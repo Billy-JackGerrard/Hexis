@@ -52,8 +52,14 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   enough to hit anything standing right next to it. `CombatTargeting.candidates()`
   treats anything closer than `minRange` the same as anything beyond `range`: simply
   not a legal target, whether picked automatically or via a directed order.
-- **Splash radius** — 0 for single-target units; >0 applies damage to a radius around
-  the impact point (e.g. Grenade Turret, Hot Air Balloon, Plasmacopter).
+- **Splash radius** — 0 for single-target units. Above 0 it's 1-indexed against the
+  impact hex rather than a raw hex distance: `1` damages every other enemy standing on
+  the impact hex itself (no spread to neighboring hexes), `2` adds the ring at distance
+  1 out, `3` adds the ring at distance 2, and so on (`CombatResolver._apply_attack`
+  checks `distance <= splashRadius - 1`). This lets `1` mean "hit the whole stack on the
+  hex I shot at" without also reaching adjacent hexes — a distinct tier from "no splash
+  at all" (`0`), which the raw hex-distance reading couldn't express (e.g. Grenade
+  Turret, Hot Air Balloon, Plasmacopter).
 - **Line attack** (`lineAttack`, bool, default false) — an alternate AoE shape to
   Splash radius's circle: instead of splashing around a single impact point, the
   attack fires a straight, 1-hex-wide beam from the attacker's own hex through the

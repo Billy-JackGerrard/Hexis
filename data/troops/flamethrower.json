@@ -8,7 +8,7 @@
   "damage": 8,
   "attackSpeed": 1,
   "range": 2,
-  "splashRadius": 1,
+  "splashRadius": 2,
   "visionRange": 8,
   "speed": 1.1,
 

@@ -15,7 +15,12 @@
 ## Simplifications noted for later slices: an attack on a squad focus-fires its
 ## first living member (overflow past a kill is lost); splash hits one member
 ## per other enemy squad in radius (not every stacked member) and never friendly
-## units. A non-HQ base building at 0 HP becomes a ruin (stays in base.buildings,
+## units. splashRadius is 1-indexed against the impact hex: 1 means every other
+## enemy on the impact hex itself (no spread to neighbors), 2 adds the ring at
+## distance 1, 3 the ring at distance 2, etc. — see _apply_attack's
+## `splash_radius - 1` distance check.
+##
+## A non-HQ base building at 0 HP becomes a ruin (stays in base.buildings,
 ## non-functional) rather than being removed; an HQ at 0 HP instead flips its
 ## base to the attacker and respawns at full HP (see _prune_dead). Standalone
 ## buildings (Tower/Landmine — the only standalone types with combat HP; Road/
@@ -241,8 +246,9 @@ static func _trigger_self_destruct(building: BuildingInstance, owner_id: String,
 
 ## One attack: either a line-attack beam (attacker_def.lineAttack — see
 ## _apply_line_attack) OR the usual full damage to the primary target plus the
-## same computed damage to every OTHER enemy target within splash radius of
-## the impact hex. Either way, the attacker's statusEffectOnHit (if any) is
+## same computed damage to every OTHER enemy target within `splash_radius - 1`
+## hexes of the impact hex (splashRadius is 1-indexed: 1 = impact hex only, 2
+## = impact hex + 1 ring out, etc.). Either way, the attacker's statusEffectOnHit (if any) is
 ## then rolled and applied to the PRIMARY target only — see StatusEffectSystem's
 ## scoping note on splash (a line attack's extra victims are scoped the same
 ## way splash's are: damage only, never a status effect).
@@ -255,7 +261,7 @@ static func _apply_attack(attacker_def: Dictionary, base_damage: float, attacker
 			for other in targets:
 				if other == target or other.owner_id == attacker_owner or not other.is_alive():
 					continue
-				if HexCoord.distance(target.hex, other.hex) <= splash_radius:
+				if HexCoord.distance(target.hex, other.hex) <= splash_radius - 1:
 					_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
 
 	var status_effect: Dictionary = attacker_def.get("statusEffectOnHit", {})

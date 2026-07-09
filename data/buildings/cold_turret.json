@@ -11,7 +11,7 @@
     "damage": 8,
     "attackSpeed": 0.8,
     "range": 4,
-    "splashRadius": 1,
+    "splashRadius": 2,
     "canTarget": ["Infantry", "Land", "Naval"],
     "visionRange": 5,
     "statusEffectOnHit": { "type": "freeze", "duration": 2, "magnitude": 0 }

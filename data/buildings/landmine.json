@@ -12,7 +12,7 @@
   "defensiveStats": {
     "damage": 70,
     "range": 1,
-    "splashRadius": 1,
+    "splashRadius": 2,
     "canTarget": ["Infantry", "Land"],
     "damageTypes": [],
     "visionRange": 1,

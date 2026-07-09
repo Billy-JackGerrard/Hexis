@@ -11,7 +11,7 @@
     "damage": 6,
     "attackSpeed": 0.8,
     "range": 5,
-    "splashRadius": 2,
+    "splashRadius": 3,
     "canTarget": ["Infantry", "Land", "Naval", "Air"],
     "visionRange": 6,
     "statusEffectOnHit": { "type": "emp", "duration": 3 }

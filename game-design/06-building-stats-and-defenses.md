@@ -61,7 +61,7 @@ These use the same combat-facing fields as troops:
 | Damage | number | base damage per attack |
 | Attack speed | number | attacks per time unit |
 | Range | number | engagement range |
-| Splash radius | number | 0 = single-target (e.g. Turret); >0 for Grenade Turret, etc. |
+| Splash radius | number | 0 = single-target (e.g. Turret); 1-indexed above that against the impact hex — 1 = impact hex only, 2 = +1 ring out, etc. (see `05-troop-stat-schema.md`) — e.g. Grenade Turret, etc. |
 | can_target | list of tags | e.g. Missile Launcher may include `Air`; Turret may not. Reserved value `Structure` isn't relevant here — defensive buildings target troops, not other structures |
 | damage_types | list | e.g. Flame Turret carries `[Fire]` (see `05-troop-stat-schema.md`) |
 | Damage dealt modifiers | dict `{tag: multiplier}` | e.g. Flame Turret vs Wood-tagged targets |

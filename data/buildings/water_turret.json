@@ -60,7 +60,7 @@
       "costGrowth": { "mode": "percent", "value": 25 },
       "canTarget": ["Infantry", "Land", "Naval"],
       "damageTypes": [],
-      "splashRadius": 1,
+      "splashRadius": 2,
       "damageDealtModifiers": { "Naval": 2.0 }
     }
   }

@@ -53,3 +53,6 @@ so what about only one hex/same hex, but all troops in it?
 
 we dont have projectile speed in. could be something to add, 
 eg earthshaker has a LOW PROJECTILE
+
+
+possibly we could have cone gun mechanics? eg wind spire.

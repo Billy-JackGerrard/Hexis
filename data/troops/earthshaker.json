@@ -10,7 +10,7 @@
   "attackSpeed": 0.2,
   "range": 8,
   "minRange": 2,
-  "splashRadius": 2,
+  "splashRadius": 3,
   "visionRange": 8,
   "speed": 1.1,
 
