@@ -63,6 +63,10 @@ writing real UI code does, and it also needs actual game state to bind to.
      `buildableBuildings`, and four new air troops (Cargocopter,
      Kleptocopter, Repair Drone, Shadowcopter) — closes the fuel-rework
      item's deferred "nothing can dock yet" gap.
+   - [x] Procedural map/terrain generation — hexagon landmass + strategic
+     ocean fringe, Forest/Hill biome clusters, rivers, and Capital/Unique
+     base siting with spacing/terrain/uniqueness constraints
+     (`sim/worldgen/`, `sim/map_generator.gd`, `tests/test_map_generation.gd`).
 2. **Godot rendering scaffold** — a minimal scene rendering one base,
    click-to-move wired to the sim core.
    - [ ] Not started.

@@ -38,7 +38,7 @@ Unlike a player's Capital (which starts bare and is built up from scratch over t
 match), a neutral **Unique base already has a working base built** when the match
 starts:
 - Its generic defenses (Turret, Missile Launcher) and its specialty defensive building
-  (e.g. Grenade Tower, Flame Turret, Cold Turret) are already built.
+  (e.g. Grenade Turret, Flame Turret, Cold Turret) are already built.
 - Its troop-production building(s) (e.g. Tank Plant, Wind Sanctuary) are already built.
 - Its walls are already built.
 - It holds a **standing garrison of troops** — only unit types that base's own
@@ -166,7 +166,8 @@ which is the sole source of truth for building-vs-base eligibility (see
 | Port | Navy (basic roster) | Any base with a water-adjacent tile |
 | Tank Plant | Heavy tanks (full roster, builds 3-5 at a time) | Fort Irongrad only |
 | Salvage Works | Juggernaut, Repair Truck, Granite Crumbler (heavy-armor sustainment subset) | Scrapyard only |
-| Grenade Tower | Defense — splash damage, cheap, short range/low damage | Fort Irongrad only |
+| Demolition Plant | Tank Obliterator, Earthshaker (rail gun/siege-artillery pair) | Camp Kaboom only |
+| Grenade Turret | Defense — splash damage, cheap, short range/low damage | Fort Irongrad, Camp Kaboom |
 | Blazeworks | Flamecopter, Plasmacopter | Tinder Box only |
 | Flame Turret (renamed from Flamethrower) | Defense (fire) | Tinder Box only |
 | Wind Sanctuary | Glider, Hot Air Balloon | Windy Peaks only (hill tiles) |
@@ -190,7 +191,7 @@ which is the sole source of truth for building-vs-base eligibility (see
 | Frostworks | Heavy tanks (partial roster — a subset of Tank Plant's) | Winter Forge only |
 | Radar Array | Support — extends this player's vision range map-wide; reveals stealthed units at its own full (long) vision range | Signal Ridge only — **fixed/pre-seeded, cannot be freshly built** (same as Ice Spire, so its global vision bonus can't be stacked) |
 | Covert Works | Ghost Tank, Disruptor | Signal Ridge only |
-| EMP Turret | Defense — low damage, immobilizes Land vehicles, destroys Air troops outright (except Hot Air Balloon/Glider) | Signal Ridge only |
+| EMP Turret | Defense — low damage, immobilizes Land vehicles, destroys Air troops outright (except Hot Air Balloon/Glider) | Signal Ridge, Camp Kaboom |
 | Ford Yard | Amphibious Raider, Submarine | Rivergate only |
 | River Battery | Defense — bonus damage vs. Naval targets | Rivergate only |
 
@@ -385,6 +386,20 @@ prior single-source buildings into one roster. No specialty defense building —
 on generic Turret/Missile Launcher plus Walls, same as Kraken Point/Windy Peaks/Sky
 Fortress.
 
+### Camp Kaboom
+Heavy-artillery specialist — the most extreme "skips a tier" base yet: no Barracks
+and no Factory at all, so it fields **no infantry and no light vehicles** whatsoever
+(Camp Cosy and Cloudreach at least kept a Barracks for baseline self-defense; Camp
+Kaboom doesn't). Its **Demolition Plant** unlocks **Tank Obliterator** at level 1
+and **Earthshaker** at level 2 — two heavy tanks found nowhere else in the roster
+(see `08-troop-roster.md`). Fixed defenses double down on the explosives theme
+instead of the standard Turret/Missile Launcher-only baseline: **Grenade Turret**
+(previously Fort Irongrad-exclusive) and **EMP Turret** (previously Signal
+Ridge-exclusive) are both buildable here too, alongside the usual Turret/Missile
+Launcher/Walls. Starts with a heavy garrison from turn one (2 Earthshaker + 2 Tank
+Obliterator squads) rather than the lighter infantry garrisons other Unique bases
+open with, since it has no infantry to garrison with in the first place.
+
 ## Building Categories
 Every building falls into one of five categories, which determines whether it needs
 player input to function or just runs on its own once built:
@@ -393,7 +408,7 @@ player input to function or just runs on its own once built:
 |---|---|---|
 | **Production** | Barracks, Factory, Port, Tank Plant, Frostworks, Blazeworks, Wind Sanctuary, Forest Yard, Shipyard, Iron Aviary, Command Centre, Covert Works, Ford Yard, Supply Depot | **Yes** — the player must pick a troop from the building's roster to queue; nothing is produced until a choice is made |
 | **Resource** | Farm, Quarry, Mine, Oil Rig, Lumber Mill, Harbour, Stone Works | No — ticks automatically every resource tick (see `07-data-architecture.md`) |
-| **Defensive** | Turret, Missile Launcher, Grenade Tower, Flame Turret, Cold Turret, River Battery, Wind Spire, EMP Turret, Walls, Tower | No — auto-fires on any enemy troop that enters range, same as troops (see `04-combat.md`) |
+| **Defensive** | Turret, Missile Launcher, Grenade Turret, Flame Turret, Cold Turret, River Battery, Wind Spire, EMP Turret, Walls, Tower | No — auto-fires on any enemy troop that enters range, same as troops (see `04-combat.md`) |
 | **Support** | Hospital, Ice Spire, House, Radar Array, Hangar | No — passively applies its effect (healing / aura / population capacity / vision) with no queue or target selection involved |
 | **Infrastructure** | Road, Bridge, Dock | No — passive, but must be placed by an Engineer rather than built from a base's menu |
 

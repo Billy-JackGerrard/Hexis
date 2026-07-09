@@ -14,7 +14,7 @@
     "tank_plant",
     "turret",
     "missile_launcher",
-    "grenade_tower",
+    "grenade_turret",
     "hangar",
     "wall"
   ],
@@ -25,7 +25,7 @@
     { "buildingType": "quarry", "count": 1 },
     { "buildingType": "turret", "count": 1 },
     { "buildingType": "missile_launcher", "count": 1 },
-    { "buildingType": "grenade_tower", "count": 2 },
+    { "buildingType": "grenade_turret", "count": 2 },
     { "buildingType": "tank_plant", "count": 1 },
     { "buildingType": "wall", "count": 6, "material": "stone" }
   ],

@@ -44,9 +44,32 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
 - **Damage** — base damage per attack, before any modifiers are applied.
 - **Attack speed** — how often it attacks (attacks per time unit).
 - **Range** — max distance at which it can engage a target. Deliberately separate
-  from Vision range.
+  from Vision range. Also doubles as a line attack's total beam length (see below) —
+  a beam weapon's max reach and its engagement range are the same physical property.
+- **Minimum range** (default 0) — the mirror of Range: a dead zone this unit can't
+  fire into. 0 means no dead zone (the common case). **Earthshaker** is the first user
+  — an indirect-fire siege piece with `minRange: 2`, unable to depress its barrel far
+  enough to hit anything standing right next to it. `CombatTargeting.candidates()`
+  treats anything closer than `minRange` the same as anything beyond `range`: simply
+  not a legal target, whether picked automatically or via a directed order.
 - **Splash radius** — 0 for single-target units; >0 applies damage to a radius around
-  the impact point (e.g. Grenade Tower, Hot Air Balloon, Plasmacopter).
+  the impact point (e.g. Grenade Turret, Hot Air Balloon, Plasmacopter).
+- **Line attack** (`lineAttack`, bool, default false) — an alternate AoE shape to
+  Splash radius's circle: instead of splashing around a single impact point, the
+  attack fires a straight, 1-hex-wide beam from the attacker's own hex through the
+  target's hex and onward to `range` hexes total (`CombatResolver._beam_hexes` —
+  the straight-line leg to the target via `HexCoord.line`, extended past it in the
+  same direction via `HexCoord.direction_away`, the same "away from attacker"
+  approximation knockback already uses). The beam damages every enemy squad it
+  crosses — it goes through troops, no per-target falloff — and stops dead at the
+  first hex carrying ANY building along its path, friend or foe: a physical
+  obstruction blocks a beam even though it wouldn't block a scattered splash. An
+  enemy building on that blocking hex still takes the hit (same as any other
+  victim); a friendly one just blocks silently, never friendly fire. A Wall never
+  blocks a beam — it's edge-based with no single hex of its own. **Tank Obliterator**
+  is the first (and so far only) user — see `08-troop-roster.md`. Mutually exclusive
+  with Splash radius in practice (a unit picks one AoE shape or the other), though
+  nothing in the schema enforces that.
 - **Vision range** — how far the unit can see, kept separate from Range so a unit can
   spot an enemy before being able to fight it (or vice versa), giving reaction time.
 
@@ -86,7 +109,7 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   squad to a specific Structure regardless of what else is nearby.
 - **Resolved: `Defensive` is a second reserved value**, split out from `Structure`,
   covering Defensive-category buildings specifically (Turret, Missile Launcher,
-  Grenade Tower, Flame/Cold Turret, River Battery, Tower — matches
+  Grenade Turret, Flame/Cold Turret, River Battery, Tower — matches
   `data/buildings/schema.json`'s `category: "Defensive"`). A troop must list
   `Defensive` separately from `Structure` to be able to target base defenses at all —
   e.g. **Basekiller** carries `can_target` including `Defensive` but not `Infantry`,

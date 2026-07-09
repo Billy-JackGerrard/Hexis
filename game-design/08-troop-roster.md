@@ -134,6 +134,12 @@ common, Land vehicles → a couple of Unique bases, Air → one, one level deepe
 | Covert Airfield | **Shadowcopter** | Level-4 unlock. Domain: Air · Tags: `[Aircraft, Stealth]`. The roster's one combat-capable Covert Airfield unlock — a stand-off harasser: lowest HP of any combat aircraft and a squad cap of 2, but by far the longest range in the Air roster and `revealsOnAttack: false` (the inverse of Ghost Tank/Sniper/Submarine), so it can fire indefinitely from range without ever exposing itself; only `revealRange` (2) and detectors still apply. Heaviest Fuel upkeep in the roster. Stats implemented, see `data/troops/shadowcopter.json` |
 | Barracks | Rifleman, Shielder (shared w/ Capital roster) | Cloudreach's only source of combat troops — Covert Airfield's roster is either non-combat or a stand-off harasser, so Barracks exists purely so the base isn't a total pushover garrison-wise, same reasoning as Camp Cosy |
 
+### Camp Kaboom
+| Building | Unit(s) | Notes |
+|---|---|---|
+| Demolition Plant | **Tank Obliterator** | Rail gun: `lineAttack: true` fires a straight, 1-hex-wide beam from its own hex through the target and out to `range` (5) hexes total, piercing every enemy troop along the way (no per-target falloff) and hard-stopping at the first building in its path (which takes the hit as the beam's terminal target — see `05-troop-stat-schema.md`). Anti-blob/anti-formation niche — punishes enemies stacked or lined up behind each other — distinct from Earthshaker's single-point splash or Granite Crumbler's pure siege range. `damageDealtModifiers: {Structure: 0.6, Defensive: 0.6}` keeps it well short of a dedicated base-cracker despite the beam's reach. Demolition Plant's level-1 unlock. Stats implemented, see `data/troops/Tank Obliterator.json` |
+| Demolition Plant | **Earthshaker** | Highest per-hit damage in the roster, splash radius 2, but now also `minRange: 2` — an indirect-fire piece that can't hit anything adjacent to it, a genuine dead zone rather than just a soft penalty (see `05-troop-stat-schema.md`). Already the roster's slowest attack speed (0.2) and move speed; smaller squad cap (2 vs. Granite Crumbler's 4) makes it more vulnerable to Infantry swarms that close inside its minimum range. Cannot target Air; penalty vs. Structure/Defensive (0.6x/0.8x) keeps it from outclassing the dedicated siege units despite the raw damage number. Demolition Plant's level-2 unlock. Stats implemented, see `data/troops/earthshaker.json` |
+
 ## Fuel/Maintenance Quick Reference
 - Land vehicles: free while stationary, consume Fuel while moving.
 - Aircraft: heavy Fuel consumption, **always paid while airborne** — no near-base
@@ -171,3 +177,13 @@ common, Land vehicles → a couple of Unique bases, Air → one, one level deepe
 - [x] Scrapyard base (heavy-armor sustainment specialist) — Salvage Works unlocks
       Juggernaut, Repair Truck, Granite Crumbler, Repair Drone; see
       `data/bases/scrapyard.json`, `data/buildings/salvage_works.json`
+- [x] Camp Kaboom base (heavy-artillery specialist, no infantry/light-vehicle roster
+      at all) — Demolition Plant unlocks Tank Obliterator and Earthshaker. Introduced
+      two new troop-schema fields: `lineAttack` (a straight-beam AoE shape,
+      piercing troops but blocked by the first building in its path — Tank
+      Obliterator's rail gun) and `minRange` (a minimum-engagement dead zone —
+      Earthshaker can no longer hit anything adjacent to it). See
+      `data/bases/camp_kaboom.json`, `data/buildings/demolition_plant.json`,
+      `data/troops/Tank Obliterator.json`, `data/troops/earthshaker.json`,
+      `sim/combat/combat_resolver.gd`'s `_apply_line_attack`/`_beam_hexes`, and
+      `sim/combat/combat_targeting.gd`'s `minRange` check in `candidates()`

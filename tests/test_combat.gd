@@ -37,6 +37,8 @@ func _init() -> void:
 	_test_wall_combat()
 	print("CombatResolver Wood Tower turrets")
 	_test_wood_tower_turrets()
+	print("CombatResolver line attack (Tank Obliterator)")
+	_test_line_attack()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -276,6 +278,22 @@ func _test_combat_targeting() -> void:
 	var struct_and_def: Array[CombatTarget] = [struct_target, def_target]
 	var dpick := CombatTargeting.select_target(bk, basekiller, struct_and_def)
 	_check(dpick != null and dpick.target_id() == def_base.buildings[0].id, "Basekiller prefers the Defensive building (2.5x) over a plain Structure")
+
+	# minRange: Earthshaker can't fire at anything adjacent to it (a dead zone,
+	# the mirror of the max-range check), but can once a target is at or beyond
+	# minRange, up to its normal range.
+	var earthshaker: Dictionary = _troop_defs["earthshaker"]
+	var es_min_range: int = int(earthshaker.get("minRange", 0))
+	var es_range: int = int(earthshaker.get("range", 0))
+	var adjacent_enemy := _make_squad("p2", "rifleman", HexCoord.new(1, 0), 1, troops)
+	var adjacent_only: Array[CombatTarget] = [CombatTarget.for_squad(adjacent_enemy, rifleman, troops)]
+	_check(CombatTargeting.candidates(HexCoord.new(0, 0), "p1", es_range, earthshaker, adjacent_only).is_empty(), "Earthshaker's minRange (%s) excludes an adjacent enemy" % es_min_range)
+	var at_min_range := _make_squad("p2", "rifleman", HexCoord.new(es_min_range, 0), 1, troops)
+	var at_min_only: Array[CombatTarget] = [CombatTarget.for_squad(at_min_range, rifleman, troops)]
+	_check(CombatTargeting.candidates(HexCoord.new(0, 0), "p1", es_range, earthshaker, at_min_only).size() == 1, "Earthshaker can engage a target exactly at its minRange (%s)" % es_min_range)
+	var beyond_range := _make_squad("p2", "rifleman", HexCoord.new(es_range + 1, 0), 1, troops)
+	var beyond_only: Array[CombatTarget] = [CombatTarget.for_squad(beyond_range, rifleman, troops)]
+	_check(CombatTargeting.candidates(HexCoord.new(0, 0), "p1", es_range, earthshaker, beyond_only).is_empty(), "a target beyond Earthshaker's normal range is still excluded -- minRange doesn't change the max-range check")
 
 	# directed attack_target override + fallback when the directed target dies
 	var directed := _make_squad("p1", "rifleman", HexCoord.new(0, 0), 1, troops)
@@ -701,7 +719,79 @@ func _test_wood_tower_turrets() -> void:
 	CombatResolver.resolve_tick(1.0, enemies_l3, [], troops_l3, grid, _troop_defs, _building_defs, {}, {}, standalone_l3)
 	_check(enemies_l3.is_empty(), "level-3 Wood Tower's 3 independently-targeting turrets each kill a separate squad in the same tick")
 
-	# Upgrading a live Wood Tower grows turret_progress by one slot without
+## Tank Obliterator's rail gun (lineAttack): fires along a straight beam from
+## the attacker's own hex through the auto-selected primary target and beyond,
+## piercing every enemy troop on the line but hard-stopped by the first
+## building anywhere on its path -- see 05-troop-stat-schema.md and
+## combat_resolver.gd's _apply_line_attack/_beam_hexes.
+func _test_line_attack() -> void:
+	var grid := HexGrid.new()
+	var tank_obliterator: Dictionary = _troop_defs["tank_obliterator"]
+	var beam_damage: float = float(tank_obliterator.get("damage", 0.0))
+	var attack_speed: float = float(tank_obliterator.get("attackSpeed", 1.0))
+	var rifleman_hp: float = float(_troop_defs["rifleman"].get("hp", 0.0))
+	# Cross the 1.0 attack_progress threshold across two calls of 0.7 of a
+	# cycle each (1.4 total, comfortably over 1.0 even with float slop)
+	# rather than one dt == 1.0/attackSpeed call: with attackSpeed 0.2 that
+	# single dt (5.0) exactly equals BuildingRegenSystem.
+	# OUT_OF_COMBAT_DELAY_SECONDS, and _damage_target already reset the hit
+	# building's time_since_damage to 0 earlier in that same tick — so a
+	# single big dt would coincidentally bank a full out-of-combat regen tick
+	# in the very call that lands the hit, muddying the damage assertions
+	# below with regen math that has nothing to do with line attacks. Two
+	# 0.7-cycle calls still fire exactly one volley (only the second call
+	# crosses the threshold) while keeping each call's own dt under the regen
+	# delay.
+	var cycle: float = 1.0 / attack_speed
+
+	# Beam fires east from (0,0): e1 (1,0) is nearest -> auto-picked primary
+	# target, e2 (2,0) is pierced too, the Farm at (3,0) blocks and takes the
+	# hit as the beam's terminal target, e3 (4,0) sits beyond the block and is
+	# untouched. off_beam (2,-2) is in range but nowhere on the line at all.
+	var troops: Dictionary = {}
+	var attacker := _make_squad("p1", "tank_obliterator", HexCoord.new(0, 0), 1, troops)
+	var e1 := _make_squad("p2", "rifleman", HexCoord.new(1, 0), 1, troops)
+	var e2 := _make_squad("p2", "rifleman", HexCoord.new(2, 0), 1, troops)
+	var off_beam := _make_squad("p2", "rifleman", HexCoord.new(2, -2), 1, troops)
+	var e3 := _make_squad("p2", "rifleman", HexCoord.new(4, 0), 1, troops)
+	var enemy_base := _p2_base_with("farm", HexCoord.new(3, 0))
+	var farm: BuildingInstance = enemy_base.buildings[0]
+	var farm_max_hp := farm.max_hp
+	var farm_expected_damage: float = beam_damage * float(tank_obliterator.get("damageDealtModifiers", {}).get("Structure", 1.0))
+
+	var squads: Array[SquadInstance] = [attacker, e1, e2, off_beam, e3]
+	var bases: Array[BaseInstance] = [enemy_base]
+	CombatResolver.resolve_tick(cycle * 0.7, squads, bases, troops, grid, _troop_defs, _building_defs)
+	CombatResolver.resolve_tick(cycle * 0.7, squads, bases, troops, grid, _troop_defs, _building_defs)
+
+	_check(troops[e1.member_ids[0]].current_hp == rifleman_hp - beam_damage, "line attack: nearest primary target on the beam takes full damage")
+	_check(troops[e2.member_ids[0]].current_hp == rifleman_hp - beam_damage, "line attack: a second enemy squad further along the beam is also hit (goes through troops)")
+	_check(troops[off_beam.member_ids[0]].current_hp == rifleman_hp, "line attack: an enemy squad in range but off the beam's line is untouched")
+	_check(_approx(farm.current_hp, farm_max_hp - farm_expected_damage), "line attack: the first building on the beam takes the hit as its terminal target (%s)" % farm_expected_damage)
+	_check(troops[e3.member_ids[0]].current_hp == rifleman_hp, "line attack: an enemy squad beyond the blocking building is untouched")
+
+	# A FRIENDLY building on the beam also blocks it, but takes no damage --
+	# never friendly fire, the same rule splash already follows.
+	var troops2: Dictionary = {}
+	var attacker2 := _make_squad("p1", "tank_obliterator", HexCoord.new(0, 0), 1, troops2)
+	var f1 := _make_squad("p2", "rifleman", HexCoord.new(1, 0), 1, troops2)
+	var f3 := _make_squad("p2", "rifleman", HexCoord.new(4, 0), 1, troops2)
+	var friendly_base := BaseInstance.new("p1base_beam", "capital", "p1", 1, HexCoord.new(5, 5))
+	var friendly_building := BuildingInstance.new("bld_friendly_farm", "p1base_beam", "farm", 1, "", HexCoord.new(2, 0))
+	friendly_building.init_hp(_building_defs["farm"], _building_defs)
+	friendly_base.buildings.append(friendly_building)
+	var friendly_max_hp := friendly_building.max_hp
+
+	var squads2: Array[SquadInstance] = [attacker2, f1, f3]
+	var bases2: Array[BaseInstance] = [friendly_base]
+	CombatResolver.resolve_tick(cycle * 0.7, squads2, bases2, troops2, grid, _troop_defs, _building_defs)
+	CombatResolver.resolve_tick(cycle * 0.7, squads2, bases2, troops2, grid, _troop_defs, _building_defs)
+
+	_check(troops2[f1.member_ids[0]].current_hp == rifleman_hp - beam_damage, "line attack: nearest primary target still takes damage with a friendly building further down the beam")
+	_check(friendly_building.current_hp == friendly_max_hp, "line attack: a friendly building on the beam takes no damage")
+	_check(troops2[f3.member_ids[0]].current_hp == rifleman_hp, "line attack: a friendly building still blocks the beam from reaching what's behind it")
+
+## Upgrading a live Wood Tower grows turret_progress by one slot without
 	# resetting the slots it already had banked.
 	var upgrading_tower := BuildingInstance.new("wood_tower_upgrade", "", "tower", 1, "wood", HexCoord.new(0, 0), "p2")
 	upgrading_tower.init_hp(_building_defs["tower"], _building_defs)

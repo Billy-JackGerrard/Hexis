@@ -1,6 +1,6 @@
 {
-  "id": "grenade_tower",
-  "name": "Grenade Tower",
+  "id": "grenade_turret",
+  "name": "Grenade Turret",
   "category": "Defensive",
   "populationCost": 1,
   "extends": "turret",

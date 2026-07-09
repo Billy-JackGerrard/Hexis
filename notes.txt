@@ -33,17 +33,6 @@ Should amphibious raider be able to be turned into Naval class, so it can be tar
 
 NEW TROOPS:
 
-TANK OBLITERATOR
-possibly some kind of rail gun (Tank slicer? Rail tank? Tankkiller?)
-that originates at the tank and goes through troops (but blocked by buildings), area damage in the form of a line 1 hex wide and like 4-6 hexes long?
-lower damage to structures and defensive
-can't hit air or naval, slow attack speed (or maybe each attack lasts for 2 seconds, doing damage every tick or whatever, but then takes 4-6 seconds to recharge?)
-NEED TO ADD
-
-
-EARTHSHAKER
-NEED TO ADD MINIMUM RANGE
-SLOW PROJECTILE
 
 
 
@@ -61,3 +50,6 @@ How does splash damage work?
 1 = one hex around it (i think? worth asking)
 
 so what about only one hex/same hex, but all troops in it?
+
+we dont have projectile speed in. could be something to add, 
+eg earthshaker has a LOW PROJECTILE

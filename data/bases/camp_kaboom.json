@@ -12,7 +12,7 @@
     "oil_rig",
     "lumber_mill",
     "demolition_plant",
-    "grenade_tower",
+    "grenade_turret",
     "missile_launcher",
     "emp_turret",
     "wall"
@@ -22,7 +22,7 @@
     { "buildingType": "hq", "count": 1 },
     { "buildingType": "farm", "count": 1 },
     { "buildingType": "quarry", "count": 1 },
-    { "buildingType": "grenade_tower", "count": 2 },
+    { "buildingType": "grenade_turret", "count": 2 },
     { "buildingType": "missile_launcher", "count": 1 },
     { "buildingType": "emp_turret", "count": 1 },
     { "buildingType": "demolition_plant", "count": 1 },
@@ -34,5 +34,5 @@
     { "troopId": "tank_obliterator", "count": 2 }
   ],
 
-  "notes": ""
+  "notes": "Heavy-artillery specialist. No Barracks or Factory at all -- Demolition Plant (Tank Obliterator, Earthshaker) is the base's only troop production, so it fields no infantry or light vehicles whatsoever, the most extreme 'skips a tier' base in the roster. Fixed defenses double down on the explosives theme: Grenade Turret and EMP Turret (previously Fort Irongrad- and Signal Ridge-exclusive respectively) are both buildable here too, alongside the usual Turret/Missile Launcher/Walls. Starts with a heavy garrison from turn one since it has no infantry to garrison with otherwise."
 }

@@ -64,6 +64,21 @@ static func range_within(center: HexCoord, radius: int) -> Array[HexCoord]:
 			result.append(HexCoord.new(center.q + dq, center.r + dr))
 	return result
 
+## All hexes at exactly `radius` from `center` (the boundary of range_within,
+## not the filled disk) — radius 0 returns just [center]. Standard ring-walk:
+## start `radius` steps out in direction 4, then take `radius` steps in each
+## of the 6 directions in turn.
+static func ring(center: HexCoord, radius: int) -> Array[HexCoord]:
+	if radius <= 0:
+		return [center]
+	var result: Array[HexCoord] = []
+	var hex := HexCoord.new(center.q + DIRECTIONS[4].x * radius, center.r + DIRECTIONS[4].y * radius)
+	for direction in range(6):
+		for _step in range(radius):
+			result.append(hex)
+			hex = neighbor(hex, direction)
+	return result
+
 ## The neighbor direction index (0-5) of `origin` that points furthest away
 ## from `from` — i.e. straight-line-away from an attacker's hex through the
 ## target's hex. Used by knockback (04-combat.md's statusEffectOnHit). Ties

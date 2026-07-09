@@ -31,6 +31,14 @@
 ## produces — see DetectionSystem for the hidden-state/detector rules
 ## themselves; this file only threads `grid`/`detections` through.
 ##
+## Line attacks (Tank Obliterator's rail gun, `attacker_def.lineAttack`): an
+## alternate AoE shape to splashRadius's circle-around-impact — a straight,
+## 1-hex-wide beam from the attacker's own hex through the target's hex and
+## onward to `range` hexes total, damaging every enemy squad it crosses
+## (goes through troops) and stopping dead at the first hex carrying ANY
+## building (friend or foe — a physical obstruction that blocks a beam the
+## same way it wouldn't block a scattered splash), see _apply_line_attack.
+##
 ## Status effects (freeze/stun/knockback/emp, StatusEffectSystem): a
 ## freeze/stun-locked attacker skips its turn entirely (no attack_progress
 ## banked, mirroring "can't move or attack"); a stun's trailing tail
@@ -231,23 +239,76 @@ static func _trigger_self_destruct(building: BuildingInstance, owner_id: String,
 	_apply_attack(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid)
 	building.current_hp = 0.0
 
-## One attack: full damage to the primary target, then the same computed damage
-## to every OTHER enemy target within splash radius of the impact hex. The
-## attacker's statusEffectOnHit (if any) is then rolled and applied to the
-## PRIMARY target only — see StatusEffectSystem's scoping note on splash.
+## One attack: either a line-attack beam (attacker_def.lineAttack — see
+## _apply_line_attack) OR the usual full damage to the primary target plus the
+## same computed damage to every OTHER enemy target within splash radius of
+## the impact hex. Either way, the attacker's statusEffectOnHit (if any) is
+## then rolled and applied to the PRIMARY target only — see StatusEffectSystem's
+## scoping note on splash (a line attack's extra victims are scoped the same
+## way splash's are: damage only, never a status effect).
 static func _apply_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> void:
-	_damage_target(target, CombatMath.resolve_damage(attacker_def, base_damage, target), attacker_owner, troops_by_id)
-	if splash_radius > 0:
-		for other in targets:
-			if other == target or other.owner_id == attacker_owner or not other.is_alive():
-				continue
-			if HexCoord.distance(target.hex, other.hex) <= splash_radius:
-				_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
+	if attacker_def.get("lineAttack", false):
+		_apply_line_attack(attacker_def, base_damage, attacker_owner, attacker_hex, target, targets, troops_by_id)
+	else:
+		_damage_target(target, CombatMath.resolve_damage(attacker_def, base_damage, target), attacker_owner, troops_by_id)
+		if splash_radius > 0:
+			for other in targets:
+				if other == target or other.owner_id == attacker_owner or not other.is_alive():
+					continue
+				if HexCoord.distance(target.hex, other.hex) <= splash_radius:
+					_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
 
 	var status_effect: Dictionary = attacker_def.get("statusEffectOnHit", {})
 	if not status_effect.is_empty() and target.is_alive():
 		var target_def: Dictionary = troop_defs.get(target.squad.troop_type, {}) if target.kind == CombatTarget.Kind.SQUAD else building_defs.get(target.building.building_type, {})
 		StatusEffectSystem.apply_on_hit(status_effect, target, target_def, attacker_hex, grid)
+
+## Tank Obliterator's rail gun: fires along `_beam_hexes` (attacker's hex
+## through the target's hex, out to `attacker_def.range` hexes total) and
+## damages every enemy squad standing on a beam hex — goes through troops,
+## no per-target falloff. The first beam hex carrying ANY building (checked
+## by hex equality against every target this tick, so several stacked things
+## on one hex all resolve together) is a hard stop: an enemy building there
+## takes the hit like any other victim, a friendly one just blocks silently
+## (never friendly fire, same rule splash already follows) — either way the
+## beam goes no further. A Wall has no single hex of its own (edge-based,
+## hex_b set) so it's excluded from this hex-equality check entirely and never
+## blocks a beam.
+static func _apply_line_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary) -> void:
+	var beam := _beam_hexes(attacker_hex, target.hex, int(attacker_def.get("range", 0)))
+	for hex in beam:
+		var blocked := false
+		for other in targets:
+			if not other.is_alive() or other.hex == null or other.hex_b != null or not other.hex.equals(hex):
+				continue
+			if other.kind == CombatTarget.Kind.BUILDING:
+				blocked = true
+				if other.owner_id == attacker_owner:
+					continue
+			elif other.owner_id == attacker_owner:
+				continue
+			_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
+		if blocked:
+			break
+
+## The hex path a beam attack travels, in order outward from (but excluding)
+## the attacker's own hex: the straight line to the target (HexCoord.line),
+## extended past it in the same direction — HexCoord.direction_away, the same
+## "away from attacker" approximation knockback already uses for an arbitrary
+## hex pair — if `length` calls for more hexes than that leg covers, capped at
+## `length` total either way.
+static func _beam_hexes(attacker_hex: HexCoord, target_hex: HexCoord, length: int) -> Array[HexCoord]:
+	var hexes := HexCoord.line(attacker_hex, target_hex)
+	hexes.remove_at(0)
+	if hexes.size() > length:
+		hexes = hexes.slice(0, length)
+	elif hexes.size() < length:
+		var dir := HexCoord.direction_away(attacker_hex, target_hex)
+		var last := target_hex
+		while hexes.size() < length:
+			last = HexCoord.neighbor(last, dir)
+			hexes.append(last)
+	return hexes
 
 ## Applies damage: buildings lose current_hp (and remember who hit them last,
 ## for HQ capture-flip attribution, plus reset their out-of-combat regen

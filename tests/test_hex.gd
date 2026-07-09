@@ -40,6 +40,25 @@ func _test_coord() -> void:
 	var ring1 := HexCoord.range_within(origin, 1)
 	_check(ring1.size() == 7, "range_within radius 1 has 7 hexes (center + 6)")
 
+	_check(HexCoord.ring(origin, 0).size() == 1, "ring radius 0 is just the center")
+	var ring_r1 := HexCoord.ring(origin, 1)
+	_check(ring_r1.size() == 6, "ring radius 1 has 6 hexes")
+	var neighbor_keys := {}
+	for nb in HexCoord.neighbors(origin):
+		neighbor_keys[nb.to_key()] = true
+	var ring_r1_matches_neighbors := true
+	for hex in ring_r1:
+		if not neighbor_keys.has(hex.to_key()):
+			ring_r1_matches_neighbors = false
+	_check(ring_r1_matches_neighbors, "ring radius 1 set-equals neighbors(origin)")
+	var ring_r2 := HexCoord.ring(origin, 2)
+	_check(ring_r2.size() == 12, "ring radius 2 has 6*radius hexes")
+	var ring_r2_all_distance_2 := true
+	for hex in ring_r2:
+		if HexCoord.distance(origin, hex) != 2:
+			ring_r2_all_distance_2 = false
+	_check(ring_r2_all_distance_2, "every ring radius 2 hex is distance 2 from center")
+
 	var key := HexCoord.new(5, -3).to_key()
 	var restored := HexCoord.from_key(key)
 	_check(restored.q == 5 and restored.r == -3, "to_key/from_key round-trip")

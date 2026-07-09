@@ -1,10 +1,13 @@
 ## Seeds a fresh BaseInstance from its BaseDef's `initialBuildings`, per
 ## 02-bases-and-buildings.md's "Base Seeding" section: every base (new or
-## captured) starts with HQ + Farm + Quarry, mutually adjacent, always on
-## Plains regardless of base type. Authored placement, not player-driven, so
+## captured) starts with HQ + Farm + Quarry, mutually adjacent, on Plains by
+## default or the base's terrainException terrain (Forest/Hill) when set —
+## see sim/worldgen/base_site_selector.gd for the world-gen siting rules
+## that pick hq_hex accordingly. Authored placement, not player-driven, so
 ## it bypasses the isFixed/isStandalone/buildableBuildings menu gates that
-## BuildingPlacement enforces for normal builds — it still requires Plains
-## hexes to exist in the grid around hq_hex.
+## BuildingPlacement enforces for normal builds — it still requires the
+## correct terrain to already exist in the grid around hq_hex; seed_base
+## itself performs no terrain validation.
 class_name BaseFactory
 extends RefCounted
 

@@ -4,7 +4,7 @@
   "category": "Defensive",
   "populationCost": 1,
 
-  "notes": "Generic default defense, buildable at every base alongside Turret. The anti-air generalist — Grenade Tower and Flame Turret are already ground-specialized, so Missile Launcher fills the anti-air gap for every base rather than gating it behind a Unique base.",
+  "notes": "Generic default defense, buildable at every base alongside Turret. The anti-air generalist — Grenade Turret and Flame Turret are already ground-specialized, so Missile Launcher fills the anti-air gap for every base rather than gating it behind a Unique base.",
 
   "defensiveStats": {
     "damage": 22,
@@ -30,7 +30,7 @@
       "range": { "mode": "flat", "value": 0.5 }
     },
     "baseCost": {
-      "stone": 120,
+      "stone": 70,
       "steel": 90
     },
     "costGrowth": { "mode": "percent", "value": 25 }

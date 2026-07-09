@@ -1,0 +1,393 @@
+## Headless assertion suite for sim/worldgen/* and sim/map_generator.gd. Run with:
+##   godot --headless --script res://tests/test_map_generation.gd
+extends SceneTree
+
+var _failures: int = 0
+var _base_defs: Dictionary
+var _building_defs: Dictionary
+
+func _check(condition: bool, label: String) -> void:
+	if condition:
+		print("  ok   ", label)
+	else:
+		_failures += 1
+		print("  FAIL ", label)
+
+func _init() -> void:
+	_base_defs = DataLoader.load_dir("res://data/bases")
+	_building_defs = DataLoader.load_dir("res://data/buildings")
+
+	print("Hexagon + ocean fringe")
+	_test_hexagon_and_fringe()
+	print("Biome coverage")
+	_test_biomes()
+	print("Rivers")
+	_test_rivers()
+	print("Base spacing")
+	_test_base_spacing()
+	print("Expansion viability")
+	_test_expansion_viability()
+	print("Unique base def assignment")
+	_test_unique_def_assignment()
+	print("Kraken Point ocean-edge site")
+	_test_kraken_point_site()
+	print("Treehouse deep-forest site")
+	_test_treehouse_site()
+	print("Windy Peaks Hills site")
+	_test_windy_peaks_site()
+	print("Sky Fortress moat + water connectivity")
+	_test_sky_fortress_site()
+	print("MapGenerator end-to-end")
+	_test_map_generator_end_to_end()
+	print("MapGenerator player_count guard")
+	_test_player_count_guard()
+
+	if _failures == 0:
+		print("\nAll checks passed.")
+	else:
+		print("\n%d check(s) FAILED." % _failures)
+	quit(1 if _failures > 0 else 0)
+
+func _test_hexagon_and_fringe() -> void:
+	var radius := 10
+	var fringe := 2
+	var grid := TerrainGenerator.generate_base_terrain(radius, fringe)
+	var origin := HexCoord.new(0, 0)
+
+	var interior_ok := true
+	for hex in HexCoord.range_within(origin, radius):
+		if grid.get_terrain(hex) != Terrain.Type.PLAINS:
+			interior_ok = false
+	_check(interior_ok, "every hex within radius is Plains")
+
+	var fringe_ok := true
+	for hex in HexCoord.range_within(origin, radius + fringe):
+		if HexCoord.distance(origin, hex) > radius and grid.get_terrain(hex) != Terrain.Type.OCEAN:
+			fringe_ok = false
+	_check(fringe_ok, "fringe ring is Ocean")
+
+	var beyond_ok := true
+	for hex in HexCoord.ring(origin, radius + fringe + 1):
+		if grid.has_hex(hex):
+			beyond_ok = false
+	_check(beyond_ok, "hexes beyond radius+fringe report has_hex() == false")
+
+func _test_biomes() -> void:
+	var radius := 15
+	var grid := TerrainGenerator.generate_base_terrain(radius, 0)
+	TerrainGenerator.generate_biomes(grid, radius, 42)
+	var origin := HexCoord.new(0, 0)
+
+	var plains := 0
+	var forest := 0
+	var hills := 0
+	var total := 0
+	for hex in HexCoord.range_within(origin, radius):
+		total += 1
+		match grid.get_terrain(hex):
+			Terrain.Type.PLAINS:
+				plains += 1
+			Terrain.Type.FOREST:
+				forest += 1
+			Terrain.Type.HILLS:
+				hills += 1
+
+	_check(plains > forest and plains > hills, "Plains stays the majority terrain")
+	var forest_fraction := float(forest) / float(total)
+	var hills_fraction := float(hills) / float(total)
+	_check(forest_fraction > 0.0 and forest_fraction < TerrainGenerator.FOREST_COVERAGE_FRACTION * 1.6, "Forest coverage in a loose band around its budget")
+	_check(hills_fraction > 0.0 and hills_fraction < TerrainGenerator.HILLS_COVERAGE_FRACTION * 1.6, "Hills coverage in a loose band around its budget")
+
+func _test_rivers() -> void:
+	var radius := 20
+	var grid := TerrainGenerator.generate_base_terrain(radius, 0)
+	var paths := TerrainGenerator.generate_rivers(grid, radius, 42, 4)
+	var origin := HexCoord.new(0, 0)
+
+	_check(paths.size() == TerrainGenerator.num_rivers(4), "generated the expected number of rivers")
+
+	var all_contiguous := true
+	var all_start_inland := true
+	var all_end_at_coast := true
+	for path in paths:
+		for i in range(path.size() - 1):
+			if HexCoord.distance(path[i], path[i + 1]) != 1:
+				all_contiguous = false
+		if not path.is_empty():
+			if HexCoord.distance(origin, path[0]) > radius - TerrainGenerator.RIVER_MIN_LENGTH:
+				all_start_inland = false
+			if HexCoord.distance(origin, path[-1]) < radius:
+				all_end_at_coast = false
+	_check(all_contiguous, "every river path is an unbroken chain of adjacent hexes")
+	_check(all_start_inland, "every river starts well inland")
+	_check(all_end_at_coast, "every river reaches the coastline")
+
+	var river_tiles_match := true
+	for path in paths:
+		for hex in path:
+			if grid.get_terrain(hex) != Terrain.Type.RIVER:
+				river_tiles_match = false
+	_check(river_tiles_match, "every path hex is actually River terrain on the grid")
+
+func _test_base_spacing() -> void:
+	var player_count := 2
+	var world_seed := 42
+	var grid := TerrainGenerator.generate_all(player_count, world_seed)
+	var counter := {"n": 0}
+	var next_id := func() -> String:
+		counter["n"] += 1
+		return "base_%d" % counter["n"]
+	var placement := BaseSiteSelector.place_bases(grid, player_count, world_seed, _base_defs, _building_defs, next_id)
+	_check(placement["bases"] is Array and not (placement["bases"] as Array).is_empty(), "placement succeeded: %s" % placement.get("failure_reason", ""))
+
+	var bases: Array = placement["bases"]
+	var min_spacing_ok := true
+	var capital_spacing_ok := true
+	for i in range(bases.size()):
+		for j in range(i + 1, bases.size()):
+			var a: BaseInstance = bases[i]
+			var b: BaseInstance = bases[j]
+			var d := HexCoord.distance(a.hex_coord, b.hex_coord)
+			if d < BaseSiteSelector.MIN_BASE_SPACING:
+				min_spacing_ok = false
+			var a_is_capital: bool = _base_defs.get(a.base_def_id, {}).get("isCapital", false)
+			var b_is_capital: bool = _base_defs.get(b.base_def_id, {}).get("isCapital", false)
+			if a_is_capital and b_is_capital and d < BaseSiteSelector.CAPITAL_MIN_SPACING:
+				capital_spacing_ok = false
+	_check(min_spacing_ok, "every base pair respects MIN_BASE_SPACING")
+	_check(capital_spacing_ok, "every Capital pair respects the stricter CAPITAL_MIN_SPACING")
+
+func _test_expansion_viability() -> void:
+	var origin := HexCoord.new(0, 0)
+
+	var open_grid := HexGrid.new()
+	for hex in HexCoord.range_within(origin, 12):
+		open_grid.set_terrain(hex, Terrain.Type.PLAINS)
+	_check(BaseSiteSelector.has_viable_expansion(origin, open_grid), "open Plains disk has viable expansion")
+
+	var walled_grid := HexGrid.new()
+	for hex in HexCoord.range_within(origin, 12):
+		walled_grid.set_terrain(hex, Terrain.Type.PLAINS)
+	for hex in HexCoord.ring(origin, 3):
+		walled_grid.set_terrain(hex, Terrain.Type.RIVER)
+	_check(not BaseSiteSelector.has_viable_expansion(origin, walled_grid), "a closed River ring walls off expansion")
+
+func _test_unique_def_assignment() -> void:
+	var unique_defs: Array = []
+	for def in _base_defs.values():
+		if not def.get("isCapital", false):
+			unique_defs.append(def)
+
+	for player_count in [2, 4, 6]:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 1234
+		var deal: Array = BaseSiteSelector._assign_unique_defs(unique_defs, player_count, rng, [])
+		_check(deal.size() == player_count * 2, "player_count=%d draws exactly player_count*2 defs" % player_count)
+
+		var seen_ids: Dictionary = {}
+		var no_repeats := true
+		for entry in deal:
+			var id: String = entry["def"].get("id", "")
+			if seen_ids.has(id):
+				no_repeats = false
+			seen_ids[id] = true
+		_check(no_repeats, "player_count=%d has no repeated Unique base type" % player_count)
+
+		var per_player_counts: Dictionary = {}
+		for entry in deal:
+			var p: int = entry["player_index"]
+			per_player_counts[p] = per_player_counts.get(p, 0) + 1
+		var every_player_gets_two := true
+		for p in range(player_count):
+			if per_player_counts.get(p, 0) != 2:
+				every_player_gets_two = false
+		_check(every_player_gets_two, "player_count=%d deals exactly 2 Uniques per player" % player_count)
+
+	var rng_a := RandomNumberGenerator.new()
+	rng_a.seed = 555
+	var rng_b := RandomNumberGenerator.new()
+	rng_b.seed = 555
+	var deal_a: Array = BaseSiteSelector._assign_unique_defs(unique_defs, 4, rng_a, [])
+	var deal_b: Array = BaseSiteSelector._assign_unique_defs(unique_defs, 4, rng_b, [])
+	var deterministic := deal_a.size() == deal_b.size()
+	for i in range(deal_a.size()):
+		if deal_a[i]["def"].get("id", "") != deal_b[i]["def"].get("id", "") or deal_a[i]["player_index"] != deal_b[i]["player_index"]:
+			deterministic = false
+	_check(deterministic, "same seed produces the same deal")
+
+## Small deterministic seed sweep so a single unlucky terrain roll can't make
+## these forced-inclusion tests flaky — mirrors MapGenerator's own retry
+## philosophy, just scoped to the test.
+func _generate_forcing(player_count: int, forced_ids: Array[String]) -> MapGenerationResult:
+	for world_seed in [7, 13, 42, 101, 2024, 99999]:
+		var result := MapGenerator.generate(player_count, world_seed, _base_defs, _building_defs, forced_ids)
+		if result != null:
+			return result
+	return null
+
+func _find_base(result: MapGenerationResult, base_def_id: String) -> BaseInstance:
+	for b in result.bases:
+		if b.base_def_id == base_def_id:
+			return b
+	return null
+
+func _test_kraken_point_site() -> void:
+	var result := _generate_forcing(2, ["kraken_point"])
+	_check(result != null, "generation succeeds with Kraken Point forced")
+	if result == null:
+		return
+	var base := _find_base(result, "kraken_point")
+	_check(base != null, "Kraken Point was actually placed")
+	if base == null:
+		return
+	var has_ocean_neighbor := false
+	for h in HexCoord.ring(base.hex_coord, 2):
+		if result.grid.get_terrain(h) == Terrain.Type.OCEAN:
+			has_ocean_neighbor = true
+	_check(has_ocean_neighbor, "Kraken Point's site has Ocean at ring-distance 2")
+
+func _test_treehouse_site() -> void:
+	var result := _generate_forcing(2, ["treehouse"])
+	_check(result != null, "generation succeeds with Treehouse forced")
+	if result == null:
+		return
+	var base := _find_base(result, "treehouse")
+	_check(base != null, "Treehouse was actually placed")
+	if base == null:
+		return
+	_check(result.grid.get_terrain(base.hex_coord) == Terrain.Type.FOREST, "Treehouse's HQ hex is Forest")
+	var flower_forest := true
+	for n in HexCoord.neighbors(base.hex_coord):
+		if result.grid.get_terrain(n) != Terrain.Type.FOREST:
+			flower_forest = false
+	_check(flower_forest, "Treehouse's flower (HQ + 6 neighbors) is entirely Forest")
+
+func _test_windy_peaks_site() -> void:
+	var result := _generate_forcing(2, ["windy_peaks"])
+	_check(result != null, "generation succeeds with Windy Peaks forced")
+	if result == null:
+		return
+	var base := _find_base(result, "windy_peaks")
+	_check(base != null, "Windy Peaks was actually placed")
+	if base == null:
+		return
+	_check(result.grid.get_terrain(base.hex_coord) == Terrain.Type.HILLS, "Windy Peaks' HQ hex is Hills")
+	var flower_hills := true
+	for n in HexCoord.neighbors(base.hex_coord):
+		if result.grid.get_terrain(n) != Terrain.Type.HILLS:
+			flower_hills = false
+	_check(flower_hills, "Windy Peaks' flower (HQ + 6 neighbors) is entirely Hills")
+
+func _test_sky_fortress_site() -> void:
+	var result := _generate_forcing(2, ["sky_fortress"])
+	_check(result != null, "generation succeeds with Sky Fortress forced")
+	if result == null:
+		return
+	var base := _find_base(result, "sky_fortress")
+	_check(base != null, "Sky Fortress was actually placed")
+	if base == null:
+		return
+
+	var flower_untouched := true
+	for n in HexCoord.neighbors(base.hex_coord):
+		if result.grid.get_terrain(n) != Terrain.Type.PLAINS:
+			flower_untouched = false
+	_check(flower_untouched, "Sky Fortress's own flower stays Plains (moat sits outside it)")
+
+	var ring := HexCoord.ring(base.hex_coord, BaseSiteSelector.MOAT_INNER_RADIUS)
+	var water_count := 0
+	for h in ring:
+		var t := result.grid.get_terrain(h)
+		if t == Terrain.Type.OCEAN or t == Terrain.Type.RIVER:
+			water_count += 1
+	_check(float(water_count) / float(ring.size()) >= BaseSiteSelector.MOAT_MIN_COVERAGE_FRACTION, "moat ring is mostly water")
+
+	# Connectivity: BFS outward from the moat ring, through water tiles only,
+	# must reach a water tile that existed independent of the moat/channel
+	# carve — i.e. the moat isn't an isolated pond. We approximate this by
+	# confirming the connected water region touching the ring extends well
+	# beyond the moat ring itself (a bare, unconnected moat's water region
+	# would be bounded by the ring's own footprint).
+	var visited: Dictionary = {}
+	var frontier: Array = []
+	for h in ring:
+		if result.grid.get_terrain(h) == Terrain.Type.OCEAN or result.grid.get_terrain(h) == Terrain.Type.RIVER:
+			visited[h.to_key()] = true
+			frontier.append(h)
+	var region_size := 0
+	while not frontier.is_empty():
+		var next_frontier: Array = []
+		for hex in frontier:
+			region_size += 1
+			for n in HexCoord.neighbors(hex):
+				var key: String = n.to_key()
+				if visited.has(key) or not result.grid.has_hex(n):
+					continue
+				var t := result.grid.get_terrain(n)
+				if t == Terrain.Type.OCEAN or t == Terrain.Type.RIVER:
+					visited[key] = true
+					next_frontier.append(n)
+		frontier = next_frontier
+	_check(region_size > ring.size(), "moat's connected water region extends beyond the ring itself (connected to real water)")
+
+func _test_map_generator_end_to_end() -> void:
+	for player_count in [2, 4, 6]:
+		var world_seed := 42
+		var r1 := MapGenerator.generate(player_count, world_seed, _base_defs, _building_defs)
+		var r2 := MapGenerator.generate(player_count, world_seed, _base_defs, _building_defs)
+		_check(r1 != null and r2 != null, "player_count=%d generation succeeds" % player_count)
+		if r1 == null or r2 == null:
+			continue
+
+		var deterministic := r1.bases.size() == r2.bases.size()
+		for i in range(r1.bases.size()):
+			if not r1.bases[i].hex_coord.equals(r2.bases[i].hex_coord) or r1.bases[i].base_def_id != r2.bases[i].base_def_id:
+				deterministic = false
+		_check(deterministic, "player_count=%d is deterministic given the same seed" % player_count)
+
+		_check(r1.bases.size() == player_count * 3, "player_count=%d produces player_count*3 bases" % player_count)
+
+		var capitals := 0
+		for b in r1.bases:
+			if _base_defs.get(b.base_def_id, {}).get("isCapital", false):
+				capitals += 1
+		_check(capitals == player_count, "player_count=%d produces exactly player_count Capitals" % player_count)
+
+		var every_hq_terrain_ok := true
+		for b in r1.bases:
+			var required: Terrain.Type = BaseSiteSelector._hq_site_terrain(_base_defs.get(b.base_def_id, {}))
+			if r1.grid.get_terrain(b.hex_coord) != required:
+				every_hq_terrain_ok = false
+		_check(every_hq_terrain_ok, "player_count=%d every HQ hex matches its base's required terrain" % player_count)
+
+		var seen_unique_ids: Dictionary = {}
+		var no_unique_repeats := true
+		for b in r1.bases:
+			if _base_defs.get(b.base_def_id, {}).get("isCapital", false):
+				continue
+			if seen_unique_ids.has(b.base_def_id):
+				no_unique_repeats = false
+			seen_unique_ids[b.base_def_id] = true
+		_check(no_unique_repeats, "player_count=%d has no repeated Unique base type" % player_count)
+
+		var every_capital_viable := true
+		for b in r1.bases:
+			if _base_defs.get(b.base_def_id, {}).get("isCapital", false) and not BaseSiteSelector.has_viable_expansion(b.hex_coord, r1.grid):
+				every_capital_viable = false
+		_check(every_capital_viable, "player_count=%d every Capital passes has_viable_expansion" % player_count)
+
+		var radius := TerrainGenerator.map_radius(player_count)
+		var fringe := radius + TerrainGenerator.OCEAN_FRINGE_WIDTH
+		var origin := HexCoord.new(0, 0)
+		var coverage_ok := true
+		for hex in HexCoord.ring(origin, fringe):
+			if not r1.grid.has_hex(hex):
+				coverage_ok = false
+		for hex in HexCoord.ring(origin, fringe + 1):
+			if r1.grid.has_hex(hex):
+				coverage_ok = false
+		_check(coverage_ok, "player_count=%d grid covers exactly the intended hexagon+fringe" % player_count)
+
+func _test_player_count_guard() -> void:
+	var result := MapGenerator.generate(MapGenerator.MAX_SUPPORTED_PLAYER_COUNT + 1, 1, _base_defs, _building_defs)
+	_check(result == null, "player_count beyond MAX_SUPPORTED_PLAYER_COUNT fails loudly (returns null)")

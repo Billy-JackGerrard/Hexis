@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "",
+  "notes": "Camp Kaboom's only combat-troop production building — a dedicated heavy-artillery pair (Tank Obliterator's rail gun, Earthshaker's splash siege) found nowhere else in the roster. Camp Kaboom has no Barracks/Factory, so this is also its only source of any troops at all.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 430, "unlocks": "tank_obliterator", "cost": { "stone": 780, "steel": 620 } },

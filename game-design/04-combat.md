@@ -201,7 +201,7 @@ drops back under the (lower) cap. Full details and the data shape: see
 
 ## Base Defenses
 - Bases have **static defenses** (Turret, Missile Launcher — universal; plus
-  base-specific specialty defenses like Grenade Tower, Flame Turret, or Winter Forge's
+  base-specific specialty defenses like Grenade Turret, Flame Turret, or Winter Forge's
   Cold Turret) that also auto-attack anything in range, independent of garrisoned
   troops.
 - **Defender bonuses stack**: e.g. a base on a hill with walls benefits from both the
@@ -266,3 +266,10 @@ drops back under the (lower) cap. Full details and the data shape: see
   at 3) — see Squads section above.
 - **Commander cap is tiered and Command-Centre-count-based**, separate from the squad
   cap — see Commander Tiers & the Commander Cap above.
+- **Line attacks (`lineAttack`) are a second AoE shape alongside splash radius**: a
+  straight, 1-hex-wide beam from the attacker's hex through the target and onward to
+  `range` hexes total, piercing every enemy troop it crosses but hard-blocked by the
+  first building (any owner) anywhere on its path. **Minimum range (`minRange`)** is
+  the mirror of `range` — a dead zone some indirect-fire units can't engage into. Both
+  are troop-schema fields; see `05-troop-stat-schema.md` for the full mechanic and
+  `08-troop-roster.md` for their first users (Tank Obliterator, Earthshaker).

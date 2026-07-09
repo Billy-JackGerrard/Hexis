@@ -53,7 +53,7 @@ instead of simply dying.
 
 HP regen is **not** a per-building stat — see the global 5%-per-5s-tick rule above.
 
-## Defensive Building Stats (Turret, Missile Launcher, Grenade Tower, Flame Turret, and Walls where relevant)
+## Defensive Building Stats (Turret, Missile Launcher, Grenade Turret, Flame Turret, and Walls where relevant)
 These use the same combat-facing fields as troops:
 
 | Field | Type | Notes |
@@ -61,7 +61,7 @@ These use the same combat-facing fields as troops:
 | Damage | number | base damage per attack |
 | Attack speed | number | attacks per time unit |
 | Range | number | engagement range |
-| Splash radius | number | 0 = single-target (e.g. Turret); >0 for Grenade Tower, etc. |
+| Splash radius | number | 0 = single-target (e.g. Turret); >0 for Grenade Turret, etc. |
 | can_target | list of tags | e.g. Missile Launcher may include `Air`; Turret may not. Reserved value `Structure` isn't relevant here — defensive buildings target troops, not other structures |
 | damage_types | list | e.g. Flame Turret carries `[Fire]` (see `05-troop-stat-schema.md`) |
 | Damage dealt modifiers | dict `{tag: multiplier}` | e.g. Flame Turret vs Wood-tagged targets |
@@ -73,8 +73,8 @@ These use the same combat-facing fields as troops:
 | Building | Available at | Known character |
 |---|---|---|
 | Turret | All bases | Generic default defense |
-| Missile Launcher | All bases | Generic default defense — confirmed anti-air generalist (`damageDealtModifiers: {Air: 1.5}`), since Grenade Tower/Flame Turret are already ground-specialized. Also carries `statusEffectOnHit: {type: stun, duration: 1.5, chance: 10}` — a low-chance stun proc on top of its raw damage/anti-air role |
-| Grenade Tower | Fort Irongrad only | Cheap, short range, low damage, splash |
+| Missile Launcher | All bases | Generic default defense — confirmed anti-air generalist (`damageDealtModifiers: {Air: 1.5}`), since Grenade Turret/Flame Turret are already ground-specialized. Also carries `statusEffectOnHit: {type: stun, duration: 1.5, chance: 10}` — a low-chance stun proc on top of its raw damage/anti-air role |
+| Grenade Turret | Fort Irongrad only | Cheap, short range, low damage, splash |
 | Flame Turret (renamed from Flamethrower) | Tinder Box only | Fire-tagged damage, bonus vs Wood-tagged targets/walls |
 | Cold Turret | Winter Forge only | Ice bombs, medium-low range, low damage, applies `status_effect_on_hit: {type: freeze}` for a couple seconds — crowd control over raw damage |
 | Water Turret (renamed from River Battery) | Rivergate and Kraken Point | A literal high-pressure water cannon — trades Air targeting for a bonus vs. Naval targets; must be placed adjacent to Water. Shared between Rivergate (covers the river crossing) and Kraken Point (ocean-edge site trivially satisfies the Water-adjacency requirement, so it doubles as the naval capstone's coastal defense), same shared-building pattern as Granite Crumbler/Juggernaut. Multi-material like Tower (Stone/Wood/Steel), each playing differently: Wood is cheap/fast/Fire-vulnerable with the smallest Naval bonus, Stone is the balanced baseline, Steel is tanky/armored/splashes on hit with the largest Naval bonus |
@@ -160,7 +160,7 @@ project a passive effect:
     (e.g. Wood's Fire weakness) and flat `armor` (Steel's 5, mirroring Steel
     Tower) are fixed per material tier and don't currently improve with level
     in `data/buildings/wall.json`.
-  - **Defensive buildings** (Turret, Missile Launcher, Grenade Tower, Flame Turret):
+  - **Defensive buildings** (Turret, Missile Launcher, Grenade Turret, Flame Turret):
     each level grants a boost to HP, Damage, and possibly Range.
 - **Effective reachable level** for a production building = `min(HQ level,
   length(troop_list))`. For all other buildings, effective reachable level = HQ level

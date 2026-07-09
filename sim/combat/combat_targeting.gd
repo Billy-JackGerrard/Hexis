@@ -36,14 +36,19 @@ static func can_target(attacker_def: Dictionary, target: CombatTarget) -> bool:
 ## enables Wall line-of-sight blocking (01-map-and-terrain.md): a non-Air
 ## attacker can't hit a target whose line crosses a walled edge. Never applied
 ## to a Wall target itself (hex_b set) — attacking a Wall is never blocked by
-## its own edge.
+## its own edge. `attacker_def.minRange` (default 0, e.g. Earthshaker) excludes
+## anything closer than that dead zone, the mirror image of the max-range check
+## — an indirect-fire siege piece that can't depress its barrel far enough to
+## hit something standing right next to it.
 static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null) -> Array[CombatTarget]:
 	var result: Array[CombatTarget] = []
 	var is_air := String(attacker_def.get("domain", "")) == "Air"
+	var min_range := int(attacker_def.get("minRange", 0))
 	for target in targets:
 		if target.owner_id == attacker_owner or not target.is_alive():
 			continue
-		if target.distance_from(attacker_hex) > attacker_range:
+		var dist := target.distance_from(attacker_hex)
+		if dist > attacker_range or dist < min_range:
 			continue
 		# Air-domain attackers ignore Walls entirely, same as every other
 		# terrain rule (01-map-and-terrain.md) — a Wall target always has
