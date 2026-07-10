@@ -68,3 +68,39 @@ Plus a 2-hex ocean fringe beyond the coastline (OCEAN_FRINGE_WIDTH). So total he
 Hex size (rendering) — client/hex_view.gd:9, flat-top hexes, HEX_SIZE = 32.0 (pixels, used as the axial↔pixel projection scale).
 
 Both are explicitly marked as un-tuned placeholders (sim/worldgen/terrain_generator.gd:10-19) pending playtesting, not final design numbers.
+
+
+
+
+NOTES FROM INITIAL TESTING
+I started the game with multiple bases? what?
+ie two unique bases were assigned to me at the start of the game, and 2 to the enemy
+they should be neutral
+
+zoom scroll is reversed?
+
+also the build menu is overlapped by the minimap.
+reclicking on HQ or right clicking anywhere, or clicking on a troop, should close the build menu, cancelling it
+once ive built a building, it should automatically close the build menu
+fixed buildings, like HQ, aren't buildable and therefore shouldnt come up in the build menu
+
+i want the build menu to pop up only when i click HQ.
+also can the build menu show the costs of each building next to it?
+
+and if i click on a building in my base, can it come up with its name, level (level up button and its cost), resource generation amount and time til next tick if its a resource building, or a button per troop if its a troop building, etc etc
+
+there should be a title above the hq showing the base name, and under that the player name
+
+hovering mouse over a building should show its name and level.
+
+why did I start with a troop at my capital?
+
+when i click on a troop, and click on somewhere, it moves there. great. but can it also unselect the troop?
+when i click on a troop, or hover over it, can it show the troop name and number in its squad and the limit of how many in its squad, ie 4/4 or 1/2 or something
+
+fog of war, its good but minimap doesnt have fog of war
+
+
+
+ERROR
+got 18 bugs when my troop approached an enemy base/troops
