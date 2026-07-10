@@ -30,8 +30,11 @@ const MAX_SUPPORTED_PLAYER_COUNT: int = 6
 ## check for null rather than assume a result. push_error() always precedes
 ## a null return, describing why, so a failure is loud even outside a test
 ## harness. `forced_unique_ids` is a test-only pass-through to
-## BaseSiteSelector.place_bases — production callers never set it.
-static func generate(player_count: int, world_seed: int, base_defs: Dictionary, building_defs: Dictionary, forced_unique_ids: Array[String] = []) -> MapGenerationResult:
+## BaseSiteSelector.place_bases — production callers never set it. `troop_defs`
+## seeds each placed base's `initialGarrison` (see GarrisonFactory) — optional
+## so callers that only care about terrain/base siting can omit it and get
+## empty result.squads/result.troops_by_id back.
+static func generate(player_count: int, world_seed: int, base_defs: Dictionary, building_defs: Dictionary, forced_unique_ids: Array[String] = [], troop_defs: Dictionary = {}) -> MapGenerationResult:
 	if player_count > MAX_SUPPORTED_PLAYER_COUNT:
 		push_error("MapGenerator.generate: player_count %d exceeds MAX_SUPPORTED_PLAYER_COUNT %d given the current authored Unique base roster" % [player_count, MAX_SUPPORTED_PLAYER_COUNT])
 		return null
@@ -44,9 +47,28 @@ static func generate(player_count: int, world_seed: int, base_defs: Dictionary, 
 		var next_id := func() -> String:
 			next_id_counter["n"] += 1
 			return "base_%d" % next_id_counter["n"]
-		var placement := BaseSiteSelector.place_bases(grid, player_count, attempt_seed, base_defs, building_defs, next_id, forced_unique_ids)
+		# Distinct "garrison_" prefix (not "troop_"/"squad_") so these ids can't
+		# collide with a MatchState's own next_troop_id()/next_squad_id()
+		# counters once a caller merges result.squads/troops_by_id into a
+		# live match — see client/main.gd's _build_demo_state. Left as
+		# invalid Callables when troop_defs is empty so BaseSiteSelector's
+		# own seed_garrisons gate skips garrison seeding entirely, rather
+		# than seeding zero-HP placeholder troops for a caller that never
+		# asked for garrisons.
+		var next_troop_id := Callable()
+		var next_squad_id := Callable()
+		if not troop_defs.is_empty():
+			var next_troop_id_counter := {"n": 0}
+			next_troop_id = func() -> String:
+				next_troop_id_counter["n"] += 1
+				return "garrison_troop_%d" % next_troop_id_counter["n"]
+			var next_squad_id_counter := {"n": 0}
+			next_squad_id = func() -> String:
+				next_squad_id_counter["n"] += 1
+				return "garrison_squad_%d" % next_squad_id_counter["n"]
+		var placement := BaseSiteSelector.place_bases(grid, player_count, attempt_seed, base_defs, building_defs, next_id, forced_unique_ids, troop_defs, next_troop_id, next_squad_id)
 		if not (placement["bases"] as Array).is_empty() or player_count == 0:
-			return MapGenerationResult.new(grid, placement["bases"], placement["capital_ids_by_player"], attempt_seed)
+			return MapGenerationResult.new(grid, placement["bases"], placement["capital_ids_by_player"], attempt_seed, placement["squads"], placement["troops_by_id"])
 		last_failure_reason = placement["failure_reason"]
 
 	push_error("MapGenerator.generate: exhausted %d attempts for player_count %d, seed %d — last failure: %s" % [MAX_GENERATION_ATTEMPTS, player_count, world_seed, last_failure_reason])

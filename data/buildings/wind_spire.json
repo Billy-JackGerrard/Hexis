@@ -9,24 +9,26 @@
     "siteTerrain": "Hill"
   },
 
-  "notes": "Windy Peaks only — sits on Hill tiles, the same terrain exception Wind Sanctuary gets. A Turret variant (see \"extends\") trading raw damage for crowd control and anti-air specialization: low base damage, but a strong knockback on every hit (statusEffectOnHit.type: \"knockback\", magnitude in hexes pushed — a new status-effect type, distinct from freeze/stun, with no chance field since it always applies) plus a large damageDealtModifiers.Air bonus. Longer range than a base Turret, reflecting the hilltop vantage.",
+  "notes": "Specialty hill-sited defense that trades raw single-target damage for crowd control and a strong anti-air bonus: rather than converging on one point like a normal turret, it blasts a gust of wind outward in a straight line, damaging and knocking back everything caught downwind. Damage and attack speed are both lower than the generic defense to pay for hitting an entire line at once. Longer range than the generic defense, reflecting its elevated position.",
 
   "defensiveStats": {
-    "damage": 6,
-    "attackSpeed": 1.0,
+    "damage": 4,
+    "attackSpeed": 0.6,
     "range": 6,
     "splashRadius": 0,
-    "canTarget": ["Infantry", "Land", "Naval", "Air"],
+    "lineAttack": true,
+    "projectileSpeed": 4,
+    "canTarget": ["Infantry", "Land", "Air"],
     "damageTypes": [],
     "visionRange": 8,
-    "damageDealtModifiers": { "Air": 2.5 },
+    "damageDealtModifiers": { "Air": 2.5 , "Land": 0.5},
     "statusEffectOnHit": { "type": "knockback", "magnitude": 2 }
   },
 
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 210,
-      "damage": 6,
+      "damage": 4,
       "range": 6
     },
     "statGrowth": {

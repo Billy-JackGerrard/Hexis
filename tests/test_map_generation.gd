@@ -5,6 +5,7 @@ extends SceneTree
 var _failures: int = 0
 var _base_defs: Dictionary
 var _building_defs: Dictionary
+var _troop_defs: Dictionary
 
 func _check(condition: bool, label: String) -> void:
 	if condition:
@@ -16,6 +17,7 @@ func _check(condition: bool, label: String) -> void:
 func _init() -> void:
 	_base_defs = DataLoader.load_dir("res://data/bases")
 	_building_defs = DataLoader.load_dir("res://data/buildings")
+	_troop_defs = DataLoader.load_dir("res://data/troops")
 
 	print("Hexagon + ocean fringe")
 	_test_hexagon_and_fringe()
@@ -39,6 +41,8 @@ func _init() -> void:
 	_test_sky_fortress_site()
 	print("MapGenerator end-to-end")
 	_test_map_generator_end_to_end()
+	print("MapGenerator garrisons")
+	_test_map_generator_garrisons()
 	print("MapGenerator player_count guard")
 	_test_player_count_guard()
 
@@ -387,6 +391,49 @@ func _test_map_generator_end_to_end() -> void:
 			if r1.grid.has_hex(hex):
 				coverage_ok = false
 		_check(coverage_ok, "player_count=%d grid covers exactly the intended hexagon+fringe" % player_count)
+
+func _test_map_generator_garrisons() -> void:
+	var player_count := 2
+	var world_seed := 42
+
+	var without_troop_defs := MapGenerator.generate(player_count, world_seed, _base_defs, _building_defs)
+	_check(without_troop_defs != null and without_troop_defs.squads.is_empty(), "omitting troop_defs seeds no garrisons (optional, backward-compatible)")
+
+	var result := MapGenerator.generate(player_count, world_seed, _base_defs, _building_defs, [], _troop_defs)
+	_check(result != null, "generation with troop_defs succeeds")
+	if result == null:
+		return
+
+	var expected_troop_count := 0
+	for base in result.bases:
+		var garrison: Array = _base_defs.get(base.base_def_id, {}).get("initialGarrison", [])
+		for entry in garrison:
+			expected_troop_count += int(entry.get("count", 0))
+	_check(expected_troop_count > 0, "at least one placed base has an initialGarrison to seed (sanity check on fixture data)")
+
+	var actual_troop_count := 0
+	for squad in result.squads:
+		actual_troop_count += squad.member_ids.size()
+	_check(actual_troop_count == expected_troop_count, "total seeded garrison troops (%d) matches the sum of every placed base's initialGarrison counts (%d)" % [actual_troop_count, expected_troop_count])
+	_check(result.troops_by_id.size() == actual_troop_count, "every seeded troop is registered in troops_by_id")
+
+	var owner_by_base_id: Dictionary = {}
+	for base in result.bases:
+		owner_by_base_id[base.id] = base.owner_id
+	var hex_by_base_id: Dictionary = {}
+	for base in result.bases:
+		hex_by_base_id[base.id] = base.hex_coord
+
+	var every_squad_near_a_base := true
+	for squad in result.squads:
+		var found_nearby_base := false
+		for base in result.bases:
+			if base.owner_id == squad.owner_id and HexCoord.distance(base.hex_coord, squad.current_hex) == GarrisonFactory.GARRISON_RING_RADIUS:
+				found_nearby_base = true
+				break
+		if not found_nearby_base:
+			every_squad_near_a_base = false
+	_check(every_squad_near_a_base, "every seeded garrison squad stands on its own owner's garrison ring")
 
 func _test_player_count_guard() -> void:
 	var result := MapGenerator.generate(MapGenerator.MAX_SUPPORTED_PLAYER_COUNT + 1, 1, _base_defs, _building_defs)

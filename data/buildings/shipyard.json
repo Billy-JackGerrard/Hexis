@@ -9,7 +9,7 @@
     "adjacentTerrainRequired": "Water"
   },
 
-  "notes": "Kraken Point only — builds everything Port can, plus larger/advanced ships topping out at Aircraft Carrier. Unlocks, in order: Destroyer, Tank Carrier, Submarine, Aircraft Carrier. Submarine is also built at Rivergate's Ford Yard.",
+  "notes": "Advanced naval production building that builds everything the basic version does, plus larger and more powerful warships up to the navy's biggest vessel.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 280, "unlocks": "destroyer", "cost": { "stone": 340, "steel": 140 } },

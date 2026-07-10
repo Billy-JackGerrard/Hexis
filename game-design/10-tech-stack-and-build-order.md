@@ -67,6 +67,25 @@ writing real UI code does, and it also needs actual game state to bind to.
      ocean fringe, Forest/Hill biome clusters, rivers, and Capital/Unique
      base siting with spacing/terrain/uniqueness constraints
      (`sim/worldgen/`, `sim/map_generator.gd`, `tests/test_map_generation.gd`).
+   - [x] Ballistic projectile travel time + positional dodge for every
+     combat troop and Defensive building, via `projectileSpeed` (a shot aims
+     at a fixed hex, not a tracked target, so a repositioned target takes no
+     damage) — every troop/building def with a nonzero attackSpeed and a
+     non-empty canTarget now sets it, tuned per weapon archetype (fast
+     small-arms high, slow siege/artillery low); non-combatants (Engineer,
+     transports, etc.) never fire so it's a no-op for them, and Tank
+     Obliterator's `lineAttack` beam stays instant on purpose (see below)
+     (`sim/combat/projectile_instance.gd`, `sim/combat/projectile_system.gd`,
+     `tests/test_projectiles.gd`).
+   - [x] Traveling beam projectiles — a `lineAttack` unit that ALSO carries
+     `projectileSpeed` (Wind Spire) sweeps its beam hex-by-hex over time
+     instead of resolving the whole line in one instant tick, rolling
+     statusEffectOnHit independently per victim as it passes each one
+     (`CombatResolver._apply_line_attack`/`_resolve_beam_hex`,
+     `ProjectileSystem._advance_beam`). A `lineAttack` unit with no
+     `projectileSpeed` (Tank Obliterator) is unaffected — still fully
+     instant, an instantaneous rail-gun beam having no obvious travel time
+     to model.
 2. **Godot rendering scaffold** — a minimal scene rendering one base,
    click-to-move wired to the sim core. New `client/` folder, sibling to
    `sim/`, never the reverse — `sim/` stays engine/scene-free per
@@ -112,7 +131,37 @@ writing real UI code does, and it also needs actual game state to bind to.
      and minimap are item 3 below, not this slice.
 3. **UI layer** — `Control`-node HUD (resources, build menu, minimap) bound to
    sim state via signals.
-   - [ ] Not started.
+   - [x] `client/hud/hud_layer.gd` — screen-space `CanvasLayer` scaffold,
+     added last in `main.gd` so every panel draws over the world-space
+     views beneath it; every panel polls `_process` like the rest of
+     `client/` (no sim-side signals exist to bind to — real Godot signals
+     are used for HUD widget events instead, e.g. `Button.pressed`).
+   - [x] `client/hud/resource_bar.gd` — Food/Steel/Fuel/Stone/Wood, a
+     deficit resource renders in red (`ResourcePool.is_deficit`).
+   - [x] Click-precedence rework in `client/input_controller.gd` — an enemy
+     target under the cursor now issues `CommandProcessor.attack_target`
+     instead of a move (the focus-fire/structure-targeting requirement,
+     including Wall edges), a friendly base building selects that base, and
+     a lightweight on-screen indicator distinguishes hovering a valid enemy
+     troop/structure from open ground.
+   - [x] `client/hud/base_panel.gd` — per-base population indicator
+     (`Population.population_used/cap`).
+   - [x] `client/hud/build_menu.gd` + `client/build_preview.gd` — per-base
+     building list (`base_def.buildableBuildings`, already the correct
+     Capital-superset-vs-Unique-fixed-list per base JSON, no filtering
+     needed), placement-preview hex/edge highlighting
+     (`BuildingPlacement.can_place`/`can_place_wall`), commits via
+     `CommandProcessor.place_building`/`place_wall`.
+   - [x] `client/hud/production_panel.gd` — per-building FIFO queue display
+     + paused banner, unlocked-troop buttons
+     (`CommandProcessor.enqueue_production`) — display-only for
+     pause/resume, which is fully automatic per `07-data-architecture.md`.
+   - [x] `client/hud/alerts_panel.gd` — under-attack
+     (`CombatStateSystem.is_hex_in_combat`), production-paused
+     (`ProductionQueue.paused`), and resource-deficit rows, one per base per
+     type, clicking recenters the camera.
+   - [x] `client/hud/minimap.gd` — terrain/base/squad overview + current
+     viewport rectangle, click/drag recenters the camera.
 
 ## Art
 Placeholder art until the core loop (movement, combat resolution, base capture)

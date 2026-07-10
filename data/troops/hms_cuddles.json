@@ -9,6 +9,7 @@
   "attackSpeed": 0.8,
   "range": 3,
   "splashRadius": 0,
+  "projectileSpeed": 9,
   "visionRange": 10,
   "speed": 2.2,
 
@@ -27,5 +28,5 @@
   "fuelUpkeep": 0.5,
   "productionTime": 16,
 
-  "notes": "Port's Naval troop-transport, lightly armed — unlike Transport Truck, relies partly on its own guns and partly on Gunboat escort. Kraken Point's Shipyard fields the bigger, fully-unarmed multi-squad answer instead: Tank Carrier, which also carries Land vehicles, not just Infantry (see data/troops/tank_carrier.json). Unlike Transport Truck/Aircraft Carrier/Tank Carrier, cannot deploy its boarded Infantry squad mid-combat — must be idle/docked to unload."
+  "notes": "Troop transport ship carrying enough of its own armament to contribute in a fight rather than being wholly defenseless, though it still benefits from an escort. Must be idle or docked to unload its passengers, unlike some other transports that can drop cargo mid-battle."
 }

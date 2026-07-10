@@ -4,7 +4,7 @@
   "category": "Resource",
   "populationCost": 1,
 
-  "notes": "Buildable at all bases with an identical build/upgrade cost everywhere — the Capital's -50% production penalty and Winter Forge's +50% bonus are structured resourceModifiers entries on those BaseDefs (data/bases/schema.json), not variants of this definition.",
+  "notes": "Fuel-producing building with an identical build cost at every base — any production bonus or penalty for it comes from base-specific modifiers rather than the building itself.",
 
   "nonProductionUpgrade": {
     "baseStats": {

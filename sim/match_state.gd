@@ -14,6 +14,7 @@ var bases: Array[BaseInstance] = []
 var troops_by_id: Dictionary = {} ## id -> TroopInstance
 var regiments: Array[RegimentInstance] = []
 var standalone_buildings: Array[BuildingInstance] = []
+var projectiles: Array[ProjectileInstance] = [] ## in-flight ballistic shots, see ProjectileSystem
 var production_queues: Dictionary = {} ## building_id -> ProductionQueue
 var players: Dictionary = {} ## owner_id -> Player
 
@@ -46,6 +47,9 @@ func next_troop_id() -> String:
 
 func next_squad_id() -> String:
 	return next_id("squad")
+
+func next_projectile_id() -> String:
+	return next_id("projectile")
 
 func find_squad(id: String) -> SquadInstance:
 	for squad in squads:

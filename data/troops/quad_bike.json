@@ -9,6 +9,7 @@
   "attackSpeed": 1.2,
   "range": 4,
   "splashRadius": 0,
+  "projectileSpeed": 14,
   "visionRange": 8,
   "speed": 2.8,
 
@@ -25,5 +26,5 @@
   "fuelUpkeep": 1,
   "productionTime": 10,
 
-  "notes": "Treehouse's Forest Yard exclusive — fastest land vehicle in the roster, low armor/damage. ignoresForestBlock lets it move through Forest tiles like Infantry, unlike other Land vehicles (see game-design/01-map-and-terrain.md). Cannot target Air or Naval — a light scout/skirmisher, not an anti-air or ship-hunting unit; it can still contest Defensive buildings and plain Structures, just with no bonus damage against either. Cheap, low Fuel upkeep befitting its light-vehicle role."
+  "notes": "The fastest ground vehicle in the roster, lightly armored and cheap, able to cross terrain other land vehicles can't. A scout/skirmisher role rather than a real fighter — no bonus against aircraft or ships, though it can still contest defenses and plain structures."
 }

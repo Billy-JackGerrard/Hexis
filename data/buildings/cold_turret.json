@@ -5,13 +5,14 @@
   "populationCost": 1,
   "extends": "turret",
 
-  "notes": "Winter Forge's specialty defense, in addition to the generic Turret/Missile Launcher every base gets. A Turret variant (see \"extends\"). Ice bombs prioritize crowd control over raw damage — medium-low range, low damage, but freezes the target briefly on hit (can't move or attack while frozen). No Air targeting, unlike base Turret.",
+  "notes": "Specialty ground-and-water defense that trades raw damage for control, briefly freezing whatever it hits in place. Cannot engage aircraft.",
 
   "defensiveStats": {
     "damage": 8,
     "attackSpeed": 0.8,
     "range": 4,
     "splashRadius": 2,
+    "projectileSpeed": 9,
     "canTarget": ["Infantry", "Land", "Naval"],
     "visionRange": 5,
     "statusEffectOnHit": { "type": "freeze", "duration": 2, "magnitude": 0 }

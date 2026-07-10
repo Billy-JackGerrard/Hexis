@@ -9,7 +9,7 @@
     "adjacentTerrainRequired": "Forest"
   },
 
-  "notes": "Buildable at any base with a Forest-adjacent tile — no longer exclusive to Treehouse. Treehouse's own siteTerrain exception (placing directly on Forest instead of Plains) is authored on Treehouse's BaseDef/terrainException, not here — this definition's siteTerrain/adjacentTerrainRequired covers the generic (non-Treehouse) placement case.",
+  "notes": "Wood-producing building, buildable at any base with the right adjacent terrain.",
 
   "nonProductionUpgrade": {
     "baseStats": {

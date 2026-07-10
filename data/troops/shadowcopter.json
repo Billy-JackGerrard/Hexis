@@ -9,6 +9,7 @@
   "attackSpeed": 1.0,
   "range": 8,
   "splashRadius": 0,
+  "projectileSpeed": 13,
   "visionRange": 8,
   "speed": 2.0,
 
@@ -25,5 +26,5 @@
   "fuelUpkeep": 4,
   "productionTime": 56,
 
-  "notes": "Low HP (the lowest combat aircraft in the roster) and modest damage are the tradeoff for by far the longest range of any Air unit plus a cloak that never drops from firing: revealsOnAttack is explicitly false, the inverse of Ghost Tank/Sniper, so it can snipe from stand-off range indefinitely without ever exposing itself, only revealRange (2) and detectors still apply. Heaviest Fuel upkeep in the roster (4) reflects both the cloaking hardware and the standoff engagement electronics, same reasoning as Kleptocopter/Ghost Tank among stealth units."
+  "notes": "Long-range stealth aircraft whose cloak never drops from firing, letting it snipe from a safe distance indefinitely — only wandering into a detector's range exposes it. Fragile and unremarkable in damage, with the heaviest fuel appetite in the roster."
 }

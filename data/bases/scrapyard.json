@@ -35,5 +35,5 @@
     { "troopId": "granite_crumbler", "count": 2 }
   ],
 
-  "notes": "Heavy-armor sustainment specialist Unique base — one instance on the map, sited on Plains, no terrain exception. Salvage Works builds Juggernaut, Repair Truck, and Granite Crumbler; Granite Crumbler was previously Fort Irongrad-exclusive and is now shared, same pattern as Juggernaut/Rocket Tank across Tank Plant/Frostworks. Sniper Turret is its specialty defense — a Turret variant scaled up from the Sniper troop (highest damage/range, slowest attack speed of any Turret variant, damageTypes: [Piercing] to bypass armor — see data/buildings/sniper_turret.json), the counter-side of the base's heavy-armor theme. initialGarrison omits Repair Truck (damage 0, empty canTarget — a pure support unit, not a combatant, same reasoning as excluding Engineer/Disruptor/Glider elsewhere)."
+  "notes": "Heavy-armor sustainment specialist base — the map's sole example of its kind, pairing part of the heavy-vehicle roster with a dedicated repair unit. Its specialty defense is a long-range, precision, armor-piercing turret that punishes an approaching heavy vehicle at range rather than needing to out-tank it up close, fitting the base's heavy-armor theme from the counter side."
 }

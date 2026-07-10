@@ -9,6 +9,7 @@
   "attackSpeed": 0.8,
   "range": 6,
   "splashRadius": 2,
+  "projectileSpeed": 8,
   "visionRange": 10,
   "speed": 1.8,
 
@@ -23,5 +24,5 @@
   "fuelUpkeep": 3.5,
   "productionTime": 38,
 
-  "notes": "Tinder Box's bigger, slower Blazeworks unit — longer range and plasma impact rather than Flamecopter's close-in fire spray. Versatile enough to hit Air, unlike Flamecopter. No damage modifiers vs. anything, but weaker against buildings; the hard-hitting generalist counterpart to Flamecopter's Wood-bonus specialization."
+  "notes": "Slower, longer-range gunship capable of engaging aircraft as well as ground targets. No bonus damage against anything, and notably weaker against structures."
 }

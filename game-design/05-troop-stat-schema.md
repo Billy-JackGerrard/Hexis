@@ -76,6 +76,24 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   is the first (and so far only) user — see `08-troop-roster.md`. Mutually exclusive
   with Splash radius in practice (a unit picks one AoE shape or the other), though
   nothing in the schema enforces that.
+- **Projectile speed** (`projectileSpeed`, hexes per second, default 0/absent) — 0
+  means today's instant hit-scan resolution: range/LOS gate whether a shot lands, and
+  it lands the same tick it fires. Set above 0 and the attack becomes *ballistic*:
+  firing spawns a shot aimed at the target's hex **at the moment of firing** (a fixed
+  hex, not a tracked target id) that resolves `distance / projectileSpeed` seconds
+  later against whoever is actually standing on that hex *then* — not wherever the
+  original target has moved to. A target that repositions off the aimed hex before
+  the shot lands takes zero damage (a genuine, positional dodge); Splash radius, if
+  any, still checks other enemies near the aimed hex, so a target can also partially
+  dodge by moving just outside blast radius rather than fully out of range. Every
+  combat troop and Defensive building sets this now — fast small-arms fire uses a
+  high value so the delay is negligible at short range, slow-firing splash/siege
+  weapons (Earthshaker, Granite Crumbler) use a low one so dodging is a real, readable
+  moment. `lineAttack` interacts with it rather than excluding it: a beam with no
+  `projectileSpeed` (Tank Obliterator) resolves instantly, since an instantaneous
+  rail-gun beam has no travel time to model, but a beam that DOES carry
+  `projectileSpeed` (Wind Spire) sweeps down its hex path over time instead — see
+  Line attack above and `08-troop-roster.md` for both.
 - **Vision range** — how far the unit can see, kept separate from Range so a unit can
   spot an enemy before being able to fight it (or vice versa), giving reaction time.
 

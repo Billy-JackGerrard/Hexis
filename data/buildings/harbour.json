@@ -9,7 +9,7 @@
     "adjacentTerrainRequired": "Water"
   },
 
-  "notes": "Mechanically a Farm equivalent (Food output), gated behind the same water-adjacency requirement as Port — not a separate production chain. Deliberately steep growth curve vs. Farm's mild one: lower level-1 output but +60%/level compounding, so a maxed-out Harbour eventually out-produces a maxed-out Farm despite the weaker starting point. \"Fishing boats\" are purely visual (boat count scales with level) — no separate boat unit/entity. Requires Wood to build/upgrade, unlike Farm.",
+  "notes": "Water-adjacent food-producing building, mechanically equivalent to the basic food building but with a steeper growth curve: weaker at first, but eventually out-producing it at high levels. Costs a different material to build than the basic version.",
 
   "nonProductionUpgrade": {
     "baseStats": {

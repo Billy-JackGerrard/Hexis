@@ -10,6 +10,7 @@
   "attackSpeed": 0.9,
   "range": 2,
   "splashRadius": 0,
+  "projectileSpeed": 8,
   "visionRange": 6,
   "speed": 1.5,
 
@@ -24,5 +25,5 @@
   "fuelUpkeep": 2,
   "productionTime": 36,
 
-  "notes": "Fort Irongrad Tank Plant exclusive (not shared with Frostworks) — the roster's tankiest unit: highest HP of any troop plus a flat 8 armor (stacks with, doesn't replace, damageReceivedModifiers, per schema), at the cost of very short range and the slowest heavy tank. Bonus vs. Infantry (1.5x) reflects its role crushing infantry lines up close rather than dueling other tanks at range."
+  "notes": "The toughest vehicle in the roster, combining very high health with flat damage reduction to soak hits at close range, especially effective against infantry. Short-ranged and the slowest of the heavy vehicles, so it struggles to catch anything that keeps its distance."
 }

@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Shared building type between Capital and Foundry Reach — base eligibility is authored on each BaseDef's buildableBuildings list, not here. Only light land vehicles — heavy tanks require Fort Irongrad/Winter Forge. Unlocks, in order: Engineer, Tonk, Ambulance, Light Tank, Transport Truck, Basekiller. Engineer unlocking at level 1 means it's available the moment a base has a Factory at all — its own infrastructure-building role is independent of Factory level after that.",
+  "notes": "Trains light land vehicles and the infrastructure specialist. Heavier armor requires a different, more specialized production building.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 220, "unlocks": "engineer", "cost": { "stone": 200, "steel": 80 } },

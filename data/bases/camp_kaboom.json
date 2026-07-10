@@ -34,5 +34,5 @@
     { "troopId": "tank_obliterator", "count": 2 }
   ],
 
-  "notes": "Heavy-artillery specialist. No Barracks or Factory at all -- Demolition Plant (Tank Obliterator, Earthshaker) is the base's only troop production, so it fields no infantry or light vehicles whatsoever, the most extreme 'skips a tier' base in the roster. Fixed defenses double down on the explosives theme: Grenade Turret and EMP Turret (previously Fort Irongrad- and Signal Ridge-exclusive respectively) are both buildable here too, alongside the usual Turret/Missile Launcher/Walls. Starts with a heavy garrison from turn one since it has no infantry to garrison with otherwise."
+  "notes": "Heavy-artillery specialist base — the map's sole example of its kind. Has no light-vehicle or basic-infantry production at all; its sole production building fields only the heaviest siege vehicles in the roster, the most extreme case of skipping straight to a late-game roster. Starts with a strong garrison from the outset since it has no infantry to garrison with otherwise, and doubles down on the explosives theme with additional specialty defenses alongside the standard set."
 }

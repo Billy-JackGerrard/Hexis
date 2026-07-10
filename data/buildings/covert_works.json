@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Signal Ridge only. Unlocks, in order: Ghost Tank, Repair Truck, Disruptor.",
+  "notes": "Specialist production building for stealth and electronic-warfare land troops.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 210, "unlocks": "ghost_tank", "cost": { "stone": 150, "steel": 90 } },

@@ -4,7 +4,7 @@
   "category": "Resource",
   "populationCost": 1,
 
-  "notes": "Pre-seeded at every base alongside HQ and Farm, but NOT isFixed. Deliberately costs Steel (not Stone) to build/upgrade, cross-wired with Mine costing Stone, to avoid a chicken-and-egg problem where a base's first Mine could never be paid for out of zero starting Steel.",
+  "notes": "Steel-producing building, present at every base from the start. Deliberately priced in a different resource than the one it produces, avoiding a chicken-and-egg problem for a base's very first construction.",
 
   "nonProductionUpgrade": {
     "baseStats": {

@@ -9,6 +9,7 @@
   "attackSpeed": 1,
   "range": 4,
   "splashRadius": 0,
+  "projectileSpeed": 10,
   "visionRange": 8,
   "speed": 2.5,
 
@@ -25,5 +26,5 @@
   "fuelUpkeep": 2,
   "productionTime": 30,
 
-  "notes": "Cloaking tech trades raw stats for ambush potential: lower HP/damage than Tonk and no damageDealtModifiers. Invisible to non-detector units/buildings beyond revealRange (1 — very short, same convention as Sniper); detector units/buildings see it at their normal visionRange instead. revealsOnAttack means firing makes it visible to everyone until a few seconds pass without attacking, then it re-cloaks."
+  "notes": "Cloaked heavy vehicle trading raw combat power for the ability to approach unseen. Invisible to most enemies beyond point-blank range, though dedicated detectors see it normally; attacking exposes it until it holds fire for a while."
 }

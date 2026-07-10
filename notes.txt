@@ -51,3 +51,20 @@ eg earthshaker has a LOW PROJECTILE
 
 
 possibly we could have cone gun mechanics? eg wind spire.
+
+
+
+
+Here's what the code defines (no fixed number in the design docs — this is a placeholder tunable, not yet playtested):
+
+Map size — a hexagonal grid, radius scales with player count:
+radius = 12 + player_count × 3
+
+2 players → radius 18
+4 players → radius 24
+6 players → radius 30
+Plus a 2-hex ocean fringe beyond the coastline (OCEAN_FRINGE_WIDTH). So total hexes (landmass, using the hexagon-of-hexagons formula 3r²+3r+1) for a 4-player map (radius 24) is about 1,801 land hexes, plus the ocean ring.
+
+Hex size (rendering) — client/hex_view.gd:9, flat-top hexes, HEX_SIZE = 32.0 (pixels, used as the axial↔pixel projection scale).
+
+Both are explicitly marked as un-tuned placeholders (sim/worldgen/terrain_generator.gd:10-19) pending playtesting, not final design numbers.

@@ -43,3 +43,18 @@ static func corners(size: float = HEX_SIZE) -> PackedVector2Array:
 		var angle_rad := deg_to_rad(angle_deg)
 		points.append(Vector2(size * cos(angle_rad), size * sin(angle_rad)))
 	return points
+
+## World-space endpoints of the edge SHARED between two ADJACENT hexes —
+## used for wall rendering (Walls are edge-keyed: BuildingInstance.hex_a/
+## hex_b, not a single hex). Undefined for non-adjacent a/b.
+static func edge_segment(a: HexCoord, b: HexCoord, size: float = HEX_SIZE) -> PackedVector2Array:
+	var center := axial_to_pixel(a, size)
+	var towards := axial_to_pixel(b, size) - center
+	var angle_deg := rad_to_deg(towards.angle())
+	if angle_deg < 0.0:
+		angle_deg += 360.0
+	var corner_index := int(roundf((angle_deg - 30.0) / 60.0)) % 6
+	if corner_index < 0:
+		corner_index += 6
+	var hex_corners := corners(size)
+	return PackedVector2Array([center + hex_corners[corner_index], center + hex_corners[(corner_index + 1) % 6]])

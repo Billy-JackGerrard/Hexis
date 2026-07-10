@@ -25,5 +25,5 @@
   "fuelUpkeep": 1,
   "productionTime": 15,
 
-  "notes": "Camp Cosy's Supply Depot exclusive — an economic support vehicle rather than a combat-sustain one like Ambulance. Its aura reduces every nearby friendly troop's foodUpkeep AND fuelUpkeep by a flat 3 each (floored at 0, same flooring convention as armor — see game-design/05-troop-stat-schema.md), easing deficit pressure (game-design/03-resources.md) for an escorted army rather than healing HP. Non-combat (canTarget: []), like Engineer/Disruptor."
+  "notes": "Economic support vehicle whose presence eases the upkeep costs of nearby friendly troops rather than healing them. Unarmed, so it needs escort like other support vehicles."
 }

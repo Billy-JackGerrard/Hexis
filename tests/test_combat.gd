@@ -7,6 +7,25 @@ var _failures: int = 0
 var _troop_defs: Dictionary
 var _building_defs: Dictionary
 var _next_id: int = 0
+var _next_proj: int = 0
+
+func _next_projectile_id() -> String:
+	_next_proj += 1
+	return "proj%d" % _next_proj
+
+## Every combat troop/building now carries a projectileSpeed (see
+## tests/test_projectiles.gd) -- this suite's assertions all predate that and
+## assume same-call resolution, so every CombatResolver.resolve_tick call site
+## below is routed through here instead, which mirrors SimOrchestrator's own
+## CombatResolver -> ProjectileSystem pairing (same dt for both) exactly. Every
+## fixture in this file fires at short enough range/high enough speed that
+## travel_time < dt, so the shot still fully resolves within this one call --
+## a fresh empty `projectiles` array per call is therefore equivalent to a
+## persistent one for every test here.
+func _resolve_combat(dt: float, squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, detections: Dictionary = {}, auras: Dictionary = {}, standalone_buildings: Array[BuildingInstance] = [], regiments: Array[RegimentInstance] = [], production_queues: Dictionary = {}) -> void:
+	var projectiles: Array[ProjectileInstance] = []
+	CombatResolver.resolve_tick(dt, squads, bases, troops_by_id, grid, troop_defs, building_defs, detections, auras, standalone_buildings, regiments, production_queues, projectiles, Callable(self, "_next_projectile_id"))
+	ProjectileSystem.resolve_tick(dt, projectiles, squads, bases, troops_by_id, grid, troop_defs, building_defs, auras, standalone_buildings, regiments, production_queues)
 
 func _check(condition: bool, label: String) -> void:
 	if condition:
@@ -405,9 +424,9 @@ func _test_combat_resolver() -> void:
 	var a := _make_squad("p1", "rifleman", HexCoord.new(0, 0), 1, troops)
 	var b := _make_squad("p2", "rifleman", HexCoord.new(1, 0), 1, troops)
 	var squads: Array[SquadInstance] = [a, b]
-	CombatResolver.resolve_tick(0.5, squads, [], troops, grid, _troop_defs, _building_defs)
+	_resolve_combat(0.5, squads, [], troops, grid, _troop_defs, _building_defs)
 	_check(troops[b.member_ids[0]].current_hp == rifleman_hp, "no fire before attack_progress reaches 1.0 (dt 0.5, attackSpeed %s)" % rifleman_attack_speed)
-	CombatResolver.resolve_tick(0.5, squads, [], troops, grid, _troop_defs, _building_defs)
+	_resolve_combat(0.5, squads, [], troops, grid, _troop_defs, _building_defs)
 	_check(troops[b.member_ids[0]].current_hp == rifleman_hp - rifleman_damage, "one volley fires when the accumulator crosses 1.0 (%s damage)" % rifleman_damage)
 
 	# splash hits other enemies in radius but never friendlies. Targets and the
@@ -429,7 +448,7 @@ func _test_combat_resolver() -> void:
 	var enemy_b_tid := enemy_b.member_ids[0]
 	var friendly_tid := friendly.member_ids[0]
 	var splash_squads: Array[SquadInstance] = [gren, enemy_a, enemy_b, friendly]
-	CombatResolver.resolve_tick(1.0, splash_squads, [], t2, grid, _troop_defs, _building_defs)
+	_resolve_combat(1.0, splash_squads, [], t2, grid, _troop_defs, _building_defs)
 	# Engineer hp (engineer_hp); Grenadier vs Land = grenadier_base_damage2 *
 	# grenadier_land_mult2 = grenadier_splash_damage. Primary enemy_a and
 	# splashed enemy_b (1 hex away) both hit; the friendly in radius is spared.
@@ -443,7 +462,7 @@ func _test_combat_resolver() -> void:
 	var victim := _make_squad("p2", "rifleman", HexCoord.new(1, 0), 1, t3, 5.0)
 	var victim_tid := victim.member_ids[0]
 	var kill_squads: Array[SquadInstance] = [killer, victim]
-	CombatResolver.resolve_tick(1.0, kill_squads, [], t3, grid, _troop_defs, _building_defs)
+	_resolve_combat(1.0, kill_squads, [], t3, grid, _troop_defs, _building_defs)
 	_check(kill_squads.size() == 1 and kill_squads[0].id == killer.id, "a killed squad is pruned from the squads list")
 	_check(not t3.has(victim_tid), "the dead troop is removed from the registry")
 
@@ -463,7 +482,7 @@ func _test_combat_resolver() -> void:
 	for _i in range(200):
 		if farm.is_ruin:
 			break
-		CombatResolver.resolve_tick(1.0, [siege], bases, t4, grid, _troop_defs, _building_defs, {}, {}, [], [], farm_queues)
+		_resolve_combat(1.0, [siege], bases, t4, grid, _troop_defs, _building_defs, {}, {}, [], [], farm_queues)
 	_check(farm.is_ruin, "Basekiller fights the Farm down to a ruin")
 	_check(enemy_base.buildings.size() == 1 and enemy_base.buildings[0] == farm, "the ruined Farm stays in base.buildings, not removed")
 	_check(farm.current_hp <= 0.0, "a ruin sits at 0 HP")
@@ -487,7 +506,7 @@ func _test_combat_resolver() -> void:
 	for _i in range(200):
 		if hq_base.owner_id == "p1":
 			break
-		CombatResolver.resolve_tick(1.0, [hq_siege], hq_bases, t_hq, grid, _troop_defs, _building_defs, {}, {}, [], [], hq_capture_queues)
+		_resolve_combat(1.0, [hq_siege], hq_bases, t_hq, grid, _troop_defs, _building_defs, {}, {}, [], [], hq_capture_queues)
 	_check(hq_base.owner_id == "p1", "an HQ fought to 0 HP flips the whole base to the attacker")
 	_check(hq.current_hp == hq_max_hp, "the HQ respawns at full HP under its new owner")
 	_check(not hq.is_ruin, "the HQ is never marked as a ruin")
@@ -498,7 +517,7 @@ func _test_combat_resolver() -> void:
 	var t5: Dictionary = {}
 	var raider := _make_squad("p1", "rifleman", HexCoord.new(1, 0), 1, t5)
 	var turret_base := _p2_base_with("turret", HexCoord.new(0, 0))
-	CombatResolver.resolve_tick(1.0, [raider], [turret_base], t5, grid, _troop_defs, _building_defs)
+	_resolve_combat(1.0, [raider], [turret_base], t5, grid, _troop_defs, _building_defs)
 	_check(t5[raider.member_ids[0]].current_hp < rifleman_hp, "a Defensive Turret fires back and damages the attacking squad")
 	_check(turret_base.buildings[0].current_hp < turret_base.buildings[0].max_hp, "the attacking squad also damages the Turret")
 
@@ -510,11 +529,11 @@ func _test_combat_resolver() -> void:
 	regen_building.time_since_damage = 0.0
 	var no_squads: Array[SquadInstance] = []
 	var no_troops: Dictionary = {}
-	CombatResolver.resolve_tick(BuildingRegenSystem.OUT_OF_COMBAT_DELAY_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
+	_resolve_combat(BuildingRegenSystem.OUT_OF_COMBAT_DELAY_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
 	_check(regen_building.current_hp == regen_building.max_hp - 100.0, "no regen before the out-of-combat delay elapses")
-	CombatResolver.resolve_tick(1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
+	_resolve_combat(1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
 	_check(regen_building.current_hp == regen_building.max_hp - 100.0, "crossing the delay banks no regen tick yet on its own")
-	CombatResolver.resolve_tick(BuildingRegenSystem.REGEN_TICK_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
+	_resolve_combat(BuildingRegenSystem.REGEN_TICK_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
 	_check(_approx(regen_building.current_hp, regen_building.max_hp - 100.0 + regen_building.max_hp * BuildingRegenSystem.REGEN_FRACTION_OF_MAX_HP), "once a full 5-second regen tick banks past the delay, it heals 5% of max HP")
 
 	# A standalone building (Tower — Engineer-built, owner_id set directly
@@ -528,7 +547,7 @@ func _test_combat_resolver() -> void:
 	tower.init_hp(_building_defs["tower"], _building_defs)
 	var standalone: Array[BuildingInstance] = [tower]
 	var no_bases: Array[BaseInstance] = []
-	CombatResolver.resolve_tick(1.0, [attacker], no_bases, t6, grid, _troop_defs, _building_defs, {}, {}, standalone)
+	_resolve_combat(1.0, [attacker], no_bases, t6, grid, _troop_defs, _building_defs, {}, {}, standalone)
 	_check(t6[attacker.member_ids[0]].current_hp < basekiller_hp, "standalone Tower fires back and damages the attacking squad")
 	_check(tower.current_hp < tower.max_hp, "standalone Tower is damaged by CombatResolver's targeting")
 
@@ -537,7 +556,7 @@ func _test_combat_resolver() -> void:
 	for _i in range(200):
 		if standalone.is_empty():
 			break
-		CombatResolver.resolve_tick(1.0, [attacker], no_bases, t6, grid, _troop_defs, _building_defs, {}, {}, standalone)
+		_resolve_combat(1.0, [attacker], no_bases, t6, grid, _troop_defs, _building_defs, {}, {}, standalone)
 	_check(standalone.is_empty(), "a standalone Tower fought to 0 HP is deleted outright, not ruined")
 
 	# A Landmine (selfDestructOnTrigger, no attackSpeed) fires once the instant
@@ -548,7 +567,7 @@ func _test_combat_resolver() -> void:
 	var mine := BuildingInstance.new("mine1", "", "landmine", 1, "", HexCoord.new(0, 0), "p2")
 	mine.init_hp(_building_defs["landmine"], _building_defs)
 	var mine_standalone: Array[BuildingInstance] = [mine]
-	CombatResolver.resolve_tick(1.0, [intruder], no_bases, t7, grid, _troop_defs, _building_defs, {}, {}, mine_standalone)
+	_resolve_combat(1.0, [intruder], no_bases, t7, grid, _troop_defs, _building_defs, {}, {}, mine_standalone)
 	_check(t7[intruder.member_ids[0]].current_hp < rifleman_hp, "a Landmine deals its splash damage the instant an Infantry/Land enemy is in range")
 	_check(mine_standalone.is_empty(), "the Landmine is deleted outright the same tick it triggers, not left inert")
 
@@ -579,7 +598,7 @@ func _test_commander_death_regiment_disband() -> void:
 
 	var squads: Array[SquadInstance] = [commander, member_a, member_b]
 	var bases: Array[BaseInstance] = []
-	CombatResolver.resolve_tick(1.0, squads, bases, troops, grid, _troop_defs, _building_defs, {}, {}, [], regiments)
+	_resolve_combat(1.0, squads, bases, troops, grid, _troop_defs, _building_defs, {}, {}, [], regiments)
 
 	_check(not squads.any(func(s): return s.id == commander.id), "the dead Commander squad is pruned")
 	_check(regiments.is_empty(), "the regiment is disbanded once its Commander dies")
@@ -598,7 +617,7 @@ func _test_commander_death_regiment_disband() -> void:
 	live_regiment.assign_squad(live_member.id, 4)
 	var live_regiments: Array[RegimentInstance] = [live_regiment]
 	var squads2: Array[SquadInstance] = [live_commander, live_member]
-	CombatResolver.resolve_tick(1.0, squads2, [], troops2, grid, _troop_defs, _building_defs, {}, {}, [], live_regiments)
+	_resolve_combat(1.0, squads2, [], troops2, grid, _troop_defs, _building_defs, {}, {}, [], live_regiments)
 	_check(not live_regiments.is_empty(), "a regiment whose Commander survives is not disbanded")
 	_check(live_member.commander_id == live_commander.id, "a living regiment's member commander_id is untouched")
 	_check(live_member.order.get("type") == "regiment_move", "a living regiment's member order is untouched")
@@ -630,7 +649,7 @@ func _test_wall_combat() -> void:
 	for _i in range(200):
 		if not base.buildings.any(func(b): return b.id == "wall1"):
 			break
-		CombatResolver.resolve_tick(1.0, [attacker], bases, t7, grid, _troop_defs, _building_defs)
+		_resolve_combat(1.0, [attacker], bases, t7, grid, _troop_defs, _building_defs)
 	_check(not base.buildings.any(func(b): return b.id == "wall1"), "the Wall is fought down and deleted outright, not ruined")
 	_check(not grid.is_walled_edge(HexCoord.new(0, 0), HexCoord.new(1, 0)), "destroying the Wall reopens its edge for movement/pathing")
 
@@ -697,7 +716,7 @@ func _test_wood_tower_turrets() -> void:
 		_make_squad("p1", "rifleman", HexCoord.new(3, 0), 1, troops_l1, 5.0),
 	]
 	var standalone_l1: Array[BuildingInstance] = [tower_l1]
-	CombatResolver.resolve_tick(1.0, enemies_l1, [], troops_l1, grid, _troop_defs, _building_defs, {}, {}, standalone_l1)
+	_resolve_combat(1.0, enemies_l1, [], troops_l1, grid, _troop_defs, _building_defs, {}, {}, standalone_l1)
 	# _prune_dead removes a fully-dead squad from the array outright (not just
 	# empties its member_ids), so "how many died" is the shrinkage in size.
 	_check(enemies_l1.size() == 2, "level-1 Wood Tower (1 turret) kills exactly one of three separate weak squads in a single tick")
@@ -716,7 +735,7 @@ func _test_wood_tower_turrets() -> void:
 		_make_squad("p1", "rifleman", HexCoord.new(3, 0), 1, troops_l3, 5.0),
 	]
 	var standalone_l3: Array[BuildingInstance] = [tower_l3]
-	CombatResolver.resolve_tick(1.0, enemies_l3, [], troops_l3, grid, _troop_defs, _building_defs, {}, {}, standalone_l3)
+	_resolve_combat(1.0, enemies_l3, [], troops_l3, grid, _troop_defs, _building_defs, {}, {}, standalone_l3)
 	_check(enemies_l3.is_empty(), "level-3 Wood Tower's 3 independently-targeting turrets each kill a separate squad in the same tick")
 
 ## Tank Obliterator's rail gun (lineAttack): fires along a straight beam from
@@ -761,8 +780,8 @@ func _test_line_attack() -> void:
 
 	var squads: Array[SquadInstance] = [attacker, e1, e2, off_beam, e3]
 	var bases: Array[BaseInstance] = [enemy_base]
-	CombatResolver.resolve_tick(cycle * 0.7, squads, bases, troops, grid, _troop_defs, _building_defs)
-	CombatResolver.resolve_tick(cycle * 0.7, squads, bases, troops, grid, _troop_defs, _building_defs)
+	_resolve_combat(cycle * 0.7, squads, bases, troops, grid, _troop_defs, _building_defs)
+	_resolve_combat(cycle * 0.7, squads, bases, troops, grid, _troop_defs, _building_defs)
 
 	_check(troops[e1.member_ids[0]].current_hp == rifleman_hp - beam_damage, "line attack: nearest primary target on the beam takes full damage")
 	_check(troops[e2.member_ids[0]].current_hp == rifleman_hp - beam_damage, "line attack: a second enemy squad further along the beam is also hit (goes through troops)")
@@ -784,8 +803,8 @@ func _test_line_attack() -> void:
 
 	var squads2: Array[SquadInstance] = [attacker2, f1, f3]
 	var bases2: Array[BaseInstance] = [friendly_base]
-	CombatResolver.resolve_tick(cycle * 0.7, squads2, bases2, troops2, grid, _troop_defs, _building_defs)
-	CombatResolver.resolve_tick(cycle * 0.7, squads2, bases2, troops2, grid, _troop_defs, _building_defs)
+	_resolve_combat(cycle * 0.7, squads2, bases2, troops2, grid, _troop_defs, _building_defs)
+	_resolve_combat(cycle * 0.7, squads2, bases2, troops2, grid, _troop_defs, _building_defs)
 
 	_check(troops2[f1.member_ids[0]].current_hp == rifleman_hp - beam_damage, "line attack: nearest primary target still takes damage with a friendly building further down the beam")
 	_check(friendly_building.current_hp == friendly_max_hp, "line attack: a friendly building on the beam takes no damage")

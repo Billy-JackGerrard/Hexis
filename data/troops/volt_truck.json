@@ -30,5 +30,5 @@
   "fuelUpkeep": 1,
   "productionTime": 20,
 
-  "notes": "Camp Cosy's Supply Depot exclusive — an electrical booster vehicle rather than a healer/economizer like Ambulance/Repair Truck/Mule. Buffs Land, Air, AND Naval domains (deliberately excludes Infantry — nothing to electrically supercharge on foot) with a big speed_boost (40%) and a slight attack_speed_boost (15%). One aura pair per domain since filter matches a single domain/tag at a time (see data/troops/schema.json). Non-combat (canTarget: []), like the rest of the Supply Depot roster."
+  "notes": "Electrical support vehicle that boosts the speed and attack speed of nearby friendly vehicles, aircraft, and ships — deliberately excludes infantry, who have nothing electrical to supercharge. Unarmed like other support vehicles."
 }

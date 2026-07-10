@@ -7,13 +7,14 @@
 
   "damageReceivedModifiers": { "Fire": 2.0 },
 
-  "notes": "Treehouse's specialty defense, in addition to the generic Turret/Missile Launcher every base gets. A Turret variant (see \"extends\") carrying over Wood Tower's identity wholesale — same base stats (low damage, fast attack speed) and same addsTurretPerLevel mechanic (each upgrade level adds an independently-targeting turret instead of scaling its own damage/hp), so a maxed-out Wood Turret clears a swarm of weak/fast units (matching Treehouse's Quad-bike-heavy garrison) rather than focus-firing a single strong threat. Fire-vulnerable like every other Wood structure (Wood Tower/Wall/Dock/Bridge). Unlike standalone Tower, this is tied to a base (populationCost 1, normal ruin/rebuild rules apply on destruction) and single-material — no Stone/Steel variant, since Treehouse already gets the generic Turret for a non-Wood-flavored defense.",
+  "notes": "Specialty defense carrying over a rapid-fire, swarm-clearing identity: low damage and fast attacks, gaining an extra independently-targeting turret per upgrade rather than scaling its own stats, suited to clearing weak, fast attackers rather than focusing down a lone dangerous target. Vulnerable to fire like other wood construction. Tied to a base, and, unlike its standalone counterpart, has no alternate material choice.",
 
   "defensiveStats": {
     "damage": 10,
     "attackSpeed": 1.6,
     "range": 5,
     "splashRadius": 0,
+    "projectileSpeed": 14,
     "canTarget": ["Infantry", "Land", "Naval", "Air"],
     "damageTypes": [],
     "visionRange": 10

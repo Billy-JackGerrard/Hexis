@@ -25,5 +25,5 @@
   "fuelUpkeep": 1,
   "productionTime": 26,
 
-  "notes": "Kraken Point Shipyard exclusive. The planned 'Heavy Transport' from the roster doc, renamed Tank Carrier — bigger than HMS Cuddles and the first transport whose cargoAllowedTags includes Land, not just Infantry: it can carry vehicle squads (2 squads total, any mix of Land/Infantry, each squad occupying one slot regardless of its own headcount). Fully unarmed like Transport Truck, and like Transport Truck (not HMS Cuddles) it can launch cargo mid-combat rather than only while idle/docked — an amphibious-assault craft that drops tanks straight into a fight."
+  "notes": "Large naval transport able to carry a mix of land vehicles and infantry rather than just foot soldiers. Fully unarmed, but can drop its cargo straight into an ongoing fight rather than needing to dock first."
 }

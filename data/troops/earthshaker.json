@@ -11,6 +11,7 @@
   "range": 8,
   "minRange": 2,
   "splashRadius": 3,
+  "projectileSpeed": 3,
   "visionRange": 8,
   "speed": 1.1,
 
@@ -25,5 +26,5 @@
   "fuelUpkeep": 2.5,
   "productionTime": 85,
 
-  "notes": "The highest damage in the game, and it's splash damage. But the low attack speed and movement speed make it balanced. It can't hit Air, and it has a penalty vs. Structure and Defensive (0.6x and 0.8x respectively) to make it less of a base-cracker than the Granite Crumbler, which is the other heavy-tier siege tank. It has a smaller squad size than the Crumbler (2 vs. 4) to make it more vulnerable to Infantry swarms. minRange 2 is a genuine dead zone, not just a soft penalty: an indirect-fire siege piece that can't depress its barrel far enough to hit anything standing right next to it (CombatTargeting.candidates() excludes anything closer than minRange, same treatment as anything beyond range) — an Infantry swarm that survives the trip in and closes to adjacent range is completely safe from it, reinforcing the same 'vulnerable to Infantry swarms' niche the small squad size already gives it."
+  "notes": "Heavy siege vehicle with the hardest-hitting splash attack in the roster, balanced by slow firing and slow movement. Cannot fire at point-blank range or hit aircraft, and its small squads are especially vulnerable to infantry that close the gap."
 }

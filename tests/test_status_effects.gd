@@ -8,6 +8,22 @@ var _failures: int = 0
 var _troop_defs: Dictionary
 var _building_defs: Dictionary
 var _next_id: int = 0
+var _next_proj: int = 0
+
+func _next_projectile_id() -> String:
+	_next_proj += 1
+	return "proj%d" % _next_proj
+
+## Cold Turret now carries a projectileSpeed (see tests/test_projectiles.gd),
+## so its statusEffectOnHit no longer applies inside CombatResolver.resolve_tick
+## itself -- it's rolled once the shot actually lands, via ProjectileSystem.
+## This mirrors SimOrchestrator's own CombatResolver -> ProjectileSystem
+## pairing (same dt for both); the turret's shot travels well under this
+## test's dt, so it still fully resolves within one call.
+func _resolve_combat(dt: float, squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary) -> void:
+	var projectiles: Array[ProjectileInstance] = []
+	CombatResolver.resolve_tick(dt, squads, bases, troops_by_id, grid, troop_defs, building_defs, {}, {}, [], [], {}, projectiles, Callable(self, "_next_projectile_id"))
+	ProjectileSystem.resolve_tick(dt, projectiles, squads, bases, troops_by_id, grid, troop_defs, building_defs)
 
 func _check(condition: bool, label: String) -> void:
 	if condition:
@@ -177,7 +193,7 @@ func _test_integration() -> void:
 	_check(MovementResolver.issue_move(attacker, grid, HexCoord.new(4, 0), _troop_defs), "attacker has a valid move order queued")
 
 	# attackSpeed 0.8, so dt 2.0 banks 1.6 -- enough for exactly one volley.
-	CombatResolver.resolve_tick(2.0, [attacker], [base], troops, grid, _troop_defs, building_defs)
+	_resolve_combat(2.0, [attacker], [base], troops, grid, _troop_defs, building_defs)
 	_check(attacker.lockout_remaining > 0.0, "Cold Turret's freeze locks the attacking squad out")
 
 	var path_before_locked_tick := attacker.path.size()
@@ -185,7 +201,7 @@ func _test_integration() -> void:
 	_check(attacker.current_hex.equals(HexCoord.new(1, 0)), "a locked-out squad does not move")
 	_check(attacker.path.size() == path_before_locked_tick, "a locked-out squad's path is untouched")
 
-	CombatResolver.resolve_tick(2.0, [attacker], [base], troops, grid, _troop_defs, building_defs)
+	_resolve_combat(2.0, [attacker], [base], troops, grid, _troop_defs, building_defs)
 	_check(_living_members_count(attacker, troops) == 1, "a locked-out squad survives (frozen, not killed) if the Turret alone doesn't finish it")
 
 func _living_members_count(squad: SquadInstance, troops: Dictionary) -> int:

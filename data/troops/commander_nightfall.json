@@ -10,6 +10,7 @@
   "attackSpeed": 1.0,
   "range": 4,
   "splashRadius": 0,
+  "projectileSpeed": 16,
   "visionRange": 9,
   "speed": 2.6,
 
@@ -37,5 +38,5 @@
   "fuelUpkeep": 5,
   "productionTime": 60,
 
-  "notes": "Rare-tier Commander, Capital-only via Command Centre. Own stealth works exactly like Ghost Tank/Submarine/Sniper (revealRange 1, revealsOnAttack). Its aura's grant_stealth effect extends that same stealth (same revealRange/revealsOnAttack convention) to every squad currently assigned to its regiment (filter: \"own_regiment\", capped at maxSquadsLed: 4, same mechanism as Vanguard's speed_boost) — each squad breaks its OWN granted cloak independently when it attacks, rather than the whole regiment decloaking together. Radius set high because, as with Vanguard, regiment membership (not proximity) is what gates the effect."
+  "notes": "Rare command unit that extends its own cloak to every squad serving under it, letting a whole formation approach unseen. Each squad only breaks its own cloak when it attacks, not the group's. Fragile like other commanders and a high-value kill if caught."
 }

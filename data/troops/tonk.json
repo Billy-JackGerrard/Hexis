@@ -9,6 +9,7 @@
   "attackSpeed": 0.7,
   "range": 6,
   "splashRadius": 0,
+  "projectileSpeed": 9,
   "visionRange": 8,
   "speed": 2.2,
 
@@ -23,5 +24,5 @@
   "fuelUpkeep": 1,
   "productionTime": 20,
 
-  "notes": "Heavier, longer-range sibling to Light Tank: slower attack speed, higher per-hit damage, longer range, and slight damage bonuses vs. Air-domain targets and vs. Structure (buildings+walls are a single reserved key per the schema, so this also nudges its damage vs. buildings, not walls alone)."
+  "notes": "Longer-range land vehicle with heavy per-hit damage and a slow attack rhythm, plus a bonus against aircraft and structures. A patient, hard-hitting tank rather than a fast skirmisher."
 }

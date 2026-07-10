@@ -6,10 +6,14 @@
 
   "materials": ["stone", "wood", "steel"],
 
-  "notes": "Rivergate and Kraken Point's shared specialty defense (renamed from River Battery), in addition to the generic Turret/Missile Launcher every base gets. A literal high-pressure water cannon — the jet is the weapon, no explosive/ballistic payload involved, which is why it trades Air targeting for a bonus against Naval targets instead: hard to aim a water jet skyward at a moving aircraft, but devastating against a hull at the waterline. At Rivergate it covers a river crossing (rivers are naval-passable all the way inland from the sea, so without this an enemy fleet could otherwise sail straight past uncontested); at Kraken Point it's the naval capstone base's coastal defense, reusing the same building rather than inventing a second one, same pattern as Granite Crumbler/Juggernaut sharing across bases. Must be placed adjacent to Water (Ocean or River) so it can actually cover the crossing/coastline it exists to defend. Multi-material like Tower/Wall/Dock/Bridge (materials/materialStats) rather than a Turret extends-variant, since each material plays genuinely differently, matching Tower's split: Stone is the balanced baseline. Wood is cheap/fragile/Fire-vulnerable but attacks fastest and is priced to spam early against small raiding fleets, at the cost of the smallest per-hit Naval bonus. Steel is the priciest, tankiest (flat armor, mirroring Steel Tower/Steel Wall), splashes on hit (like Steel Tower's bunker role) and carries the largest single-target Naval multiplier — a slow-firing coastal bunker built to punish a grouped push rather than chase individual raiders.",
+  "notes": "Shared specialty water-cannon defense that trades air targeting for a strong bonus against ships — effective at the waterline but hard to aim skyward. Must be placed next to water to cover a crossing or coastline. Comes in several material variants: a balanced baseline, a cheap, fast, fragile option suited to spamming against small raids, and a pricier, tankier option that splashes on hit and lands the heaviest per-hit naval bonus, built to punish a grouped push.",
 
   "placementRequirement": {
     "adjacentTerrainRequired": "Water"
+  },
+
+  "defensiveStats": {
+    "projectileSpeed": 10
   },
 
   "materialStats": {

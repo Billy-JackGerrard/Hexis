@@ -16,6 +16,8 @@ const TERRAIN_COLORS := {
 	Terrain.Type.OCEAN: Color(0.15, 0.35, 0.65),
 }
 const OUTLINE_COLOR := Color(0.0, 0.0, 0.0, 0.25)
+const ROAD_COLOR := Color(0.65, 0.5, 0.3)
+const BRIDGE_COLOR := Color(0.4, 0.35, 0.3)
 
 func setup(p_grid: HexGrid, p_hexes: Array[HexCoord]) -> void:
 	grid = p_grid
@@ -34,3 +36,9 @@ func _draw() -> void:
 		var color: Color = TERRAIN_COLORS.get(grid.get_terrain(hex), Color.MAGENTA)
 		draw_colored_polygon(points, color)
 		draw_polyline(points + PackedVector2Array([points[0]]), OUTLINE_COLOR, 1.0)
+
+		var infrastructure := grid.get_infrastructure(hex)
+		if infrastructure == Terrain.Infrastructure.ROAD:
+			draw_line(center + Vector2(-HexView.HEX_SIZE * 0.5, 0), center + Vector2(HexView.HEX_SIZE * 0.5, 0), ROAD_COLOR, 3.0)
+		elif infrastructure == Terrain.Infrastructure.BRIDGE:
+			draw_line(center + Vector2(-HexView.HEX_SIZE * 0.5, 0), center + Vector2(HexView.HEX_SIZE * 0.5, 0), BRIDGE_COLOR, 5.0)

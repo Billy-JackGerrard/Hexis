@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Sky Fortress only — the pure air-combat counterpart to Windy Peaks' Wind Sanctuary. No terrain exception; sited on Plains. Unlocks, in order: Wingfighter and Thunder.",
+  "notes": "Pure air-combat specialist production building fielding dogfighters and a heavier missile-armed alternative.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 220, "unlocks": "wingfighter", "cost": { "stone": 500, "steel": 400 } },

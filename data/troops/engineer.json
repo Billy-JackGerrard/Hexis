@@ -22,5 +22,5 @@
   "fuelUpkeep": 1,
   "productionTime": 8,
 
-  "notes": "Only unit that can build standalone Road/Bridge/Dock/Tower/Landmine. Buildable anywhere including behind enemy lines. Non-combat: canTarget is empty. Land-domain vehicle (Factory-produced), not Infantry."
+  "notes": "Non-combat vehicle solely responsible for building standalone infrastructure anywhere on the map, including deep behind enemy lines. Cannot fight or defend itself."
 }

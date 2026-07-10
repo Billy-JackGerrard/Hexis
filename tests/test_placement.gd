@@ -24,6 +24,8 @@ func _init() -> void:
 	_test_population()
 	print("BaseFactory seeding")
 	_test_seeding()
+	print("GarrisonFactory seeding")
+	_test_garrison_seeding()
 	print("BuildingPlacement eligibility/fixed/standalone")
 	_test_eligibility()
 	print("BuildingPlacement hex occupancy")
@@ -108,6 +110,44 @@ func _test_seeding() -> void:
 	_check(HexCoord.distance(hq.hex, command_centre.hex) == 1, "Command Centre seeded adjacent to HQ")
 	for b in seeded.buildings:
 		_check(grid.get_terrain(b.hex) == Terrain.Type.PLAINS, "%s seeded on Plains" % b.building_type)
+
+func _test_garrison_seeding() -> void:
+	var hq_hex := HexCoord.new(0, 0)
+	var camp_kaboom_def: Dictionary = _base_defs["camp_kaboom"]
+	var squads: Array[SquadInstance] = []
+	var troops_by_id: Dictionary = {}
+	var troop_id_counter := {"n": 0}
+	var next_troop_id := func() -> String:
+		troop_id_counter["n"] += 1
+		return "gt_%d" % troop_id_counter["n"]
+	var squad_id_counter := {"n": 0}
+	var next_squad_id := func() -> String:
+		squad_id_counter["n"] += 1
+		return "gs_%d" % squad_id_counter["n"]
+
+	GarrisonFactory.seed_garrison(camp_kaboom_def, "p1", hq_hex, _troop_defs, squads, troops_by_id, next_troop_id, next_squad_id)
+
+	# earthshaker (count 2, maxSquadSize 2) and tank_obliterator (count 2,
+	# maxSquadSize 4) each fit within a single squad.
+	_check(squads.size() == 2, "camp_kaboom's initialGarrison seeds 2 squads (one per troop type, both fit their maxSquadSize)")
+	var total_troops := 0
+	for squad in squads:
+		total_troops += squad.member_ids.size()
+		_check(squad.owner_id == "p1", "seeded squad carries the given owner_id")
+		_check(HexCoord.distance(hq_hex, squad.current_hex) == GarrisonFactory.GARRISON_RING_RADIUS, "seeded squad stands on the garrison ring, clear of the building flower")
+		for member_id in squad.member_ids:
+			var troop: TroopInstance = troops_by_id[member_id]
+			_check(troop.owner_id == "p1", "seeded troop carries the given owner_id")
+			_check(troop.squad_id == squad.id, "seeded troop's squad_id points back at its squad")
+			var expected_hp: float = float(_troop_defs[troop.unit_type]["hp"])
+			_check(troop.current_hp == expected_hp, "seeded troop's HP comes from its troop def")
+	_check(total_troops == 4, "4 total garrison troops seeded (2 earthshaker + 2 tank_obliterator)")
+	_check(troops_by_id.size() == 4, "every seeded troop registered in troops_by_id")
+
+	var capital_squads: Array[SquadInstance] = []
+	var capital_troops_by_id: Dictionary = {}
+	GarrisonFactory.seed_garrison(_base_defs["capital"], "p1", hq_hex, _troop_defs, capital_squads, capital_troops_by_id, next_troop_id, next_squad_id)
+	_check(capital_squads.is_empty(), "Capital has no initialGarrison -> seeds no squads")
 
 func _fresh_seeded_base(id: String, grid: HexGrid, hq_level: int) -> BaseInstance:
 	var base := BaseFactory.seed_base(id, _base_defs["capital"], "p1", HexCoord.new(0, 0), grid)

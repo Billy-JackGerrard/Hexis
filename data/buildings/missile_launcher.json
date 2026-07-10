@@ -4,13 +4,14 @@
   "category": "Defensive",
   "populationCost": 1,
 
-  "notes": "Generic default defense, buildable at every base alongside Turret. The anti-air generalist — Grenade Turret and Flame Turret are already ground-specialized, so Missile Launcher fills the anti-air gap for every base rather than gating it behind a Unique base.",
+  "notes": "Generic default defense available at every base, filling the anti-air role since the specialty ground defenses at various bases are already ground-focused.",
 
   "defensiveStats": {
     "damage": 22,
     "attackSpeed": 0.8,
     "range": 6,
     "splashRadius": 0,
+    "projectileSpeed": 6,
     "canTarget": ["Infantry", "Land", "Air", "Naval"],
     "damageTypes": [],
     "damageDealtModifiers": { "Air": 1.5 },

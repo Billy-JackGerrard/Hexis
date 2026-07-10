@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Tinder Box only. Unlocks, in order: Flamecopter, Plasmacopter.",
+  "notes": "Specialist production building for the incendiary/gunship line of aircraft.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 210, "unlocks": "flamecopter", "cost": { "stone": 400, "steel": 300 } },

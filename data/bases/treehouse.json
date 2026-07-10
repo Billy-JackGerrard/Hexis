@@ -14,7 +14,6 @@
     "lumber_mill",
     "forest_yard",
     "barracks",
-    "turret",
     "missile_launcher",
     "wood_turret",
     "wall"
@@ -28,9 +27,8 @@
     { "buildingType": "hq", "count": 1 },
     { "buildingType": "farm", "count": 1 },
     { "buildingType": "quarry", "count": 1 },
-    { "buildingType": "turret", "count": 1 },
     { "buildingType": "missile_launcher", "count": 1 },
-    { "buildingType": "wood_turret", "count": 1 },
+    { "buildingType": "wood_turret", "count": 2 },
     { "buildingType": "forest_yard", "count": 1 },
     { "buildingType": "wall", "count": 6, "material": "stone" }
   ],
@@ -40,5 +38,5 @@
     { "troopId": "rifleman", "count": 4 }
   ],
 
-  "notes": "Forest/infantry/economy specialist Unique base — one instance on the map, found in a large forest biome; ALL of its buildings can be placed on Forest OR Plains tiles (terrainException — Forest is an additional allowed site terrain, not a replacement for the Plains default), not just Lumber Mill. A building with its own explicit siteTerrain (e.g. Lumber Mill's generic Plains+adjacent-Forest, Forest Yard's Forest-only) also gets Forest as an alternative valid site via this exception, and placing directly on Forest this way skips any adjacentTerrainRequired check (see BuildingPlacement.can_place). Forest Yard builds Quad-bike (its only unlock — ignores the forest vehicle-block rule); Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Treehouse its own infantry roster too. Wood Turret is its specialty defense — a Turret variant carrying Wood Tower's stats and addsTurretPerLevel swarm-clearing identity wholesale (see data/buildings/wood_turret.json), fitting Treehouse's Quad-bike-heavy, fast/weak-unit garrison. +100% Wood bonus is a building-scoped resourceModifiers entry on Lumber Mill (multiplier 2.0), not a base-wide bonus, mirroring Foundry Reach's +100% Steel pattern."
+  "notes": "Forest, infantry, and economy specialist base — the map's sole example of its kind, found in a large forest biome; all of its buildings can be placed on forest as well as the usual terrain. Its exclusive production building fields a fast, lightweight scout vehicle able to cross terrain other land vehicles can't; a shared infantry-training building gives it its own foot-soldier roster too. Its specialty defense carries over a rapid-fire, swarm-clearing identity suited to its fast, lightly-armed garrison. Gets a strong boost to its wood production."
 }

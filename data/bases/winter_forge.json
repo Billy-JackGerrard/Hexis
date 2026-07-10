@@ -42,5 +42,5 @@
     { "troopId": "rocket_tank", "count": 2 }
   ],
 
-  "notes": "Cold/ice specialist Unique base — one instance on the map, sited on Plains, no terrain exception. Frostworks builds a SUBSET of the Heavy Tank roster (Frost Tank, Juggernaut, Rocket Tank) — not Granite Crumbler (also built at Scrapyard's Salvage Works) or Chonky, which stays Fort Irongrad-exclusive. Cold Turret is the specialty defense (ice bombs, freezes on hit). Ice Spire is pre-seeded/fixed (isFixed: true on data/buildings/ice_spire.json) — a pure aura structure slowing nearby enemy troops, not a production or defensive building; it can never be freshly built even after capture, only rebuilt from a ruin. +50% Oil Rig bonus is a building-scoped resourceModifiers entry (multiplier 1.5), authored on this BaseDef rather than as an Ice Spire aura."
+  "notes": "Cold/ice specialist base — the map's sole example of its kind. Its exclusive production building fields part of the heavy-vehicle roster plus an ice-themed control unit found nowhere else. Its specialty defense freezes on hit. Comes with a permanent aura structure that slows nearby enemy troops — not a production or defensive building in its own right, and only ever restored from ruin rather than freshly built once lost. Gets a boost to its fuel production."
 }

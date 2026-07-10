@@ -36,5 +36,5 @@
     { "troopId": "rifleman", "count": 4 }
   ],
 
-  "notes": "Incendiary air power specialist Unique base — one instance on the map. Blazeworks builds Flamecopter and Plasmacopter; Barracks (shared building type — see data/buildings/barracks.json for the full list of bases that build it) gives Tinder Box its own infantry roster too. Flame Turret is the specialty defense (renamed from Flamethrower to avoid colliding with the Barracks infantry unit of the same name). Sited on Plains, no terrain exception."
+  "notes": "Incendiary air-power specialist base — the map's sole example of its kind. Its exclusive production building fields a fast hit-and-run gunship and a slower, longer-range alternative; a shared infantry-training building gives it its own foot-soldier roster too. Its specialty defense deals fire damage especially effective against wooden structures."
 }

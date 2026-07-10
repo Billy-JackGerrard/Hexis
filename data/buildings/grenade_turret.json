@@ -5,13 +5,14 @@
   "populationCost": 1,
   "extends": "turret",
 
-  "notes": "Fort Irongrad's specialty defense, in addition to the generic Turret/Missile Launcher every base gets. A Turret variant (see \"extends\") — cheap, short range, low per-hit damage, but splash makes it effective against clustered infantry pushes rather than lone heavy targets. No Naval or Air targeting, unlike base Turret — ground-only.",
+  "notes": "Cheap, short-range specialty defense whose splash damage is especially effective against clustered infantry pushes rather than a strong lone target. Cannot engage ships or aircraft.",
 
   "defensiveStats": {
     "damage": 10,
     "attackSpeed": 0.9,
     "range": 3,
     "splashRadius": 3,
+    "projectileSpeed": 6,
     "canTarget": ["Infantry", "Land"],
     "visionRange": 5
   },

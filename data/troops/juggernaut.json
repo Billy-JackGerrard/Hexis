@@ -10,6 +10,7 @@
   "attackSpeed": 0.9,
   "range": 5,
   "splashRadius": 0,
+  "projectileSpeed": 8,
   "visionRange": 8,
   "speed": 2.0,
 
@@ -22,5 +23,5 @@
   "fuelUpkeep": 2,
   "productionTime": 34,
 
-  "notes": "Fort Irongrad Tank Plant's baseline heavy tank (also built at Winter Forge's Frostworks) — no damage modifiers vs. anything, the Heavy Tank roster's generalist that the other heavy tanks get balanced against, same role Light Tank plays at the Factory tier."
+  "notes": "Baseline heavy vehicle with no particular strengths or weaknesses against anything — the generalist other heavy vehicles are measured against."
 }

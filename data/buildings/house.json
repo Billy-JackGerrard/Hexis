@@ -4,7 +4,7 @@
   "category": "Support",
   "populationCost": 0,
 
-  "notes": "Grants population capacity rather than consuming it (populationCost: 0) — the only Support building whose effect is structural (populationCapacity stat) rather than an auras entry. Stacks additively with HQ's own level-based population contribution (+2/level, see hq.json). Deliberately kept cheap so a base with any buildable hex can always afford one to keep expanding past its population cap.",
+  "notes": "Cheap building whose only purpose is granting extra population capacity rather than costing any — a simple way for any base to keep expanding once it outgrows its starting capacity.",
 
   "nonProductionUpgrade": {
     "baseStats": {

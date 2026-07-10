@@ -7,12 +7,13 @@
   "stealth": true,
   "revealRange": 1,
 
-  "notes": "Standalone trap, not tied to any base — placed anywhere by an Engineer, like Tower/Road/Bridge/Dock. Invisible to enemies until they're within revealRange (1 hex), or instantly spotted by any detector at its full visionRange. Very low HP — once revealed/detected, a single hit from almost anything kills it before it can trigger. If an enemy Infantry/Land troop gets within range undetected, it deals its damage as a splash hit and is destroyed immediately (defensiveStats.selfDestructOnTrigger) rather than persisting as a repeating attacker. No population cost and no rebuildCost, same as other standalone buildings — destruction deletes it outright rather than leaving a ruin.",
+  "notes": "Invisible trap placed by the infrastructure specialist anywhere on the map. Hidden until an enemy gets close or a detector spots it outright; very fragile once revealed, but destroys itself dealing splash damage to whatever ground target triggers it, rather than lingering as a repeating attacker.",
 
   "defensiveStats": {
     "damage": 70,
     "range": 1,
     "splashRadius": 2,
+    "projectileSpeed": 10,
     "canTarget": ["Infantry", "Land"],
     "damageTypes": [],
     "visionRange": 1,

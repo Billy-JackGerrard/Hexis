@@ -22,11 +22,16 @@ var squad_view: SquadView
 var input_controller: InputController
 var fog_of_war: FogOfWar
 var camera_controller: CameraController
+var hud_layer: HUDLayer
+var build_preview: BuildPreview
 
 var _local_capital_hex: HexCoord
 
 func _ready() -> void:
 	state = _build_demo_state()
+	var bounds := _map_bounds()
+
+	camera_controller = $Camera2D
 
 	board = Board.new()
 	add_child(board)
@@ -34,23 +39,46 @@ func _ready() -> void:
 
 	base_view = BaseView.new()
 	add_child(base_view)
-	base_view.setup(state.bases, owner_colors)
+	base_view.setup(state.bases, owner_colors, state.standalone_buildings, state.building_defs, state.detections, LOCAL_PLAYER)
 
 	squad_view = SquadView.new()
 	add_child(squad_view)
-	squad_view.setup(state.squads, state.regiments, owner_colors)
+	squad_view.setup(state.squads, state.regiments, owner_colors, state.grid, state.troop_defs, state.visions, state.detections, LOCAL_PLAYER)
 
 	input_controller = InputController.new()
 	add_child(input_controller)
-	input_controller.setup(state, LOCAL_PLAYER, squad_view)
+	input_controller.setup(state, LOCAL_PLAYER, squad_view, camera_controller)
+
+	build_preview = BuildPreview.new()
+	add_child(build_preview)
+	build_preview.setup(state, input_controller)
 
 	# Added last so it draws over the board/base/squad views beneath it.
 	fog_of_war = FogOfWar.new()
 	add_child(fog_of_war)
 	fog_of_war.setup(state.grid, demo_hexes, state.visions, LOCAL_PLAYER)
 
-	camera_controller = $Camera2D
+	# Added last of all so it draws over every world-space view (screen-space
+	# regardless, since it's a CanvasLayer, but this keeps add-order/draw-order
+	# intuitively matched with everything else here).
+	hud_layer = HUDLayer.new()
+	add_child(hud_layer)
+	hud_layer.setup(state, LOCAL_PLAYER, input_controller, camera_controller, owner_colors, demo_hexes, bounds[0], bounds[1])
+
+	camera_controller.set_bounds(bounds[0], bounds[1])
 	camera_controller.center_on(HexView.axial_to_pixel(_local_capital_hex))
+
+## Pixel-space bounding box of every generated hex, +/- one hex of margin —
+## keeps CameraController's pan from wandering past the ocean fringe.
+func _map_bounds() -> Array:
+	var bounds_min := Vector2(INF, INF)
+	var bounds_max := Vector2(-INF, -INF)
+	for hex in demo_hexes:
+		var p := HexView.axial_to_pixel(hex)
+		bounds_min = Vector2(minf(bounds_min.x, p.x), minf(bounds_min.y, p.y))
+		bounds_max = Vector2(maxf(bounds_max.x, p.x), maxf(bounds_max.y, p.y))
+	var margin := Vector2.ONE * HexView.HEX_SIZE
+	return [bounds_min - margin, bounds_max + margin]
 
 func _process(delta: float) -> void:
 	SimOrchestrator.resolve_tick(state, delta)
@@ -62,9 +90,12 @@ func _build_demo_state() -> MatchState:
 	demo_state.building_defs = DataLoader.load_dir("res://data/buildings")
 	demo_state.base_defs = DataLoader.load_dir("res://data/bases")
 
-	var result := MapGenerator.generate(PLAYER_COUNT, WORLD_SEED, demo_state.base_defs, demo_state.building_defs)
+	var result := MapGenerator.generate(PLAYER_COUNT, WORLD_SEED, demo_state.base_defs, demo_state.building_defs, [], demo_state.troop_defs)
 	demo_state.grid = result.grid
 	demo_state.bases = result.bases
+	demo_state.squads.append_array(result.squads)
+	for troop_id in result.troops_by_id:
+		demo_state.troops_by_id[troop_id] = result.troops_by_id[troop_id]
 	demo_hexes = HexCoord.range_within(HexCoord.new(0, 0), TerrainGenerator.map_radius(PLAYER_COUNT) + TerrainGenerator.OCEAN_FRINGE_WIDTH)
 
 	for player_index in range(PLAYER_COUNT):

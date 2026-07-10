@@ -77,6 +77,12 @@ const MOAT_CHANNEL_MAX_LENGTH: int = 12
 ## normal callers never pass it (production always draws randomly); tests
 ## use it to deterministically force e.g. Kraken Point or Sky Fortress onto
 ## a map instead of hoping a random seed happens to draw them.
+##
+## `troop_defs`/`next_troop_id`/`next_squad_id` drive GarrisonFactory seeding
+## each placed base's `initialGarrison` — all three are optional (empty
+## dict / invalid Callable) so callers that don't care about garrisons (e.g.
+## siting-only tests) can omit them and get empty `squads`/`troops_by_id`
+## back instead of being forced to wire up id generators they don't need.
 static func place_bases(
 	grid: HexGrid,
 	player_count: int,
@@ -85,6 +91,9 @@ static func place_bases(
 	building_defs: Dictionary,
 	next_id: Callable,
 	forced_unique_ids: Array[String] = [],
+	troop_defs: Dictionary = {},
+	next_troop_id: Callable = Callable(),
+	next_squad_id: Callable = Callable(),
 ) -> Dictionary:
 	var capital_def: Dictionary = base_defs.get("capital", {})
 	var unique_defs: Array = []
@@ -103,6 +112,9 @@ static func place_bases(
 	var claimed_hexes: Dictionary = {}
 	var capital_ids_by_player: Dictionary = {}
 	var capital_rng := _substream(world_seed, "site_capitals")
+	var squads: Array[SquadInstance] = []
+	var troops_by_id: Dictionary = {}
+	var seed_garrisons: bool = next_troop_id.is_valid() and next_squad_id.is_valid()
 
 	for p in range(player_count):
 		var hex = _find_site(grid, map_radius, placed_bases, base_defs, claimed_hexes, capital_def, Callable(), capital_rng)
@@ -112,6 +124,8 @@ static func place_bases(
 		placed_bases.append(base)
 		_claim(claimed_hexes, hex)
 		capital_ids_by_player[p] = base.id
+		if seed_garrisons:
+			GarrisonFactory.seed_garrison(capital_def, "p%d" % p, hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id)
 
 	var deal := _assign_unique_defs(unique_defs, player_count, _substream(world_seed, "unique_defs"), forced_unique_ids)
 	var unique_rng := _substream(world_seed, "site_uniques")
@@ -131,6 +145,8 @@ static func place_bases(
 		var base: BaseInstance = BaseFactory.seed_base(next_id.call(), def, "p%d" % int(entry["player_index"]), hex, grid, building_defs)
 		placed_bases.append(base)
 		_claim(claimed_hexes, hex)
+		if seed_garrisons:
+			GarrisonFactory.seed_garrison(def, "p%d" % int(entry["player_index"]), hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id)
 		if base_id == "sky_fortress":
 			# Channel carved on pristine terrain FIRST, moat second — carving
 			# the moat first would turn the ring itself into water, making
@@ -139,7 +155,10 @@ static func place_bases(
 			_carve_channel(hex, grid, claimed_hexes)
 			_carve_moat(hex, grid, claimed_hexes)
 
-	return {"bases": placed_bases, "capital_ids_by_player": capital_ids_by_player, "failure_reason": ""}
+	return {
+		"bases": placed_bases, "capital_ids_by_player": capital_ids_by_player, "failure_reason": "",
+		"squads": squads, "troops_by_id": troops_by_id,
+	}
 
 ## Public so tests and MapGenerator can call it directly against a
 ## hand-built grid fixture without going through the full random pipeline.

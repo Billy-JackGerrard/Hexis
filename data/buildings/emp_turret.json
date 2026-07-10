@@ -5,13 +5,14 @@
   "populationCost": 1,
   "extends": "turret",
 
-  "notes": "A Turret variant (see \"extends\") built around its statusEffectOnHit rather than raw damage — low base damage, but every hit applies `{type: emp, duration: 3}` (see game-design/05-troop-stat-schema.md's Status Effects section for the full domain-conditional breakdown): Land-domain vehicles are immobilized (can't move, can still attack) for the duration; Air-domain troops are destroyed outright; Infantry and Naval are unaffected by the status (still take direct damage normally); troops flagged empImmune (Hot Air Balloon, Glider) are unaffected entirely. canTarget restates Turret's full four domains (Infantry/Land/Naval/Air) since the status effect is meaningfully defined against all four — fixed from an earlier authoring gap where this block omitted canTarget entirely and, per schema.json's extends rule (defensiveStats overrides the base wholesale, not merged key-by-key), left this Turret unable to target anything.",
+  "notes": "Specialty defense built around disabling rather than destroying: every hit applies an electronic disruption effect that immobilizes land vehicles and destroys aircraft outright, while leaving infantry and ships untouched by the effect (though still damaged normally). Troops hardened against electronics are unaffected entirely.",
 
   "defensiveStats": {
     "damage": 6,
     "attackSpeed": 0.8,
     "range": 5,
     "splashRadius": 3,
+    "projectileSpeed": 9,
     "canTarget": ["Infantry", "Land", "Naval", "Air"],
     "visionRange": 6,
     "statusEffectOnHit": { "type": "emp", "duration": 3 }

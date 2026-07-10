@@ -4,7 +4,7 @@
   "category": "Resource",
   "populationCost": 1,
 
-  "notes": "Pre-seeded at every base alongside HQ and Quarry, but NOT isFixed — unlike HQ/Ice Spire, additional Farms can be freely built after the seeded one is lost/demolished.",
+  "notes": "Basic food-producing building present at every base from the start. Losing it doesn't block rebuilding more.",
 
   "nonProductionUpgrade": {
     "baseStats": {

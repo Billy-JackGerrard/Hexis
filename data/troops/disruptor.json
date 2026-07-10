@@ -25,5 +25,5 @@
   "fuelUpkeep": 2,
   "productionTime": 22,
 
-  "notes": "Signal Ridge's Covert Works exclusive electronic-warfare troop, not a building. Non-combat (canTarget: []), like Engineer, and maxSquadSize 1 (never merges), like Engineer/Commander. Its aura suppresses enemy Defensive-category buildings' targeting within radius — must be escorted deep into enemy base range to matter, since it has no attack and modest HP of its own; killing the Disruptor immediately restores the suppressed defenses. No stealth of its own (unlike Ghost Tank) — relies on escort, not concealment, to survive the approach."
+  "notes": "Non-combat electronic-warfare vehicle whose presence stops nearby enemy defensive buildings from targeting anything. Unarmed and only modestly durable, so it needs escort to reach useful range — killing it instantly restores whatever it was suppressing."
 }

@@ -9,6 +9,7 @@
   "attackSpeed": 0.7,
   "range": 5,
   "splashRadius": 0,
+  "projectileSpeed": 14,
   "visionRange": 10,
   "speed": 2.0,
 
@@ -23,5 +24,5 @@
   "fuelUpkeep": 4,
   "productionTime": 55,
 
-  "notes": "Sky Fortress's heavier, missile-armed alternative to Wingfighter — slower and less mobile but hits much harder per shot, with a longer range. Slight penalty vs. Infantry (0.7x) — missiles are an inefficient way to hit infantry, the inverse of Wingfighter's anti-troop specialization. Renamed from an earlier 'Falcon' working name."
+  "notes": "Missile-armed aircraft favoring long reach and a heavy per-shot hit over speed and agility — built for stand-off strikes rather than dogfighting. Inefficient against infantry."
 }

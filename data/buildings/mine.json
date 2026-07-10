@@ -4,7 +4,7 @@
   "category": "Resource",
   "populationCost": 1,
 
-  "notes": "Deliberately costs Stone (not Steel) to build/upgrade, cross-wired with Quarry costing Steel, to avoid a chicken-and-egg problem where a base's first Mine could never be paid for out of zero starting Steel — Stone is available turn one via the seeded Quarry.",
+  "notes": "Stone-producing building. Deliberately priced in a different resource than the one it produces, avoiding a chicken-and-egg problem where a base couldn't afford its first one from a standing start.",
 
   "nonProductionUpgrade": {
     "baseStats": {

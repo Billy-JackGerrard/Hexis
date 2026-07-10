@@ -9,6 +9,7 @@
   "attackSpeed": 1.2,
   "range": 4,
   "splashRadius": 0,
+  "projectileSpeed": 13,
   "visionRange": 8,
   "speed": 2.6,
 
@@ -25,5 +26,5 @@
   "fuelUpkeep": 1,
   "productionTime": 14,
 
-  "notes": "Rivergate's Ford Yard exclusive — a vehicle (not Infantry) that fords rivers directly without a Bridge, via ignoresRiverBlock. Statwise the river-crossing sibling to Quad-bike (Treehouse's forest-crossing equivalent): low HP/damage, fast, cheap. Cannot target Air, same as Quad-bike."
+  "notes": "Light amphibious vehicle able to cross rivers directly without needing a crossing built first. Fast, cheap, and fragile — suited to scouting and harassment rather than a straight fight. Cannot engage aircraft."
 }

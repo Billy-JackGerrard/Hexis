@@ -5,13 +5,14 @@
   "populationCost": 1,
   "extends": "turret",
 
-  "notes": "Tinder Box's specialty defense, in addition to the generic Turret/Missile Launcher every base gets. A Turret variant (see \"extends\"). Renamed from Flamethrower to avoid colliding with the Barracks infantry unit of the same name. damageTypes:[Fire] carries a bonus against Wood-tagged targets (Wood Walls, Wood Towers, Wood Docks/Bridges) via their own damageReceivedModifiers, mirroring the existing Wood-vs-Fire vulnerability elsewhere in the design. No Naval or Air targeting, unlike base Turret — ground-only.",
+  "notes": "Specialty ground-only defense whose fire damage is especially destructive against wooden structures, mirroring the fire-vs-wood vulnerability used elsewhere. Cannot engage ships or aircraft.",
 
   "defensiveStats": {
     "damage": 14,
     "attackSpeed": 1.1,
     "range": 3,
     "splashRadius": 2,
+    "projectileSpeed": 10,
     "canTarget": ["Infantry", "Land"],
     "damageTypes": ["Fire"],
     "visionRange": 5

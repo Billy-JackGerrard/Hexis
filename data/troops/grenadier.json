@@ -9,6 +9,7 @@
   "attackSpeed": 1,
   "range": 3,
   "splashRadius": 2,
+  "projectileSpeed": 6,
   "visionRange": 8,
   "speed": 1,
 
@@ -25,5 +26,5 @@
   "fuelUpkeep": 0,
   "productionTime": 8,
 
-  "notes": "Splash damage; bonus vs. Land-domain (vehicle) targets only, does not apply to Air/Naval or Infantry. Cannot target Air (deliberate exception to Infantry's default Air-targeting)."
+  "notes": "Infantry anti-vehicle specialist: splash damage and armor-piercing rounds that are especially effective against land vehicles, with no particular edge against infantry or ships and no ability to hit aircraft."
 }

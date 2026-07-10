@@ -5,7 +5,7 @@
   "isFixed": true,
   "populationCost": 0,
 
-  "notes": "Pre-seeded only, never freshly built (isFixed). Never ruins: at 0 HP, ownership of the whole base flips to the attacker and HQ resets to full HP under its new owner (capture). Grants population capacity rather than consuming it: +2 capacity per level, via nonProductionUpgrade.baseStats/statGrowth.populationCapacity below (level N grants 2*N). minPopulationPerLevel is a multiplier, not a flat number: requiredPopulationUsed to reach level N = 3 * (N - 1).",
+  "notes": "A base's core structure. Never rebuilt fresh — losing it flips ownership of the whole base to the attacker rather than destroying it outright. Grants population capacity that grows as it's upgraded.",
 
   "nonProductionUpgrade": {
     "baseStats": {

@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Fort Irongrad only. Unlocks, in order: Chonky, Rocket Tank, Granite Crumbler.",
+  "notes": "Specialist production building for the heavy-vehicle roster.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 250, "unlocks": "chonky", "cost": { "stone": 850, "steel": 560 } },

@@ -9,6 +9,7 @@
   "attackSpeed": 1,
   "range": 2,
   "splashRadius": 2,
+  "projectileSpeed": 11,
   "visionRange": 8,
   "speed": 1.1,
 
@@ -23,5 +24,5 @@
   "fuelUpkeep": 0,
   "productionTime": 10,
 
-  "notes": "Bonus vs. Wood-tagged targets (walls, docks, bridges, Wood Tower) comes entirely from damageTypes:[Fire] matching those targets' own damageReceivedModifiers (e.g. Wood Wall's {Fire: 2.0}) — no separate damageDealtModifiers needed here, to avoid double-stacking the bonus."
+  "notes": "Infantry unit whose fire damage is especially destructive against wooden structures, making it a strong pick against lightly-built fortifications and infrastructure."
 }

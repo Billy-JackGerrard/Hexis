@@ -25,5 +25,5 @@
   "fuelUpkeep": 1,
   "productionTime": 22,
 
-  "notes": "Air-domain counterpart to Repair Truck — same relationship as Repair Truck has to Ambulance, one domain over. Aura is Air-only (filter: \"Air\"), lower magnitude as Repair Truck's Land heal, reflecting that aircraft maintenance is more slow/costly than vehicle repair, unlike Ambulance's cheaper/faster Infantry heal. Non-combat (canTarget: []). Unlike Glider/Hot Air Balloon it's not an unpowered exception, so it pays Fuel upkeep like other aircraft, just lighter than combat aircraft since it carries no weapons."
+  "notes": "Unarmed support aircraft that slowly heals nearby friendly aircraft over time. Pays fuel upkeep like other aircraft, though less than a combat model since it carries no weapons."
 }

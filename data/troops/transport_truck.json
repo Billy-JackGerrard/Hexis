@@ -25,5 +25,5 @@
   "fuelUpkeep": 1,
   "productionTime": 15,
 
-  "notes": "Fully unarmed; relies on escort or its own cargo for protection. cargoCapacity counts squads, not troop headcount: 1 means it carries one Infantry squad aboard (any size up to that squad's own maxSquadSize)."
+  "notes": "Fully unarmed troop transport that relies entirely on escort or its own cargo for protection. Carries whole squads rather than counting individual soldiers."
 }

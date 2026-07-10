@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Scrapyard only — a heavy-armor sustainment specialist. Unlocks, in order: Juggernaut, Repair Truck, Granite Crumbler.",
+  "notes": "Specialist production building pairing part of the heavy-vehicle roster with a dedicated vehicle-repair support unit.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 210, "unlocks": "juggernaut", "cost": { "stone": 600, "steel": 420 } },

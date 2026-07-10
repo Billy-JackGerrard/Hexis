@@ -9,6 +9,15 @@
 ## of its escorts) straight off state.regiments/RegimentInstance.commander_id
 ## — no new sim state, just the missing visual for structure that already
 ## exists (build order item 2's deferred "control groups/regiment visuals").
+##
+## Enemy squads only render while currently visible and not hidden by
+## stealth/detection (see _is_renderable); docked/boarded squads never
+## render their own circle since their current_hex just mirrors their host.
+##
+## Squad shape is domain-coded (circle: Land/Infantry, triangle: Air,
+## diamond: Naval) now that a real multi-base map mixes domains on screen.
+## Selected squads additionally get a dotted path preview along squad.path
+## and a faint attack-range ring, both placeholder art, no new sim state.
 class_name SquadView
 extends Node2D
 
@@ -19,15 +28,30 @@ var owner_colors: Dictionary = {} ## owner_id -> Color
 ## single id — InputController is the only mutator.
 var selected_squad_ids: Dictionary = {}
 
+var grid: HexGrid
+var troop_defs: Dictionary = {}
+var visions: Dictionary = {} ## owner_id -> PlayerVision
+var detections: Dictionary = {} ## owner_id -> {hex_key: true}
+var local_owner_id: String = ""
+
 const RADIUS := 10.0
 const SELECTION_COLOR := Color.YELLOW
 const REGIMENT_RING_COLOR := Color(1.0, 0.85, 0.2, 0.8)
 const REGIMENT_LINE_COLOR := Color(1.0, 0.85, 0.2, 0.45)
+const PATH_DOT_COLOR := Color(1.0, 1.0, 1.0, 0.8)
+const PATH_DOT_RADIUS := 2.0
+const PATH_DOT_SPACING := 10.0
+const RANGE_RING_COLOR := Color(1.0, 1.0, 1.0, 0.25)
 
-func setup(p_squads: Array[SquadInstance], p_regiments: Array[RegimentInstance], p_owner_colors: Dictionary) -> void:
+func setup(p_squads: Array[SquadInstance], p_regiments: Array[RegimentInstance], p_owner_colors: Dictionary, p_grid: HexGrid, p_troop_defs: Dictionary, p_visions: Dictionary, p_detections: Dictionary, p_local_owner_id: String) -> void:
 	squads = p_squads
 	regiments = p_regiments
 	owner_colors = p_owner_colors
+	grid = p_grid
+	troop_defs = p_troop_defs
+	visions = p_visions
+	detections = p_detections
+	local_owner_id = p_local_owner_id
 
 func squad_pixel_position(squad: SquadInstance) -> Vector2:
 	var from := HexView.axial_to_pixel(squad.current_hex)
@@ -84,22 +108,96 @@ func _squad_by_id(squad_id: String) -> SquadInstance:
 func _process(_delta: float) -> void:
 	queue_redraw()
 
+## False for empty/docked squads always; for enemy squads also gates on
+## current vision + stealth/detection so fog and stealth aren't leaked.
+func _is_renderable(squad: SquadInstance) -> bool:
+	if squad.member_ids.is_empty() or squad.is_docked():
+		return false
+	if squad.owner_id == local_owner_id:
+		return true
+	var pv: PlayerVision = visions.get(local_owner_id)
+	if pv == null or not pv.is_visible(squad.current_hex):
+		return false
+	var def: Dictionary = troop_defs.get(squad.troop_type, {})
+	if not DetectionSystem.is_squad_hidden(squad, def, grid):
+		return true
+	return DetectionSystem.detected_hexes_for(detections, local_owner_id).has(squad.current_hex.to_key())
+
+## Maps a squad's troop def "domain" string to the shape dispatched by
+## _draw_squad_shape; defaults to INFANTRY (circle) same as domain_from_string.
+func _domain_of(squad: SquadInstance) -> Terrain.Domain:
+	var def: Dictionary = troop_defs.get(squad.troop_type, {})
+	return Terrain.domain_from_string(String(def.get("domain", "Infantry")))
+
+## Land/Infantry keep the plain circle; Air/Naval get a distinct silhouette
+## so mixed-domain squads on a multi-base map read apart at a glance.
+func _draw_squad_shape(pos: Vector2, domain: Terrain.Domain, color: Color) -> void:
+	match domain:
+		Terrain.Domain.AIR:
+			var points := PackedVector2Array([
+				pos + Vector2(0, -RADIUS),
+				pos + Vector2(RADIUS * 0.87, RADIUS * 0.5),
+				pos + Vector2(-RADIUS * 0.87, RADIUS * 0.5),
+			])
+			draw_colored_polygon(points, color)
+		Terrain.Domain.NAVAL:
+			var points := PackedVector2Array([
+				pos + Vector2(0, -RADIUS),
+				pos + Vector2(RADIUS, 0),
+				pos + Vector2(0, RADIUS),
+				pos + Vector2(-RADIUS, 0),
+			])
+			draw_colored_polygon(points, color)
+		_:
+			draw_circle(pos, RADIUS, color)
+
+## Dotted line from the squad's rendered position through each upcoming
+## path hex — draw_line/draw_polyline have no dashed style, so a row of
+## small dots along each segment stands in for one (placeholder art).
+func _draw_path_preview(squad: SquadInstance) -> void:
+	if squad.path.is_empty():
+		return
+	var points: Array[Vector2] = [squad_pixel_position(squad)]
+	for hex in squad.path:
+		points.append(HexView.axial_to_pixel(hex))
+	for i in range(points.size() - 1):
+		_draw_dotted_segment(points[i], points[i + 1])
+
+func _draw_dotted_segment(from: Vector2, to: Vector2) -> void:
+	var length := from.distance_to(to)
+	var steps: int = max(1, int(length / PATH_DOT_SPACING))
+	for i in range(steps + 1):
+		draw_circle(from.lerp(to, float(i) / float(steps)), PATH_DOT_RADIUS, PATH_DOT_COLOR)
+
+## Faint circle of radius range*HEX_SIZE — hex distance isn't perfectly
+## circular in pixel space, but it's a good enough placeholder to show reach.
+func _draw_range_ring(squad: SquadInstance) -> void:
+	var def: Dictionary = troop_defs.get(squad.troop_type, {})
+	var attack_range := float(def.get("range", 0))
+	if attack_range <= 0.0:
+		return
+	draw_arc(squad_pixel_position(squad), attack_range * HexView.HEX_SIZE, 0.0, TAU, 48, RANGE_RING_COLOR, 1.5)
+
 func _draw() -> void:
 	for regiment in regiments:
 		var commander := _squad_by_id(regiment.commander_id)
-		if commander == null:
+		if commander == null or not _is_renderable(commander):
 			continue
 		var commander_pos := squad_pixel_position(commander)
 		draw_arc(commander_pos, RADIUS + 6.0, 0.0, TAU, 24, REGIMENT_RING_COLOR, 2.0)
 		for squad_id in regiment.squad_ids:
 			var escort := _squad_by_id(squad_id)
-			if escort == null:
+			if escort == null or not _is_renderable(escort):
 				continue
 			draw_line(commander_pos, squad_pixel_position(escort), REGIMENT_LINE_COLOR, 1.0)
 
 	for squad in squads:
+		if not _is_renderable(squad):
+			continue
 		var pos := squad_pixel_position(squad)
 		var color: Color = owner_colors.get(squad.owner_id, Color.WHITE)
-		draw_circle(pos, RADIUS, color)
+		_draw_squad_shape(pos, _domain_of(squad), color)
 		if is_selected(squad.id):
 			draw_arc(pos, RADIUS + 3.0, 0.0, TAU, 24, SELECTION_COLOR, 2.0)
+			_draw_path_preview(squad)
+			_draw_range_ring(squad)

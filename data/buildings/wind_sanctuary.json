@@ -8,7 +8,7 @@
     "siteTerrain": "Hill"
   },
 
-  "notes": "Windy Peaks only — merged Air Factory + Iron Aviary into a single building. Windy Peaks' buildings sit on Hill tiles, the same terrain exception Treehouse gets for Forest. Unlocks, in order: Glider, Hot Air Balloon.",
+  "notes": "Merged air-production and air-combat building sited on hill terrain, fielding a scout aircraft and a slow heavy bomber.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 180, "unlocks": "glider", "cost": { "stone": 240, "steel": 60 } },

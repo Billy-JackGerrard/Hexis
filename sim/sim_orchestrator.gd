@@ -1,7 +1,8 @@
 ## The top-level tick orchestrator: ties every previously-standalone-tested
 ## resolver (MovementResolver, CombatResolver, VisionSystem, DetectionSystem,
 ## AuraSystem, BuildingRegenSystem, StatusEffectSystem, ProductionManager,
-## UpkeepSystem, ResourceTick, ProductionOutputSystem) into the two tick rates
+## UpkeepSystem, ResourceTick, ProductionOutputSystem, ProjectileSystem) into
+## the two tick rates
 ## 07-data-architecture.md section 7/"Simulation Tick Rates" specifies:
 ## movement/combat every call (nominally 100ms/10-per-second, but — same
 ## "accumulator over dt" convention as everything else here — this class
@@ -46,7 +47,8 @@ static func _resolve_fine_tick(state: MatchState, dt: float, auras: Dictionary) 
 	MovementResolver.resolve_tick(dt, state.squads, state.grid, state.troop_defs, auras, state.bases, state.standalone_buildings)
 	_resolve_regiment_movement(state, dt, auras)
 
-	CombatResolver.resolve_tick(dt, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, state.detections, auras, state.standalone_buildings, state.regiments, state.production_queues)
+	CombatResolver.resolve_tick(dt, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, state.detections, auras, state.standalone_buildings, state.regiments, state.production_queues, state.projectiles, Callable(state, "next_projectile_id"))
+	ProjectileSystem.resolve_tick(dt, state.projectiles, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, auras, state.standalone_buildings, state.regiments, state.production_queues)
 
 	_advance_production(state, dt)
 

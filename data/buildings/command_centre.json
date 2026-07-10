@@ -5,7 +5,7 @@
   "isFixed": true,
   "populationCost": 1,
 
-  "notes": "Capital only — trains Commander troops. Pre-seeded (isFixed: true, same pattern as HQ/Ice Spire/Radar Array): every Capital already has one at match start (see data/bases/capital.json's initialBuildings), it's never freshly built even after capture, and it cannot be demolished — only rebuilt from a ruin if destroyed. Does not use the standard productionUpgradeLevels model: see commanderProgression below. Levels 1-3 each unlock a whole commanderTier at once (common, rare, epic) rather than one troop per level; commanderSlots stays at 1 through levels 1-3 and only grows from level 4 onward via postTierGrowth.commanderSlotsPerLevel. No Commander troop is yet defined in data/troops/ — this building's production side has nothing to train until a Commander roster is authored.",
+  "notes": "Trains command units. Permanent once established — never freshly built, and cannot be torn down, only restored from ruin if destroyed.",
 
   "commanderProgression": {
     "tierLevels": [

@@ -273,3 +273,21 @@ drops back under the (lower) cap. Full details and the data shape: see
   the mirror of `range` — a dead zone some indirect-fire units can't engage into. Both
   are troop-schema fields; see `05-troop-stat-schema.md` for the full mechanic and
   `08-troop-roster.md` for their first users (Tank Obliterator, Earthshaker).
+- **Every weapon has ballistic travel time (`projectileSpeed`), making shots
+  positionally dodgeable** — a shot aims at the target's hex *at the moment of
+  firing* (a fixed hex, not the target itself) and only deals its damage once
+  `distance / projectileSpeed` seconds later, against whoever's actually
+  standing there then. A target that repositions off the aimed hex before the shot
+  lands takes zero damage; splash still checks the aimed hex's surroundings, so a
+  target can also partially dodge by stepping just outside blast radius rather than
+  fully out of range. Fast small-arms fire (rifles, autocannons, machine guns) uses
+  a high `projectileSpeed` so the travel delay is negligible at their short engagement
+  ranges, while slow-firing splash/siege weapons (Earthshaker, Granite Crumbler) use a
+  low one so "reposition to dodge the next shell" is a real, readable moment. The sole
+  exception is a `lineAttack` beam with no `projectileSpeed` set (Tank Obliterator) —
+  an instantaneous rail-gun-style beam has no obvious travel time to model, so it
+  always resolves instantly; a `lineAttack` that DOES carry `projectileSpeed` (Wind
+  Spire) instead sweeps down its beam hex-by-hex over time, so a target can dodge by
+  moving off its own hex before the gust physically reaches it. See
+  `05-troop-stat-schema.md` for the field and `10-tech-stack-and-build-order.md` for
+  where it's implemented.

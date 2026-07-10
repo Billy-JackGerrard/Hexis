@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Winter Forge only. Unlocks, in order: Frost Tank, Juggernaut, Rocket Tank. Frost Tank is Frostworks-exclusive.",
+  "notes": "Specialist production building fielding part of the heavy-vehicle roster alongside an ice-themed control unit found nowhere else.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 210, "unlocks": "frost_tank", "cost": { "stone": 600, "steel": 420 } },

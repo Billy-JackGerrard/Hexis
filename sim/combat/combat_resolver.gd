@@ -51,6 +51,12 @@
 ## successful hit's statusEffectOnHit (if any) is rolled and applied to the
 ## PRIMARY target only via StatusEffectSystem.apply_on_hit() — splash victims
 ## never carry a status effect, see StatusEffectSystem's own scoping note.
+## Line attacks are the one exception: a beam physically passes through every
+## victim alike (no falloff), so statusEffectOnHit is rolled independently
+## for EACH enemy the beam damages, not just the primary target — see
+## _apply_line_attack (no unit currently has both lineAttack and
+## statusEffectOnHit, but e.g. a knockback beam would shove everything caught
+## in it, not just the aimed-at unit).
 ##
 ## Auras (AuraSystem): a suppress_targeting-covered Defensive building skips
 ## its turn entirely (no attack_progress banked); attack_speed_mult multiplies
@@ -96,6 +102,8 @@ static func resolve_tick(
 	standalone_buildings: Array[BuildingInstance] = [],
 	regiments: Array[RegimentInstance] = [],
 	production_queues: Dictionary = {},
+	projectiles: Array[ProjectileInstance] = [],
+	next_projectile_id: Callable = Callable(),
 ) -> void:
 	StatusEffectSystem.resolve_tick(dt, squads, bases)
 	AuraSystem.apply_heals(dt, auras, squads, troops_by_id, troop_defs)
@@ -103,13 +111,13 @@ static func resolve_tick(
 	var targets := build_targets(squads, bases, troops_by_id, grid, troop_defs, building_defs, auras, standalone_buildings)
 
 	for squad in squads:
-		_advance_squad(squad, dt, targets, troops_by_id, troop_defs, grid, building_defs, detections, auras)
+		_advance_squad(squad, dt, targets, troops_by_id, troop_defs, grid, building_defs, detections, auras, projectiles, next_projectile_id)
 
 	for base in bases:
 		for building in base.buildings:
-			_advance_building(building, base.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras)
+			_advance_building(building, base.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras, projectiles, next_projectile_id)
 	for building in standalone_buildings:
-		_advance_building(building, building.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras)
+		_advance_building(building, building.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras, projectiles, next_projectile_id)
 
 	_prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments, production_queues)
 	BuildingRegenSystem.resolve_tick(dt, bases)
@@ -144,7 +152,7 @@ static func build_targets(squads: Array[SquadInstance], bases: Array[BaseInstanc
 		targets.append(target)
 	return targets
 
-static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, grid: HexGrid, building_defs: Dictionary, detections: Dictionary = {}, auras: Dictionary = {}) -> void:
+static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, grid: HexGrid, building_defs: Dictionary, detections: Dictionary = {}, auras: Dictionary = {}, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable()) -> void:
 	if squad.member_ids.is_empty():
 		return
 	# A boarded/docked squad can't fire — it has no independent position to
@@ -177,13 +185,13 @@ static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[Comba
 		if target == null:
 			break
 		for member_id in _living_members(squad, troops_by_id):
-			_apply_attack(def, base_damage, squad.owner_id, squad.current_hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid)
+			_fire_or_apply(def, base_damage, squad.owner_id, squad.current_hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid, projectiles, next_projectile_id)
 		squad.attack_progress -= 1.0
 		# Attacking breaks this squad's own stealth/ambush (revealsOnAttack /
 		# "hidden until engaging") for a cooldown, per DetectionSystem.
 		squad.reveal_cooldown_remaining = DetectionSystem.REVEAL_COOLDOWN_SECONDS
 
-static func _advance_building(building: BuildingInstance, owner_id: String, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary = {}, auras: Dictionary = {}) -> void:
+static func _advance_building(building: BuildingInstance, owner_id: String, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary = {}, auras: Dictionary = {}, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable()) -> void:
 	if building.max_hp > 0.0 and building.current_hp <= 0.0:
 		return
 	# A frozen/stunned Defensive building can't fire back either, nor can one
@@ -198,7 +206,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 	# (Landmine): no accumulator, it fires the instant a valid enemy is in
 	# range and is destroyed by its own blast — see _trigger_self_destruct.
 	if attack_speed <= 0.0 and stats.get("selfDestructOnTrigger", false):
-		_trigger_self_destruct(building, owner_id, stats, targets, troops_by_id, troop_defs, building_defs, grid, detections)
+		_trigger_self_destruct(building, owner_id, stats, targets, troops_by_id, troop_defs, building_defs, grid, detections, projectiles, next_projectile_id)
 		return
 	if attack_speed <= 0.0 or stats.get("canTarget", []).is_empty():
 		return
@@ -212,7 +220,10 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 	# so this loop is a no-op wrapper around the old single-shot behaviour.
 	# `claimed_this_tick` steers each later turret away from a target an
 	# earlier turret already picked this tick (see select_auto's exclude_ids),
-	# so a multi-turret tower spreads across separate enemies.
+	# so a multi-turret tower spreads across separate enemies. Each turret
+	# fires its own independent shot/projectile — a ballistic Defensive
+	# building spawns one ProjectileInstance per turret per volley, not one
+	# for the whole building.
 	var claimed_this_tick: Dictionary = {}
 	for i in building.turret_progress.size():
 		building.turret_progress[i] += dt * attack_speed
@@ -221,7 +232,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 			if target == null:
 				building.turret_progress[i] = min(building.turret_progress[i], 1.0)
 				break
-			_apply_attack(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid)
+			_fire_or_apply(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid, projectiles, next_projectile_id)
 			claimed_this_tick[target.target_id()] = true
 			building.turret_progress[i] -= 1.0
 
@@ -232,7 +243,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 ## (standalone buildings never ruin, per 06-building-stats-and-defenses.md —
 ## matches the data notes' "deals its damage ... and is destroyed
 ## immediately" rather than persisting as a repeating attacker).
-static func _trigger_self_destruct(building: BuildingInstance, owner_id: String, stats: Dictionary, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary) -> void:
+static func _trigger_self_destruct(building: BuildingInstance, owner_id: String, stats: Dictionary, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable()) -> void:
 	if stats.get("canTarget", []).is_empty():
 		return
 	var attacker_range := int(stats.get("range", 0))
@@ -241,61 +252,119 @@ static func _trigger_self_destruct(building: BuildingInstance, owner_id: String,
 		return
 	var base_damage := float(stats.get("damage", 0.0))
 	var splash := int(stats.get("splashRadius", 0))
-	_apply_attack(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid)
+	_fire_or_apply(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid, projectiles, next_projectile_id)
 	building.current_hp = 0.0
 
+## Routes a committed shot to either the instant path (today's behavior, the
+## default for every unit) or a ballistic ProjectileInstance, based on
+## attacker_def.projectileSpeed (hexes/sec; absent/0 = instant). A line attack
+## with no projectileSpeed (Tank Obliterator's rail gun, the only lineAttack
+## user today) stays instant — an instantaneous rail-gun-style beam has no
+## obvious "travel time" to model — but a line attack that DOES carry
+## projectileSpeed spawns a traveling beam ProjectileInstance instead: it
+## sweeps down `_beam_hexes` over time rather than resolving the whole line in
+## one tick, see ProjectileSystem._advance_beam. Wind Spire is the one real
+## unit combining both flags today; Tank Obliterator is lineAttack with no
+## projectileSpeed and stays fully instant.
+static func _fire_or_apply(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, projectiles: Array[ProjectileInstance], next_projectile_id: Callable) -> void:
+	var projectile_speed := float(attacker_def.get("projectileSpeed", 0.0))
+	if projectile_speed <= 0.0:
+		_apply_attack(attacker_def, base_damage, attacker_owner, attacker_hex, target, targets, troops_by_id, splash_radius, troop_defs, building_defs, grid)
+		return
+	if attacker_def.get("lineAttack", false):
+		var beam := _beam_hexes(attacker_hex, target.hex, int(attacker_def.get("range", 0)))
+		var aim_hex := beam[-1] if not beam.is_empty() else target.hex
+		projectiles.append(ProjectileInstance.new(next_projectile_id.call(), attacker_owner, attacker_hex, aim_hex, 0.0, attacker_def, base_damage, splash_radius, beam))
+		return
+	var travel_time := float(HexCoord.distance(attacker_hex, target.hex)) / projectile_speed
+	projectiles.append(ProjectileInstance.new(next_projectile_id.call(), attacker_owner, attacker_hex, target.hex, travel_time, attacker_def, base_damage, splash_radius))
+
 ## One attack: either a line-attack beam (attacker_def.lineAttack — see
-## _apply_line_attack) OR the usual full damage to the primary target plus the
-## same computed damage to every OTHER enemy target within `splash_radius - 1`
-## hexes of the impact hex (splashRadius is 1-indexed: 1 = impact hex only, 2
-## = impact hex + 1 ring out, etc.). Either way, the attacker's statusEffectOnHit (if any) is
-## then rolled and applied to the PRIMARY target only — see StatusEffectSystem's
-## scoping note on splash (a line attack's extra victims are scoped the same
-## way splash's are: damage only, never a status effect).
+## _apply_line_attack, which rolls statusEffectOnHit independently per victim
+## since a beam has no single "primary") OR the usual full damage to the
+## primary target plus the same computed damage to every OTHER enemy target
+## within `splash_radius - 1` hexes of the impact hex (splashRadius is
+## 1-indexed: 1 = impact hex only, 2 = impact hex + 1 ring out, etc.), whose
+## statusEffectOnHit (if any) is rolled and applied to the PRIMARY target
+## only — see StatusEffectSystem's scoping note on splash (a splash attack's
+## extra victims get damage only, never a status effect; a line attack's
+## victims each get their own roll instead, see _apply_line_attack).
 static func _apply_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> void:
 	if attacker_def.get("lineAttack", false):
-		_apply_line_attack(attacker_def, base_damage, attacker_owner, attacker_hex, target, targets, troops_by_id)
+		_apply_line_attack(attacker_def, base_damage, attacker_owner, attacker_hex, target, targets, troops_by_id, troop_defs, building_defs, grid)
 	else:
-		_damage_target(target, CombatMath.resolve_damage(attacker_def, base_damage, target), attacker_owner, troops_by_id)
-		if splash_radius > 0:
-			for other in targets:
-				if other == target or other.owner_id == attacker_owner or not other.is_alive():
-					continue
-				if HexCoord.distance(target.hex, other.hex) <= splash_radius - 1:
-					_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
+		_resolve_hit_at(attacker_def, base_damage, attacker_owner, attacker_hex, target.hex, target, targets, troops_by_id, splash_radius, troop_defs, building_defs, grid)
 
+## Shared by the instant path (_apply_attack, primary_target always the
+## tick's originally-selected target) and ProjectileSystem's deferred impact
+## resolution (primary_target is whoever's actually found standing on the
+## projectile's aim_hex at arrival — possibly null, a total dodge/whiff — so
+## splash is rooted at `impact_hex` rather than `primary_target.hex`, and both
+## the primary damage step and the statusEffectOnHit roll are skipped
+## entirely when there's no primary).
+static func _resolve_hit_at(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, impact_hex: HexCoord, primary_target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> void:
+	if primary_target != null:
+		_damage_target(primary_target, CombatMath.resolve_damage(attacker_def, base_damage, primary_target), attacker_owner, troops_by_id)
+	if splash_radius > 0:
+		for other in targets:
+			if other == primary_target or other.owner_id == attacker_owner or not other.is_alive():
+				continue
+			if HexCoord.distance(impact_hex, other.hex) <= splash_radius - 1:
+				_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
+
+	if primary_target == null:
+		return
 	var status_effect: Dictionary = attacker_def.get("statusEffectOnHit", {})
-	if not status_effect.is_empty() and target.is_alive():
-		var target_def: Dictionary = troop_defs.get(target.squad.troop_type, {}) if target.kind == CombatTarget.Kind.SQUAD else building_defs.get(target.building.building_type, {})
-		StatusEffectSystem.apply_on_hit(status_effect, target, target_def, attacker_hex, grid)
+	if not status_effect.is_empty() and primary_target.is_alive():
+		var target_def: Dictionary = troop_defs.get(primary_target.squad.troop_type, {}) if primary_target.kind == CombatTarget.Kind.SQUAD else building_defs.get(primary_target.building.building_type, {})
+		StatusEffectSystem.apply_on_hit(status_effect, primary_target, target_def, attacker_hex, grid)
 
 ## Tank Obliterator's rail gun: fires along `_beam_hexes` (attacker's hex
-## through the target's hex, out to `attacker_def.range` hexes total) and
-## damages every enemy squad standing on a beam hex — goes through troops,
-## no per-target falloff. The first beam hex carrying ANY building (checked
-## by hex equality against every target this tick, so several stacked things
-## on one hex all resolve together) is a hard stop: an enemy building there
-## takes the hit like any other victim, a friendly one just blocks silently
-## (never friendly fire, same rule splash already follows) — either way the
-## beam goes no further. A Wall has no single hex of its own (edge-based,
-## hex_b set) so it's excluded from this hex-equality check entirely and never
-## blocks a beam.
-static func _apply_line_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary) -> void:
+## through the target's hex, out to `attacker_def.range` hexes total) in one
+## instant tick, resolving every hex via `_resolve_beam_hex` (see there for
+## the per-hex damage/status/blocking rules) until one comes back blocked.
+## This is the instant-beam path only — a line attack that also carries
+## projectileSpeed instead spawns a traveling beam ProjectileInstance that
+## resolves the same per-hex rules gradually over time, see
+## ProjectileSystem._advance_beam.
+static func _apply_line_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> void:
 	var beam := _beam_hexes(attacker_hex, target.hex, int(attacker_def.get("range", 0)))
 	for hex in beam:
-		var blocked := false
-		for other in targets:
-			if not other.is_alive() or other.hex == null or other.hex_b != null or not other.hex.equals(hex):
-				continue
-			if other.kind == CombatTarget.Kind.BUILDING:
-				blocked = true
-				if other.owner_id == attacker_owner:
-					continue
-			elif other.owner_id == attacker_owner:
-				continue
-			_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
-		if blocked:
+		if _resolve_beam_hex(attacker_def, base_damage, attacker_owner, attacker_hex, hex, targets, troops_by_id, troop_defs, building_defs, grid):
 			break
+
+## Resolves one beam hex, shared by the instant line-attack path above and
+## ProjectileSystem's traveling-beam sweep: damages every enemy CombatTarget
+## standing on `hex` (a stacked hex can hold several — squads AND a building
+## at once, all hit together) — goes through troops, no per-target falloff —
+## and, if `attacker_def` carries a statusEffectOnHit, rolls it independently
+## for EACH enemy just damaged, not just one "primary" (a beam physically
+## passes through everyone alike with no falloff, so there's no single target
+## to privilege the way splash privileges its impact-hex target). Returns true if
+## ANY building (friend or foe) occupies this hex — a physical obstruction
+## that stops the beam dead here, same rule whether the beam resolves in one
+## instant tick or sweeps gradually: an enemy building there takes the hit
+## like any other victim, a friendly one just blocks silently (never friendly
+## fire, same rule splash already follows). A Wall has no single hex of its
+## own (edge-based, hex_b set) so it's excluded from this hex-equality check
+## entirely and never blocks a beam.
+static func _resolve_beam_hex(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, hex: HexCoord, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> bool:
+	var blocked := false
+	var status_effect: Dictionary = attacker_def.get("statusEffectOnHit", {})
+	for other in targets:
+		if not other.is_alive() or other.hex == null or other.hex_b != null or not other.hex.equals(hex):
+			continue
+		if other.kind == CombatTarget.Kind.BUILDING:
+			blocked = true
+			if other.owner_id == attacker_owner:
+				continue
+		elif other.owner_id == attacker_owner:
+			continue
+		_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
+		if not status_effect.is_empty() and other.is_alive():
+			var target_def: Dictionary = troop_defs.get(other.squad.troop_type, {}) if other.kind == CombatTarget.Kind.SQUAD else building_defs.get(other.building.building_type, {})
+			StatusEffectSystem.apply_on_hit(status_effect, other, target_def, attacker_hex, grid)
+	return blocked
 
 ## The hex path a beam attack travels, in order outward from (but excluding)
 ## the attacker's own hex: the straight line to the target (HexCoord.line),

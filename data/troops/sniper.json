@@ -9,6 +9,7 @@
   "attackSpeed": 0.5,
   "range": 12,
   "splashRadius": 0,
+  "projectileSpeed": 22,
   "visionRange": 12,
   "speed": 1.0,
 
@@ -28,5 +29,5 @@
   "fuelUpkeep": 0,
   "productionTime": 15,
 
-  "notes": "Deliberately omits Structure from canTarget — cannot attack buildings/walls, unlike most combat troops. Piercing bypasses the target's flat armor stat (not damageReceivedModifiers, which still apply normally)."
+  "notes": "Long-range infantry specialist whose armor-piercing shots bypass a target's flat damage reduction. Cannot attack buildings or walls at all, unlike most combat troops."
 }

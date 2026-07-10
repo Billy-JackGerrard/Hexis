@@ -34,5 +34,5 @@
     { "buildingType": "command_centre", "count": 1 }
   ],
 
-  "notes": "Per-player, one at match start; Capital status is permanent and cumulative on capture. Port, Lumber Mill, and Harbour are only actually placeable if the Capital's site has a Water- or Forest-adjacent Plains hex respectively — they're listed here because they're not base-type-restricted, not because they're guaranteed available on every map. Stone Works is deliberately omitted: it's Foundry Reach-exclusive. Unlike Unique bases, Capital starts otherwise bare and is built up from scratch, so its initialBuildings has no defensive/production/wall entries beyond the universal HQ/Farm/Quarry seed, plus Command Centre — isFixed (see data/buildings/command_centre.json), so every Capital (including one gained by capturing a rival's) is pre-seeded with its own Command Centre rather than needing it freshly built."
+  "notes": "Every player's home base, established for each player at the start of a match, and permanently upgraded (cumulatively) whenever a player captures another one. Unlike specialist bases, it starts bare beyond a minimal seed and is built up entirely from scratch rather than beginning with a garrison or fixed defenses. Some buildings are only actually placeable here if the site happens to have the right adjacent terrain."
 }

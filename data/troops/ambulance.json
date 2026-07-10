@@ -25,5 +25,5 @@
   "fuelUpkeep": 1,
   "productionTime": 15,
 
-  "notes": "Light support vehicle rather than infantry so it can keep pace with the army it's healing. Aura is Infantry-only (filter: \"Infantry\") — vehicle repair is Repair Truck's job instead (see data/troops/repair_truck.json). Cheaper and faster-healing than before now that its scope narrowed to one domain rather than all friendly troops."
+  "notes": "Light support vehicle that keeps pace with advancing infantry, healing them over time. Unarmed and specialized to foot soldiers only — it does nothing for vehicles, ships, or aircraft, and needs an escort to survive."
 }

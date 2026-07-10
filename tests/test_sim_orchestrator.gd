@@ -32,6 +32,8 @@ func _init() -> void:
 	_test_production_pump()
 	print("Regiment lock-step movement driven by the orchestrator")
 	_test_regiment_movement()
+	print("Ballistic projectile travel time driven by the orchestrator")
+	_test_projectile_travel_time()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -148,3 +150,26 @@ func _test_regiment_movement() -> void:
 
 	_check(escort.current_hex.equals(commander.current_hex), "the orchestrator drives regiment lock-step -- escort mirrors the Commander's hex")
 	_check(not commander.current_hex.equals(HexCoord.new(0, 0)), "the regiment actually moved from its start hex")
+
+## Proves ProjectileSystem is actually wired into SimOrchestrator.resolve_tick
+## (not just callable in isolation, per its own test suite) -- a ballistic
+## shot fired one tick doesn't damage its target until enough further real
+## orchestrator ticks pass for its travel time to elapse.
+func _test_projectile_travel_time() -> void:
+	var state := _new_state(_flat_grid(10))
+	var attacker := _make_squad(state, "p1", "earthshaker", HexCoord.new(0, 0), 1)
+	var target := _make_squad(state, "p2", "rifleman", HexCoord.new(5, 0), 1)
+	var target_troop_id: String = target.member_ids[0]
+	var starting_hp: float = state.troops_by_id[target_troop_id].current_hp
+	attacker.attack_progress = 0.99 # about to fire on the very next tick
+
+	SimOrchestrator.resolve_tick(state, 1.0)
+	_check(not state.projectiles.is_empty(), "the orchestrator threads a fired ballistic shot into state.projectiles")
+	_check(state.troops_by_id[target_troop_id].current_hp == starting_hp, "the shot hasn't landed yet -- travel time (distance 5 / speed 3 ~= 1.67s) outlasts the tick it committed on")
+
+	for i in range(3):
+		SimOrchestrator.resolve_tick(state, 1.0)
+	var target_alive: bool = state.troops_by_id.has(target_troop_id)
+	var damaged: bool = (not target_alive) or float(state.troops_by_id[target_troop_id].current_hp) < starting_hp
+	_check(damaged, "the shot lands after enough further orchestrator ticks pass for its travel time to elapse")
+	_check(state.projectiles.is_empty(), "the resolved projectile is removed from state.projectiles purely via orchestrator ticks")

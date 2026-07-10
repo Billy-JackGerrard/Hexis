@@ -4,7 +4,7 @@
   "category": "Production",
   "populationCost": 1,
 
-  "notes": "Camp Cosy only — a support-vehicle specialist production building, distinct from Factory's combat-vehicle roster. Unlocks, in order: Engineer, Ambulance, Transport Truck, Repair Truck, Mule, Volt Truck. Engineer, Ambulance, and Transport Truck are also Factory unlocks elsewhere (see data/buildings/factory.json) — shared across both buildings, same pattern as Juggernaut/Rocket Tank across Tank Plant/Frostworks.",
+  "notes": "Specialist production building for support and logistics vehicles, distinct from the general combat-vehicle roster elsewhere.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 200, "unlocks": "engineer", "cost": { "stone": 220, "steel": 90 } },

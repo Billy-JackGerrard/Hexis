@@ -10,6 +10,7 @@
   "attackSpeed": 0.8,
   "range": 2,
   "splashRadius": 0,
+  "projectileSpeed": 14,
   "visionRange": 8,
   "speed": 0.9,
 
@@ -22,5 +23,5 @@
   "fuelUpkeep": 0,
   "productionTime": 8,
 
-  "notes": "Pure tank/meatshield: no attack at all, high HP plus flat armor reduction on every incoming hit. Meant to soak damage in front of squishier squads rather than deal any itself."
+  "notes": "Pure infantry meatshield: no attack of its own, but high health and flat damage reduction, meant to soak hits in front of squishier troops rather than deal damage itself."
 }

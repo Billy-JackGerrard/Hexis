@@ -9,6 +9,7 @@
   "attackSpeed": 2.2,
   "range": 3,
   "splashRadius": 0,
+  "projectileSpeed": 16,
   "visionRange": 10,
   "speed": 3.2,
 
@@ -23,5 +24,5 @@
   "fuelUpkeep": 3.5,
   "productionTime": 40,
 
-  "notes": "Sky Fortress's fast anti-troop dogfighter — rapid-fire machine guns, the fastest combat aircraft in the roster. Cannot attack buildings/walls/defenses, unlike Thunder, so it doesn't double as a siege unit. Bonus vs. Air reflects its dogfighter specialty against other aircraft. Heavy aircraft Fuel upkeep (contrast Hot Air Balloon/Glider, which are lighter exceptions)."
+  "notes": "Fast anti-troop dogfighter with rapid-fire guns, the quickest combat aircraft in the roster. Cannot attack buildings, walls, or defenses, so it doesn't double as a siege unit. Especially effective against other aircraft."
 }

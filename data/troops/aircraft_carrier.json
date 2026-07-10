@@ -10,6 +10,7 @@
   "attackSpeed": 1.1,
   "range": 5,
   "splashRadius": 0,
+  "projectileSpeed": 12,
   "visionRange": 10,
   "speed": 1.3,
 
@@ -26,5 +27,5 @@
   "fuelUpkeep": 2,
   "productionTime": 40,
 
-  "notes": "Kraken Point Shipyard's naval capstone — highest HP and cost in the navy, slowest ship in the roster. Holds (does not produce) 2 Air squads; docked aircraft use no Fuel, same as being docked adjacent to a base. Can launch stored aircraft mid-combat, not just while idle. Its own weak armament is deliberately narrow — canTarget: [Air] only, point-defense flak against enemy aircraft near the carrier — it cannot fire on ships, ground troops, or structures at all, so it always needs an escort fleet for anything but an air threat. Naval Fuel upkeep is higher than other ships (2, vs. the usual ~0.5-1) reflecting its size, though still modest relative to Air-domain upkeep."
+  "notes": "The navy's largest and toughest vessel, but also its slowest — built to ferry aircraft into a theater rather than fight directly. Docked aircraft are shielded from fuel drain and can be launched mid-battle. Its own weapons only track other aircraft, so it needs an escort fleet against anything else."
 }

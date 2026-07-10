@@ -10,6 +10,7 @@
   "attackSpeed": 0.9,
   "range": 6,
   "splashRadius": 0,
+  "projectileSpeed": 10,
   "visionRange": 10,
   "speed": 1.5,
 
@@ -24,5 +25,5 @@
   "fuelUpkeep": 1,
   "productionTime": 26,
 
-  "notes": "Kraken Point Shipyard's heavier warship. Deliberately NOT just a stronger Gunboat: Gunboat stays the fast, cheap, always-relevant early pick (speed 2.2, cost food20/steel15), while Destroyer trades speed for power — slower (1.5), pricier (food30/steel55), tankier (220 vs 130 HP), and specializes with bonuses vs. Land (1.4x) and Structure (1.2x), a bombardment/shore-support role rather than a straight upgrade or a dedicated anti-ship counter (that's Submarine's job — canTarget: Naval only)."
+  "notes": "Slower, pricier warship that trades speed for raw power: tougher, harder-hitting, and especially effective against land forces and structures. A bombardment and shore-support ship rather than a fast responder or a dedicated ship-hunter."
 }

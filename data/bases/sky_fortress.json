@@ -35,5 +35,5 @@
     { "troopId": "thunder", "count": 3 }
   ],
 
-  "notes": "Elite air-superiority specialist Unique base — one instance on the map, the pure air-combat counterpart to Windy Peaks' scouting/ground-support focus. Iron Aviary builds Wingfighter (anti-troop dogfighter) and Thunder (heavier, missile-armed) — Cargocopter is Cloudreach's Covert Airfield unlock, not Iron Aviary's. Sited on Plains, no terrain exception. No specialty defense building or Barracks — relies on generic Turret/Missile Launcher plus Walls only. Generated with a ring of water terrain (a moat) surrounding the base, making it harder to approach with Land-domain troops (and unreachable by Naval, being landlocked) — Air units ignore it entirely, same as every other terrain restriction."
+  "notes": "Elite air-superiority specialist base — the map's sole example of its kind, the pure air-combat counterpart to a ground-support/reconnaissance-focused base elsewhere. Its production building fields a fast anti-troop dogfighter and a heavier, missile-armed alternative. Relies on generic defenses plus walls rather than a specialty defense. Generated surrounded by a ring of water, making it harder to approach by land and unreachable by sea, though aircraft ignore the obstacle entirely."
 }

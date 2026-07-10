@@ -10,6 +10,7 @@
   "attackSpeed": 0.5,
   "range": 7,
   "splashRadius": 2,
+  "projectileSpeed": 5,
   "visionRange": 8,
   "speed": 1.6,
 
@@ -24,5 +25,5 @@
   "fuelUpkeep": 2,
   "productionTime": 38,
 
-  "notes": "Built at Fort Irongrad's Tank Plant and Scrapyard's Salvage Works (not Winter Forge's Frostworks) — the heavy-tier long-range indirect siege tank, the highest-range and highest-per-hit-damage unit in the roster, with splash from its shell impact. Cannot target Infantry or Air at all (omitted from canTarget) — a big indirect shell isn't built to hunt scattered riflemen or planes far above it, and it gives Infantry a hard counter-role against heavy armor rather than just a damage-modifier penalty. Bonuses vs. Structure (2.0x) and Defensive (1.6x) make it a strong wall/HQ/base-defense cracker and double as target-priority hints per the damage-modifier rule (see game-design/05-troop-stat-schema.md); both Structure and Defensive already auto-aggro by default whenever no enemy troop is in range, same as Basekiller, since the schema's canTarget rule applies uniformly rather than through any unit-specific flag. Slowest heavy tank and highest Fuel upkeep, reflecting its size."
+  "notes": "Long-range siege vehicle with the heaviest per-hit damage and longest reach in the roster, built to crack open fortified structures and defenses from a distance. Cannot target infantry or aircraft at all, leaving it exposed to a persistent infantry push. Slow-moving and fuel-hungry."
 }
