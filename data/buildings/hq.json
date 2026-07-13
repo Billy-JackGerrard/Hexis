@@ -5,16 +5,18 @@
   "isFixed": true,
   "populationCost": 0,
 
-  "notes": "A base's core structure. Never rebuilt fresh — losing it flips ownership of the whole base to the attacker rather than destroying it outright. Grants population capacity that grows as it's upgraded.",
+  "notes": "A base's core structure. Never rebuilt fresh — losing it flips ownership of the whole base to the attacker rather than destroying it outright. Grants population capacity that grows as it's upgraded. Carries a baseline visionRange so a base is never fog-covered on its own doorstep even before a player has any squad or defensive building up.",
 
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 300,
-      "populationCapacity": 2
+      "populationCapacity": 2,
+      "visionRange": 4
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 10 },
-      "populationCapacity": { "mode": "flat", "value": 2 }
+      "populationCapacity": { "mode": "flat", "value": 2 },
+      "visionRange": { "mode": "flat", "value": 0.5 }
     },
     "baseCost": {
       "stone": 300,

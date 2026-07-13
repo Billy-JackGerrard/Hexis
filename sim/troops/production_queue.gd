@@ -30,3 +30,18 @@ func front() -> Dictionary:
 
 func front_complete() -> bool:
 	return not is_empty() and float(front().get("remaining", 0.0)) <= 0.0
+
+func to_dict() -> Dictionary:
+	return {
+		"building_id": building_id,
+		"entries": entries.duplicate(true),
+		"paused": paused,
+		"pause_reason": pause_reason,
+	}
+
+static func from_dict(d: Dictionary) -> ProductionQueue:
+	var queue := ProductionQueue.new(d["building_id"])
+	queue.entries = d["entries"].duplicate(true)
+	queue.paused = d["paused"]
+	queue.pause_reason = d["pause_reason"]
+	return queue

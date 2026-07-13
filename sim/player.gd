@@ -13,3 +13,11 @@ var resources: ResourcePool
 func _init(p_id: String) -> void:
 	id = p_id
 	resources = ResourcePool.new()
+
+func to_dict() -> Dictionary:
+	return {"id": id, "resources": resources.to_dict()}
+
+static func from_dict(d: Dictionary) -> Player:
+	var player := Player.new(d["id"])
+	player.resources = ResourcePool.from_dict(d["resources"])
+	return player

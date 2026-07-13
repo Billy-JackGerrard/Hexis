@@ -104,6 +104,7 @@ static func resolve_tick(
 	production_queues: Dictionary = {},
 	projectiles: Array[ProjectileInstance] = [],
 	next_projectile_id: Callable = Callable(),
+	rng: RandomNumberGenerator = null,
 ) -> void:
 	StatusEffectSystem.resolve_tick(dt, squads, bases)
 	AuraSystem.apply_heals(dt, auras, squads, troops_by_id, troop_defs)
@@ -111,13 +112,13 @@ static func resolve_tick(
 	var targets := build_targets(squads, bases, troops_by_id, grid, troop_defs, building_defs, auras, standalone_buildings)
 
 	for squad in squads:
-		_advance_squad(squad, dt, targets, troops_by_id, troop_defs, grid, building_defs, detections, auras, projectiles, next_projectile_id)
+		_advance_squad(squad, dt, targets, troops_by_id, troop_defs, grid, building_defs, detections, auras, projectiles, next_projectile_id, rng)
 
 	for base in bases:
 		for building in base.buildings:
-			_advance_building(building, base.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras, projectiles, next_projectile_id)
+			_advance_building(building, base.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras, projectiles, next_projectile_id, rng)
 	for building in standalone_buildings:
-		_advance_building(building, building.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras, projectiles, next_projectile_id)
+		_advance_building(building, building.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras, projectiles, next_projectile_id, rng)
 
 	_prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments, production_queues)
 	BuildingRegenSystem.resolve_tick(dt, bases)
@@ -152,7 +153,7 @@ static func build_targets(squads: Array[SquadInstance], bases: Array[BaseInstanc
 		targets.append(target)
 	return targets
 
-static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, grid: HexGrid, building_defs: Dictionary, detections: Dictionary = {}, auras: Dictionary = {}, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable()) -> void:
+static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, grid: HexGrid, building_defs: Dictionary, detections: Dictionary = {}, auras: Dictionary = {}, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable(), rng: RandomNumberGenerator = null) -> void:
 	if squad.member_ids.is_empty():
 		return
 	# A boarded/docked squad can't fire — it has no independent position to
@@ -185,13 +186,13 @@ static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[Comba
 		if target == null:
 			break
 		for member_id in _living_members(squad, troops_by_id):
-			_fire_or_apply(def, base_damage, squad.owner_id, squad.current_hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid, projectiles, next_projectile_id)
+			_fire_or_apply(def, base_damage, squad.owner_id, squad.current_hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid, projectiles, next_projectile_id, rng)
 		squad.attack_progress -= 1.0
 		# Attacking breaks this squad's own stealth/ambush (revealsOnAttack /
 		# "hidden until engaging") for a cooldown, per DetectionSystem.
 		squad.reveal_cooldown_remaining = DetectionSystem.REVEAL_COOLDOWN_SECONDS
 
-static func _advance_building(building: BuildingInstance, owner_id: String, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary = {}, auras: Dictionary = {}, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable()) -> void:
+static func _advance_building(building: BuildingInstance, owner_id: String, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary = {}, auras: Dictionary = {}, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable(), rng: RandomNumberGenerator = null) -> void:
 	if building.max_hp > 0.0 and building.current_hp <= 0.0:
 		return
 	# A frozen/stunned Defensive building can't fire back either, nor can one
@@ -206,7 +207,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 	# (Landmine): no accumulator, it fires the instant a valid enemy is in
 	# range and is destroyed by its own blast — see _trigger_self_destruct.
 	if attack_speed <= 0.0 and stats.get("selfDestructOnTrigger", false):
-		_trigger_self_destruct(building, owner_id, stats, targets, troops_by_id, troop_defs, building_defs, grid, detections, projectiles, next_projectile_id)
+		_trigger_self_destruct(building, owner_id, stats, targets, troops_by_id, troop_defs, building_defs, grid, detections, projectiles, next_projectile_id, rng)
 		return
 	if attack_speed <= 0.0 or stats.get("canTarget", []).is_empty():
 		return
@@ -232,7 +233,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 			if target == null:
 				building.turret_progress[i] = min(building.turret_progress[i], 1.0)
 				break
-			_fire_or_apply(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid, projectiles, next_projectile_id)
+			_fire_or_apply(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid, projectiles, next_projectile_id, rng)
 			claimed_this_tick[target.target_id()] = true
 			building.turret_progress[i] -= 1.0
 
@@ -243,7 +244,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 ## (standalone buildings never ruin, per 06-building-stats-and-defenses.md —
 ## matches the data notes' "deals its damage ... and is destroyed
 ## immediately" rather than persisting as a repeating attacker).
-static func _trigger_self_destruct(building: BuildingInstance, owner_id: String, stats: Dictionary, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable()) -> void:
+static func _trigger_self_destruct(building: BuildingInstance, owner_id: String, stats: Dictionary, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable(), rng: RandomNumberGenerator = null) -> void:
 	if stats.get("canTarget", []).is_empty():
 		return
 	var attacker_range := int(stats.get("range", 0))
@@ -252,7 +253,7 @@ static func _trigger_self_destruct(building: BuildingInstance, owner_id: String,
 		return
 	var base_damage := float(stats.get("damage", 0.0))
 	var splash := int(stats.get("splashRadius", 0))
-	_fire_or_apply(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid, projectiles, next_projectile_id)
+	_fire_or_apply(stats, base_damage, owner_id, building.hex, target, targets, troops_by_id, splash, troop_defs, building_defs, grid, projectiles, next_projectile_id, rng)
 	building.current_hp = 0.0
 
 ## Routes a committed shot to either the instant path (today's behavior, the
@@ -266,10 +267,10 @@ static func _trigger_self_destruct(building: BuildingInstance, owner_id: String,
 ## one tick, see ProjectileSystem._advance_beam. Wind Spire is the one real
 ## unit combining both flags today; Tank Obliterator is lineAttack with no
 ## projectileSpeed and stays fully instant.
-static func _fire_or_apply(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, projectiles: Array[ProjectileInstance], next_projectile_id: Callable) -> void:
+static func _fire_or_apply(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, projectiles: Array[ProjectileInstance], next_projectile_id: Callable, rng: RandomNumberGenerator = null) -> void:
 	var projectile_speed := float(attacker_def.get("projectileSpeed", 0.0))
 	if projectile_speed <= 0.0:
-		_apply_attack(attacker_def, base_damage, attacker_owner, attacker_hex, target, targets, troops_by_id, splash_radius, troop_defs, building_defs, grid)
+		_apply_attack(attacker_def, base_damage, attacker_owner, attacker_hex, target, targets, troops_by_id, splash_radius, troop_defs, building_defs, grid, rng)
 		return
 	if attacker_def.get("lineAttack", false):
 		var beam := _beam_hexes(attacker_hex, target.hex, int(attacker_def.get("range", 0)))
@@ -289,11 +290,11 @@ static func _fire_or_apply(attacker_def: Dictionary, base_damage: float, attacke
 ## only — see StatusEffectSystem's scoping note on splash (a splash attack's
 ## extra victims get damage only, never a status effect; a line attack's
 ## victims each get their own roll instead, see _apply_line_attack).
-static func _apply_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> void:
+static func _apply_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, rng: RandomNumberGenerator = null) -> void:
 	if attacker_def.get("lineAttack", false):
-		_apply_line_attack(attacker_def, base_damage, attacker_owner, attacker_hex, target, targets, troops_by_id, troop_defs, building_defs, grid)
+		_apply_line_attack(attacker_def, base_damage, attacker_owner, attacker_hex, target, targets, troops_by_id, troop_defs, building_defs, grid, rng)
 	else:
-		_resolve_hit_at(attacker_def, base_damage, attacker_owner, attacker_hex, target.hex, target, targets, troops_by_id, splash_radius, troop_defs, building_defs, grid)
+		_resolve_hit_at(attacker_def, base_damage, attacker_owner, attacker_hex, target.hex, target, targets, troops_by_id, splash_radius, troop_defs, building_defs, grid, rng)
 
 ## Shared by the instant path (_apply_attack, primary_target always the
 ## tick's originally-selected target) and ProjectileSystem's deferred impact
@@ -302,7 +303,7 @@ static func _apply_attack(attacker_def: Dictionary, base_damage: float, attacker
 ## splash is rooted at `impact_hex` rather than `primary_target.hex`, and both
 ## the primary damage step and the statusEffectOnHit roll are skipped
 ## entirely when there's no primary).
-static func _resolve_hit_at(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, impact_hex: HexCoord, primary_target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> void:
+static func _resolve_hit_at(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, impact_hex: HexCoord, primary_target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, splash_radius: int, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, rng: RandomNumberGenerator = null) -> void:
 	if primary_target != null:
 		_damage_target(primary_target, CombatMath.resolve_damage(attacker_def, base_damage, primary_target), attacker_owner, troops_by_id)
 	if splash_radius > 0:
@@ -317,7 +318,7 @@ static func _resolve_hit_at(attacker_def: Dictionary, base_damage: float, attack
 	var status_effect: Dictionary = attacker_def.get("statusEffectOnHit", {})
 	if not status_effect.is_empty() and primary_target.is_alive():
 		var target_def: Dictionary = troop_defs.get(primary_target.squad.troop_type, {}) if primary_target.kind == CombatTarget.Kind.SQUAD else building_defs.get(primary_target.building.building_type, {})
-		StatusEffectSystem.apply_on_hit(status_effect, primary_target, target_def, attacker_hex, grid)
+		StatusEffectSystem.apply_on_hit(status_effect, primary_target, target_def, attacker_hex, grid, rng)
 
 ## Tank Obliterator's rail gun: fires along `_beam_hexes` (attacker's hex
 ## through the target's hex, out to `attacker_def.range` hexes total) in one
@@ -327,10 +328,10 @@ static func _resolve_hit_at(attacker_def: Dictionary, base_damage: float, attack
 ## projectileSpeed instead spawns a traveling beam ProjectileInstance that
 ## resolves the same per-hex rules gradually over time, see
 ## ProjectileSystem._advance_beam.
-static func _apply_line_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> void:
+static func _apply_line_attack(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, rng: RandomNumberGenerator = null) -> void:
 	var beam := _beam_hexes(attacker_hex, target.hex, int(attacker_def.get("range", 0)))
 	for hex in beam:
-		if _resolve_beam_hex(attacker_def, base_damage, attacker_owner, attacker_hex, hex, targets, troops_by_id, troop_defs, building_defs, grid):
+		if _resolve_beam_hex(attacker_def, base_damage, attacker_owner, attacker_hex, hex, targets, troops_by_id, troop_defs, building_defs, grid, rng):
 			break
 
 ## Resolves one beam hex, shared by the instant line-attack path above and
@@ -348,7 +349,7 @@ static func _apply_line_attack(attacker_def: Dictionary, base_damage: float, att
 ## fire, same rule splash already follows). A Wall has no single hex of its
 ## own (edge-based, hex_b set) so it's excluded from this hex-equality check
 ## entirely and never blocks a beam.
-static func _resolve_beam_hex(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, hex: HexCoord, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid) -> bool:
+static func _resolve_beam_hex(attacker_def: Dictionary, base_damage: float, attacker_owner: String, attacker_hex: HexCoord, hex: HexCoord, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, rng: RandomNumberGenerator = null) -> bool:
 	var blocked := false
 	var status_effect: Dictionary = attacker_def.get("statusEffectOnHit", {})
 	for other in targets:
@@ -363,7 +364,7 @@ static func _resolve_beam_hex(attacker_def: Dictionary, base_damage: float, atta
 		_damage_target(other, CombatMath.resolve_damage(attacker_def, base_damage, other), attacker_owner, troops_by_id)
 		if not status_effect.is_empty() and other.is_alive():
 			var target_def: Dictionary = troop_defs.get(other.squad.troop_type, {}) if other.kind == CombatTarget.Kind.SQUAD else building_defs.get(other.building.building_type, {})
-			StatusEffectSystem.apply_on_hit(status_effect, other, target_def, attacker_hex, grid)
+			StatusEffectSystem.apply_on_hit(status_effect, other, target_def, attacker_hex, grid, rng)
 	return blocked
 
 ## The hex path a beam attack travels, in order outward from (but excluding)

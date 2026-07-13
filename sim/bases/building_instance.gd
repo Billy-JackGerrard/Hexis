@@ -121,3 +121,47 @@ func upgrade_hp(def: Dictionary, building_defs: Dictionary) -> void:
 	current_hp = (current_hp / max_hp * new_max_hp) if max_hp > 0.0 else new_max_hp
 	max_hp = new_max_hp
 	_sync_turret_progress(def, building_defs)
+
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"base_id": base_id,
+		"building_type": building_type,
+		"material": material,
+		"level": level,
+		"hex": hex.to_key() if hex != null else "",
+		"hex_a": hex_a.to_key() if hex_a != null else "",
+		"hex_b": hex_b.to_key() if hex_b != null else "",
+		"max_hp": max_hp,
+		"current_hp": current_hp,
+		"turret_progress": turret_progress.duplicate(),
+		"owner_id": owner_id,
+		"lockout_remaining": lockout_remaining,
+		"stun_tail_remaining": stun_tail_remaining,
+		"stun_tail_queued": stun_tail_queued,
+		"is_ruin": is_ruin,
+		"last_damaged_by": last_damaged_by,
+		"time_since_damage": time_since_damage,
+		"regen_progress": regen_progress,
+		"total_resources_spent": total_resources_spent.duplicate(),
+		"docked_squad_ids": docked_squad_ids.duplicate(),
+	}
+
+static func from_dict(d: Dictionary) -> BuildingInstance:
+	var hex: HexCoord = HexCoord.from_key(d["hex"]) if String(d["hex"]) != "" else null
+	var building := BuildingInstance.new(d["id"], d["base_id"], d["building_type"], int(d["level"]), d["material"], hex, d["owner_id"])
+	building.hex_a = HexCoord.from_key(d["hex_a"]) if String(d["hex_a"]) != "" else null
+	building.hex_b = HexCoord.from_key(d["hex_b"]) if String(d["hex_b"]) != "" else null
+	building.max_hp = d["max_hp"]
+	building.current_hp = d["current_hp"]
+	building.turret_progress.assign(d["turret_progress"])
+	building.lockout_remaining = d["lockout_remaining"]
+	building.stun_tail_remaining = d["stun_tail_remaining"]
+	building.stun_tail_queued = d["stun_tail_queued"]
+	building.is_ruin = d["is_ruin"]
+	building.last_damaged_by = d["last_damaged_by"]
+	building.time_since_damage = d["time_since_damage"]
+	building.regen_progress = d["regen_progress"]
+	building.total_resources_spent = d["total_resources_spent"].duplicate()
+	building.docked_squad_ids.assign(d["docked_squad_ids"])
+	return building

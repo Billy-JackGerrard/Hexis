@@ -34,9 +34,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			_panning = event.pressed
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_zoom_by(-ZOOM_STEP)
-		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom_by(ZOOM_STEP)
+		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_by(-ZOOM_STEP)
 	elif event is InputEventMouseMotion and _panning:
 		position -= event.relative * zoom
 		if _has_bounds:

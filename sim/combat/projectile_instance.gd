@@ -47,3 +47,27 @@ func _init(p_id: String, p_owner_id: String, p_attacker_hex: HexCoord, p_aim_hex
 	base_damage = p_base_damage
 	splash_radius = p_splash_radius
 	beam_hexes = p_beam_hexes
+
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"owner_id": owner_id,
+		"attacker_hex": attacker_hex.to_key(),
+		"aim_hex": aim_hex.to_key(),
+		"remaining_time": remaining_time,
+		"attacker_def": attacker_def,
+		"base_damage": base_damage,
+		"splash_radius": splash_radius,
+		"beam_hexes": beam_hexes.map(func(hex): return hex.to_key()),
+		"beam_next_index": beam_next_index,
+		"beam_elapsed": beam_elapsed,
+	}
+
+static func from_dict(d: Dictionary) -> ProjectileInstance:
+	var beam_hexes: Array[HexCoord] = []
+	for key in d["beam_hexes"]:
+		beam_hexes.append(HexCoord.from_key(key))
+	var projectile := ProjectileInstance.new(d["id"], d["owner_id"], HexCoord.from_key(d["attacker_hex"]), HexCoord.from_key(d["aim_hex"]), d["remaining_time"], d["attacker_def"], d["base_damage"], d["splash_radius"], beam_hexes)
+	projectile.beam_next_index = d["beam_next_index"]
+	projectile.beam_elapsed = d["beam_elapsed"]
+	return projectile

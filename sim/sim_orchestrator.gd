@@ -22,6 +22,7 @@ extends RefCounted
 const ECONOMY_TICK_SECONDS: float = 5.0
 
 static func resolve_tick(state: MatchState, dt: float) -> void:
+	state.tick += 1
 	var auras := AuraSystem.resolve_tick(state.squads, state.bases, state.troop_defs, state.building_defs, state.regiments)
 	_resolve_fine_tick(state, dt, auras)
 
@@ -47,8 +48,8 @@ static func _resolve_fine_tick(state: MatchState, dt: float, auras: Dictionary) 
 	MovementResolver.resolve_tick(dt, state.squads, state.grid, state.troop_defs, auras, state.bases, state.standalone_buildings)
 	_resolve_regiment_movement(state, dt, auras)
 
-	CombatResolver.resolve_tick(dt, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, state.detections, auras, state.standalone_buildings, state.regiments, state.production_queues, state.projectiles, Callable(state, "next_projectile_id"))
-	ProjectileSystem.resolve_tick(dt, state.projectiles, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, auras, state.standalone_buildings, state.regiments, state.production_queues)
+	CombatResolver.resolve_tick(dt, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, state.detections, auras, state.standalone_buildings, state.regiments, state.production_queues, state.projectiles, Callable(state, "next_projectile_id"), state.rng)
+	ProjectileSystem.resolve_tick(dt, state.projectiles, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, auras, state.standalone_buildings, state.regiments, state.production_queues, state.rng)
 
 	_advance_production(state, dt)
 
@@ -106,6 +107,16 @@ static func _advance_production(state: MatchState, dt: float) -> void:
 ## 07-data-architecture.md section 7. `auras` is the same tick-start snapshot
 ## _resolve_fine_tick used — Mule's upkeep_reduction and resource_siphon's
 ## building redirect are the aura effects the economy side reads.
+##
+## The `neutral` owner (BaseSiteSelector.NEUTRAL_OWNER_ID — every not-yet-
+## captured Unique base and its standing garrison) is skipped entirely: it has
+## no economy at all rather than an isolated one, per 02-bases-and-buildings.md
+## — its resource buildings produce nothing and its garrison pays no food/fuel
+## upkeep, so a neutral garrison can never starve down before a player ever
+## reaches it. This is deliberately NOT "give neutral its own ResourcePool
+## fed by its own buildings" — that would still eventually starve a
+## food-negative garrison with nothing but its own single seeded Farm to live
+## on; skipping the tick outright avoids relying on that balance holding.
 static func _resolve_economy_tick(state: MatchState, auras: Dictionary) -> void:
 	var production := ProductionOutputSystem.compute_production(state.bases, state.base_defs, state.building_defs, auras)
 	var upkeep := UpkeepSystem.compute_upkeep(state.squads, state.troop_defs, auras)
@@ -117,6 +128,7 @@ static func _resolve_economy_tick(state: MatchState, auras: Dictionary) -> void:
 		owner_ids[owner_id] = true
 	for owner_id in upkeep:
 		owner_ids[owner_id] = true
+	owner_ids.erase(BaseSiteSelector.NEUTRAL_OWNER_ID)
 
 	for owner_id in owner_ids:
 		var pool := state.pool_for(owner_id)

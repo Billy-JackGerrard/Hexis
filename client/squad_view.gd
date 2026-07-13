@@ -18,6 +18,11 @@
 ## diamond: Naval) now that a real multi-base map mixes domains on screen.
 ## Selected squads additionally get a dotted path preview along squad.path
 ## and a faint attack-range ring, both placeholder art, no new sim state.
+##
+## A selected OR hovered squad also gets a "{troop name} N/cap" label (per
+## 09-ui-and-controls.md) drawn via ThemeDB's fallback font — same
+## Node2D-can't-use-get_theme_default_font() reasoning as base_view.gd's
+## title/tooltip text.
 class_name SquadView
 extends Node2D
 
@@ -42,6 +47,8 @@ const PATH_DOT_COLOR := Color(1.0, 1.0, 1.0, 0.8)
 const PATH_DOT_RADIUS := 2.0
 const PATH_DOT_SPACING := 10.0
 const RANGE_RING_COLOR := Color(1.0, 1.0, 1.0, 0.25)
+const INFO_LABEL_WIDTH := 140.0
+const INFO_LABEL_COLOR := Color.WHITE
 
 func setup(p_squads: Array[SquadInstance], p_regiments: Array[RegimentInstance], p_owner_colors: Dictionary, p_grid: HexGrid, p_troop_defs: Dictionary, p_visions: Dictionary, p_detections: Dictionary, p_local_owner_id: String) -> void:
 	squads = p_squads
@@ -178,7 +185,29 @@ func _draw_range_ring(squad: SquadInstance) -> void:
 		return
 	draw_arc(squad_pixel_position(squad), attack_range * HexView.HEX_SIZE, 0.0, TAU, 48, RANGE_RING_COLOR, 1.5)
 
+## The frontmost renderable squad (any owner — used for hover, mirroring how
+## enemy troops are still nameable when scouted) at `point`, or null.
+func _renderable_squad_at_pixel(point: Vector2) -> SquadInstance:
+	for squad in squads:
+		if _is_renderable(squad) and squad_pixel_position(squad).distance_to(point) <= RADIUS:
+			return squad
+	return null
+
+## "{troop name} N/cap" above a squad — shown for a selected squad or
+## whichever one the mouse is hovering, per 09-ui-and-controls.md's squad
+## info requirement. maxSquadSize is the same per-troop cap
+## GarrisonFactory/ProductionManager already enforce.
+func _draw_squad_info(squad: SquadInstance, pos: Vector2) -> void:
+	var def: Dictionary = troop_defs.get(squad.troop_type, {})
+	var name: String = String(def.get("name", squad.troop_type.capitalize()))
+	var cap: int = max(1, int(def.get("maxSquadSize", 1)))
+	var text := "%s %d/%d" % [name, squad.member_ids.size(), cap]
+	var label_pos := pos - Vector2(INFO_LABEL_WIDTH * 0.5, RADIUS + 22.0)
+	draw_string(ThemeDB.fallback_font, label_pos, text, HORIZONTAL_ALIGNMENT_CENTER, INFO_LABEL_WIDTH, ThemeDB.fallback_font_size, INFO_LABEL_COLOR)
+
 func _draw() -> void:
+	var hovered_squad := _renderable_squad_at_pixel(get_global_mouse_position())
+
 	for regiment in regiments:
 		var commander := _squad_by_id(regiment.commander_id)
 		if commander == null or not _is_renderable(commander):
@@ -197,7 +226,10 @@ func _draw() -> void:
 		var pos := squad_pixel_position(squad)
 		var color: Color = owner_colors.get(squad.owner_id, Color.WHITE)
 		_draw_squad_shape(pos, _domain_of(squad), color)
-		if is_selected(squad.id):
+		var selected := is_selected(squad.id)
+		if selected:
 			draw_arc(pos, RADIUS + 3.0, 0.0, TAU, 24, SELECTION_COLOR, 2.0)
 			_draw_path_preview(squad)
 			_draw_range_ring(squad)
+		if selected or squad == hovered_squad:
+			_draw_squad_info(squad, pos)

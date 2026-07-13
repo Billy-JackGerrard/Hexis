@@ -1,8 +1,10 @@
-## Scene root for the Godot rendering scaffold (build-order item 2): builds a
-## demo MatchState the same way tests/test_sim_orchestrator.gd does, then
-## drives SimOrchestrator.resolve_tick() every frame. Everything under
-## client/ only ever reads sim state or calls CommandProcessor — it never
-## mutates MatchState directly (07-data-architecture.md section 8).
+## Scene root for the Godot rendering scaffold (build-order item 2). _ready()
+## only shows start_screen.gd's StartScreen overlay; _start_game() (fired by
+## its single_player_requested signal) builds a demo MatchState the same way
+## tests/test_sim_orchestrator.gd does, then _process() drives
+## SimOrchestrator.resolve_tick() every frame. Everything under client/ only
+## ever reads sim state or calls CommandProcessor — it never mutates
+## MatchState directly (07-data-architecture.md section 8).
 extends Node2D
 
 const PLAYER_COUNT := 2
@@ -10,10 +12,17 @@ const WORLD_SEED := 20260709
 const LOCAL_PLAYER := "p0"
 
 var state: MatchState
+var sim_clock := SimClock.new()
 var demo_hexes: Array[HexCoord] = []
 var owner_colors := {
 	"p0": Color(0.25, 0.55, 0.95),
 	"p1": Color(0.9, 0.25, 0.25),
+	"neutral": Color(0.6, 0.6, 0.6),
+}
+var owner_names := {
+	"p0": "Player 1",
+	"p1": "Player 2",
+	"neutral": "Neutral",
 }
 
 var board: Board
@@ -24,10 +33,23 @@ var fog_of_war: FogOfWar
 var camera_controller: CameraController
 var hud_layer: HUDLayer
 var build_preview: BuildPreview
+var start_screen: StartScreen
 
 var _local_capital_hex: HexCoord
 
 func _ready() -> void:
+	start_screen = StartScreen.new()
+	add_child(start_screen)
+	start_screen.setup()
+	start_screen.single_player_requested.connect(_on_single_player_requested)
+
+func _on_single_player_requested(player_name: String) -> void:
+	owner_names[LOCAL_PLAYER] = player_name
+	_start_game()
+	start_screen.queue_free()
+	start_screen = null
+
+func _start_game() -> void:
 	state = _build_demo_state()
 	var bounds := _map_bounds()
 
@@ -39,7 +61,7 @@ func _ready() -> void:
 
 	base_view = BaseView.new()
 	add_child(base_view)
-	base_view.setup(state.bases, owner_colors, state.standalone_buildings, state.building_defs, state.detections, LOCAL_PLAYER)
+	base_view.setup(state.bases, owner_colors, state.standalone_buildings, state.building_defs, state.detections, LOCAL_PLAYER, owner_names)
 
 	squad_view = SquadView.new()
 	add_child(squad_view)
@@ -81,11 +103,14 @@ func _map_bounds() -> Array:
 	return [bounds_min - margin, bounds_max + margin]
 
 func _process(delta: float) -> void:
-	SimOrchestrator.resolve_tick(state, delta)
+	if state == null:
+		return
+	sim_clock.advance(state, delta)
 	base_view.queue_redraw()
 
 func _build_demo_state() -> MatchState:
 	var demo_state := MatchState.new()
+	demo_state.seed_rng(WORLD_SEED)
 	demo_state.troop_defs = DataLoader.load_dir("res://data/troops")
 	demo_state.building_defs = DataLoader.load_dir("res://data/buildings")
 	demo_state.base_defs = DataLoader.load_dir("res://data/bases")
@@ -103,9 +128,6 @@ func _build_demo_state() -> MatchState:
 		var capital := _find_base(demo_state, result.capital_ids_by_player[player_index])
 		if owner == LOCAL_PLAYER:
 			_local_capital_hex = capital.hex_coord
-		_spawn_squad(demo_state, owner, "rifleman", HexCoord.neighbor(capital.hex_coord, 0), 3)
-
-	_spawn_demo_regiment(demo_state, _find_base(demo_state, result.capital_ids_by_player[0]).hex_coord)
 
 	return demo_state
 
@@ -115,23 +137,3 @@ func _find_base(demo_state: MatchState, base_id: String) -> BaseInstance:
 			return base
 	return null
 
-func _spawn_squad(demo_state: MatchState, owner: String, troop_type: String, hex: HexCoord, count: int) -> SquadInstance:
-	var squad := SquadInstance.new(demo_state.next_squad_id(), owner, troop_type, hex)
-	var hp: float = float(demo_state.troop_defs.get(troop_type, {}).get("hp", 100.0))
-	for i in range(count):
-		var troop := TroopInstance.new(demo_state.next_troop_id(), troop_type, owner, squad.id, hp)
-		demo_state.troops_by_id[troop.id] = troop
-		squad.add_member(troop.id)
-	demo_state.squads.append(squad)
-	return squad
-
-## Demo-only: gives the local player a Commander regiment near its Capital so
-## squad_view's regiment ring/lines (build order's deferred "regiment
-## visuals") have something to draw — exercises RegimentInstance/
-## CommandProcessor.assign_to_commander, not new sim logic.
-func _spawn_demo_regiment(demo_state: MatchState, capital_hex: HexCoord) -> void:
-	var commander := _spawn_squad(demo_state, LOCAL_PLAYER, "commander_vanguard", HexCoord.neighbor(capital_hex, 1), 1)
-	var escort_a := _spawn_squad(demo_state, LOCAL_PLAYER, "rifleman", HexCoord.neighbor(capital_hex, 2), 3)
-	var escort_b := _spawn_squad(demo_state, LOCAL_PLAYER, "rifleman", HexCoord.neighbor(capital_hex, 3), 3)
-	CommandProcessor.assign_to_commander(demo_state, escort_a.id, commander.id, LOCAL_PLAYER)
-	CommandProcessor.assign_to_commander(demo_state, escort_b.id, commander.id, LOCAL_PLAYER)

@@ -36,3 +36,22 @@ func occupied_hexes() -> Dictionary:
 		if b.hex != null:
 			result[b.hex.to_key()] = b
 	return result
+
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"base_def_id": base_def_id,
+		"owner_id": owner_id,
+		"hq_level": hq_level,
+		"hex_coord": hex_coord.to_key() if hex_coord != null else "",
+		"buildings": buildings.map(func(b): return b.to_dict()),
+	}
+
+static func from_dict(d: Dictionary) -> BaseInstance:
+	var hex_coord: HexCoord = HexCoord.from_key(d["hex_coord"]) if String(d["hex_coord"]) != "" else null
+	var base := BaseInstance.new(d["id"], d["base_def_id"], d["owner_id"], int(d["hq_level"]), hex_coord)
+	var buildings: Array[BuildingInstance] = []
+	for building_dict in d["buildings"]:
+		buildings.append(BuildingInstance.from_dict(building_dict))
+	base.buildings = buildings
+	return base

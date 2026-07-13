@@ -11,6 +11,7 @@ extends CanvasLayer
 var resource_bar: ResourceBar
 var base_panel: BasePanel
 var build_menu: BuildMenu
+var building_info_panel: BuildingInfoPanel
 var production_panel: ProductionPanel
 var alerts_panel: AlertsPanel
 var minimap: Minimap
@@ -28,6 +29,10 @@ func setup(state: MatchState, owner_id: String, input_controller: InputControlle
 	add_child(build_menu)
 	build_menu.setup(state, owner_id, input_controller)
 
+	building_info_panel = BuildingInfoPanel.new()
+	add_child(building_info_panel)
+	building_info_panel.setup(state, owner_id, input_controller)
+
 	production_panel = ProductionPanel.new()
 	add_child(production_panel)
 	production_panel.setup(state, owner_id, input_controller)
@@ -38,4 +43,4 @@ func setup(state: MatchState, owner_id: String, input_controller: InputControlle
 
 	minimap = Minimap.new()
 	add_child(minimap)
-	minimap.setup(state, owner_colors, camera_controller, hexes, bounds_min, bounds_max)
+	minimap.setup(state, owner_colors, camera_controller, hexes, bounds_min, bounds_max, owner_id)

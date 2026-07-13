@@ -22,10 +22,18 @@ const STUN_TAIL_SPEED_MULT := 0.7
 ## already has on hand (troop_defs/building_defs lookup) — used for emp's
 ## Domain branch and empImmune. No-op if `effect` is empty ({}: most attacks
 ## carry no statusEffectOnHit at all) or the roll fails.
-static func apply_on_hit(effect: Dictionary, target: CombatTarget, target_def: Dictionary, attacker_hex: HexCoord, grid: HexGrid) -> void:
+##
+## `rng` is MatchState.rng in the live sim (threaded down from
+## SimOrchestrator/CombatResolver) — the seeded, per-match stream every
+## in-tick roll must use so two runs from the same seed/command stream never
+## diverge. Defaults to the engine's global randf() only for callers (unit
+## tests) that don't care about cross-run determinism, never for the live
+## tick path itself.
+static func apply_on_hit(effect: Dictionary, target: CombatTarget, target_def: Dictionary, attacker_hex: HexCoord, grid: HexGrid, rng: RandomNumberGenerator = null) -> void:
 	if effect.is_empty():
 		return
-	if randf() * 100.0 >= float(effect.get("chance", 100)):
+	var roll := rng.randf() if rng != null else randf()
+	if roll * 100.0 >= float(effect.get("chance", 100)):
 		return
 
 	match String(effect.get("type", "")):

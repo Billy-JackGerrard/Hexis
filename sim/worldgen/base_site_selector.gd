@@ -19,6 +19,13 @@
 class_name BaseSiteSelector
 extends RefCounted
 
+## Owner id for Unique bases and their standing garrisons at world-gen time —
+## per 01-map-and-terrain.md/02-bases-and-buildings.md, Unique bases are
+## neutral city-states until a player captures one (HQ capture-flip already
+## reassigns base.owner_id; CombatTargeting's owner_id-inequality check
+## already treats this as hostile to every player without any extra wiring).
+const NEUTRAL_OWNER_ID := "neutral"
+
 ## --- Placeholder tunables — no design-doc source; playtesting starting
 ## points, per terrain_types.gd's precedent. ---
 
@@ -142,11 +149,11 @@ static func place_bases(
 		var hex = _find_site(grid, map_radius, placed_bases, base_defs, claimed_hexes, def, predicate, unique_rng)
 		if hex == null:
 			return {"bases": [], "capital_ids_by_player": {}, "failure_reason": "no_valid_site_for_%s" % base_id}
-		var base: BaseInstance = BaseFactory.seed_base(next_id.call(), def, "p%d" % int(entry["player_index"]), hex, grid, building_defs)
+		var base: BaseInstance = BaseFactory.seed_base(next_id.call(), def, NEUTRAL_OWNER_ID, hex, grid, building_defs)
 		placed_bases.append(base)
 		_claim(claimed_hexes, hex)
 		if seed_garrisons:
-			GarrisonFactory.seed_garrison(def, "p%d" % int(entry["player_index"]), hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id)
+			GarrisonFactory.seed_garrison(def, NEUTRAL_OWNER_ID, hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id)
 		if base_id == "sky_fortress":
 			# Channel carved on pristine terrain FIRST, moat second — carving
 			# the moat first would turn the ring itself into water, making

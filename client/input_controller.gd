@@ -40,6 +40,11 @@ var camera_controller: CameraController
 ## buildings (see precedence case 3 above); "" when nothing is selected.
 ## Purely a UI selection — never mutates sim state.
 var selected_base_id: String = ""
+## The specific building clicked (see selected_base_id) — "" whenever
+## selected_base_id is "". client/hud/build_menu.gd keys off this (not just
+## selected_base_id) so the build menu only ever shows for an actual HQ click,
+## not any building on the base.
+var selected_building_id: String = ""
 ## Set alongside selected_base_id, but only when the clicked building is
 ## Production-category (has its own ProductionQueue) — "" otherwise, even
 ## while selected_base_id stays set (e.g. clicking the HQ).
@@ -112,6 +117,15 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Right-click never issues an order here (CameraController owns the right
+	# button for panning) — it's purely a cancel: drop any in-progress
+	# build-menu placement and close whatever building panel is open, per
+	# 09-ui-and-controls.md's build-menu cancel affordance.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		pending_building_type = ""
+		pending_base_id = ""
+		_clear_building_selection()
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			_drag_active = true
@@ -153,19 +167,21 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	# hex_b doc comment), so it resolves the clicked edge instead of a hex.
 	if pending_building_type == "wall":
 		var edge := _edge_at_pixel(release_pos)
-		var result := CommandProcessor.place_wall(state, pending_base_id, edge[0], edge[1], "", owner_id) if not edge.is_empty() else BuildingPlacement.Result.OUT_OF_HEX_BOUNDS
+		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_wall", [pending_base_id, edge[0], edge[1], "", owner_id], owner_id) if not edge.is_empty() else BuildingPlacement.Result.OUT_OF_HEX_BOUNDS
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
 			pending_base_id = ""
+			_clear_building_selection()
 		else:
 			_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
 		return
 	if pending_building_type != "":
 		var hex := HexView.pixel_to_axial(release_pos)
-		var result := CommandProcessor.place_building(state, pending_base_id, pending_building_type, hex, "", owner_id)
+		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_building", [pending_base_id, pending_building_type, hex, "", owner_id], owner_id)
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
 			pending_base_id = ""
+			_clear_building_selection()
 		else:
 			_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
 		return
@@ -177,6 +193,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 			if squad.owner_id == owner_id:
 				friendly_ids.append(squad.id)
 		if not friendly_ids.is_empty():
+			_clear_building_selection()
 			if shift:
 				squad_view.add_to_selection(friendly_ids)
 			else:
@@ -187,6 +204,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 
 	var clicked_squad := squad_view.squad_at_pixel(release_pos)
 	if clicked_squad != null and clicked_squad.owner_id == owner_id:
+		_clear_building_selection()
 		if shift:
 			squad_view.toggle_selection(clicked_squad.id)
 		else:
@@ -199,7 +217,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	if enemy_target != null and not squad_view.selected_squad_ids.is_empty():
 		var target_id := enemy_target.target_id()
 		for squad_id in squad_view.selected_squad_ids.keys():
-			var result := CommandProcessor.attack_target(state, squad_id, target_id, owner_id)
+			var result: CommandProcessor.Result = state.command_queue.submit(state, "attack_target", [squad_id, target_id, owner_id], owner_id)
 			if result != CommandProcessor.Result.OK:
 				_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
 		return
@@ -208,18 +226,22 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	# selects that base (build menu/population panel); if the specific
 	# building clicked is a Production-category one, also selects it for
 	# client/hud/production_panel.gd (its queue, its unlocked-troop buttons).
+	# Re-clicking the already-selected building instead toggles it closed.
 	# Clicking anywhere else clears both (click-away-to-close, same as case 4
 	# falling through below).
 	var found := _own_building_at(HexView.pixel_to_axial(release_pos))
 	if not found.is_empty():
 		var base: BaseInstance = found["base"]
 		var building: BuildingInstance = found["building"]
+		if building.id == selected_building_id:
+			_clear_building_selection()
+			return
 		selected_base_id = base.id
+		selected_building_id = building.id
 		var def: Dictionary = state.building_defs.get(building.building_type, {})
 		selected_production_building_id = building.id if def.get("category", "") == "Production" else ""
 		return
-	selected_base_id = ""
-	selected_production_building_id = ""
+	_clear_building_selection()
 
 	if squad_view.selected_squad_ids.is_empty():
 		return
@@ -240,10 +262,26 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 		if skip_ids.has(squad_id):
 			continue
 		var goal := _formation_hex(target_hex, index)
-		var result := CommandProcessor.move_squad(state, squad_id, goal, owner_id)
+		var result: CommandProcessor.Result = state.command_queue.submit(state, "move_squad", [squad_id, goal, owner_id], owner_id)
 		if result != CommandProcessor.Result.OK:
 			_failed_pings.append({"pos": HexView.axial_to_pixel(goal), "remaining": FAILED_PING_DURATION})
 		index += 1
+	# A move order (unlike an attack order) deselects afterward — the player
+	# asked to click-select, click-to-move, then be done, rather than keep
+	# babysitting the same selection.
+	squad_view.clear_selection()
+
+## Clears every building/base UI-selection field together (never partially —
+## a stale selected_building_id with selected_base_id/
+## selected_production_building_id already blanked would leave build_menu.gd/
+## production_panel.gd unable to tell "nothing selected" from "selected build
+## is gone"). Used by every deselect path: right-click, selecting a squad, a
+## successful build-menu placement, and re-clicking an already-selected
+## building.
+func _clear_building_selection() -> void:
+	selected_base_id = ""
+	selected_building_id = ""
+	selected_production_building_id = ""
 
 ## The live enemy CombatTarget (troop/squad, building, or Wall edge) at
 ## `pos`, or null. Rebuilds the full target list fresh — acceptable on a

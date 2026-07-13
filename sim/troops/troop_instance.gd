@@ -30,3 +30,18 @@ func _init(p_id: String, p_unit_type: String, p_owner_id: String, p_squad_id: St
 	owner_id = p_owner_id
 	squad_id = p_squad_id
 	current_hp = p_current_hp
+
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"unit_type": unit_type,
+		"owner_id": owner_id,
+		"squad_id": squad_id,
+		"current_hp": current_hp,
+		"active_buffs": active_buffs.duplicate(true),
+	}
+
+static func from_dict(d: Dictionary) -> TroopInstance:
+	var troop := TroopInstance.new(d["id"], d["unit_type"], d["owner_id"], d["squad_id"], d["current_hp"])
+	troop.active_buffs.assign(d["active_buffs"])
+	return troop

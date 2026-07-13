@@ -25,3 +25,12 @@ func add(type: ResourceType.Type, delta: float) -> void:
 
 func is_deficit(type: ResourceType.Type) -> bool:
 	return _amounts[type] < 0.0
+
+func to_dict() -> Dictionary:
+	return _amounts.duplicate()
+
+static func from_dict(d: Dictionary) -> ResourcePool:
+	var pool := ResourcePool.new()
+	for type in d:
+		pool._amounts[type] = d[type]
+	return pool

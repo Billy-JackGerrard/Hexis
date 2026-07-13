@@ -36,7 +36,33 @@ var detections: Dictionary = {} ## owner_id -> {hex_key: true}
 ## regen_progress, ...), not on the stateless resolver driving it.
 var economy_accumulator: float = 0.0
 
+## Sim ticks resolved so far (SimOrchestrator.resolve_tick calls, i.e. fine
+## ticks — SimClock's fixed-timestep unit, not the coarser 5s economy tick).
+## Stamped onto CommandQueue.log entries so a recorded command can be replayed
+## against a fresh state at the same point in the tick sequence.
+var tick: int = 0
+
+## Seeded, per-match RNG for in-tick rolls (e.g. StatusEffectSystem's
+## statusEffectOnHit chance) — the sim must never call the engine's bare
+## global randf()/randi(), or two runs from the same seed/command stream
+## would diverge (see 07-data-architecture.md section 8's multiplayer-ready
+## goal). Worldgen (MapGenerator/TerrainGenerator/BaseSiteSelector) already
+## seeds its own substreams directly from world_seed; this is the separate
+## substream for everything that happens during live ticks.
+var rng := RandomNumberGenerator.new()
+
+## Records every CommandProcessor call actually applied to this state,
+## tagged with `tick` — see CommandQueue.
+var command_queue := CommandQueue.new()
+
 var _next_id_counter: int = 0
+
+## Seeds both this match's live-tick rng and (deterministic, distinct
+## substream) `worldgen_seed` for MapGenerator — call once at match setup,
+## same convention TerrainGenerator/BaseSiteSelector's own _substream()
+## already use to keep unrelated random streams from correlating.
+func seed_rng(world_seed: int) -> void:
+	rng.seed = hash("%d:sim" % world_seed)
 
 func next_id(prefix: String) -> String:
 	_next_id_counter += 1
@@ -119,3 +145,98 @@ func player_for(owner_id: String) -> Player:
 ## needs the resource pool, not the Player itself).
 func pool_for(owner_id: String) -> ResourcePool:
 	return player_for(owner_id).resources
+
+## Plain-dict snapshot of every piece of live match state — the payload for
+## save/load and (later) network replication. Static def tables
+## (grid/troop_defs/building_defs/base_defs) are deliberately NOT included:
+## they're reconstructed from data + seed by the caller and passed into
+## from_dict(), the same "defs are caller-supplied, not sim state" split
+## every resolver in sim/ already follows. `detections` is also excluded —
+## DetectionSystem fully recomputes it from scratch every tick (see its own
+## doc comment), so it's disposable, unlike PlayerVision.explored_hexes
+## (persistent, and so included via `visions`).
+func to_dict() -> Dictionary:
+	var troops_dict: Dictionary = {}
+	for key in troops_by_id:
+		troops_dict[key] = troops_by_id[key].to_dict()
+	var queues_dict: Dictionary = {}
+	for key in production_queues:
+		queues_dict[key] = production_queues[key].to_dict()
+	var players_dict: Dictionary = {}
+	for key in players:
+		players_dict[key] = players[key].to_dict()
+	var visions_dict: Dictionary = {}
+	for key in visions:
+		visions_dict[key] = visions[key].to_dict()
+
+	return {
+		"squads": squads.map(func(s): return s.to_dict()),
+		"bases": bases.map(func(b): return b.to_dict()),
+		"troops_by_id": troops_dict,
+		"regiments": regiments.map(func(r): return r.to_dict()),
+		"standalone_buildings": standalone_buildings.map(func(b): return b.to_dict()),
+		"projectiles": projectiles.map(func(p): return p.to_dict()),
+		"production_queues": queues_dict,
+		"players": players_dict,
+		"visions": visions_dict,
+		"economy_accumulator": economy_accumulator,
+		"tick": tick,
+		"rng_seed": rng.seed,
+		"rng_state": rng.state,
+		"command_log": command_queue.log.map(func(entry): return {
+			"tick": entry["tick"],
+			"verb": entry["verb"],
+			"args": _serialize_command_args(entry["args"]),
+			"owner_id": entry["owner_id"],
+		}),
+		"next_id_counter": _next_id_counter,
+	}
+
+## CommandQueue.log's args are whatever CommandProcessor.<verb> takes (mixed
+## String/HexCoord) — flat, one level deep, for every command wired through
+## CommandQueue today. Stringifies any HexCoord via to_key() so the log stays
+## plain-dict-serializable like the rest of to_dict(); restored purely as
+## informational history on from_dict() (CommandQueue's own doc note: this
+## log isn't a re-runnable script).
+static func _serialize_command_args(args: Array) -> Array:
+	var result: Array = []
+	for value in args:
+		result.append(value.to_key() if value is HexCoord else value)
+	return result
+
+## Reconstructs a MatchState from to_dict()'s output. `grid`/`troop_defs`/
+## `building_defs`/`base_defs` are the caller's already-loaded def tables
+## (DataLoader + MapGenerator/worldgen), not part of the snapshot itself.
+static func from_dict(d: Dictionary, grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, base_defs: Dictionary) -> MatchState:
+	var state := MatchState.new()
+	state.grid = grid
+	state.troop_defs = troop_defs
+	state.building_defs = building_defs
+	state.base_defs = base_defs
+
+	for squad_dict in d["squads"]:
+		state.squads.append(SquadInstance.from_dict(squad_dict))
+	for base_dict in d["bases"]:
+		state.bases.append(BaseInstance.from_dict(base_dict))
+	for key in d["troops_by_id"]:
+		state.troops_by_id[key] = TroopInstance.from_dict(d["troops_by_id"][key])
+	for regiment_dict in d["regiments"]:
+		state.regiments.append(RegimentInstance.from_dict(regiment_dict))
+	for building_dict in d["standalone_buildings"]:
+		state.standalone_buildings.append(BuildingInstance.from_dict(building_dict))
+	for projectile_dict in d["projectiles"]:
+		state.projectiles.append(ProjectileInstance.from_dict(projectile_dict))
+	for key in d["production_queues"]:
+		state.production_queues[key] = ProductionQueue.from_dict(d["production_queues"][key])
+	for key in d["players"]:
+		state.players[key] = Player.from_dict(d["players"][key])
+	for key in d["visions"]:
+		state.visions[key] = PlayerVision.from_dict(d["visions"][key])
+
+	state.economy_accumulator = d["economy_accumulator"]
+	state.tick = d["tick"]
+	state.rng.seed = d["rng_seed"]
+	state.rng.state = d["rng_state"]
+	state.command_queue.log.assign(d["command_log"])
+	state._next_id_counter = d["next_id_counter"]
+	return state

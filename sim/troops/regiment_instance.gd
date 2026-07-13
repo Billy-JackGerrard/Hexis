@@ -25,3 +25,11 @@ func assign_squad(squad_id: String, max_squads_led: int) -> bool:
 
 func remove_squad(squad_id: String) -> void:
 	squad_ids.erase(squad_id)
+
+func to_dict() -> Dictionary:
+	return {"id": id, "commander_id": commander_id, "squad_ids": squad_ids.duplicate()}
+
+static func from_dict(d: Dictionary) -> RegimentInstance:
+	var regiment := RegimentInstance.new(d["id"], d["commander_id"])
+	regiment.squad_ids.assign(d["squad_ids"])
+	return regiment

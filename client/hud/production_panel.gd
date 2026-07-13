@@ -84,7 +84,7 @@ func _rebuild_buttons() -> void:
 func _on_troop_pressed(troop_type: String) -> void:
 	if _shown_for_building_id == "":
 		return
-	CommandProcessor.enqueue_production(state, _shown_for_building_id, troop_type, owner_id)
+	state.command_queue.submit(state, "enqueue_production", [_shown_for_building_id, troop_type, owner_id], owner_id)
 
 func _draw() -> void:
 	if not visible:

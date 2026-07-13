@@ -74,3 +74,51 @@ func remove_member(troop_id: String) -> void:
 ## inert right now" should check this rather than either field individually.
 func is_docked() -> bool:
 	return boarded_on_squad_id != "" or docked_building_id != ""
+
+## Plain-dict snapshot for save/load and future network replication —
+## HexCoord fields go through to_key()/from_key() (already the canonical
+## string form used throughout sim/) rather than a parallel encoding.
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"owner_id": owner_id,
+		"troop_type": troop_type,
+		"member_ids": member_ids.duplicate(),
+		"current_hex": current_hex.to_key(),
+		"path": path.map(func(hex): return hex.to_key()),
+		"edge_progress": edge_progress,
+		"attack_progress": attack_progress,
+		"reveal_cooldown_remaining": reveal_cooldown_remaining,
+		"commander_id": commander_id,
+		"boarded_on_squad_id": boarded_on_squad_id,
+		"docked_building_id": docked_building_id,
+		"cargo_squad_ids": cargo_squad_ids.duplicate(),
+		"order": order.duplicate(),
+		"lockout_remaining": lockout_remaining,
+		"move_lockout_remaining": move_lockout_remaining,
+		"stun_tail_remaining": stun_tail_remaining,
+		"stun_tail_queued": stun_tail_queued,
+		"time_since_damage": time_since_damage,
+	}
+
+static func from_dict(d: Dictionary) -> SquadInstance:
+	var squad := SquadInstance.new(d["id"], d["owner_id"], d["troop_type"], HexCoord.from_key(d["current_hex"]))
+	squad.member_ids.assign(d["member_ids"])
+	var path: Array[HexCoord] = []
+	for key in d["path"]:
+		path.append(HexCoord.from_key(key))
+	squad.path = path
+	squad.edge_progress = d["edge_progress"]
+	squad.attack_progress = d["attack_progress"]
+	squad.reveal_cooldown_remaining = d["reveal_cooldown_remaining"]
+	squad.commander_id = d["commander_id"]
+	squad.boarded_on_squad_id = d["boarded_on_squad_id"]
+	squad.docked_building_id = d["docked_building_id"]
+	squad.cargo_squad_ids.assign(d["cargo_squad_ids"])
+	squad.order = d["order"].duplicate()
+	squad.lockout_remaining = d["lockout_remaining"]
+	squad.move_lockout_remaining = d["move_lockout_remaining"]
+	squad.stun_tail_remaining = d["stun_tail_remaining"]
+	squad.stun_tail_queued = d["stun_tail_queued"]
+	squad.time_since_damage = d["time_since_damage"]
+	return squad

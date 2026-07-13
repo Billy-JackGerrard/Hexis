@@ -8,8 +8,19 @@
 ## BuildingPlacement enforces for normal builds — it still requires the
 ## correct terrain to already exist in the grid around hq_hex; seed_base
 ## itself performs no terrain validation.
+##
+## The Capital's seeded Command Centre is the one deliberate exception: it's
+## seeded already ruined (current_hp forced to 0, is_ruin true) rather than
+## full-health — a fresh Capital hasn't earned Commander access yet, so the
+## player has to spend resources on CommandProcessor.rebuild_building before
+## training any Commander, same rebuild path a combat-destroyed Command
+## Centre already uses (see command_processor.gd's rebuild_building).
 class_name BaseFactory
 extends RefCounted
+
+## Building types seeded already-ruined instead of full-health — currently
+## just the Capital's Command Centre (see class doc comment above).
+const SEEDED_AS_RUIN: Array[String] = ["command_centre"]
 
 ## Seed layout: HQ at the center, remaining initialBuildings fanned out one
 ## per neighbor hex (in HexCoord.DIRECTIONS order) so every seeded building
@@ -35,6 +46,9 @@ static func seed_base(id: String, base_def: Dictionary, owner_id: String, hq_hex
 			var building := BuildingInstance.new("%s_seed_%d" % [id, building_index], id, building_type, 1, material, hex)
 			if building_defs.has(building_type):
 				building.init_hp(building_defs[building_type], building_defs)
+				if SEEDED_AS_RUIN.has(building_type):
+					building.current_hp = 0.0
+					building.is_ruin = true
 			base.buildings.append(building)
 			building_index += 1
 

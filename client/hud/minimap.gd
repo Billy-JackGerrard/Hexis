@@ -8,6 +8,14 @@
 ## (default mouse_filter = STOP), so it naturally consumes clicks in its own
 ## rect before they'd otherwise reach InputController's world-space
 ## _unhandled_input.
+##
+## Same fog-of-war the main board applies (client/fog_of_war.gd) instead of
+## a full-information overview: an unexplored hex is left blank, an explored-
+## but-not-currently-visible one draws darkened, and enemy bases/squads only
+## ever appear once (bases) or while (squads) the local player's own
+## PlayerVision (state.visions) actually covers them — mirrors
+## squad_view.gd's _is_renderable stealth/detection gate exactly, since a
+## minimap dot would otherwise leak a stealthed enemy squad's position.
 class_name Minimap
 extends Control
 
@@ -15,6 +23,7 @@ var state: MatchState
 var owner_colors: Dictionary = {}
 var camera_controller: CameraController
 var hexes: Array[HexCoord] = []
+var local_owner_id: String = ""
 
 var _bounds_min: Vector2
 var _bounds_extent: Vector2 ## bounds_max - bounds_min, precomputed once
@@ -26,12 +35,14 @@ const BORDER_COLOR := Color(1.0, 1.0, 1.0, 0.6)
 const BASE_RADIUS := 4.0
 const SQUAD_RADIUS := 2.0
 const VIEWPORT_COLOR := Color(1.0, 1.0, 1.0, 0.5)
+const EXPLORED_DARKEN := 0.5
 
-func setup(p_state: MatchState, p_owner_colors: Dictionary, p_camera_controller: CameraController, p_hexes: Array[HexCoord], bounds_min: Vector2, bounds_max: Vector2) -> void:
+func setup(p_state: MatchState, p_owner_colors: Dictionary, p_camera_controller: CameraController, p_hexes: Array[HexCoord], bounds_min: Vector2, bounds_max: Vector2, p_local_owner_id: String) -> void:
 	state = p_state
 	owner_colors = p_owner_colors
 	camera_controller = p_camera_controller
 	hexes = p_hexes
+	local_owner_id = p_local_owner_id
 	_bounds_min = bounds_min
 	_bounds_extent = bounds_max - bounds_min
 
@@ -72,17 +83,41 @@ func _gui_input(event: InputEvent) -> void:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, SIZE), BG_COLOR, true)
 	if state != null and state.grid != null:
+		var pv: PlayerVision = state.visions.get(local_owner_id)
 		for hex in hexes:
+			if pv == null or not pv.is_explored(hex):
+				continue
 			var color: Color = Board.TERRAIN_COLORS.get(state.grid.get_terrain(hex), Color.MAGENTA)
+			if not pv.is_visible(hex):
+				color = color.darkened(EXPLORED_DARKEN)
 			draw_rect(Rect2(_world_to_local(HexView.axial_to_pixel(hex)), Vector2(2.0, 2.0)), color, true)
 		for base in state.bases:
+			if pv == null or not pv.is_explored(base.hex_coord):
+				continue
 			var color: Color = owner_colors.get(base.owner_id, Color.WHITE)
 			draw_circle(_world_to_local(HexView.axial_to_pixel(base.hex_coord)), BASE_RADIUS, color)
 		for squad in state.squads:
+			if not _is_squad_visible(squad, pv):
+				continue
 			var color: Color = owner_colors.get(squad.owner_id, Color.WHITE)
 			draw_circle(_world_to_local(HexView.axial_to_pixel(squad.current_hex)), SQUAD_RADIUS, color)
 	_draw_viewport_rect()
 	draw_rect(Rect2(Vector2.ZERO, SIZE), BORDER_COLOR, false, 1.5)
+
+## Mirrors squad_view.gd's _is_renderable exactly (own squads always shown;
+## an enemy one only while currently visible and not hidden by stealth/
+## detection) so the minimap can't leak anything the main board wouldn't.
+func _is_squad_visible(squad: SquadInstance, pv: PlayerVision) -> bool:
+	if squad.member_ids.is_empty() or squad.is_docked():
+		return false
+	if squad.owner_id == local_owner_id:
+		return true
+	if pv == null or not pv.is_visible(squad.current_hex):
+		return false
+	var def: Dictionary = state.troop_defs.get(squad.troop_type, {})
+	if not DetectionSystem.is_squad_hidden(squad, def, state.grid):
+		return true
+	return DetectionSystem.detected_hexes_for(state.detections, local_owner_id).has(squad.current_hex.to_key())
 
 ## The camera's current visible world extent, outlined on the minimap — the
 ## standard "you are here" minimap rectangle.

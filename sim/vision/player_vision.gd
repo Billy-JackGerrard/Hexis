@@ -23,3 +23,20 @@ func is_visible(coord: HexCoord) -> bool:
 
 func is_explored(coord: HexCoord) -> bool:
 	return explored_hexes.has(coord.to_key())
+
+## explored_hexes is genuinely cumulative match state (see its own doc above)
+## — unlike DetectionSystem's `detections`, which is fully recomputed every
+## tick and deliberately excluded from MatchState.to_dict(), this must be
+## captured in any snapshot/save or a reload would forget explored fog.
+func to_dict() -> Dictionary:
+	return {
+		"owner_id": owner_id,
+		"visible_hexes": visible_hexes.duplicate(),
+		"explored_hexes": explored_hexes.duplicate(),
+	}
+
+static func from_dict(d: Dictionary) -> PlayerVision:
+	var pv := PlayerVision.new(d["owner_id"])
+	pv.visible_hexes = d["visible_hexes"].duplicate()
+	pv.explored_hexes = d["explored_hexes"].duplicate()
+	return pv
