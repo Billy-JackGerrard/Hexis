@@ -6,9 +6,10 @@
 class_name CameraController
 extends Camera2D
 
-const MIN_ZOOM := 0.35
+const MIN_ZOOM := 0.6
 const MAX_ZOOM := 2.5
 const ZOOM_STEP := 0.1
+const PAN_SPEED := 0.55 ## scales right-drag pan distance; 1.0 tracked the mouse 1:1 and felt too fast
 
 var _panning := false
 var _bounds_min := Vector2.ZERO
@@ -38,7 +39,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom_by(-ZOOM_STEP)
 	elif event is InputEventMouseMotion and _panning:
-		position -= event.relative * zoom
+		position -= event.relative * zoom * PAN_SPEED
 		if _has_bounds:
 			position = position.clamp(_bounds_min, _bounds_max)
 

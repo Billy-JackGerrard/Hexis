@@ -4,12 +4,12 @@
 class_name SquadCap
 extends RefCounted
 
-## maxSquads = sum(hqLevel across every owned base) * 2 + 2.
+## maxSquads = sum(hqLevel across every owned base) * SQUAD_CAP_PER_HQ_LEVEL + SQUAD_CAP_BASE.
 static func max_squads(bases: Array[BaseInstance]) -> int:
 	var sum_hq_level := 0
 	for base in bases:
 		sum_hq_level += base.hq_level
-	return sum_hq_level * 2 + 2
+	return sum_hq_level * Tuning.SQUAD_CAP_PER_HQ_LEVEL + Tuning.SQUAD_CAP_BASE
 
 ## maxCommanders = sum(commanderSlots across every owned Command Centre, at
 ## its current level). `building_defs` is the DataLoader.load_dir result for

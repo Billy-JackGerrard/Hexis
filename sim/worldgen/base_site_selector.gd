@@ -26,56 +26,9 @@ extends RefCounted
 ## already treats this as hostile to every player without any extra wiring).
 const NEUTRAL_OWNER_ID := "neutral"
 
-## --- Placeholder tunables — no design-doc source; playtesting starting
-## points, per terrain_types.gd's precedent. ---
-
-## ~1.5x a level-1 HQ build radius (BuildingPlacement.hq_build_radius(1) ==
-## 4) plus margin, so two fresh bases' starting build radii can't overlap.
-const MIN_BASE_SPACING: int = 6
-
-## Enforced ADDITIONALLY between two Capitals specifically (on top of
-## MIN_BASE_SPACING) — "Capitals are placed defensively/spread out" per
-## 01-map-and-terrain.md. 6 Capitals spread near a ring of this radius
-## around the map center stay >= this far apart from each other.
-const CAPITAL_MIN_SPACING: int = 14
-
-const MAX_SITE_CANDIDATES_SCANNED: int = 500
-
-## Candidate flower's distance from map center must be within this many
-## hexes of map_radius to count as "ocean edge" for Kraken Point.
-const KRAKEN_EDGE_INSET: int = 3
-
-## Treehouse "surrounded by forest" proxy: most (not all — jittered organic
-## patch growth leaves occasional gaps even inside a large patch) of the
-## hexes within this many rings of the candidate must also be Forest — a
-## local-thickness check (range_within(candidate, 2) is 19 hexes; only a
-## reasonably compact medium/large patch, per TerrainGenerator's patch-size
-## ranges, can satisfy the coverage bar).
-const TREEHOUSE_FOREST_DEPTH: int = 2
-const TREEHOUSE_FOREST_COVERAGE_FRACTION: float = 0.8
-
-## Capital expansion-viability heuristic (has_viable_expansion): bounded
-## Land-domain flood-fill radius, min reachable hexes per sextant to count
-## as "viable", and how many of the 6 sextants must clear that bar.
-const EXPANSION_CHECK_RADIUS: int = 8
-const EXPANSION_SEXTANT_MIN_HEXES: int = 5
-const EXPANSION_MIN_VIABLE_SEXTANTS: int = 2
-
-## Sky Fortress moat: a ring at this hex-distance from its HQ hex is
-## force-converted to Ocean (skipping any hex already claimed by another
-## base — River hexes in the ring are left as River, since both already
-## block Land/Naval identically). Requires at least this fraction of the
-## ring to actually be convertible, checked BEFORE committing to the site.
-const MOAT_INNER_RADIUS: int = 2
-const MOAT_MIN_COVERAGE_FRACTION: float = 0.7
-
-## Caps how far a carved connectivity channel is allowed to dig before a
-## candidate site is rejected instead — pre-existing water (from
-## TerrainGenerator's rivers/coastline) is rarely much further than this
-## from an interior point given TerrainGenerator's own river spacing
-## tunables, so this is a generous-but-bounded cap against a pathological
-## "nearest water is very far" roll.
-const MOAT_CHANNEL_MAX_LENGTH: int = 12
+## Tunable constants (MIN_BASE_SPACING, CAPITAL_MIN_SPACING, moat/expansion
+## bounds, ...) live in sim/tuning.gd (Tuning) rather than here — see that
+## file for the full list and rationale.
 
 ## Result of a full placement pass. `bases` is empty and `failure_reason` is
 ## set on failure — callers (MapGenerator) treat empty bases as "this
@@ -132,7 +85,7 @@ static func place_bases(
 		_claim(claimed_hexes, hex)
 		capital_ids_by_player[p] = base.id
 		if seed_garrisons:
-			GarrisonFactory.seed_garrison(capital_def, "p%d" % p, hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id)
+			GarrisonFactory.seed_garrison(capital_def, "p%d" % p, hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id, grid)
 
 	var deal := _assign_unique_defs(unique_defs, player_count, _substream(world_seed, "unique_defs"), forced_unique_ids)
 	var unique_rng := _substream(world_seed, "site_uniques")
@@ -146,6 +99,8 @@ static func place_bases(
 			predicate = Callable(BaseSiteSelector, "_is_deep_forest_site")
 		elif base_id == "sky_fortress":
 			predicate = Callable(BaseSiteSelector, "_sky_fortress_site_ok").bind(claimed_hexes)
+		elif base_id == "rivergate":
+			predicate = Callable(BaseSiteSelector, "_is_river_adjacent_site")
 		var hex = _find_site(grid, map_radius, placed_bases, base_defs, claimed_hexes, def, predicate, unique_rng)
 		if hex == null:
 			return {"bases": [], "capital_ids_by_player": {}, "failure_reason": "no_valid_site_for_%s" % base_id}
@@ -153,7 +108,7 @@ static func place_bases(
 		placed_bases.append(base)
 		_claim(claimed_hexes, hex)
 		if seed_garrisons:
-			GarrisonFactory.seed_garrison(def, NEUTRAL_OWNER_ID, hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id)
+			GarrisonFactory.seed_garrison(def, NEUTRAL_OWNER_ID, hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id, grid)
 		if base_id == "sky_fortress":
 			# Channel carved on pristine terrain FIRST, moat second — carving
 			# the moat first would turn the ring itself into water, making
@@ -174,7 +129,7 @@ static func has_viable_expansion(hq_hex: HexCoord, grid: HexGrid) -> bool:
 	var frontier: Array[HexCoord] = [hq_hex]
 	var sextant_counts: Array[int] = [0, 0, 0, 0, 0, 0]
 	var depth := 0
-	while not frontier.is_empty() and depth < EXPANSION_CHECK_RADIUS:
+	while not frontier.is_empty() and depth < Tuning.EXPANSION_CHECK_RADIUS:
 		depth += 1
 		var next_frontier: Array[HexCoord] = []
 		for hex in frontier:
@@ -190,9 +145,9 @@ static func has_viable_expansion(hq_hex: HexCoord, grid: HexGrid) -> bool:
 		frontier = next_frontier
 	var viable_sextants := 0
 	for count in sextant_counts:
-		if count >= EXPANSION_SEXTANT_MIN_HEXES:
+		if count >= Tuning.EXPANSION_SEXTANT_MIN_HEXES:
 			viable_sextants += 1
-	return viable_sextants >= EXPANSION_MIN_VIABLE_SEXTANTS
+	return viable_sextants >= Tuning.EXPANSION_MIN_VIABLE_SEXTANTS
 
 ## Buckets `hex` into one of 6 angular sextants relative to `hq_hex`, via a
 ## flat-top axial->cartesian conversion.
@@ -218,7 +173,7 @@ static func _find_site(
 	var candidates := _shuffled_candidates(map_radius, rng)
 	var scanned := 0
 	for h in candidates:
-		if scanned >= MAX_SITE_CANDIDATES_SCANNED:
+		if scanned >= Tuning.MAX_SITE_CANDIDATES_SCANNED:
 			break
 		scanned += 1
 		if not _flower_terrain_ok(h, grid, base_def):
@@ -279,9 +234,9 @@ static func _flower_claimed(candidate: HexCoord, claimed_hexes: Dictionary) -> b
 static func _spacing_ok(candidate: HexCoord, placed_bases: Array[BaseInstance], base_defs: Dictionary, is_capital: bool) -> bool:
 	for b in placed_bases:
 		var d := HexCoord.distance(candidate, b.hex_coord)
-		if d < MIN_BASE_SPACING:
+		if d < Tuning.MIN_BASE_SPACING:
 			return false
-		if is_capital and base_defs.get(b.base_def_id, {}).get("isCapital", false) and d < CAPITAL_MIN_SPACING:
+		if is_capital and base_defs.get(b.base_def_id, {}).get("isCapital", false) and d < Tuning.CAPITAL_MIN_SPACING:
 			return false
 	return true
 
@@ -295,41 +250,54 @@ static func _claim(claimed_hexes: Dictionary, hq_hex: HexCoord) -> void:
 ## water body) AND actually touching an Ocean tile.
 static func _is_ocean_edge_site(candidate: HexCoord, grid: HexGrid, map_radius: int) -> bool:
 	var origin := HexCoord.new(0, 0)
-	if HexCoord.distance(origin, candidate) < map_radius - KRAKEN_EDGE_INSET:
+	if HexCoord.distance(origin, candidate) < map_radius - Tuning.KRAKEN_EDGE_INSET:
 		return false
 	for h in HexCoord.ring(candidate, 2):
 		if grid.has_hex(h) and grid.get_terrain(h) == Terrain.Type.OCEAN:
 			return true
 	return false
 
+## "must sit next to the river to actually cover the crossing"
+## (data/bases/rivergate.json's notes). Unlike Kraken Point's ocean-edge
+## check, this has no distance-from-center floor — a River can run anywhere
+## inland — it just needs a River tile within reach of the flower, same
+## ring-2 margin as Kraken Point's ocean check so seed_base's water-adjacency
+## buildings (Water Turret, Ford Yard) can always find a qualifying hex
+## within Tuning.MAX_SEED_SEARCH_RING.
+static func _is_river_adjacent_site(candidate: HexCoord, grid: HexGrid) -> bool:
+	for h in HexCoord.ring(candidate, 2):
+		if grid.has_hex(h) and grid.get_terrain(h) == Terrain.Type.RIVER:
+			return true
+	return false
+
 ## "found in a large forest biome... on and surrounded by forest" — most of
-## the hexes within TREEHOUSE_FOREST_DEPTH rings of the candidate must be
+## the hexes within Tuning.TREEHOUSE_FOREST_DEPTH rings of the candidate must be
 ## Forest (the flower itself, checked separately by _flower_terrain_ok, is
 ## always 100% Forest — this is the looser "surrounded by" halo beyond it).
 static func _is_deep_forest_site(candidate: HexCoord, grid: HexGrid) -> bool:
-	var region := HexCoord.range_within(candidate, TREEHOUSE_FOREST_DEPTH)
+	var region := HexCoord.range_within(candidate, Tuning.TREEHOUSE_FOREST_DEPTH)
 	var forest_count := 0
 	for h in region:
 		if grid.get_terrain(h) == Terrain.Type.FOREST:
 			forest_count += 1
-	return float(forest_count) / float(region.size()) >= TREEHOUSE_FOREST_COVERAGE_FRACTION
+	return float(forest_count) / float(region.size()) >= Tuning.TREEHOUSE_FOREST_COVERAGE_FRACTION
 
 static func _has_viable_moat_ring(candidate: HexCoord, grid: HexGrid, claimed_hexes: Dictionary) -> bool:
-	var ring := HexCoord.ring(candidate, MOAT_INNER_RADIUS)
+	var ring := HexCoord.ring(candidate, Tuning.MOAT_INNER_RADIUS)
 	var convertible := 0
 	for h in ring:
 		if grid.has_hex(h) and not claimed_hexes.has(h.to_key()) and grid.get_terrain(h) != Terrain.Type.RIVER:
 			convertible += 1
-	return float(convertible) / float(ring.size()) >= MOAT_MIN_COVERAGE_FRACTION
+	return float(convertible) / float(ring.size()) >= Tuning.MOAT_MIN_COVERAGE_FRACTION
 
 ## Combines the ring-coverage check with a channel-reachability dry run — a
-## moat that can't reach existing water within MOAT_CHANNEL_MAX_LENGTH is
+## moat that can't reach existing water within Tuning.MOAT_CHANNEL_MAX_LENGTH is
 ## rejected as a site, not silently left disconnected.
 static func _sky_fortress_site_ok(candidate: HexCoord, grid: HexGrid, claimed_hexes: Dictionary) -> bool:
 	if not _has_viable_moat_ring(candidate, grid, claimed_hexes):
 		return false
-	var ring := HexCoord.ring(candidate, MOAT_INNER_RADIUS)
-	return not _bfs_to_nearest_water(ring, grid, claimed_hexes, MOAT_CHANNEL_MAX_LENGTH).is_empty()
+	var ring := HexCoord.ring(candidate, Tuning.MOAT_INNER_RADIUS)
+	return not _bfs_to_nearest_water(ring, grid, claimed_hexes, Tuning.MOAT_CHANNEL_MAX_LENGTH).is_empty()
 
 ## Terrain-cost-agnostic hex-adjacency BFS from any of `from_hexes` (the
 ## moat ring) to the nearest River/Ocean tile — we're terraforming a channel
@@ -379,13 +347,13 @@ static func _reconstruct_path(end: HexCoord, came_from: Dictionary) -> Array:
 	return path
 
 static func _carve_moat(hq_hex: HexCoord, grid: HexGrid, claimed_hexes: Dictionary) -> void:
-	for h in HexCoord.ring(hq_hex, MOAT_INNER_RADIUS):
+	for h in HexCoord.ring(hq_hex, Tuning.MOAT_INNER_RADIUS):
 		if grid.has_hex(h) and not claimed_hexes.has(h.to_key()) and grid.get_terrain(h) != Terrain.Type.RIVER:
 			grid.set_terrain(h, Terrain.Type.OCEAN)
 
 static func _carve_channel(hq_hex: HexCoord, grid: HexGrid, claimed_hexes: Dictionary) -> void:
-	var ring := HexCoord.ring(hq_hex, MOAT_INNER_RADIUS)
-	var path := _bfs_to_nearest_water(ring, grid, claimed_hexes, MOAT_CHANNEL_MAX_LENGTH)
+	var ring := HexCoord.ring(hq_hex, Tuning.MOAT_INNER_RADIUS)
+	var path := _bfs_to_nearest_water(ring, grid, claimed_hexes, Tuning.MOAT_CHANNEL_MAX_LENGTH)
 	for hex in path:
 		var terrain: Terrain.Type = grid.get_terrain(hex)
 		if terrain != Terrain.Type.RIVER and terrain != Terrain.Type.OCEAN:

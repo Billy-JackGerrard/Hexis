@@ -280,11 +280,6 @@ static func is_granted_stealth(auras: Dictionary, squad_id: String) -> bool:
 static func granted_stealth_reveal_range(auras: Dictionary, squad_id: String) -> float:
 	return float(auras.get("squads", {}).get(squad_id, _default_squad_mods()).get("granted_stealth_reveal_range", 0.0))
 
-## Placeholder — Warden's heal_out_of_combat note says "hasn't taken damage
-## recently" without pinning an exact delay; tunable like
-## BuildingRegenSystem.OUT_OF_COMBAT_DELAY_SECONDS, which this mirrors.
-const OUT_OF_COMBAT_HEAL_DELAY_SECONDS: float = 5.0
-
 ## Applies every squad's aggregated heal_over_time (Ambulance/Repair Truck/
 ## Hospital — always-on) plus heal_out_of_combat (Warden — gated on
 ## time_since_damage clearing the delay above) as flat HP regen to living
@@ -296,7 +291,7 @@ static func apply_heals(dt: float, auras: Dictionary, squads: Array[SquadInstanc
 	for squad in squads:
 		squad.time_since_damage += dt
 		var heal := squad_mods_heal(auras, squad.id)
-		if squad.time_since_damage >= OUT_OF_COMBAT_HEAL_DELAY_SECONDS:
+		if squad.time_since_damage >= Tuning.AURA_OUT_OF_COMBAT_HEAL_DELAY_SECONDS:
 			heal += squad_mods_heal_out_of_combat(auras, squad.id)
 		if heal <= 0.0:
 			continue

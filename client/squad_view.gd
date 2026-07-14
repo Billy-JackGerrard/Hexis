@@ -48,7 +48,7 @@ const PATH_DOT_RADIUS := 2.0
 const PATH_DOT_SPACING := 10.0
 const RANGE_RING_COLOR := Color(1.0, 1.0, 1.0, 0.25)
 const INFO_LABEL_WIDTH := 140.0
-const INFO_LABEL_COLOR := Color.WHITE
+const INFO_LABEL_COLOR := UITheme.TEXT
 
 func setup(p_squads: Array[SquadInstance], p_regiments: Array[RegimentInstance], p_owner_colors: Dictionary, p_grid: HexGrid, p_troop_defs: Dictionary, p_visions: Dictionary, p_detections: Dictionary, p_local_owner_id: String) -> void:
 	squads = p_squads
@@ -203,7 +203,7 @@ func _draw_squad_info(squad: SquadInstance, pos: Vector2) -> void:
 	var cap: int = max(1, int(def.get("maxSquadSize", 1)))
 	var text := "%s %d/%d" % [name, squad.member_ids.size(), cap]
 	var label_pos := pos - Vector2(INFO_LABEL_WIDTH * 0.5, RADIUS + 22.0)
-	draw_string(ThemeDB.fallback_font, label_pos, text, HORIZONTAL_ALIGNMENT_CENTER, INFO_LABEL_WIDTH, ThemeDB.fallback_font_size, INFO_LABEL_COLOR)
+	UITheme.draw_world_label(self, ThemeDB.fallback_font, label_pos, text, ThemeDB.fallback_font_size, INFO_LABEL_COLOR, INFO_LABEL_WIDTH)
 
 func _draw() -> void:
 	var hovered_squad := _renderable_squad_at_pixel(get_global_mouse_position())

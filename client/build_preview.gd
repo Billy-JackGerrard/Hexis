@@ -21,9 +21,17 @@ const VALID_COLOR := Color(0.2, 1.0, 0.3, 0.35)
 const VALID_EDGE_COLOR := Color(0.2, 1.0, 0.3, 0.9)
 const EDGE_WIDTH := 4.0
 
+## Faint fill for the selected HQ's build radius (client/hud/building_panel.gd
+## selection, not a pending placement) — the same hex-distance disc around the
+## HQ's own hex that BuildingPlacement.hq_build_radius/can_place enforce.
+const RADIUS_COLOR := Color(0.5, 0.8, 1.0, 0.10)
+
 var _cache_key: String = ""
 var _valid_hexes: Array[HexCoord] = []
 var _valid_edges: Array = [] ## Array of [HexCoord, HexCoord] pairs
+
+var _radius_cache_key: String = ""
+var _radius_hexes: Array[HexCoord] = []
 
 func setup(p_state: MatchState, p_input_controller: InputController) -> void:
 	state = p_state
@@ -31,6 +39,7 @@ func setup(p_state: MatchState, p_input_controller: InputController) -> void:
 
 func _process(_delta: float) -> void:
 	_refresh_if_needed()
+	_refresh_radius_if_needed()
 	queue_redraw()
 
 func _refresh_if_needed() -> void:
@@ -57,6 +66,28 @@ func _refresh_if_needed() -> void:
 		if result == BuildingPlacement.Result.OK:
 			_valid_hexes.append(hex)
 
+## Recomputed only when the selected building changes (client/hud/
+## building_panel.gd's InputController.selected_building_id) — shows the max
+## build distance from an HQ the moment it's selected, without needing to
+## also be actively placing something.
+func _refresh_radius_if_needed() -> void:
+	var key := input_controller.selected_building_id
+	if key == _radius_cache_key:
+		return
+	_radius_cache_key = key
+	_radius_hexes = []
+	if key == "":
+		return
+	var found := state.find_base_building(key)
+	if found.is_empty():
+		return
+	var building: BuildingInstance = found["building"]
+	if building.building_type != "hq" or building.is_ruin or building.hex == null:
+		return
+	var base: BaseInstance = found["base"]
+	var radius := BuildingPlacement.hq_build_radius(base.hq_level)
+	_radius_hexes = HexCoord.range_within(building.hex, radius)
+
 ## Every candidate hex's 6 edges, each checked once (seen_keys dedupes the
 ## shared edge two adjacent candidate hexes would otherwise both enumerate).
 func _refresh_valid_edges(base: BaseInstance, base_def: Dictionary, candidates: Array[HexCoord]) -> void:
@@ -72,6 +103,14 @@ func _refresh_valid_edges(base: BaseInstance, base_def: Dictionary, candidates: 
 				_valid_edges.append([hex, neighbor])
 
 func _draw() -> void:
+	var corners := HexView.corners()
+	for hex in _radius_hexes:
+		var center := HexView.axial_to_pixel(hex)
+		var points := PackedVector2Array()
+		for corner in corners:
+			points.append(center + corner)
+		draw_colored_polygon(points, RADIUS_COLOR)
+
 	if input_controller.pending_building_type == "":
 		return
 	if input_controller.pending_building_type == "wall":
@@ -79,7 +118,6 @@ func _draw() -> void:
 			var segment := HexView.edge_segment(edge[0], edge[1])
 			draw_line(segment[0], segment[1], VALID_EDGE_COLOR, EDGE_WIDTH)
 		return
-	var corners := HexView.corners()
 	for hex in _valid_hexes:
 		var center := HexView.axial_to_pixel(hex)
 		var points := PackedVector2Array()

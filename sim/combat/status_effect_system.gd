@@ -12,11 +12,6 @@
 class_name StatusEffectSystem
 extends RefCounted
 
-## stun's fixed trailing debuff, per schema: -30% move AND attack speed while
-## stun_tail_remaining > 0. A global rule tied to the `stun` type itself, not a
-## per-instance authored number.
-const STUN_TAIL_SPEED_MULT := 0.7
-
 ## Rolls `effect`'s chance (default 100) and, on success, applies it to
 ## `target`. `target_def` is the resolved troop/building def the caller
 ## already has on hand (troop_defs/building_defs lookup) — used for emp's
@@ -137,9 +132,9 @@ static func is_move_locked(squad: SquadInstance) -> bool:
 ## Combined move-speed multiplier from stun's trailing debuff. 1.0 outside the
 ## tail window.
 static func move_speed_mult(instance: Object) -> float:
-	return STUN_TAIL_SPEED_MULT if instance.stun_tail_remaining > 0.0 else 1.0
+	return Tuning.STUN_TAIL_SPEED_MULT if instance.stun_tail_remaining > 0.0 else 1.0
 
 ## Combined attack-speed multiplier from stun's trailing debuff. 1.0 outside
 ## the tail window.
 static func attack_speed_mult(instance: Object) -> float:
-	return STUN_TAIL_SPEED_MULT if instance.stun_tail_remaining > 0.0 else 1.0
+	return Tuning.STUN_TAIL_SPEED_MULT if instance.stun_tail_remaining > 0.0 else 1.0

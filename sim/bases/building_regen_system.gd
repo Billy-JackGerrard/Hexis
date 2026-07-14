@@ -10,11 +10,8 @@
 class_name BuildingRegenSystem
 extends RefCounted
 
-## Placeholder — the design doc says "hasn't taken damage recently" without
-## pinning an exact delay; tunable like Terrain.HILLS_DEFENDER_BONUS.
-const OUT_OF_COMBAT_DELAY_SECONDS: float = 5.0
-const REGEN_TICK_SECONDS: float = 5.0
-const REGEN_FRACTION_OF_MAX_HP: float = 0.05
+## Tunables (out-of-combat delay, tick cadence, heal fraction) live in
+## sim/tuning.gd (Tuning.BUILDING_REGEN_*) rather than here.
 
 static func resolve_tick(dt: float, bases: Array[BaseInstance]) -> void:
 	for base in bases:
@@ -28,9 +25,9 @@ static func _regen(building: BuildingInstance, dt: float) -> void:
 		building.regen_progress = 0.0
 		return
 	building.time_since_damage += dt
-	if building.time_since_damage < OUT_OF_COMBAT_DELAY_SECONDS:
+	if building.time_since_damage < Tuning.BUILDING_REGEN_OUT_OF_COMBAT_DELAY_SECONDS:
 		return
 	building.regen_progress += dt
-	while building.regen_progress >= REGEN_TICK_SECONDS and building.current_hp < building.max_hp:
-		building.current_hp = min(building.max_hp, building.current_hp + building.max_hp * REGEN_FRACTION_OF_MAX_HP)
-		building.regen_progress -= REGEN_TICK_SECONDS
+	while building.regen_progress >= Tuning.BUILDING_REGEN_TICK_SECONDS and building.current_hp < building.max_hp:
+		building.current_hp = min(building.max_hp, building.current_hp + building.max_hp * Tuning.BUILDING_REGEN_FRACTION_OF_MAX_HP)
+		building.regen_progress -= Tuning.BUILDING_REGEN_TICK_SECONDS

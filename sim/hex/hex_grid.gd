@@ -90,6 +90,37 @@ func is_line_blocked(a: HexCoord, b: HexCoord) -> bool:
 			return true
 	return false
 
+## BFS outward from `from` for the nearest hex that's passable for `domain`
+## AND satisfies caller-supplied `is_free` (Callable(HexCoord) -> bool,
+## e.g. "no squad already standing here") — used to relocate a spawn point
+## onto a domain-appropriate hex the spawning building itself doesn't sit on
+## (a Naval troop produced at a coastal Shipyard belongs on the nearest open
+## water hex, not the Shipyard's own Plains hex). Ignores walls/infrastructure
+## (Terrain.is_passable, not the full edge_cost/effective_cost path — this is
+## "can this domain ever stand here", not "can it path here this tick").
+## Returns `from` unchanged if it already qualifies, or if nothing within
+## `max_radius` hexes does (callers get a safe fallback, never null).
+func nearest_passable_hex(from: HexCoord, domain: Terrain.Domain, is_free: Callable, max_radius: int = 8) -> HexCoord:
+	if Terrain.is_passable(get_terrain(from), domain) and bool(is_free.call(from)):
+		return from
+	var visited: Dictionary = {from.to_key(): true}
+	var frontier: Array[HexCoord] = [from]
+	var radius := 0
+	while radius < max_radius and not frontier.is_empty():
+		radius += 1
+		var next_frontier: Array[HexCoord] = []
+		for hex in frontier:
+			for n in HexCoord.neighbors(hex):
+				var key := n.to_key()
+				if visited.has(key) or not has_hex(n):
+					continue
+				visited[key] = true
+				if Terrain.is_passable(get_terrain(n), domain) and bool(is_free.call(n)):
+					return n
+				next_frontier.append(n)
+		frontier = next_frontier
+	return from
+
 ## Standard hex A*, edge cost per `edge_cost`. Returns [] if no path exists.
 ## Path is computed once per order per the design (not re-planned every tick);
 ## callers own re-invoking this when blocked or re-ordered.

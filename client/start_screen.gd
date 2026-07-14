@@ -10,12 +10,13 @@
 class_name StartScreen
 extends CanvasLayer
 
-signal single_player_requested(player_name: String)
+signal single_player_requested(player_name: String, capital_name: String)
 
-const BG_COLOR := Color(0.05, 0.05, 0.08, 0.92)
 const DEFAULT_NAME := "Unnamed Player"
+const DEFAULT_CAPITAL_NAME := "Capital"
 
 var _name_edit: LineEdit
+var _capital_name_edit: LineEdit
 var _mode_row: HBoxContainer
 var _multiplayer_row: HBoxContainer
 var _status_label: Label
@@ -25,10 +26,11 @@ func setup() -> void:
 	root.anchor_right = 1.0
 	root.anchor_bottom = 1.0
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.theme = UITheme.create_theme()
 	add_child(root)
 
 	var bg := ColorRect.new()
-	bg.color = BG_COLOR
+	bg.color = UITheme.BG
 	bg.anchor_right = 1.0
 	bg.anchor_bottom = 1.0
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -39,33 +41,50 @@ func setup() -> void:
 	center.anchor_bottom = 1.0
 	root.add_child(center)
 
-	var vbox := VBoxContainer.new()
-	vbox.custom_minimum_size = Vector2(320.0, 0.0)
-	vbox.add_theme_constant_override("separation", 16)
-	center.add_child(vbox)
+	# A themed card so the menu reads as one styled surface, not loose controls.
+	var card := UITheme.panel()
+	center.add_child(card)
 
-	var title := Label.new()
-	title.text = "Hexis"
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_right", 28)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	card.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.custom_minimum_size = Vector2(340.0, 0.0)
+	vbox.add_theme_constant_override("separation", 16)
+	margin.add_child(vbox)
+
+	var title := UITheme.title_label("HEXIS")
+	title.add_theme_font_size_override("font_size", 48)
+	title.add_theme_color_override("font_color", UITheme.ACCENT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 40)
 	vbox.add_child(title)
+
+	var tagline := UITheme.subtitle_label("Hex-grid real-time strategy")
+	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(tagline)
 
 	_name_edit = LineEdit.new()
 	_name_edit.placeholder_text = DEFAULT_NAME
 	vbox.add_child(_name_edit)
+
+	_capital_name_edit = LineEdit.new()
+	_capital_name_edit.placeholder_text = DEFAULT_CAPITAL_NAME
+	vbox.add_child(_capital_name_edit)
 
 	_mode_row = HBoxContainer.new()
 	_mode_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_mode_row.add_theme_constant_override("separation", 12)
 	vbox.add_child(_mode_row)
 
-	var single_button := Button.new()
-	single_button.text = "Single Player"
+	var single_button := UITheme.action_button("Single Player", UITheme.PRIMARY)
 	single_button.pressed.connect(_on_single_player_pressed)
 	_mode_row.add_child(single_button)
 
-	var multiplayer_button := Button.new()
-	multiplayer_button.text = "Multiplayer"
+	var multiplayer_button := UITheme.action_button("Multiplayer")
 	multiplayer_button.pressed.connect(_on_multiplayer_pressed)
 	_mode_row.add_child(multiplayer_button)
 
@@ -100,7 +119,10 @@ func _on_single_player_pressed() -> void:
 	var player_name := _name_edit.text.strip_edges()
 	if player_name.is_empty():
 		player_name = DEFAULT_NAME
-	single_player_requested.emit(player_name)
+	var capital_name := _capital_name_edit.text.strip_edges()
+	if capital_name.is_empty():
+		capital_name = DEFAULT_CAPITAL_NAME
+	single_player_requested.emit(player_name, capital_name)
 
 func _on_multiplayer_pressed() -> void:
 	_mode_row.visible = false

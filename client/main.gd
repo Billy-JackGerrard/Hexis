@@ -28,6 +28,7 @@ var owner_names := {
 var board: Board
 var base_view: BaseView
 var squad_view: SquadView
+var projectile_view: ProjectileView
 var input_controller: InputController
 var fog_of_war: FogOfWar
 var camera_controller: CameraController
@@ -36,6 +37,7 @@ var build_preview: BuildPreview
 var start_screen: StartScreen
 
 var _local_capital_hex: HexCoord
+var _local_capital_name: String = ""
 
 func _ready() -> void:
 	start_screen = StartScreen.new()
@@ -43,8 +45,9 @@ func _ready() -> void:
 	start_screen.setup()
 	start_screen.single_player_requested.connect(_on_single_player_requested)
 
-func _on_single_player_requested(player_name: String) -> void:
+func _on_single_player_requested(player_name: String, capital_name: String) -> void:
 	owner_names[LOCAL_PLAYER] = player_name
+	_local_capital_name = capital_name
 	_start_game()
 	start_screen.queue_free()
 	start_screen = null
@@ -66,6 +69,10 @@ func _start_game() -> void:
 	squad_view = SquadView.new()
 	add_child(squad_view)
 	squad_view.setup(state.squads, state.regiments, owner_colors, state.grid, state.troop_defs, state.visions, state.detections, LOCAL_PLAYER)
+
+	projectile_view = ProjectileView.new()
+	add_child(projectile_view)
+	projectile_view.setup(state.projectiles, owner_colors)
 
 	input_controller = InputController.new()
 	add_child(input_controller)
@@ -121,13 +128,14 @@ func _build_demo_state() -> MatchState:
 	demo_state.squads.append_array(result.squads)
 	for troop_id in result.troops_by_id:
 		demo_state.troops_by_id[troop_id] = result.troops_by_id[troop_id]
-	demo_hexes = HexCoord.range_within(HexCoord.new(0, 0), TerrainGenerator.map_radius(PLAYER_COUNT) + TerrainGenerator.OCEAN_FRINGE_WIDTH)
+	demo_hexes = HexCoord.range_within(HexCoord.new(0, 0), TerrainGenerator.map_radius(PLAYER_COUNT) + Tuning.OCEAN_FRINGE_WIDTH)
 
 	for player_index in range(PLAYER_COUNT):
 		var owner := "p%d" % player_index
 		var capital := _find_base(demo_state, result.capital_ids_by_player[player_index])
 		if owner == LOCAL_PLAYER:
 			_local_capital_hex = capital.hex_coord
+			capital.display_name = _local_capital_name
 
 	return demo_state
 

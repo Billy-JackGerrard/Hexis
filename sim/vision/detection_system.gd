@@ -24,15 +24,8 @@
 class_name DetectionSystem
 extends RefCounted
 
-## Placeholder — schema's revealsOnAttack says stealth breaks "until a few
-## seconds pass without attacking" but never pins an exact duration. Tune
-## freely; nothing else depends on this number yet.
-const REVEAL_COOLDOWN_SECONDS: float = 3.0
-
-## Placeholder — 04-combat.md's "hidden until engaging" is read literally as
-## no proximity reveal at all for forest ambush (unlike authored stealth
-## units, which use their own revealRange). Tune freely.
-const FOREST_AMBUSH_REVEAL_RANGE: float = 0.0
+## Reveal-cooldown and forest-ambush-range tunables live in sim/tuning.gd as
+## Tuning.STEALTH_REVEAL_COOLDOWN_SECONDS/FOREST_AMBUSH_REVEAL_RANGE.
 
 ## True if this squad is currently hidden from enemies: authored stealth,
 ## Commander Nightfall's `grant_stealth` regiment aura (AuraSystem), or an
@@ -61,7 +54,7 @@ static func squad_reveal_range(squad: SquadInstance, troop_def: Dictionary, grid
 		return float(troop_def.get("revealRange", 0.0))
 	if AuraSystem.is_granted_stealth(auras, squad.id):
 		return AuraSystem.granted_stealth_reveal_range(auras, squad.id)
-	return FOREST_AMBUSH_REVEAL_RANGE
+	return Tuning.FOREST_AMBUSH_REVEAL_RANGE
 
 ## Recomputes detector coverage from scratch: detections[owner_id] ->
 ## {hex_key: true} for every hex within a detector's detectionRange (falling

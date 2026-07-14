@@ -59,11 +59,9 @@ func _plains_grid(hexes: Array) -> HexGrid:
 
 func _test_population() -> void:
 	var fresh_base := BaseInstance.new("pb1", "capital", "p1", 1)
-	# hq_level*2 is Population.population_cap's own (sim/-side) formula for
-	# HQ's contribution, not a data/buildings/hq.json value it reads back —
-	# out of this file's data-driven-ification scope, left as a literal
-	# multiplier matching that formula.
-	var hq_cap: int = fresh_base.hq_level * 2
+	# At hq_level 1 no statGrowth is applied yet, so HQ's contribution is just
+	# hq.json's authored baseStats.populationCapacity.
+	var hq_cap: int = int(_building_defs["hq"]["nonProductionUpgrade"]["baseStats"]["populationCapacity"])
 	_check(Population.population_cap(fresh_base, _building_defs) == hq_cap, "hq level %d, no houses -> population cap %d" % [fresh_base.hq_level, hq_cap])
 	_check(Population.population_used(fresh_base, _building_defs) == 0, "no buildings -> population used 0")
 	_check(Population.has_capacity_for(fresh_base, "farm", _building_defs), "fresh base has room for a non-house building")
@@ -85,9 +83,11 @@ func _test_population() -> void:
 	_check(Population.has_capacity_for(fresh_base, "mine", _building_defs), "%d used < %d cap -> room for another building" % [used_after_farm_quarry, hq_cap + house_capacity_l1])
 
 	var turret_pop_cost: float = float(_building_defs["turret"].get("populationCost", 1))
-	for i in range(4):
+	var full_cap: int = hq_cap + house_capacity_l1
+	var turrets_to_fill: int = full_cap - used_after_farm_quarry
+	for i in range(turrets_to_fill):
 		fresh_base.buildings.append(BuildingInstance.new("t%d" % i, "pb1", "turret", 1))
-	var used_after_turrets: int = used_after_farm_quarry + (4 if turret_pop_cost > 0 else 0)
+	var used_after_turrets: int = used_after_farm_quarry + (turrets_to_fill if turret_pop_cost > 0 else 0)
 	_check(Population.population_used(fresh_base, _building_defs) == used_after_turrets, "%d population-costing buildings placed" % used_after_turrets)
 	_check(not Population.has_capacity_for(fresh_base, "mine", _building_defs), "used == cap -> no room for a non-house building")
 	_check(Population.has_capacity_for(fresh_base, "house", _building_defs), "House is always placeable regardless of capacity")
@@ -134,7 +134,7 @@ func _test_garrison_seeding() -> void:
 	for squad in squads:
 		total_troops += squad.member_ids.size()
 		_check(squad.owner_id == "p1", "seeded squad carries the given owner_id")
-		_check(HexCoord.distance(hq_hex, squad.current_hex) == GarrisonFactory.GARRISON_RING_RADIUS, "seeded squad stands on the garrison ring, clear of the building flower")
+		_check(HexCoord.distance(hq_hex, squad.current_hex) == Tuning.GARRISON_RING_RADIUS, "seeded squad stands on the garrison ring, clear of the building flower")
 		for member_id in squad.member_ids:
 			var troop: TroopInstance = troops_by_id[member_id]
 			_check(troop.owner_id == "p1", "seeded troop carries the given owner_id")
@@ -155,7 +155,9 @@ func _fresh_seeded_base(id: String, grid: HexGrid, hq_level: int) -> BaseInstanc
 	return base
 
 func _test_eligibility() -> void:
-	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(0, 1)])
+	# (0,-1) included so seed_base's Command Centre (direction 2) lands there
+	# on-grid instead of spilling over onto (0,1), which this test needs free.
+	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(0, -1), HexCoord.new(0, 1)])
 	var capital_def: Dictionary = _base_defs["capital"]
 	var seeded := _fresh_seeded_base("b3", grid, 2)
 
@@ -176,7 +178,9 @@ func _test_eligibility() -> void:
 		"standalone buildings (Road) are rejected by the base-tied validator")
 
 func _test_hex_occupancy() -> void:
-	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(0, 1)])
+	# (0,-1) included so seed_base's Command Centre (direction 2) lands there
+	# on-grid instead of spilling over onto (0,1), which this test needs free.
+	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(0, -1), HexCoord.new(0, 1)])
 	var capital_def: Dictionary = _base_defs["capital"]
 	var seeded := _fresh_seeded_base("b4", grid, 1)
 
@@ -262,12 +266,13 @@ func _test_terrain() -> void:
 		"Capital (no terrainException): Farm still rejected on Hill")
 
 func _test_adjacency() -> void:
-	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(-1, 1), HexCoord.new(0, 1)])
+	# (0,-1) included so seed_base's Command Centre (direction 2) lands there
+	# on-grid instead of spilling over onto (-1,1), which this test needs free.
+	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(0, -1), HexCoord.new(-1, 1), HexCoord.new(0, 1)])
 	var capital_def: Dictionary = _base_defs["capital"]
 	var seeded := _fresh_seeded_base("b6", grid, 2)
 	# Seeded at (0,0)=hq, (1,0)=farm, (1,-1)=quarry, (0,-1)=command_centre.
-	# (-1,1) touches only HQ among these four (unlike (-1,0), which would now
-	# also touch the seeded Command Centre at (0,-1)).
+	# (-1,1) touches only HQ among these five.
 
 	_check(BuildingPlacement.can_place(seeded, capital_def, "turret", HexCoord.new(-1, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_ENOUGH_ADJACENT_BUILDINGS,
 		"hex touching only 1 existing building (HQ) is rejected")
@@ -320,9 +325,17 @@ func _test_population_gate() -> void:
 	var farm_pop_cost: float = float(_building_defs["farm"].get("populationCost", 1))
 	var quarry_pop_cost: float = float(_building_defs["quarry"].get("populationCost", 1))
 	var expected_used: int = (1 if farm_pop_cost > 0 else 0) + (1 if quarry_pop_cost > 0 else 0)
-	var hq_cap: int = base.hq_level * 2
+	# hq_level 1's populationCap is hq.json's authored baseStats.populationCapacity;
+	# top up with extra population-costing buildings (off-grid, only population
+	# math cares about base.buildings, not placement/adjacency) to reach it exactly.
+	var hq_cap: int = int(_building_defs["hq"]["nonProductionUpgrade"]["baseStats"]["populationCapacity"])
+	var i := 0
+	while expected_used < hq_cap:
+		base.buildings.append(BuildingInstance.new("filler%d" % i, "b8", "turret", 1, "", HexCoord.new(50 + i, 50)))
+		expected_used += 1
+		i += 1
 	_check(Population.population_used(base, _building_defs) == expected_used and Population.population_cap(base, _building_defs) == hq_cap,
-		"fixture is already at population cap (Farm+Quarry == hq_level*2)")
+		"fixture is already at population cap (Farm+Quarry+filler turrets == HQ's authored populationCapacity)")
 	_check(BuildingPlacement.can_place(base, capital_def, "turret", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.POPULATION_FULL,
 		"non-House placement rejected once population is full")
 	_check(BuildingPlacement.can_place(base, capital_def, "house", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
@@ -423,10 +436,14 @@ func _test_standalone_placement() -> void:
 	_check(second_place_result == BuildingPlacement.Result.HEX_OCCUPIED, "a second standalone building can't be placed on the same hex as the first")
 
 func _test_wall_placement() -> void:
-	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(-1, 0), HexCoord.new(0, 1), HexCoord.new(-1, 1)])
+	# (0,-1) included alongside HQ's other ring-1 neighbors so seed_base's
+	# Command Centre (direction 2) lands on-grid at its normal spot instead of
+	# spilling over onto (-1,0) — real sites always have a complete flower
+	# (BaseSiteSelector._flower_terrain_ok), this fixture just mirrors that.
+	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(0, -1), HexCoord.new(-1, 0), HexCoord.new(0, 1), HexCoord.new(-1, 1)])
 	var capital_def: Dictionary = _base_defs["capital"]
 	var seeded := _fresh_seeded_base("w1", grid, 2)
-	# Seeded at (0,0)=hq, (1,0)=farm, (1,-1)=quarry.
+	# Seeded at (0,0)=hq, (1,0)=farm, (1,-1)=quarry, (0,-1)=command centre.
 
 	# A Wall needs only ONE adjacent existing building, unlike a normal
 	# building's two — the edge between HQ (0,0) and the empty (-1,0) hex

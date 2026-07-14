@@ -13,8 +13,6 @@
 class_name ProductionManager
 extends RefCounted
 
-const RANGE_RADIUS := 1
-
 static func enqueue(queue: ProductionQueue, troop_type: String, troop_defs: Dictionary) -> void:
 	var troop_def: Dictionary = troop_defs.get(troop_type, {})
 	var production_time: float = float(troop_def.get("productionTime", 0.0))
@@ -37,6 +35,15 @@ static func advance(queue: ProductionQueue, dt: float) -> void:
 ## queue) or once the queue runs out of complete entries.
 ##
 ## - owner_id/spawn_hex/building_type: identify who/where/what is producing.
+##   A brand-new squad (the join path below reuses the existing squad's own
+##   hex instead) actually deploys at `_domain_spawn_hex(spawn_hex, ...)`, not
+##   necessarily spawn_hex itself: a Naval troop_type searches outward from
+##   spawn_hex for the nearest open, unoccupied water hex via `grid` (a Naval
+##   production building — Shipyard/Port/Harbour — sits on the adjacent
+##   Plains hex, not on water itself, so spawning right on top of it would
+##   otherwise land the new ship on dry land). Every other domain spawns at
+##   spawn_hex unchanged. `grid` is optional (null skips this correction) so
+##   callers that don't care (e.g. cap-math-only tests) can omit it.
 ## - squads: the owner's live SquadInstance list; mutated in place (append on
 ##   new squad, add_member on join).
 ## - troops_by_id: id -> TroopInstance registry; mutated in place (a deployed
@@ -64,6 +71,7 @@ static func pump(
 	current_commander_count: int,
 	next_troop_id: Callable,
 	next_squad_id: Callable,
+	grid: HexGrid = null,
 ) -> void:
 	while queue.front_complete():
 		var entry: Dictionary = queue.front()
@@ -72,7 +80,7 @@ static func pump(
 		var max_squad_size: int = int(troop_def.get("maxSquadSize", 1))
 
 		var joinable: SquadInstance = SquadManager.find_joinable_squad(
-			squads, owner_id, troop_type, spawn_hex, max_squad_size, RANGE_RADIUS
+			squads, owner_id, troop_type, spawn_hex, max_squad_size, Tuning.PRODUCTION_JOIN_RANGE_RADIUS
 		)
 		if joinable != null:
 			var joined_troop := TroopInstance.new(next_troop_id.call(), troop_type, owner_id, joinable.id, float(troop_def.get("hp", 0.0)))
@@ -101,7 +109,8 @@ static func pump(
 				queue.pause_reason = "squad_cap"
 				return
 
-		var new_squad := SquadInstance.new(next_squad_id.call(), owner_id, troop_type, spawn_hex)
+		var deploy_hex := _domain_spawn_hex(spawn_hex, troop_def, grid, squads)
+		var new_squad := SquadInstance.new(next_squad_id.call(), owner_id, troop_type, deploy_hex)
 		var new_troop := TroopInstance.new(next_troop_id.call(), troop_type, owner_id, new_squad.id, float(troop_def.get("hp", 0.0)))
 		troops_by_id[new_troop.id] = new_troop
 		new_squad.add_member(new_troop.id)
@@ -109,3 +118,21 @@ static func pump(
 		queue.entries.pop_front()
 		queue.paused = false
 		queue.pause_reason = ""
+
+## `spawn_hex` unchanged unless `troop_def` is Naval-domain and `grid` is
+## supplied, in which case this searches outward (HexGrid.
+## nearest_passable_hex) for the nearest water hex not already sitting under
+## another squad — see pump()'s doc comment above for why (a Naval building
+## sits on land adjacent to water, not on water itself).
+static func _domain_spawn_hex(spawn_hex: HexCoord, troop_def: Dictionary, grid: HexGrid, squads: Array[SquadInstance]) -> HexCoord:
+	if grid == null:
+		return spawn_hex
+	if Terrain.domain_from_string(String(troop_def.get("domain", "Infantry"))) != Terrain.Domain.NAVAL:
+		return spawn_hex
+	return grid.nearest_passable_hex(spawn_hex, Terrain.Domain.NAVAL, func(h): return not _hex_has_squad(h, squads))
+
+static func _hex_has_squad(hex: HexCoord, squads: Array[SquadInstance]) -> bool:
+	for squad in squads:
+		if squad.current_hex != null and squad.current_hex.equals(hex):
+			return true
+	return false

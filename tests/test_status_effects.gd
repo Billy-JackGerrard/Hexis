@@ -164,8 +164,8 @@ func _test_resolve_tick() -> void:
 	_check(_approx(s.stun_tail_remaining, 0.9), "tail arms the instant lockout crosses to 0, then itself ticks down by the same dt")
 	_check(_approx(s.stun_tail_queued, 0.0), "stun_tail_queued is consumed once armed")
 
-	_check(StatusEffectSystem.move_speed_mult(s) == StatusEffectSystem.STUN_TAIL_SPEED_MULT, "move_speed_mult reflects the active tail")
-	_check(StatusEffectSystem.attack_speed_mult(s) == StatusEffectSystem.STUN_TAIL_SPEED_MULT, "attack_speed_mult reflects the active tail")
+	_check(StatusEffectSystem.move_speed_mult(s) == Tuning.STUN_TAIL_SPEED_MULT, "move_speed_mult reflects the active tail")
+	_check(StatusEffectSystem.attack_speed_mult(s) == Tuning.STUN_TAIL_SPEED_MULT, "attack_speed_mult reflects the active tail")
 
 	StatusEffectSystem.resolve_tick(0.9, [s], [])
 	_check(_approx(s.stun_tail_remaining, 0.0), "tail expires after its own duration")

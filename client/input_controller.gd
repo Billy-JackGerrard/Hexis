@@ -82,6 +82,11 @@ var _failed_pings: Array = []
 ## comment already flags as too expensive to call every frame unthrottled.
 var _hover_hex_key: String = ""
 var _hover_kind: int = HoverKind.NONE
+## World-space point the hover ring is drawn around — the hovered target's
+## own hex center (or Wall edge midpoint), NOT the raw mouse position, so the
+## ring stays centered on the building/squad regardless of where in its hex
+## the cursor happens to be.
+var _hover_center: Vector2 = Vector2.ZERO
 
 enum HoverKind { NONE, ENEMY_TROOP, ENEMY_STRUCTURE }
 
@@ -350,11 +355,23 @@ func _update_hover(pos: Vector2) -> void:
 	var target := _target_at_pixel(pos)
 	if target == null:
 		_hover_kind = HoverKind.NONE
-	elif target.kind == CombatTarget.Kind.SQUAD:
-		_hover_kind = HoverKind.ENEMY_TROOP
 	else:
-		_hover_kind = HoverKind.ENEMY_STRUCTURE
+		_hover_center = _target_center(target)
+		if target.kind == CombatTarget.Kind.SQUAD:
+			_hover_kind = HoverKind.ENEMY_TROOP
+		else:
+			_hover_kind = HoverKind.ENEMY_STRUCTURE
 	queue_redraw()
+
+## World-space center of a hovered CombatTarget: the midpoint of its edge
+## segment for a Wall (hex_b set, no single hex of its own), otherwise its
+## hex's pixel center — mirrors base_view.gd's own edge_segment/
+## axial_to_pixel usage for the same target shapes.
+func _target_center(target: CombatTarget) -> Vector2:
+	if target.hex_b != null:
+		var segment := HexView.edge_segment(target.hex, target.hex_b)
+		return (segment[0] + segment[1]) * 0.5
+	return HexView.axial_to_pixel(target.hex)
 
 func _handle_control_group_key(event: InputEventKey) -> void:
 	var group := _digit_for_keycode(event.keycode)
@@ -416,4 +433,4 @@ func _draw() -> void:
 
 	if _hover_kind != HoverKind.NONE:
 		var color: Color = HOVER_TROOP_COLOR if _hover_kind == HoverKind.ENEMY_TROOP else HOVER_STRUCTURE_COLOR
-		draw_arc(get_global_mouse_position(), HOVER_RADIUS, 0.0, TAU, 20, color, 2.0)
+		draw_arc(_hover_center, HOVER_RADIUS, 0.0, TAU, 20, color, 2.0)

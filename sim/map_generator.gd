@@ -19,7 +19,6 @@
 class_name MapGenerator
 extends RefCounted
 
-const MAX_GENERATION_ATTEMPTS: int = 5
 ## 13 authored Unique base types (13 >= 2*6, < 2*7) — see
 ## BaseSiteSelector._assign_unique_defs, which never duplicates a Unique
 ## base type onto one map.
@@ -40,7 +39,7 @@ static func generate(player_count: int, world_seed: int, base_defs: Dictionary, 
 		return null
 
 	var last_failure_reason := ""
-	for attempt in range(MAX_GENERATION_ATTEMPTS):
+	for attempt in range(Tuning.MAX_GENERATION_ATTEMPTS):
 		var attempt_seed: int = world_seed if attempt == 0 else hash("%d:attempt:%d" % [world_seed, attempt])
 		var grid := TerrainGenerator.generate_all(player_count, attempt_seed)
 		var next_id_counter := {"n": 0}
@@ -71,7 +70,7 @@ static func generate(player_count: int, world_seed: int, base_defs: Dictionary, 
 			return MapGenerationResult.new(grid, placement["bases"], placement["capital_ids_by_player"], attempt_seed, placement["squads"], placement["troops_by_id"])
 		last_failure_reason = placement["failure_reason"]
 
-	push_error("MapGenerator.generate: exhausted %d attempts for player_count %d, seed %d — last failure: %s" % [MAX_GENERATION_ATTEMPTS, player_count, world_seed, last_failure_reason])
+	push_error("MapGenerator.generate: exhausted %d attempts for player_count %d, seed %d — last failure: %s" % [Tuning.MAX_GENERATION_ATTEMPTS, player_count, world_seed, last_failure_reason])
 	return null
 
 const _TERRAIN_SYMBOLS := {
@@ -92,7 +91,7 @@ static func debug_print(result: MapGenerationResult, player_count: int) -> void:
 		print("MapGenerator.debug_print: null result")
 		return
 	var radius := TerrainGenerator.map_radius(player_count)
-	var fringe := radius + TerrainGenerator.OCEAN_FRINGE_WIDTH
+	var fringe := radius + Tuning.OCEAN_FRINGE_WIDTH
 	var owner_by_hex: Dictionary = {}
 	for base in result.bases:
 		owner_by_hex[base.hex_coord.to_key()] = base.owner_id

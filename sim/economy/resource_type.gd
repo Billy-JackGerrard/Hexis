@@ -9,15 +9,14 @@ enum Type { FOOD, STONE, STEEL, WOOD, FUEL }
 
 const ALL: Array[Type] = [Type.FOOD, Type.STONE, Type.STEEL, Type.WOOD, Type.FUEL]
 
-## Food 100, Stone 100, Steel 50, Wood 0, Fuel 0 — Wood/Fuel start at zero
-## deliberately, since a bare starting Capital has no Forest-adjacent Lumber
-## Mill or built Oil Rig yet.
+## Values themselves live in sim/tuning.gd (Tuning.STARTING_*) — see that
+## file's doc comment for why Wood/Fuel start at zero.
 const STARTING := {
-	Type.FOOD: 100.0,
-	Type.STONE: 100.0,
-	Type.STEEL: 50.0,
-	Type.WOOD: 0.0,
-	Type.FUEL: 0.0,
+	Type.FOOD: Tuning.STARTING_FOOD,
+	Type.STONE: Tuning.STARTING_STONE,
+	Type.STEEL: Tuning.STARTING_STEEL,
+	Type.WOOD: Tuning.STARTING_WOOD,
+	Type.FUEL: Tuning.STARTING_FUEL,
 }
 
 ## Only Food and Fuel drive the per-squad troop-death deficit consequence

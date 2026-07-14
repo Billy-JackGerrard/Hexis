@@ -8,7 +8,7 @@
 ## their own validator rather than reusing can_place: no HEX_OCCUPIED/
 ## HEX_OCCUPIED_BY_UNIT/siteTerrain/population checks (a Wall doesn't occupy a
 ## hex or cost population), and only ONE adjacent building is required
-## instead of MIN_ADJACENT_BUILDINGS.
+## instead of Tuning.MIN_ADJACENT_BUILDINGS.
 class_name BuildingPlacement
 extends RefCounted
 
@@ -36,26 +36,14 @@ enum Result {
 	NOT_OWNER,
 	CANNOT_BUILD_INFRASTRUCTURE, ## no valid owned squad with canBuildInfrastructure
 	INSUFFICIENT_RESOURCES, ## owner's pool can't cover the build cost
-	OUT_OF_ENGINEER_RANGE, ## target hex is further than STANDALONE_BUILD_RANGE from the building Engineer
+	OUT_OF_ENGINEER_RANGE, ## target hex is further than Tuning.STANDALONE_BUILD_RANGE from the building Engineer
 }
 
-## Max hex-distance between the building Engineer and a standalone build site
-## (Road/Bridge/Dock/Tower/Landmine) — an Engineer must travel next to a site
-## rather than dropping infrastructure anywhere on the map. 1 = adjacent-only,
-## since the Engineer's own hex is already excluded (ground units block
-## placement — see ground_unit_hexes/HEX_OCCUPIED_BY_UNIT).
-const STANDALONE_BUILD_RANGE := 1
-
-## Minimum adjacent existing buildings required for a normal (non-Wall)
-## placement, per the Expansion Rule. Walls need only 1 — deferred, see above.
-const MIN_ADJACENT_BUILDINGS := 2
-
-## Placeholder build-radius formula (tunable, same spirit as
-## Terrain.HILLS_INFANTRY_COST): a base may only build within this many hexes
-## of its HQ, scaling with hqLevel. Design doc pins the scaling relationship
-## but not the exact number.
+## Build-radius formula: a base may only build within this many hexes of its
+## HQ, scaling with hqLevel per Tuning.HQ_BUILD_RADIUS_BASE/HQ_BUILD_RADIUS_PER_LEVEL.
+## Design doc pins the scaling relationship but not the exact number.
 static func hq_build_radius(hq_level: int) -> int:
-	return hq_level * 2 + 2
+	return Tuning.HQ_BUILD_RADIUS_BASE + hq_level * Tuning.HQ_BUILD_RADIUS_PER_LEVEL
 
 static func _site_terrain(name: String) -> Terrain.Type:
 	match name:
@@ -149,7 +137,7 @@ static func can_place(base: BaseInstance, base_def: Dictionary, building_type: S
 	for neighbor in HexCoord.neighbors(hex):
 		if occupied.has(neighbor.to_key()):
 			adjacent_building_count += 1
-	if adjacent_building_count < MIN_ADJACENT_BUILDINGS and not _has_bridge_foothold_exemption(hex, occupied, grid):
+	if adjacent_building_count < Tuning.MIN_ADJACENT_BUILDINGS and not _has_bridge_foothold_exemption(hex, occupied, grid):
 		return Result.NOT_ENOUGH_ADJACENT_BUILDINGS
 
 	var hq_hex := _hq_hex(base)
@@ -229,10 +217,6 @@ static func can_place_standalone(building_type: String, hex: HexCoord, grid: Hex
 
 	return Result.OK
 
-## Minimum adjacent existing buildings required for a Wall — per
-## 02-bases-and-buildings.md, only ONE (not MIN_ADJACENT_BUILDINGS's two).
-const MIN_ADJACENT_BUILDINGS_FOR_WALL := 1
-
 ## Validates placement of a Wall on the edge between `hex_a` and `hex_b`, per
 ## 02-bases-and-buildings.md ("sits on the border between two hexes... Wall
 ## blocks movement and line-of-sight... Placement only requires one existing
@@ -244,8 +228,9 @@ const MIN_ADJACENT_BUILDINGS_FOR_WALL := 1
 ## its own to count neighbors around — this reads as "the edge runs along a
 ## hex this base has already built on" (at least one of hex_a/hex_b is in
 ## base.occupied_hexes()), a placeholder interpretation in the same spirit as
-## hq_build_radius/HILLS_INFANTRY_COST: the design doc pins the *count* (1,
-## not 2) but not the exact adjacency shape for an edge-based building.
+## hq_build_radius/HILLS_INFANTRY_COST: the design doc pins the *count*
+## (Tuning.MIN_ADJACENT_BUILDINGS_FOR_WALL, 1, not MIN_ADJACENT_BUILDINGS's 2)
+## but not the exact adjacency shape for an edge-based building.
 static func can_place_wall(base: BaseInstance, base_def: Dictionary, hex_a: HexCoord, hex_b: HexCoord, grid: HexGrid, building_defs: Dictionary) -> Result:
 	var buildable: Array = base_def.get("buildableBuildings", [])
 	if not buildable.has("wall"):
@@ -264,7 +249,7 @@ static func can_place_wall(base: BaseInstance, base_def: Dictionary, hex_a: HexC
 		adjacent_building_count += 1
 	if occupied.has(hex_b.to_key()):
 		adjacent_building_count += 1
-	if adjacent_building_count < MIN_ADJACENT_BUILDINGS_FOR_WALL:
+	if adjacent_building_count < Tuning.MIN_ADJACENT_BUILDINGS_FOR_WALL:
 		return Result.NOT_ENOUGH_ADJACENT_BUILDINGS_FOR_WALL
 
 	var hq_hex := _hq_hex(base)

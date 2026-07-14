@@ -33,6 +33,14 @@ enum Result {
 	NOT_UNLOCKED,
 	NOT_ADJACENT,
 	SQUAD_FULL,
+	## Upgrade-rejection reasons, split out of the catch-all INVALID so the UI
+	## (client/ui/eligibility.gd) can show a specific greyed-out reason. See
+	## can_upgrade_building.
+	MAX_LEVEL,          ## already at the def's productionUpgradeLevels cap
+	HQ_LEVEL_TOO_LOW,   ## a base building can't be upgraded past its HQ's level
+	NEED_MORE_POPULATION, ## HQ upgrade gated on minPopulationPerLevel
+	SQUAD_CAP_REACHED,     ## enqueue_production: would need a new squad, owner at global squad cap
+	COMMANDER_CAP_REACHED, ## enqueue_production: Command Centre training, owner at Commander cap
 }
 
 ## --- Movement --------------------------------------------------------------
@@ -309,7 +317,7 @@ static func place_building(state: MatchState, base_id: String, building_type: St
 ## carry `canBuildInfrastructure: true` (data/troops/schema.json), the
 ## enforcement gap every standalone-placement note in
 ## 10-tech-stack-and-build-order.md flagged as blocked on this exact layer.
-## The Engineer must also be within BuildingPlacement.STANDALONE_BUILD_RANGE
+## The Engineer must also be within Tuning.STANDALONE_BUILD_RANGE
 ## of `hex` — it can't drop infrastructure anywhere on the map sight unseen.
 static func place_standalone_building(state: MatchState, squad_id: String, building_type: String, hex: HexCoord, material: String, owner_id: String) -> BuildingPlacement.Result:
 	var squad := state.find_squad(squad_id)
@@ -317,7 +325,7 @@ static func place_standalone_building(state: MatchState, squad_id: String, build
 		return BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE
 	if not bool(state.troop_defs.get(squad.troop_type, {}).get("canBuildInfrastructure", false)):
 		return BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE
-	if HexCoord.distance(squad.current_hex, hex) > BuildingPlacement.STANDALONE_BUILD_RANGE:
+	if HexCoord.distance(squad.current_hex, hex) > Tuning.STANDALONE_BUILD_RANGE:
 		return BuildingPlacement.Result.OUT_OF_ENGINEER_RANGE
 
 	var occupied_unit_hexes := BuildingPlacement.ground_unit_hexes(state.squads, state.troop_defs)
@@ -383,7 +391,7 @@ static func demolish_building(state: MatchState, building_id: String, owner_id: 
 
 	var pool := state.pool_for(owner_id)
 	for type in building.total_resources_spent:
-		pool.add(type, float(building.total_resources_spent[type]) * 0.5)
+		pool.add(type, float(building.total_resources_spent[type]) * Tuning.DEMOLISH_REFUND_FRACTION)
 
 	if building.building_type == "wall":
 		state.grid.set_wall(building.hex_a, building.hex_b, false)
@@ -449,7 +457,13 @@ static func rebuild_building(state: MatchState, building_id: String, owner_id: S
 ## A standalone building (no `base`) has no HQ to be capped by. Blocked on a
 ## ruin/0-HP building same as enqueue_production; not blocked by isFixed
 ## (that only gates demolish — HQ/Ice Spire are meant to be upgraded).
-static func upgrade_building(state: MatchState, building_id: String, owner_id: String) -> Result:
+## Pure (non-mutating) predicate behind upgrade_building — every rejection
+## reason it can return, without spending anything. Extracted so the UI
+## (client/ui/eligibility.gd) can grey out an ineligible Upgrade button and
+## show the specific reason, without duplicating this rule set or having to
+## call the mutating path. upgrade_building calls this first and only proceeds
+## on OK, so the two can never diverge.
+static func can_upgrade_building(state: MatchState, building_id: String, owner_id: String) -> Result:
 	var found := state.find_any_building(building_id)
 	if found.is_empty():
 		return Result.NOT_FOUND
@@ -465,21 +479,35 @@ static func upgrade_building(state: MatchState, building_id: String, owner_id: S
 	var target_level := building.level + 1
 	var max_level := BuildingStats.max_level(def, state.building_defs)
 	if max_level > 0 and target_level > max_level:
-		return Result.INVALID
+		return Result.MAX_LEVEL
 	if base != null and building.building_type != "hq" and target_level > base.hq_level:
-		return Result.INVALID
+		return Result.HQ_LEVEL_TOO_LOW
 
 	if building.building_type == "hq":
 		var resolved := BuildingStats.resolve_def(def, state.building_defs)
 		var min_pop_per_level := float(resolved.get("nonProductionUpgrade", {}).get("minPopulationPerLevel", 0.0))
 		var required_pop := min_pop_per_level * (target_level - 1)
 		if Population.population_used(base, state.building_defs) < required_pop:
-			return Result.INVALID
+			return Result.NEED_MORE_POPULATION
+
+	var cost := ResourceType.dict_from_named(BuildingStats.upgrade_cost(def, building.level, building.material, state.building_defs))
+	if not _can_afford(state.pool_for(owner_id), cost):
+		return Result.INSUFFICIENT_RESOURCES
+	return Result.OK
+
+static func upgrade_building(state: MatchState, building_id: String, owner_id: String) -> Result:
+	var check := can_upgrade_building(state, building_id, owner_id)
+	if check != Result.OK:
+		return check
+
+	var found := state.find_any_building(building_id)
+	var base: BaseInstance = found.get("base")
+	var building: BuildingInstance = found["building"]
+	var def: Dictionary = state.building_defs.get(building.building_type, {})
+	var target_level := building.level + 1
 
 	var cost := ResourceType.dict_from_named(BuildingStats.upgrade_cost(def, building.level, building.material, state.building_defs))
 	var pool := state.pool_for(owner_id)
-	if not _can_afford(pool, cost):
-		return Result.INSUFFICIENT_RESOURCES
 	_spend(pool, cost)
 	for type in cost:
 		building.total_resources_spent[type] = float(building.total_resources_spent.get(type, 0.0)) + cost[type]
@@ -515,7 +543,16 @@ static func _troop_unlocked(state: MatchState, building: BuildingInstance, build
 
 	return true
 
-static func enqueue_production(state: MatchState, building_id: String, troop_type: String, owner_id: String) -> Result:
+## Pure (non-mutating) predicate behind enqueue_production — same extraction
+## rationale as can_upgrade_building: lets the UI grey out an unaffordable/
+## locked troop and name the reason without touching the queue. Also blocks
+## enqueue outright at the squad/Commander cap, mirroring the join-vs-new-squad
+## check ProductionManager.pump() makes at deploy time: if an existing
+## same-type squad in range still has room, training is allowed regardless of
+## cap (the troop will join it); only when a brand-new squad would be needed
+## and the owner is already at capacity is enqueue rejected, so the player
+## can't spend resources on a troop that would just sit paused undeployed.
+static func can_enqueue_production(state: MatchState, building_id: String, troop_type: String, owner_id: String) -> Result:
 	var found := state.find_base_building(building_id)
 	if found.is_empty():
 		return Result.NOT_FOUND
@@ -531,10 +568,37 @@ static func enqueue_production(state: MatchState, building_id: String, troop_typ
 		return Result.NOT_UNLOCKED
 
 	var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
-	var pool := state.pool_for(owner_id)
-	if not _can_afford(pool, cost):
+	if not _can_afford(state.pool_for(owner_id), cost):
 		return Result.INSUFFICIENT_RESOURCES
-	_spend(pool, cost)
+
+	var troop_def: Dictionary = state.troop_defs.get(troop_type, {})
+	var max_squad_size: int = int(troop_def.get("maxSquadSize", 1))
+	var needs_new_squad := SquadManager.needs_new_squad(
+		state.squads, owner_id, troop_type, building.hex, max_squad_size, Tuning.PRODUCTION_JOIN_RANGE_RADIUS
+	)
+	if needs_new_squad:
+		if building.building_type == "command_centre":
+			var max_commanders := SquadCap.max_commanders(state.bases_owned_by(owner_id), state.building_defs)
+			if state.commander_count(owner_id) >= max_commanders:
+				return Result.COMMANDER_CAP_REACHED
+		else:
+			var owner_squad_count := 0
+			for s in state.squads:
+				if s.owner_id == owner_id:
+					owner_squad_count += 1
+			var max_squads := SquadCap.max_squads(state.bases_owned_by(owner_id))
+			if owner_squad_count >= max_squads:
+				return Result.SQUAD_CAP_REACHED
+
+	return Result.OK
+
+static func enqueue_production(state: MatchState, building_id: String, troop_type: String, owner_id: String) -> Result:
+	var check := can_enqueue_production(state, building_id, troop_type, owner_id)
+	if check != Result.OK:
+		return check
+
+	var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
+	_spend(state.pool_for(owner_id), cost)
 
 	if not state.production_queues.has(building_id):
 		state.production_queues[building_id] = ProductionQueue.new(building_id)

@@ -190,7 +190,7 @@ static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[Comba
 		squad.attack_progress -= 1.0
 		# Attacking breaks this squad's own stealth/ambush (revealsOnAttack /
 		# "hidden until engaging") for a cooldown, per DetectionSystem.
-		squad.reveal_cooldown_remaining = DetectionSystem.REVEAL_COOLDOWN_SECONDS
+		squad.reveal_cooldown_remaining = Tuning.STEALTH_REVEAL_COOLDOWN_SECONDS
 
 static func _advance_building(building: BuildingInstance, owner_id: String, dt: float, targets: Array[CombatTarget], troops_by_id: Dictionary, troop_defs: Dictionary, building_defs: Dictionary, grid: HexGrid, detections: Dictionary = {}, auras: Dictionary = {}, projectiles: Array[ProjectileInstance] = [], next_projectile_id: Callable = Callable(), rng: RandomNumberGenerator = null) -> void:
 	if building.max_hp > 0.0 and building.current_hp <= 0.0:

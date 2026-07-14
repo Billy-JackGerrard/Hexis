@@ -19,7 +19,7 @@
 class_name SimOrchestrator
 extends RefCounted
 
-const ECONOMY_TICK_SECONDS: float = 5.0
+## Economy tick cadence lives in sim/tuning.gd as Tuning.ECONOMY_TICK_SECONDS.
 
 static func resolve_tick(state: MatchState, dt: float) -> void:
 	state.tick += 1
@@ -27,9 +27,9 @@ static func resolve_tick(state: MatchState, dt: float) -> void:
 	_resolve_fine_tick(state, dt, auras)
 
 	state.economy_accumulator += dt
-	while state.economy_accumulator >= ECONOMY_TICK_SECONDS:
+	while state.economy_accumulator >= Tuning.ECONOMY_TICK_SECONDS:
 		_resolve_economy_tick(state, auras)
-		state.economy_accumulator -= ECONOMY_TICK_SECONDS
+		state.economy_accumulator -= Tuning.ECONOMY_TICK_SECONDS
 
 ## Movement/combat/vision/detection/production — everything that advances
 ## every call regardless of the economy's coarser 5-second cadence.
@@ -101,6 +101,7 @@ static func _advance_production(state: MatchState, dt: float) -> void:
 			state.commander_count(base.owner_id),
 			Callable(state, "next_troop_id"),
 			Callable(state, "next_squad_id"),
+			state.grid,
 		)
 
 ## Resources/upkeep/deficits — the 5-second cadence from

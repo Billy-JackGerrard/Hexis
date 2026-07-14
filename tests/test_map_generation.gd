@@ -39,6 +39,10 @@ func _init() -> void:
 	_test_windy_peaks_site()
 	print("Sky Fortress moat + water connectivity")
 	_test_sky_fortress_site()
+	print("Rivergate river-adjacent site")
+	_test_rivergate_site()
+	print("Seeded building placement (collisions, adjacency, walls)")
+	_test_seeded_building_placement()
 	print("MapGenerator end-to-end")
 	_test_map_generator_end_to_end()
 	print("MapGenerator garrisons")
@@ -99,8 +103,8 @@ func _test_biomes() -> void:
 	_check(plains > forest and plains > hills, "Plains stays the majority terrain")
 	var forest_fraction := float(forest) / float(total)
 	var hills_fraction := float(hills) / float(total)
-	_check(forest_fraction > 0.0 and forest_fraction < TerrainGenerator.FOREST_COVERAGE_FRACTION * 1.6, "Forest coverage in a loose band around its budget")
-	_check(hills_fraction > 0.0 and hills_fraction < TerrainGenerator.HILLS_COVERAGE_FRACTION * 1.6, "Hills coverage in a loose band around its budget")
+	_check(forest_fraction > 0.0 and forest_fraction < Tuning.FOREST_COVERAGE_FRACTION * 1.6, "Forest coverage in a loose band around its budget")
+	_check(hills_fraction > 0.0 and hills_fraction < Tuning.HILLS_COVERAGE_FRACTION * 1.6, "Hills coverage in a loose band around its budget")
 
 func _test_rivers() -> void:
 	var radius := 20
@@ -118,7 +122,7 @@ func _test_rivers() -> void:
 			if HexCoord.distance(path[i], path[i + 1]) != 1:
 				all_contiguous = false
 		if not path.is_empty():
-			if HexCoord.distance(origin, path[0]) > radius - TerrainGenerator.RIVER_MIN_LENGTH:
+			if HexCoord.distance(origin, path[0]) > radius - Tuning.RIVER_MIN_LENGTH:
 				all_start_inland = false
 			if HexCoord.distance(origin, path[-1]) < radius:
 				all_end_at_coast = false
@@ -152,11 +156,11 @@ func _test_base_spacing() -> void:
 			var a: BaseInstance = bases[i]
 			var b: BaseInstance = bases[j]
 			var d := HexCoord.distance(a.hex_coord, b.hex_coord)
-			if d < BaseSiteSelector.MIN_BASE_SPACING:
+			if d < Tuning.MIN_BASE_SPACING:
 				min_spacing_ok = false
 			var a_is_capital: bool = _base_defs.get(a.base_def_id, {}).get("isCapital", false)
 			var b_is_capital: bool = _base_defs.get(b.base_def_id, {}).get("isCapital", false)
-			if a_is_capital and b_is_capital and d < BaseSiteSelector.CAPITAL_MIN_SPACING:
+			if a_is_capital and b_is_capital and d < Tuning.CAPITAL_MIN_SPACING:
 				capital_spacing_ok = false
 	_check(min_spacing_ok, "every base pair respects MIN_BASE_SPACING")
 	_check(capital_spacing_ok, "every Capital pair respects the stricter CAPITAL_MIN_SPACING")
@@ -224,7 +228,7 @@ func _test_unique_def_assignment() -> void:
 ## philosophy, just scoped to the test.
 func _generate_forcing(player_count: int, forced_ids: Array[String]) -> MapGenerationResult:
 	for world_seed in [7, 13, 42, 101, 2024, 99999]:
-		var result := MapGenerator.generate(player_count, world_seed, _base_defs, _building_defs, forced_ids)
+		var result := MapGenerator.generate(player_count, world_seed, _base_defs, _building_defs, forced_ids, _troop_defs)
 		if result != null:
 			return result
 	return null
@@ -249,6 +253,81 @@ func _test_kraken_point_site() -> void:
 		if result.grid.get_terrain(h) == Terrain.Type.OCEAN:
 			has_ocean_neighbor = true
 	_check(has_ocean_neighbor, "Kraken Point's site has Ocean at ring-distance 2")
+
+	# Regression coverage for the "water turrets/shipyard land on dry Plains"
+	# bug: every seeded building requiring Water adjacency must actually have
+	# a qualifying neighbor, not just sit somewhere inside the (guaranteed
+	# all-Plains) flower.
+	var water_buildings_ok := true
+	var any_water_building := false
+	for building in base.buildings:
+		var required := String(_building_defs.get(building.building_type, {}).get("placementRequirement", {}).get("adjacentTerrainRequired", ""))
+		if required != "Water" or building.hex == null:
+			continue
+		any_water_building = true
+		var satisfied := false
+		for n in HexCoord.neighbors(building.hex):
+			var t := result.grid.get_terrain(n)
+			if t == Terrain.Type.OCEAN or t == Terrain.Type.RIVER:
+				satisfied = true
+				break
+		if not satisfied:
+			water_buildings_ok = false
+	_check(any_water_building, "Kraken Point's initialBuildings include at least one Water-adjacency building (fixture sanity check)")
+	_check(water_buildings_ok, "every seeded Water-adjacency building (Water Turret/Shipyard) actually has an adjacent Water tile")
+
+	# Regression coverage for the "ships spawn on land" bug: every seeded
+	# garrison squad whose troop is Naval-domain must stand on actual water.
+	var ships_on_water := true
+	var any_naval_squad := false
+	for squad in result.squads:
+		var domain := Terrain.domain_from_string(String(_troop_defs.get(squad.troop_type, {}).get("domain", "Infantry")))
+		if domain != Terrain.Domain.NAVAL:
+			continue
+		any_naval_squad = true
+		if not Terrain.is_passable(result.grid.get_terrain(squad.current_hex), Terrain.Domain.NAVAL):
+			ships_on_water = false
+	_check(any_naval_squad, "Kraken Point's initialGarrison includes at least one Naval troop (fixture sanity check)")
+	_check(ships_on_water, "every seeded Naval garrison squad (Kraken Point's ships) stands on actual water, not land")
+
+## Rivergate's notes say its specialty defense "must sit next to the river to
+## actually cover the crossing", but (unlike Kraken Point) had no site
+## predicate at all guaranteeing River adjacency — it could roll anywhere on
+## Plains. _is_river_adjacent_site fixes that; this covers the same "does the
+## seeded Water Turret/Ford Yard actually have a qualifying neighbor" ground
+## as the Kraken Point test above.
+func _test_rivergate_site() -> void:
+	var result := _generate_forcing(2, ["rivergate"])
+	_check(result != null, "generation succeeds with Rivergate forced")
+	if result == null:
+		return
+	var base := _find_base(result, "rivergate")
+	_check(base != null, "Rivergate was actually placed")
+	if base == null:
+		return
+	var has_river_neighbor := false
+	for h in HexCoord.ring(base.hex_coord, 2):
+		if result.grid.get_terrain(h) == Terrain.Type.RIVER:
+			has_river_neighbor = true
+	_check(has_river_neighbor, "Rivergate's site has River at ring-distance 2")
+
+	var water_buildings_ok := true
+	var any_water_building := false
+	for building in base.buildings:
+		var required := String(_building_defs.get(building.building_type, {}).get("placementRequirement", {}).get("adjacentTerrainRequired", ""))
+		if required != "Water" or building.hex == null:
+			continue
+		any_water_building = true
+		var satisfied := false
+		for n in HexCoord.neighbors(building.hex):
+			var t := result.grid.get_terrain(n)
+			if t == Terrain.Type.OCEAN or t == Terrain.Type.RIVER:
+				satisfied = true
+				break
+		if not satisfied:
+			water_buildings_ok = false
+	_check(any_water_building, "Rivergate's initialBuildings include at least one Water-adjacency building (fixture sanity check)")
+	_check(water_buildings_ok, "every seeded Water-adjacency building (Water Turret/Ford Yard) actually has an adjacent Water tile")
 
 func _test_treehouse_site() -> void:
 	var result := _generate_forcing(2, ["treehouse"])
@@ -298,13 +377,13 @@ func _test_sky_fortress_site() -> void:
 			flower_untouched = false
 	_check(flower_untouched, "Sky Fortress's own flower stays Plains (moat sits outside it)")
 
-	var ring := HexCoord.ring(base.hex_coord, BaseSiteSelector.MOAT_INNER_RADIUS)
+	var ring := HexCoord.ring(base.hex_coord, Tuning.MOAT_INNER_RADIUS)
 	var water_count := 0
 	for h in ring:
 		var t := result.grid.get_terrain(h)
 		if t == Terrain.Type.OCEAN or t == Terrain.Type.RIVER:
 			water_count += 1
-	_check(float(water_count) / float(ring.size()) >= BaseSiteSelector.MOAT_MIN_COVERAGE_FRACTION, "moat ring is mostly water")
+	_check(float(water_count) / float(ring.size()) >= Tuning.MOAT_MIN_COVERAGE_FRACTION, "moat ring is mostly water")
 
 	# Connectivity: BFS outward from the moat ring, through water tiles only,
 	# must reach a water tile that existed independent of the moat/channel
@@ -333,6 +412,56 @@ func _test_sky_fortress_site() -> void:
 					next_frontier.append(n)
 		frontier = next_frontier
 	_check(region_size > ring.size(), "moat's connected water region extends beyond the ring itself (connected to real water)")
+
+## Regression coverage for BaseFactory.seed_base's old fixed 6-direction fan:
+## every base def with more than 6 non-Wall initialBuildings (nearly all
+## Unique bases) wrapped past direction 5 back onto direction 0, silently
+## stacking two buildings on the same hex, and every seeded Wall was given a
+## single `hex` instead of a hex_a/hex_b edge (invisible to base_view.gd,
+## inert to grid.is_walled_edge). Runs across player counts so a good spread
+## of Unique base types gets exercised.
+func _test_seeded_building_placement() -> void:
+	for player_count in [2, 4, 6]:
+		var result := MapGenerator.generate(player_count, 42, _base_defs, _building_defs, [], _troop_defs)
+		if result == null:
+			_check(false, "player_count=%d generation succeeds for seeded-building checks" % player_count)
+			continue
+
+		var no_hex_collisions := true
+		var adjacency_ok := true
+		for base in result.bases:
+			var seen_hexes: Dictionary = {}
+			for building in base.buildings:
+				if building.hex == null:
+					continue ## Wall: edge-keyed, no single hex of its own.
+				if seen_hexes.has(building.hex.to_key()):
+					no_hex_collisions = false
+				seen_hexes[building.hex.to_key()] = true
+
+				var required := String(_building_defs.get(building.building_type, {}).get("placementRequirement", {}).get("adjacentTerrainRequired", ""))
+				if required == "":
+					continue
+				var satisfied := false
+				for n in HexCoord.neighbors(building.hex):
+					if BuildingPlacement._matches_adjacent_terrain_required(required, result.grid.get_terrain(n)):
+						satisfied = true
+						break
+				if not satisfied:
+					adjacency_ok = false
+		_check(no_hex_collisions, "player_count=%d no two seeded buildings share a hex" % player_count)
+		_check(adjacency_ok, "player_count=%d every seeded building with an adjacentTerrainRequired actually has it" % player_count)
+
+		var every_wall_registered := true
+		var any_wall := false
+		for base in result.bases:
+			for building in base.buildings:
+				if building.building_type != "wall":
+					continue
+				any_wall = true
+				if building.hex_a == null or building.hex_b == null or not result.grid.is_walled_edge(building.hex_a, building.hex_b):
+					every_wall_registered = false
+		_check(any_wall, "player_count=%d seeded at least one Wall (fixture sanity check)" % player_count)
+		_check(every_wall_registered, "player_count=%d every seeded Wall is a real hex_a/hex_b edge registered on the grid" % player_count)
 
 func _test_map_generator_end_to_end() -> void:
 	for player_count in [2, 4, 6]:
@@ -381,7 +510,7 @@ func _test_map_generator_end_to_end() -> void:
 		_check(every_capital_viable, "player_count=%d every Capital passes has_viable_expansion" % player_count)
 
 		var radius := TerrainGenerator.map_radius(player_count)
-		var fringe := radius + TerrainGenerator.OCEAN_FRINGE_WIDTH
+		var fringe := radius + Tuning.OCEAN_FRINGE_WIDTH
 		var origin := HexCoord.new(0, 0)
 		var coverage_ok := true
 		for hex in HexCoord.ring(origin, fringe):
@@ -428,12 +557,23 @@ func _test_map_generator_garrisons() -> void:
 	for squad in result.squads:
 		var found_nearby_base := false
 		for base in result.bases:
-			if base.owner_id == squad.owner_id and HexCoord.distance(base.hex_coord, squad.current_hex) == GarrisonFactory.GARRISON_RING_RADIUS:
+			if base.owner_id == squad.owner_id and HexCoord.distance(base.hex_coord, squad.current_hex) >= Tuning.GARRISON_RING_RADIUS:
 				found_nearby_base = true
 				break
 		if not found_nearby_base:
 			every_squad_near_a_base = false
-	_check(every_squad_near_a_base, "every seeded garrison squad stands on its own owner's garrison ring")
+	_check(every_squad_near_a_base, "every seeded garrison squad stands at or beyond its own owner's garrison ring")
+
+	# Domain-correction regression: a squad's seeded hex must actually be
+	# terrain its own troop type can stand on (a Naval garrison — e.g. Kraken
+	# Point's Destroyers/Submarine — used to land on the ring hex verbatim
+	# even when that hex was dry Plains; see GarrisonFactory.seed_garrison).
+	var every_squad_domain_ok := true
+	for squad in result.squads:
+		var domain := Terrain.domain_from_string(String(_troop_defs.get(squad.troop_type, {}).get("domain", "Infantry")))
+		if not Terrain.is_passable(result.grid.get_terrain(squad.current_hex), domain):
+			every_squad_domain_ok = false
+	_check(every_squad_domain_ok, "every seeded garrison squad stands on terrain its own domain can occupy")
 
 func _test_player_count_guard() -> void:
 	var result := MapGenerator.generate(MapGenerator.MAX_SUPPORTED_PLAYER_COUNT + 1, 1, _base_defs, _building_defs)

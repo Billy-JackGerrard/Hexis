@@ -153,19 +153,23 @@ ProductionQueue {
   in-progress one — is deleted with it. Resources already spent on those entries are
   not refunded, consistent with troops/production never carrying over on capture (see
   Garrisoned Troops and the Base & Ownership section below).
-- **Resolved: production pauses (doesn't silently drop the troop) at the squad/
-  Commander cap.** When `entries[0]` finishes, before spawning the troop the
-  simulation checks whether it would need a **brand-new squad** (no existing same-type
-  squad in range has room) — if an existing squad has room, the troop joins it and
-  production continues regardless of cap. If a new squad *would* be needed and the
-  owner is already at their global squad cap (`4c` below), or — for a Command Centre
-  specifically — at their Commander cap (`4d` below), the queue **pauses**:
-  `entries[0]` holds in a completed-but-undeployed state, the queue doesn't advance to
-  the next entry, and the build UI shows an alert indicator on that building
-  (see `09-ui-and-controls.md`). The queue automatically resumes and the held troop
-  spawns the moment the relevant cap has room again (a squad frees a slot, an HQ
-  upgrade raises the cap, a Commander dies freeing a Commander-cap slot, etc.) — no
-  player action is required to un-pause it beyond freeing capacity.
+- **Resolved: training is blocked up front at the squad/Commander cap; a queue that's
+  already past it pauses instead of dropping the troop.** Enqueueing checks whether the
+  troop would need a **brand-new squad** (no existing same-type squad in range has
+  room) — if an existing squad has room, training is allowed regardless of cap, since
+  the troop will just join it. If a new squad *would* be needed and the owner is
+  already at their global squad cap (`4c` below), or — for a Command Centre
+  specifically — at their Commander cap (`4d` below), enqueue is rejected outright (no
+  resources spent) rather than sitting in the queue. The same join-vs-new-squad check
+  runs again when `entries[0]` actually finishes, since capacity can still tighten
+  between enqueue and completion (another entry deploying, a base lost dropping the
+  cap); if it's over cap at that point the queue **pauses**: `entries[0]` holds in a
+  completed-but-undeployed state, the queue doesn't advance to the next entry, and the
+  build UI shows an alert indicator on that building (see `09-ui-and-controls.md`). The
+  queue automatically resumes and the held troop spawns the moment the relevant cap has
+  room again (a squad frees a slot, an HQ upgrade raises the cap, a Commander dies
+  freeing a Commander-cap slot, etc.) — no player action is required to un-pause it
+  beyond freeing capacity.
 
 ## 4. Troop Runtime State
 **Resolved: the game is fully hex-based, including movement — there is no continuous

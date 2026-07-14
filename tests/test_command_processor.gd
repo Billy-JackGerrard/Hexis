@@ -53,6 +53,8 @@ func _init() -> void:
 	_test_upgrade_hq()
 	print("enqueue_production")
 	_test_enqueue_production()
+	print("enqueue_production (squad/Commander cap gate)")
+	_test_enqueue_production_cap_gate()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -354,7 +356,7 @@ func _test_place_standalone() -> void:
 	_check(wrong_owner == BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE, "issuing as a different owner than the squad's own is rejected")
 
 	# The Engineer is still at (2,0) -- a target hex further than
-	# STANDALONE_BUILD_RANGE away is rejected even though everything else
+	# Tuning.STANDALONE_BUILD_RANGE away is rejected even though everything else
 	# about the order (ownership, eligibility, cost) is valid.
 	var far_hex := HexCoord.new(2, 5)
 	var too_far := CommandProcessor.place_standalone_building(state, engineer_squad.id, "tower", far_hex, "stone", "p1")
@@ -381,7 +383,7 @@ func _test_demolish() -> void:
 	state.bases.append(base)
 	CommandProcessor.place_building(state, base.id, "house", HexCoord.new(-1, 0), "", "p1")
 	var house: BuildingInstance = base.buildings[base.buildings.size() - 1]
-	var expected_refund: float = float(house.total_resources_spent.get(ResourceType.Type.STONE, 0.0)) * 0.5
+	var expected_refund: float = float(house.total_resources_spent.get(ResourceType.Type.STONE, 0.0)) * Tuning.DEMOLISH_REFUND_FRACTION
 	var stone_before := state.pool_for("p1").get_amount(ResourceType.Type.STONE)
 
 	_check(CommandProcessor.demolish_building(state, house.id, "p2") == CommandProcessor.Result.NOT_OWNER, "demolishing someone else's building is rejected")
@@ -434,7 +436,7 @@ func _test_upgrade() -> void:
 	var farm := base.buildings_of_type("farm")[0]
 
 	_check(CommandProcessor.upgrade_building(state, farm.id, "p2") == CommandProcessor.Result.NOT_OWNER, "upgrading someone else's building is rejected")
-	_check(CommandProcessor.upgrade_building(state, farm.id, "p1") == CommandProcessor.Result.INVALID, "upgrading past the HQ's own level (still 1) is rejected")
+	_check(CommandProcessor.upgrade_building(state, farm.id, "p1") == CommandProcessor.Result.HQ_LEVEL_TOO_LOW, "upgrading past the HQ's own level (still 1) is rejected")
 	_check(farm.level == 1, "the rejected upgrade left the farm's level untouched")
 
 	# Raise the HQ ceiling by hand (isolating this test from HQ's own upgrade
@@ -484,7 +486,7 @@ func _test_upgrade_max_level() -> void:
 	for i in range(4):
 		_check(CommandProcessor.upgrade_building(state, barracks.id, "p1") == CommandProcessor.Result.OK, "upgrading Barracks up through its productionUpgradeLevels table succeeds")
 	_check(barracks.level == barracks_max_level, "Barracks reached its max level (%d, the length of its productionUpgradeLevels table)" % barracks_max_level)
-	_check(CommandProcessor.upgrade_building(state, barracks.id, "p1") == CommandProcessor.Result.INVALID, "upgrading past a Production building's derived max level is rejected")
+	_check(CommandProcessor.upgrade_building(state, barracks.id, "p1") == CommandProcessor.Result.MAX_LEVEL, "upgrading past a Production building's derived max level is rejected")
 
 func _test_upgrade_hq() -> void:
 	var state := _new_state(_flat_grid(5))
@@ -504,14 +506,13 @@ func _test_upgrade_hq() -> void:
 	_check(base.hq_level == 2, "hq_level advanced to 2")
 
 	# Level 3 requires populationUsed >= 6 (3 * (3-1)) -- still short at 3.
-	_check(CommandProcessor.upgrade_building(state, hq.id, "p1") == CommandProcessor.Result.INVALID, "upgrading HQ without enough populationUsed is rejected")
+	_check(CommandProcessor.upgrade_building(state, hq.id, "p1") == CommandProcessor.Result.NEED_MORE_POPULATION, "upgrading HQ without enough populationUsed is rejected")
 	_check(base.hq_level == 2, "the rejected HQ upgrade left hq_level untouched")
 
-	# Level 2's populationCap is only 4 (hq_level*2), already used up by the
-	# seeded Farm/Quarry/Command Centre plus one more building -- a House
-	# (populationCost 0, always placeable, grants +4 capacity) clears room,
-	# then three more Farms at hexes each already doubly-adjacent to two of
-	# the four seeded buildings raise populationUsed to 6.
+	# A House (populationCost 0, always placeable, grants its own
+	# populationCapacity) plus three more Farms at hexes each already
+	# doubly-adjacent to two of the four seeded buildings raise populationUsed
+	# from 3 to 6, meeting the level-3 gate.
 	CommandProcessor.place_building(state, base.id, "house", HexCoord.new(2, -1), "", "p1")
 	CommandProcessor.place_building(state, base.id, "farm", HexCoord.new(-1, 0), "", "p1")
 	CommandProcessor.place_building(state, base.id, "farm", HexCoord.new(0, 1), "", "p1")
@@ -522,10 +523,15 @@ func _test_upgrade_hq() -> void:
 	_check(result == CommandProcessor.Result.OK, "upgrading HQ once populationUsed meets the gate succeeds")
 	_check(hq.level == 3, "the HQ BuildingInstance's own level incremented")
 	_check(base.hq_level == 3, "BaseInstance.hq_level stays in lockstep with the HQ building's level")
-	# hq_level*2 plus the House's own populationCapacity contribution (house.json).
+	# HQ's own populationCapacity at its level (hq.json baseStats + flat
+	# statGrowth) plus the House's own populationCapacity contribution.
+	var hq_upgrade: Dictionary = _building_defs["hq"]["nonProductionUpgrade"]
+	var hq_base_capacity: float = float(hq_upgrade["baseStats"]["populationCapacity"])
+	var hq_capacity_growth: float = float(hq_upgrade["statGrowth"]["populationCapacity"]["value"])
+	var hq_capacity: int = int(round(hq_base_capacity + hq_capacity_growth * (base.hq_level - 1)))
 	var house_capacity: int = int(_building_defs["house"].get("nonProductionUpgrade", {}).get("baseStats", {}).get("populationCapacity", 0.0))
-	var expected_population_cap: int = base.hq_level * 2 + house_capacity
-	_check(Population.population_cap(base, _building_defs) == expected_population_cap, "population_cap grew from the HQ upgrade to %d (hq_level*2 + House's %d capacity) -- it reads BaseInstance.hq_level, not the HQ BuildingInstance's own level" % [expected_population_cap, house_capacity])
+	var expected_population_cap: int = hq_capacity + house_capacity
+	_check(Population.population_cap(base, _building_defs) == expected_population_cap, "population_cap grew from the HQ upgrade to %d (HQ's own level-%d capacity %d + House's %d capacity) -- it reads BaseInstance.hq_level, not the HQ BuildingInstance's own level" % [expected_population_cap, base.hq_level, hq_capacity, house_capacity])
 
 func _test_enqueue_production() -> void:
 	var state := _new_state(_flat_grid(5))
@@ -581,3 +587,48 @@ func _test_enqueue_production() -> void:
 
 	cc.level = 3
 	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_warden", "p1") == CommandProcessor.Result.OK, "a level-3 Command Centre can train an epic-tier Commander")
+
+## Squad/Commander cap must reject enqueue outright (no resources spent) when
+## a brand-new squad would be needed and the owner's already at capacity --
+## unless an existing same-type squad in range still has room, in which case
+## training is allowed regardless of cap since the troop will just join it.
+func _test_enqueue_production_cap_gate() -> void:
+	var state := _new_state(_flat_grid(5))
+	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
+	state.bases.append(base)
+	var barracks := BuildingInstance.new("barracks1", base.id, "barracks", 1, "", HexCoord.new(1, -1))
+	barracks.init_hp(_building_defs["barracks"], _building_defs)
+	base.buildings.append(barracks)
+	state.pool_for("p1").set_amount(ResourceType.Type.FOOD, 1000.0)
+
+	var max_squads := SquadCap.max_squads(state.bases_owned_by("p1"))
+	for i in range(max_squads):
+		# A different troop_type than the one we're about to train, so none of
+		# these can ever be a joinable squad -- only their count against the cap matters.
+		state.squads.append(SquadInstance.new("filler%d" % i, "p1", "grenadier", barracks.hex))
+
+	var capped := CommandProcessor.enqueue_production(state, barracks.id, "rifleman", "p1")
+	_check(capped == CommandProcessor.Result.SQUAD_CAP_REACHED, "queuing a troop that needs a brand-new squad is rejected once the owner is at the global squad cap")
+	_check(not state.production_queues.has(barracks.id), "the cap-rejected order enqueued nothing and spent no resources")
+
+	# An existing same-type squad in range with room means no new squad is
+	# needed -- training is allowed even though the owner is still at cap.
+	state.squads.append(SquadInstance.new("joinable", "p1", "rifleman", barracks.hex))
+	var joined := CommandProcessor.enqueue_production(state, barracks.id, "rifleman", "p1")
+	_check(joined == CommandProcessor.Result.OK, "queuing a troop that could join an existing squad succeeds even at the squad cap")
+
+	# Command Centre / Commander cap: same gate, driven by commander_count()
+	# instead of live squad count.
+	var cc := BuildingInstance.new("cc1", base.id, "command_centre", 1, "", HexCoord.new(0, 1))
+	cc.init_hp(_building_defs["command_centre"], _building_defs)
+	base.buildings.append(cc)
+	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 1000.0)
+	state.pool_for("p1").set_amount(ResourceType.Type.FUEL, 1000.0)
+
+	var max_commanders := SquadCap.max_commanders(state.bases_owned_by("p1"), _building_defs)
+	for i in range(max_commanders):
+		state.troops_by_id["cmdr%d" % i] = TroopInstance.new("cmdr%d" % i, "commander_vanguard", "p1", "irrelevant", 1.0)
+
+	var commander_capped := CommandProcessor.enqueue_production(state, cc.id, "commander_vanguard", "p1")
+	_check(commander_capped == CommandProcessor.Result.COMMANDER_CAP_REACHED, "queuing a Commander is rejected once the owner is at the Commander cap")
+	_check(not state.production_queues.has(cc.id), "the Commander-cap-rejected order enqueued nothing")

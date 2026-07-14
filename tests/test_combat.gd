@@ -350,7 +350,7 @@ func _test_stealth_and_detection() -> void:
 
 	# After attacking, the ambusher's reveal_cooldown_remaining is set and it's
 	# no longer hidden; once elapsed, it re-hides.
-	ambusher.reveal_cooldown_remaining = DetectionSystem.REVEAL_COOLDOWN_SECONDS
+	ambusher.reveal_cooldown_remaining = Tuning.STEALTH_REVEAL_COOLDOWN_SECONDS
 	var revealed_target := CombatTarget.for_squad(ambusher, rifleman, troops, forest_grid)
 	_check(not revealed_target.is_hidden, "an ambusher mid reveal-cooldown (just attacked) is not hidden")
 	ambusher.reveal_cooldown_remaining = 0.0
@@ -529,12 +529,12 @@ func _test_combat_resolver() -> void:
 	regen_building.time_since_damage = 0.0
 	var no_squads: Array[SquadInstance] = []
 	var no_troops: Dictionary = {}
-	_resolve_combat(BuildingRegenSystem.OUT_OF_COMBAT_DELAY_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
+	_resolve_combat(Tuning.BUILDING_REGEN_OUT_OF_COMBAT_DELAY_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
 	_check(regen_building.current_hp == regen_building.max_hp - 100.0, "no regen before the out-of-combat delay elapses")
 	_resolve_combat(1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
 	_check(regen_building.current_hp == regen_building.max_hp - 100.0, "crossing the delay banks no regen tick yet on its own")
-	_resolve_combat(BuildingRegenSystem.REGEN_TICK_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
-	_check(_approx(regen_building.current_hp, regen_building.max_hp - 100.0 + regen_building.max_hp * BuildingRegenSystem.REGEN_FRACTION_OF_MAX_HP), "once a full 5-second regen tick banks past the delay, it heals 5% of max HP")
+	_resolve_combat(Tuning.BUILDING_REGEN_TICK_SECONDS - 1.0, no_squads, [regen_base], no_troops, grid, _troop_defs, _building_defs)
+	_check(_approx(regen_building.current_hp, regen_building.max_hp - 100.0 + regen_building.max_hp * Tuning.BUILDING_REGEN_FRACTION_OF_MAX_HP), "once a full 5-second regen tick banks past the delay, it heals 5% of max HP")
 
 	# A standalone building (Tower — Engineer-built, owner_id set directly
 	# rather than derived from a BaseInstance) is targetable by CombatResolver
@@ -753,7 +753,7 @@ func _test_line_attack() -> void:
 	# cycle each (1.4 total, comfortably over 1.0 even with float slop)
 	# rather than one dt == 1.0/attackSpeed call: with attackSpeed 0.2 that
 	# single dt (5.0) exactly equals BuildingRegenSystem.
-	# OUT_OF_COMBAT_DELAY_SECONDS, and _damage_target already reset the hit
+	# Tuning.BUILDING_REGEN_OUT_OF_COMBAT_DELAY_SECONDS, and _damage_target already reset the hit
 	# building's time_since_damage to 0 earlier in that same tick — so a
 	# single big dt would coincidentally bank a full out-of-combat regen tick
 	# in the very call that lands the hit, muddying the damage assertions

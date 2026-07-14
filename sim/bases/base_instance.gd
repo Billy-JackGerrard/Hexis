@@ -12,6 +12,7 @@ var owner_id: String
 var hq_level: int
 var hex_coord: HexCoord
 var buildings: Array[BuildingInstance] = []
+var display_name: String = "" ## player-chosen name (e.g. capital named at start screen); empty means "use base_def_id.capitalize()" — see BaseView._draw_base_title
 
 func _init(p_id: String, p_base_def_id: String, p_owner_id: String, p_hq_level: int = 1, p_hex_coord: HexCoord = null) -> void:
 	id = p_id
@@ -45,6 +46,7 @@ func to_dict() -> Dictionary:
 		"hq_level": hq_level,
 		"hex_coord": hex_coord.to_key() if hex_coord != null else "",
 		"buildings": buildings.map(func(b): return b.to_dict()),
+		"display_name": display_name,
 	}
 
 static func from_dict(d: Dictionary) -> BaseInstance:
@@ -54,4 +56,5 @@ static func from_dict(d: Dictionary) -> BaseInstance:
 	for building_dict in d["buildings"]:
 		buildings.append(BuildingInstance.from_dict(building_dict))
 	base.buildings = buildings
+	base.display_name = String(d.get("display_name", ""))
 	return base

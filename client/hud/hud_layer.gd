@@ -5,42 +5,42 @@
 ## children consume mouse input before it reaches InputController's
 ## _unhandled_input (default mouse_filter = STOP), so clicking a HUD panel
 ## never also triggers a world click-to-move.
+##
+## The always-on chrome — resource_bar (top), alerts_panel (bottom-left toasts),
+## minimap (bottom-right) — plus the one selection-driven building_panel (right)
+## that replaced the old base_panel/build_menu/building_info_panel/
+## production_panel quartet. Every panel shares one UITheme.create_theme(): a
+## CanvasLayer isn't a Control so its theme doesn't cascade, so it's assigned
+## per top-level panel (each panel's own children inherit from there).
 class_name HUDLayer
 extends CanvasLayer
 
+var theme: Theme
+
 var resource_bar: ResourceBar
-var base_panel: BasePanel
-var build_menu: BuildMenu
-var building_info_panel: BuildingInfoPanel
-var production_panel: ProductionPanel
+var building_panel: BuildingPanel
 var alerts_panel: AlertsPanel
 var minimap: Minimap
 
 func setup(state: MatchState, owner_id: String, input_controller: InputController, camera_controller: CameraController, owner_colors: Dictionary, hexes: Array[HexCoord], bounds_min: Vector2, bounds_max: Vector2) -> void:
+	theme = UITheme.create_theme()
+
 	resource_bar = ResourceBar.new()
+	resource_bar.theme = theme
 	add_child(resource_bar)
 	resource_bar.setup(state, owner_id)
 
-	base_panel = BasePanel.new()
-	add_child(base_panel)
-	base_panel.setup(state, owner_id, input_controller)
-
-	build_menu = BuildMenu.new()
-	add_child(build_menu)
-	build_menu.setup(state, owner_id, input_controller)
-
-	building_info_panel = BuildingInfoPanel.new()
-	add_child(building_info_panel)
-	building_info_panel.setup(state, owner_id, input_controller)
-
-	production_panel = ProductionPanel.new()
-	add_child(production_panel)
-	production_panel.setup(state, owner_id, input_controller)
+	building_panel = BuildingPanel.new()
+	building_panel.theme = theme
+	add_child(building_panel)
+	building_panel.setup(state, owner_id, input_controller)
 
 	alerts_panel = AlertsPanel.new()
+	alerts_panel.theme = theme
 	add_child(alerts_panel)
 	alerts_panel.setup(state, owner_id, camera_controller)
 
 	minimap = Minimap.new()
+	minimap.theme = theme
 	add_child(minimap)
 	minimap.setup(state, owner_colors, camera_controller, hexes, bounds_min, bounds_max, owner_id)

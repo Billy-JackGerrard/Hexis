@@ -8,21 +8,17 @@
 class_name SimClock
 extends RefCounted
 
-const SIM_TICK_SECONDS: float = 0.1
-
-## Caps fixed steps taken per advance() call so a huge real-time delta (e.g.
-## after a debugger pause or the window losing focus) can't spiral into an
-## ever-growing catch-up loop — banked time beyond this is simply dropped.
-const MAX_STEPS_PER_ADVANCE: int = 10
+## Tick step and catch-up cap live in sim/tuning.gd as
+## Tuning.SIM_TICK_SECONDS/MAX_STEPS_PER_ADVANCE.
 
 var _accumulator: float = 0.0
 
 ## Feeds real elapsed `delta` in, running SimOrchestrator.resolve_tick a whole
-## number of times at the fixed SIM_TICK_SECONDS step.
+## number of times at the fixed Tuning.SIM_TICK_SECONDS step.
 func advance(state: MatchState, delta: float) -> void:
 	_accumulator += delta
 	var steps := 0
-	while _accumulator >= SIM_TICK_SECONDS and steps < MAX_STEPS_PER_ADVANCE:
-		SimOrchestrator.resolve_tick(state, SIM_TICK_SECONDS)
-		_accumulator -= SIM_TICK_SECONDS
+	while _accumulator >= Tuning.SIM_TICK_SECONDS and steps < Tuning.MAX_STEPS_PER_ADVANCE:
+		SimOrchestrator.resolve_tick(state, Tuning.SIM_TICK_SECONDS)
+		_accumulator -= Tuning.SIM_TICK_SECONDS
 		steps += 1

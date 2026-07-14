@@ -16,23 +16,24 @@ static func _grown_stat(base_value: float, growth: Dictionary, level: int) -> fl
 		return base_value + value * (level - 1)
 	return base_value * pow(1.0 + value / 100.0, level - 1)
 
-## House's populationCapacity output at a given level, per house.json's
-## nonProductionUpgrade.baseStats/statGrowth.
-static func _house_capacity(house_def: Dictionary, level: int) -> int:
-	var upgrade: Dictionary = house_def.get("nonProductionUpgrade", {})
+## Building's populationCapacity output at a given level, per its def's
+## nonProductionUpgrade.baseStats/statGrowth (used for both HQ and House).
+static func _population_capacity(building_def: Dictionary, level: int) -> int:
+	var upgrade: Dictionary = building_def.get("nonProductionUpgrade", {})
 	var base_stats: Dictionary = upgrade.get("baseStats", {})
 	var stat_growth: Dictionary = upgrade.get("statGrowth", {})
 	var base_capacity: float = float(base_stats.get("populationCapacity", 0.0))
 	var growth: Dictionary = stat_growth.get("populationCapacity", {})
 	return int(round(_grown_stat(base_capacity, growth, level)))
 
-## populationCap = HQ's level-based contribution (+2/level, per hq.json) plus
-## every House's populationCapacity output at its own level.
+## populationCap = HQ's populationCapacity output at its own level (per
+## hq.json) plus every House's populationCapacity output at its own level.
 static func population_cap(base: BaseInstance, building_defs: Dictionary) -> int:
-	var cap := base.hq_level * 2
+	var hq_def: Dictionary = building_defs.get("hq", {})
+	var cap := _population_capacity(hq_def, base.hq_level)
 	var house_def: Dictionary = building_defs.get("house", {})
 	for house in base.buildings_of_type("house"):
-		cap += _house_capacity(house_def, house.level)
+		cap += _population_capacity(house_def, house.level)
 	return cap
 
 ## populationUsed = count of placed buildings whose def populationCost (default

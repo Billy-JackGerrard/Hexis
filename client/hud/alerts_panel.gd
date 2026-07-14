@@ -25,17 +25,17 @@ var state: MatchState
 var owner_id: String
 var camera_controller: CameraController
 
+var _panel: PanelContainer
 var _list: VBoxContainer
 var _poll_accumulator: float = 0.0
 var _shown_keys: Array = []
 
-const WIDTH := 240.0
+const WIDTH := 260.0
 const MARGIN := 12.0
 const ALERT_POLL_SECONDS := 0.5
-const BG_COLOR := Color(0.05, 0.05, 0.08, 0.85)
-const UNDER_ATTACK_COLOR := Color(1.0, 0.3, 0.3)
-const PAUSED_COLOR := Color(1.0, 0.65, 0.15)
-const DEFICIT_COLOR := Color(1.0, 0.85, 0.2)
+const UNDER_ATTACK_COLOR := UITheme.DANGER
+const PAUSED_COLOR := UITheme.WARNING
+const DEFICIT_COLOR := UITheme.WARNING
 
 func setup(p_state: MatchState, p_owner_id: String, p_camera_controller: CameraController) -> void:
 	state = p_state
@@ -53,9 +53,14 @@ func setup(p_state: MatchState, p_owner_id: String, p_camera_controller: CameraC
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
 
+	_panel = UITheme.panel()
+	_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_panel)
+
 	_list = VBoxContainer.new()
-	_list.position = Vector2(4.0, 4.0)
-	add_child(_list)
+	_list.add_theme_constant_override("separation", 4)
+	_panel.add_child(_list)
 
 func _process(delta: float) -> void:
 	_poll_accumulator += delta
@@ -106,11 +111,5 @@ func _refresh() -> void:
 	visible = not alerts.is_empty()
 	# Grows upward from the fixed bottom margin — row count varies with the
 	# alert count, same "recompute the anchored-corner extent on rebuild"
-	# approach build_menu.gd/production_panel.gd use for their own dynamic
-	# button lists.
-	offset_top = -MARGIN - alerts.size() * 32.0 - 8.0
-	queue_redraw()
-
-func _draw() -> void:
-	if visible:
-		draw_rect(Rect2(Vector2.ZERO, size), BG_COLOR, true)
+	# approach the old dynamic button-list panels used.
+	offset_top = -MARGIN - alerts.size() * 40.0 - 16.0
