@@ -25,6 +25,10 @@ var owner_id: String
 const HEIGHT := 72.0
 const BREAKDOWN_WIDTH := 340.0
 const BREAKDOWN_REFRESH_INTERVAL := 0.25
+## UITheme.create_theme()'s PanelContainer stylebox uses a flat 16px content
+## margin on every side — doubled here since we size the panel from its
+## content's height, top + bottom.
+const BREAKDOWN_PANEL_VERTICAL_PADDING := 32.0
 
 ## Display order + labels per 09-ui-and-controls.md's Resource HUD line.
 const DISPLAY_ORDER: Array[Array] = [
@@ -140,8 +144,11 @@ func _process(delta: float) -> void:
 ## label, then a muted line grouping its producing buildings by type+level).
 ## Rebuilt wholesale on every refresh tick rather than diffed in place — the
 ## same "just rebuild it, it's cheap" call building_panel's queue status makes
-## — then the panel's size is recomputed from its new minimum size since it
-## isn't stretched to fit by a parent Container.
+## — then the panel's height is recomputed from _breakdown_content's minimum
+## size (not _breakdown_panel's own — PanelContainer.get_combined_minimum_size()
+## reads a size cache that never gets invalidated while the panel is/was
+## hidden, so it sticks at (0, 0) even after content is added and the panel is
+## shown again; the inner VBoxContainer's own cache doesn't have this problem).
 func _refresh_breakdown() -> void:
 	var owned_bases := state.bases_owned_by(owner_id)
 	var totals: Dictionary = ProductionOutputSystem.compute_production(owned_bases, state.base_defs, state.building_defs).get(owner_id, {})
@@ -164,7 +171,8 @@ func _refresh_breakdown() -> void:
 		buildings_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_breakdown_content.add_child(buildings_label)
 
-	_breakdown_panel.size = _breakdown_panel.get_combined_minimum_size()
+	var content_height := _breakdown_content.get_combined_minimum_size().y
+	_breakdown_panel.size = Vector2(BREAKDOWN_WIDTH, content_height + BREAKDOWN_PANEL_VERTICAL_PADDING)
 
 ## "2x Level 1 Mine, 3x Level 2 Mine" (levels ascending), or "No producing
 ## buildings" once none of the owner's buildings output this resource.

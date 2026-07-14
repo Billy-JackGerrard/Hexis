@@ -397,10 +397,12 @@ Player {
   maxSquads               // derived, see 4c — not stored, computed from owned bases' hqLevels
 }
 ```
-- When a base is captured, only `BaseInstance.ownerId` changes — every
-  `BuildingInstance` underneath it (including its current HP/ruin state) carries over
-  unchanged. This matches the earlier rule that capturing a base means inheriting
-  everything already built there.
+- When a base is captured, `BaseInstance.ownerId` flips to the capturer and every
+  other `BuildingInstance` underneath it (non-HQ, non-Wall) is immediately ruined
+  (`currentHP` forced to 0, `ruinState` set) — same treatment as combat-destroyed.
+  The HQ itself never ruins (see capture rule above) and Walls never ruin (they
+  delete outright on 0 HP regardless of cause). The new owner inherits the base's
+  hexes/adjacency slots, not a working economy, and has to rebuild.
 - Buildings don't carry their own `ownerId` — ownership is derived from the
   `BaseInstance` they belong to (`baseId`). This does **not** extend to standalone
   buildings (Road/Bridge/Dock/Tower/Landmine — see section 3) or to troops/squads (see below),

@@ -61,6 +61,17 @@ var selected_production_building_id: String = ""
 ## highlight every currently-valid hex.
 var pending_building_type: String = ""
 var pending_base_id: String = ""
+## Material chosen for a multi-material building (e.g. Wall) before entering
+## placement mode — "" for buildings with a single fixed cost, where
+## BuildingStats/BuildingPlacement default resolution applies.
+var pending_material: String = ""
+## Set instead of pending_base_id when the pending placement is an Engineer-built
+## standalone building (Road/Bridge/Dock/Tower/Landmine) rather than a base
+## building — carries the Engineer squad id whose canBuildInfrastructure/range
+## the placement is validated against. Mutually exclusive with pending_base_id;
+## a click while it's set commits CommandProcessor.place_standalone_building at
+## the clicked hex instead of place_building. See start_standalone_placement.
+var pending_engineer_squad_id: String = ""
 
 var _drag_active := false
 var _drag_start := Vector2.ZERO
@@ -129,6 +140,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		pending_building_type = ""
 		pending_base_id = ""
+		pending_material = ""
+		pending_engineer_squad_id = ""
 		_clear_building_selection()
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -151,15 +164,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE and pending_building_type != "":
 			pending_building_type = ""
 			pending_base_id = ""
+			pending_material = ""
+			pending_engineer_squad_id = ""
 			return
 		_handle_control_group_key(event)
 
 ## Called by client/hud/build_menu.gd when the player picks a building from
 ## the selected base's build menu — enters placement mode instead of
 ## building immediately, so the player can see/pick a valid hex first.
-func start_placement(base_id: String, building_type: String) -> void:
+func start_placement(base_id: String, building_type: String, material: String = "") -> void:
 	pending_base_id = base_id
 	pending_building_type = building_type
+	pending_material = material
+	pending_engineer_squad_id = ""
+
+## Engineer counterpart to start_placement, called by client/hud/squad_panel.gd
+## when the player picks a standalone building (Road/Bridge/Dock/Tower/Landmine)
+## from a selected Engineer's build menu — enters placement mode against that
+## squad instead of a base, so the click commits place_standalone_building.
+func start_standalone_placement(squad_id: String, building_type: String, material: String = "") -> void:
+	pending_engineer_squad_id = squad_id
+	pending_base_id = ""
+	pending_building_type = building_type
+	pending_material = material
 
 func _on_left_release(event: InputEventMouseButton) -> void:
 	_drag_active = false
@@ -172,20 +199,36 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	# hex_b doc comment), so it resolves the clicked edge instead of a hex.
 	if pending_building_type == "wall":
 		var edge := _edge_at_pixel(release_pos)
-		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_wall", [pending_base_id, edge[0], edge[1], "", owner_id], owner_id) if not edge.is_empty() else BuildingPlacement.Result.OUT_OF_HEX_BOUNDS
+		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_wall", [pending_base_id, edge[0], edge[1], pending_material, owner_id], owner_id) if not edge.is_empty() else BuildingPlacement.Result.OUT_OF_HEX_BOUNDS
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
 			pending_base_id = ""
+			pending_material = ""
 			_clear_building_selection()
+		else:
+			_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
+		return
+	# Engineer standalone placement (Road/Bridge/Dock/Tower/Landmine): resolves
+	# against the pending Engineer squad + place_standalone_building rather than a
+	# base + place_building, but otherwise commits/pings exactly like the base
+	# case below.
+	if pending_engineer_squad_id != "":
+		var hex := HexView.pixel_to_axial(release_pos)
+		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_standalone_building", [pending_engineer_squad_id, pending_building_type, hex, pending_material, owner_id], owner_id)
+		if result == BuildingPlacement.Result.OK:
+			pending_building_type = ""
+			pending_engineer_squad_id = ""
+			pending_material = ""
 		else:
 			_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
 		return
 	if pending_building_type != "":
 		var hex := HexView.pixel_to_axial(release_pos)
-		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_building", [pending_base_id, pending_building_type, hex, "", owner_id], owner_id)
+		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_building", [pending_base_id, pending_building_type, hex, pending_material, owner_id], owner_id)
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
 			pending_base_id = ""
+			pending_material = ""
 			_clear_building_selection()
 		else:
 			_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})

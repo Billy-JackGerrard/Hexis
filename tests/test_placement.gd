@@ -24,6 +24,8 @@ func _init() -> void:
 	_test_population()
 	print("BaseFactory seeding")
 	_test_seeding()
+	print("BaseFactory seeding avoids wrong-terrain overflow")
+	_test_seeding_avoids_wrong_terrain_overflow()
 	print("GarrisonFactory seeding")
 	_test_garrison_seeding()
 	print("BuildingPlacement eligibility/fixed/standalone")
@@ -110,6 +112,34 @@ func _test_seeding() -> void:
 	_check(HexCoord.distance(hq.hex, command_centre.hex) == 1, "Command Centre seeded adjacent to HQ")
 	for b in seeded.buildings:
 		_check(grid.get_terrain(b.hex) == Terrain.Type.PLAINS, "%s seeded on Plains" % b.building_type)
+
+## A Unique base with more than 6 non-Wall initialBuildings (Tinder Box has 7:
+## Farm/Quarry/Turret/Missile Launcher/2x Flame Turret/Blazeworks) can't fit
+## them all in HQ's ring 1 (only 6 hexes) -- the overflow spills into ring 2,
+## which base_site_selector.gd's flower check never guarantees is Plains.
+## Regression test for a real playtesting bug: with ring 2 all River except
+## one Plains hex, the overflow building used to land wherever _pick_seed_hex
+## found first regardless of terrain (i.e. straight on the River); it must
+## now find the one Plains hex instead.
+func _test_seeding_avoids_wrong_terrain_overflow() -> void:
+	var hq_hex := HexCoord.new(0, 0)
+	var grid := HexGrid.new()
+	grid.set_terrain(hq_hex, Terrain.Type.PLAINS)
+	for h in HexCoord.ring(hq_hex, 1):
+		grid.set_terrain(h, Terrain.Type.PLAINS)
+	var ring2 := HexCoord.ring(hq_hex, 2)
+	var safe_overflow_hex: HexCoord = ring2[0]
+	for i in range(ring2.size()):
+		grid.set_terrain(ring2[i], Terrain.Type.PLAINS if i == 0 else Terrain.Type.RIVER)
+
+	var seeded := BaseFactory.seed_base("tb1", _base_defs["tinder_box"], "p1", hq_hex, grid, _building_defs)
+
+	for b in seeded.buildings:
+		if b.building_type == "wall":
+			continue
+		_check(grid.get_terrain(b.hex) == Terrain.Type.PLAINS, "%s seeded on Plains, not spilled onto the River" % b.building_type)
+	var overflow_building := seeded.buildings.filter(func(b): return b.hex != null and b.hex.equals(safe_overflow_hex))
+	_check(overflow_building.size() == 1, "the ring-2 overflow building specifically lands on the one Plains hex available")
 
 func _test_garrison_seeding() -> void:
 	var hq_hex := HexCoord.new(0, 0)

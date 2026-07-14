@@ -19,6 +19,7 @@ var theme: Theme
 
 var resource_bar: ResourceBar
 var building_panel: BuildingPanel
+var squad_panel: SquadPanel
 var alerts_panel: AlertsPanel
 var minimap: Minimap
 
@@ -34,6 +35,11 @@ func setup(state: MatchState, owner_id: String, input_controller: InputControlle
 	building_panel.theme = theme
 	add_child(building_panel)
 	building_panel.setup(state, owner_id, input_controller)
+
+	squad_panel = SquadPanel.new()
+	squad_panel.theme = theme
+	add_child(squad_panel)
+	squad_panel.setup(state, owner_id, input_controller, input_controller.squad_view)
 
 	alerts_panel = AlertsPanel.new()
 	alerts_panel.theme = theme

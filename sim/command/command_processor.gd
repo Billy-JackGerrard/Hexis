@@ -237,7 +237,12 @@ static func leave_regiment(state: MatchState, squad_id: String, owner_id: String
 ## regiment-disband handling CombatResolver does for Commander deaths
 ## (_disband_regiments_for_dead_commanders), not the simpler single-squad
 ## removal below.
-static func merge_squads(state: MatchState, target_squad_id: String, donor_squad_id: String, owner_id: String) -> Result:
+## Pure (non-mutating) predicate behind merge_squads — same extraction rationale
+## as can_upgrade_building/can_enqueue_production: lets the UI
+## (client/ui/eligibility.gd) grey out an ineligible Merge button and name the
+## reason without draining the donor. merge_squads calls this first and only
+## proceeds on OK, so the two can never diverge.
+static func can_merge_squads(state: MatchState, target_squad_id: String, donor_squad_id: String, owner_id: String) -> Result:
 	var target := state.find_squad(target_squad_id)
 	var donor := state.find_squad(donor_squad_id)
 	if target == null or donor == null:
@@ -260,6 +265,16 @@ static func merge_squads(state: MatchState, target_squad_id: String, donor_squad
 	var max_squad_size := int(state.troop_defs.get(target.troop_type, {}).get("maxSquadSize", 1))
 	if target.is_full(max_squad_size):
 		return Result.SQUAD_FULL
+	return Result.OK
+
+static func merge_squads(state: MatchState, target_squad_id: String, donor_squad_id: String, owner_id: String) -> Result:
+	var check := can_merge_squads(state, target_squad_id, donor_squad_id, owner_id)
+	if check != Result.OK:
+		return check
+
+	var target := state.find_squad(target_squad_id)
+	var donor := state.find_squad(donor_squad_id)
+	var max_squad_size := int(state.troop_defs.get(target.troop_type, {}).get("maxSquadSize", 1))
 
 	while not donor.member_ids.is_empty() and not target.is_full(max_squad_size):
 		var troop_id: String = donor.member_ids[0]
@@ -542,6 +557,26 @@ static func _troop_unlocked(state: MatchState, building: BuildingInstance, build
 		return false
 
 	return true
+
+## Building level at which `troop_type` first unlocks at a building built from
+## `building_def` -- the sort key the UI uses to list troops in unlock order.
+## 0 for a troop that's unlocked from level 1 (or ungated entirely).
+static func _troop_unlock_level(state: MatchState, building_def: Dictionary, troop_type: String) -> int:
+	var resolved := BuildingStats.resolve_def(building_def, state.building_defs)
+
+	var commander_progression: Dictionary = resolved.get("commanderProgression", {})
+	if not commander_progression.is_empty():
+		var tier := String(state.troop_defs.get(troop_type, {}).get("commanderTier", ""))
+		for row in commander_progression.get("tierLevels", []):
+			if String(row.get("unlocksTier", "")) == tier:
+				return int(row.get("level", 0))
+		return 0
+
+	for row in resolved.get("productionUpgradeLevels", []):
+		if String(row.get("unlocks", "")) == troop_type:
+			return int(row.get("level", 0))
+
+	return 0
 
 ## Pure (non-mutating) predicate behind enqueue_production — same extraction
 ## rationale as can_upgrade_building: lets the UI grey out an unaffordable/

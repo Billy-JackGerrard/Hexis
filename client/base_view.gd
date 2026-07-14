@@ -39,12 +39,15 @@ const TOOLTIP_COLOR := UITheme.TEXT
 ## like "Missile Launcher" ran past 140px and got cut off.
 const TOOLTIP_WIDTH := 220.0
 const TOOLTIP_LEVEL_COLOR := UITheme.TEXT_MUTED
-## Tall enough that a squad standing on/adjacent to the building's own hex
-## (garrisoned troops render at the base hex) doesn't have its own hover/
-## selected info label (squad_view.gd's INFO_LABEL, anchored RADIUS+22 above
-## the squad, roughly -48..-28px) collide with this tooltip's two lines.
-const TOOLTIP_NAME_OFFSET := 70.0
-const TOOLTIP_LEVEL_OFFSET := 50.0
+## Kept close to the building itself rather than clearing squad_view.gd's own
+## hover/selected INFO_LABEL zone (anchored RADIUS+22 above a squad, roughly
+## -48..-28px) — these used to sit up at -70/-50 specifically to dodge that,
+## but that pushed the tooltip up into the hex directly above the building's
+## own hex, which made that tile annoying to click. A rare visual overlap
+## with a garrisoned squad's own label (same hex, both hovered at once) is an
+## accepted tradeoff for staying off the tile above.
+const TOOLTIP_NAME_OFFSET := 36.0
+const TOOLTIP_LEVEL_OFFSET := 20.0
 
 func setup(p_bases: Array[BaseInstance], p_owner_colors: Dictionary, p_standalone_buildings: Array[BuildingInstance], p_building_defs: Dictionary, p_detections: Dictionary, p_local_owner_id: String, p_owner_names: Dictionary = {}) -> void:
 	bases = p_bases
@@ -94,18 +97,18 @@ func _draw_base_title(base: BaseInstance) -> void:
 ## "name (Lv N)" over whichever building (base-attached or standalone) sits
 ## under the mouse, if any and if visible to the local player — Walls have no
 ## single hex of their own (hex_a/hex_b) so they're simply not covered here.
-## The HQ is special-cased to show the base/player title (see
-## _draw_base_title) instead of the generic tooltip, and only while hovered —
-## this used to render always-on above every HQ, but it covered enough of the
-## hex above to make clicking that tile annoying, so it's now hover-gated.
+## Hovering any building that belongs to a base also shows that base's title
+## (see _draw_base_title, anchored above its HQ regardless of which of its
+## buildings is hovered) — so a multi-base board reads whose base it is from
+## any of its buildings, not just its HQ. Skipped for the HQ itself since its
+## own tooltip would draw at the exact same anchor as the title.
 func _draw_hover_tooltip() -> void:
 	var hex := HexView.pixel_to_axial(get_global_mouse_position())
 	for base in bases:
 		for building in base.buildings:
 			if building.hex != null and building.hex.equals(hex) and _is_visible_to_local(building, base.owner_id):
-				if building.building_type == "hq":
-					_draw_base_title(base)
-				else:
+				_draw_base_title(base)
+				if building.building_type != "hq":
 					_draw_building_tooltip(building)
 				return
 	for building in standalone_buildings:

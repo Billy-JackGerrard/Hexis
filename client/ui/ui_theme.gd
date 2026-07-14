@@ -169,6 +169,20 @@ static func action_button(text: String, variation: String = "") -> Button:
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return button
 
+## A fill bar (0..1 `value`) for showing training/production progress, with
+## room for a centered label (add it as a child, e.g. a body_label) drawn on
+## top of the fill since Control children paint after their parent.
+static func progress_bar() -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.min_value = 0.0
+	bar.max_value = 1.0
+	bar.step = 0.0
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 30)
+	bar.add_theme_stylebox_override("background", _flat(SLATE, PANEL_BORDER, 6, 1))
+	bar.add_theme_stylebox_override("fill", _flat(ACCENT, ACCENT, 6, 1))
+	return bar
+
 ## A row of small colored pills, one per resource in `named` (a data/*.json
 ## cost dict, e.g. {"stone": 80, "steel": 20}) — the styled replacement for the
 ## old "(Stone 80, Steel 20)" bracketed button text. Iterates ResourceType.ALL

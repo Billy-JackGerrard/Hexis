@@ -14,7 +14,7 @@
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 120,
-      "woodOutput": 14
+      "woodOutput": 6
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 10 },

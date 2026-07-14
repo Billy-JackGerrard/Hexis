@@ -23,7 +23,10 @@ always sited on **Plains** (see `01-map-and-terrain.md`) regardless of base type
   remove it — it triggers a **capture**: when an HQ's HP hits 0, ownership of the whole
   base flips to whoever dealt the killing blow, and the HQ **respawns immediately at
   full HP** under its new owner. The HQ is never ruined or removed from the map —
-  "destroying" it *is* how a base is captured.
+  "destroying" it *is* how a base is captured. Every other building in the base
+  (non-HQ, non-Wall) is immediately ruined by the capture itself, regardless of its
+  own HP at the time — the new owner inherits the base's hexes/adjacency slots, not
+  a working economy, and has to rebuild from there.
 - **Farm** — Food.
 - **Quarry** — Stone.
 

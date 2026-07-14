@@ -130,9 +130,10 @@ const MAX_SEED_SEARCH_RING: int = 4
 ## --- Building placement (sim/bases/building_placement.gd) ---
 
 ## Max hex-distance between the building Engineer and a standalone build site
-## (Road/Bridge/Dock/Tower/Landmine) — an Engineer must travel next to a site
-## rather than dropping infrastructure anywhere on the map. 1 = adjacent-only.
-const STANDALONE_BUILD_RANGE: int = 1
+## (Road/Bridge/Dock/Tower/Landmine) — an Engineer must travel near a site
+## rather than dropping infrastructure anywhere on the map. 2 = the Engineer
+## plus the ring of hexes one step beyond its immediate neighbours.
+const STANDALONE_BUILD_RANGE: int = 2
 
 ## Minimum adjacent existing buildings required for a normal (non-Wall)
 ## placement, per the Expansion Rule.

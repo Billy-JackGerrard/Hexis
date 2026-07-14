@@ -85,7 +85,7 @@ static func seed_base(id: String, base_def: Dictionary, owner_id: String, hq_hex
 	for entry in hex_entries:
 		var building_type: String = entry["building_type"]
 		var required := _adjacent_terrain_required(building_type, building_defs)
-		var hex := _pick_seed_hex(hq_hex, grid, claimed, required)
+		var hex := _pick_seed_hex(hq_hex, grid, claimed, required, building_type, base_def, building_defs)
 		claimed[hex.to_key()] = true
 		var building := BuildingInstance.new("%s_seed_%d" % [id, building_index], id, building_type, 1, entry["material"], hex)
 		if building_defs.has(building_type):
@@ -106,24 +106,54 @@ static func _adjacent_terrain_required(building_type: String, building_defs: Dic
 	return String(def.get("placementRequirement", {}).get("adjacentTerrainRequired", ""))
 
 ## Ring-searches outward from hq_hex (ring 1, 2, 3, ...) for the first
-## unclaimed on-grid hex that also satisfies `adjacent_terrain_required` (if
-## any — reuses BuildingPlacement's own Water/Forest neighbor check, so this
-## agrees exactly with what a player-built placement of the same building
-## would require). Falls back to the closest unclaimed hex regardless of
-## adjacency if nothing qualifies within Tuning.MAX_SEED_SEARCH_RING (better an
-## authored building lands somewhere on-site than the seed silently drops
+## unclaimed on-grid hex that also satisfies both `building_type`'s siteTerrain
+## requirement (default Plains, or base_def's terrainException — reuses
+## BuildingPlacement's own check, so this agrees exactly with what a
+## player-built placement of the same building would require) and
+## `adjacent_terrain_required` (if any). The site selector only guarantees
+## Plains/exception terrain for the flower (HQ hex + its 6 immediate
+## neighbors, see base_site_selector.gd) — a base with more than 6 non-Wall
+## initialBuildings (most Unique bases) spills into ring 2+, which carries no
+## such guarantee, so without this check an overflow building could land
+## straight on a River/Ocean/Forest/Hill tile it could never actually be
+## built on by a player (e.g. Blazeworks, Plains-only, spilling onto a
+## river). Falls back in two tiers if nothing satisfies both within
+## Tuning.MAX_SEED_SEARCH_RING: first the closest hex that at least satisfies
+## siteTerrain (dropping the adjacency bonus requirement), then — only if
+## even that never qualified — the closest unclaimed hex regardless (better
+## an authored building lands somewhere on-site than the seed silently drops
 ## it), and to hq_hex itself in the degenerate case nothing at all is free.
-static func _pick_seed_hex(hq_hex: HexCoord, grid: HexGrid, claimed: Dictionary, adjacent_terrain_required: String) -> HexCoord:
-	var fallback: HexCoord = null
+static func _pick_seed_hex(hq_hex: HexCoord, grid: HexGrid, claimed: Dictionary, adjacent_terrain_required: String, building_type: String, base_def: Dictionary, building_defs: Dictionary) -> HexCoord:
+	var any_fallback: HexCoord = null
+	var terrain_ok_fallback: HexCoord = null
 	for radius in range(1, Tuning.MAX_SEED_SEARCH_RING + 1):
 		for hex in _ring_candidates(hq_hex, radius):
 			if not grid.has_hex(hex) or claimed.has(hex.to_key()):
 				continue
-			if fallback == null:
-				fallback = hex
+			if any_fallback == null:
+				any_fallback = hex
+			if not _site_terrain_ok(hex, grid, building_type, base_def, building_defs):
+				continue
+			if terrain_ok_fallback == null:
+				terrain_ok_fallback = hex
 			if adjacent_terrain_required == "" or _has_adjacent_terrain(hex, grid, adjacent_terrain_required):
 				return hex
-	return fallback if fallback != null else hq_hex
+	if terrain_ok_fallback != null:
+		return terrain_ok_fallback
+	return any_fallback if any_fallback != null else hq_hex
+
+## Mirrors BuildingPlacement.can_place's WRONG_SITE_TERRAIN gate: `building_type`
+## must sit on its required siteTerrain (Plains by default) unless `base_def`
+## carries a terrainException matching this hex's terrain instead.
+static func _site_terrain_ok(hex: HexCoord, grid: HexGrid, building_type: String, base_def: Dictionary, building_defs: Dictionary) -> bool:
+	var building_def: Dictionary = building_defs.get(building_type, {})
+	var placement_requirement: Dictionary = building_def.get("placementRequirement", {})
+	var required := BuildingPlacement._site_terrain(placement_requirement.get("siteTerrain", "Plains"))
+	var hex_terrain := grid.get_terrain(hex)
+	if hex_terrain == required:
+		return true
+	var terrain_exception: String = base_def.get("terrainException", "")
+	return terrain_exception != "" and hex_terrain == BuildingPlacement._site_terrain(terrain_exception)
 
 ## Ring-1 candidates walk HexCoord.DIRECTIONS in plain 0..5 order (matching
 ## the old fixed-fan code's HexCoord.neighbor(hq_hex, direction) sequence

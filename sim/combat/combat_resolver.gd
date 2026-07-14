@@ -484,13 +484,19 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 				# ownership from base.owner_id, so flipping it here is enough —
 				# no per-building ownership to update), and the HQ respawns
 				# immediately at full HP under its new owner. It's never ruined
-				# or removed. Garrisoned squads keep their own owner_id and are
-				# untouched (elimination-on-last-base is a separate, not-yet-
-				# built system).
+				# or removed. Every other building in the base (non-HQ, non-Wall)
+				# is ruined outright on capture instead of carrying over intact —
+				# the new owner inherits the base's hexes/slots, not a working
+				# economy, and has to rebuild it. Garrisoned squads keep their own
+				# owner_id and are untouched (elimination-on-last-base is a
+				# separate, not-yet-built system).
 				if building.last_damaged_by != "" and building.last_damaged_by != base.owner_id:
 					base.owner_id = building.last_damaged_by
 					for captured_building in base.buildings:
 						production_queues.erase(captured_building.id)
+						if captured_building.building_type != "hq" and captured_building.building_type != "wall":
+							captured_building.current_hp = 0.0
+							captured_building.is_ruin = true
 				building.current_hp = building.max_hp
 				building.last_damaged_by = ""
 				building.time_since_damage = 0.0

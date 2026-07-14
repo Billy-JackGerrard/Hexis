@@ -9,7 +9,7 @@
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 180,
-      "stoneOutput": 12
+      "stoneOutput": 4
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 10 },

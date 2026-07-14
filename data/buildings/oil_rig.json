@@ -9,7 +9,7 @@
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 150,
-      "fuelOutput": 10
+      "fuelOutput": 4
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 10 },

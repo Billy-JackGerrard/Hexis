@@ -9,11 +9,11 @@
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 100,
-      "populationCapacity": 4
+      "populationCapacity": 2
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 10 },
-      "populationCapacity": { "mode": "percent", "value": 20 }
+      "populationCapacity": { "mode": "flat", "value": 1 }
     },
     "baseCost": {
       "stone": 20
