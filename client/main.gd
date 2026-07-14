@@ -85,7 +85,7 @@ func _start_game() -> void:
 	# Added last so it draws over the board/base/squad views beneath it.
 	fog_of_war = FogOfWar.new()
 	add_child(fog_of_war)
-	fog_of_war.setup(state, demo_hexes, LOCAL_PLAYER)
+	fog_of_war.setup(state, demo_hexes, LOCAL_PLAYER, camera_controller)
 
 	# Added last of all so it draws over every world-space view (screen-space
 	# regardless, since it's a CanvasLayer, but this keeps add-order/draw-order
@@ -109,21 +109,10 @@ func _map_bounds() -> Array:
 	var margin := Vector2.ONE * HexView.HEX_SIZE
 	return [bounds_min - margin, bounds_max + margin]
 
-## TEMP DEBUG — remove once the lag investigation is done.
-var _dbg_frame_usec := 0
-var _dbg_frame_count := 0
-
 func _process(delta: float) -> void:
 	if state == null:
 		return
-	var _dbg_start := Time.get_ticks_usec()
 	sim_clock.advance(state, delta)
-	_dbg_frame_usec += Time.get_ticks_usec() - _dbg_start
-	_dbg_frame_count += 1
-	if _dbg_frame_count >= 30:
-		print("[DBG] frame: %.2fms sim_clock.advance avg over %d frames | fps=%.1f | delta=%.3fs" % [float(_dbg_frame_usec) / _dbg_frame_count / 1000.0, _dbg_frame_count, Engine.get_frames_per_second(), delta])
-		_dbg_frame_usec = 0
-		_dbg_frame_count = 0
 
 func _build_demo_state() -> MatchState:
 	var demo_state := MatchState.new()

@@ -33,28 +33,9 @@ static func resolve_tick(state: MatchState, dt: float) -> void:
 
 ## Movement/combat/vision/detection/production — everything that advances
 ## every call regardless of the economy's coarser 5-second cadence.
-## TEMP DEBUG — real (non-profiler) per-tick timing, to be removed once the
-## lag investigation is done. Prints every 20 ticks (~2 sim-seconds).
-static var _dbg_vision_usec := 0
-static var _dbg_tick_count := 0
-
 static func _resolve_fine_tick(state: MatchState, dt: float, auras: Dictionary) -> void:
 	DetectionSystem.resolve_tick(state.squads, state.bases, state.standalone_buildings, state.grid, state.troop_defs, state.building_defs, state.detections)
-	var _dbg_start := Time.get_ticks_usec()
 	VisionSystem.resolve_tick(state.squads, state.bases, state.standalone_buildings, state.grid, state.troop_defs, state.building_defs, state.visions, state.base_defs, state.vision_los_cache)
-	_dbg_vision_usec += Time.get_ticks_usec() - _dbg_start
-	_dbg_tick_count += 1
-	if _dbg_tick_count >= 20:
-		var sources := 0
-		for squad in state.squads:
-			if not squad.member_ids.is_empty() and not squad.is_docked():
-				sources += 1
-		for base in state.bases:
-			sources += base.buildings.size()
-		sources += state.standalone_buildings.size()
-		print("[DBG] vision: %.2fms/tick avg over %d ticks | sources=%d | los_cache size=%d" % [float(_dbg_vision_usec) / _dbg_tick_count / 1000.0, _dbg_tick_count, sources, state.vision_los_cache.size()])
-		_dbg_vision_usec = 0
-		_dbg_tick_count = 0
 
 	# Attack-move chase decisions use a target snapshot from THIS tick's
 	# starting positions (before movement below runs) — one step behind
