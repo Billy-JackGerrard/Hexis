@@ -7,6 +7,7 @@ extends SceneTree
 var _failures: int = 0
 var _troop_defs: Dictionary
 var _building_defs: Dictionary
+var _base_defs: Dictionary
 var _next_id: int = 0
 
 func _check(condition: bool, label: String) -> void:
@@ -19,6 +20,7 @@ func _check(condition: bool, label: String) -> void:
 func _init() -> void:
 	_troop_defs = DataLoader.load_dir("res://data/troops")
 	_building_defs = DataLoader.load_dir("res://data/buildings")
+	_base_defs = DataLoader.load_dir("res://data/bases")
 
 	print("Terrain.vision_bonus")
 	_test_terrain_vision_bonus()
@@ -26,6 +28,8 @@ func _init() -> void:
 	_test_building_stats_vision()
 	print("VisionSystem")
 	_test_vision_system()
+	print("Forest vision penalty / LOS blocking")
+	_test_forest_vision()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -199,3 +203,57 @@ func _test_vision_system() -> void:
 	VisionSystem.resolve_tick([], [], standalone_buildings, standalone_grid, _troop_defs, _building_defs, visions7)
 	_check(VisionSystem.vision_for(visions7, "p3").visible_hexes.size() == _disc_size(tower_stone_vision + plains_bonus), "standalone Tower (visionRange %d + Plains bonus %d) reveals a radius-%d disc, keyed by its own owner_id, with no base or squads involved" % [tower_stone_vision, plains_bonus, tower_stone_vision + plains_bonus])
 	_check(not visions7.has("p1"), "standalone Tower's owner_id (p3) is independent of any base's owner_id")
+
+## --- Forest vision penalty / LOS blocking ----------------------------------
+
+func _test_forest_vision() -> void:
+	var rifleman_vision: int = int(_troop_defs["rifleman"]["visionRange"])
+
+	# 1. Own-tile penalty: standing IN Forest halves visionRange (Forest grants
+	# no additive bonus, unlike Plains, so this is a pure multiplier). Only the
+	# center hex is Forest — everywhere else stays Plains — so this isolates the
+	# own-tile multiplier from the separate LOS-crossing reduction (test 2).
+	var mixed_grid := _disc_grid(15, Terrain.Type.PLAINS)
+	mixed_grid.set_terrain(HexCoord.new(0, 0), Terrain.Type.FOREST)
+	var forest_grid := _disc_grid(15, Terrain.Type.FOREST)
+	var s1 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	var visions1: Dictionary = {}
+	VisionSystem.resolve_tick([s1], [], [], mixed_grid, _troop_defs, _building_defs, visions1)
+	var forest_radius: int = int(rifleman_vision * Terrain.FOREST_VISION_MULTIPLIER)
+	_check(VisionSystem.vision_for(visions1, "p1").visible_hexes.size() == _disc_size(forest_radius), "standing in Forest: visionRange (%d) halved to radius-%d reveal" % [rifleman_vision, forest_radius])
+
+	# 2. LOS blocking: squad on Plains, two Forest hexes sit on the ray toward a
+	# distant hex — each crossed Forest hex (excluding both endpoints) trims the
+	# sightline's effective range, independent of the squad's own-tile bonus.
+	var los_grid := _disc_grid(15, Terrain.Type.PLAINS)
+	los_grid.set_terrain(HexCoord.new(1, 0), Terrain.Type.FOREST)
+	los_grid.set_terrain(HexCoord.new(2, 0), Terrain.Type.FOREST)
+	var s2 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	var visions2: Dictionary = {}
+	VisionSystem.resolve_tick([s2], [], [], los_grid, _troop_defs, _building_defs, visions2)
+	var pv2 := VisionSystem.vision_for(visions2, "p1")
+	var plains_bonus := int(Terrain.PLAINS_VISION_BONUS)
+	var full_radius := rifleman_vision + plains_bonus
+	var los_radius := full_radius - 2 * int(Terrain.FOREST_LOS_RANGE_PENALTY_PER_HEX)
+	_check(pv2.is_visible(HexCoord.new(los_radius, 0)), "a hex just within the 2-Forest-crossing-reduced range (%d) is still visible" % los_radius)
+	_check(not pv2.is_visible(HexCoord.new(los_radius + 1, 0)), "a hex one past that (still within the raw radius-%d vision) is blocked by the 2 Forest hexes crossed en route" % full_radius)
+	_check(pv2.is_visible(HexCoord.new(1, 0)), "a Forest hex directly on the ray (not merely crossed en route to something farther) is itself still visible")
+
+	# 3. Treehouse exemption: a Treehouse base building standing in Forest, with
+	# more Forest between it and its target, ignores both the own-tile halving
+	# and the LOS-crossing reduction entirely.
+	var treehouse_def: Dictionary = _base_defs["treehouse"]
+	var hq_vision: int = int(_building_defs["hq"]["nonProductionUpgrade"]["baseStats"]["visionRange"])
+	var treehouse_base := _base_with("p1", "hq", 1, HexCoord.new(0, 0))
+	treehouse_base.base_def_id = "treehouse"
+	var visions3: Dictionary = {}
+	VisionSystem.resolve_tick([], [treehouse_base], [], forest_grid, _troop_defs, _building_defs, visions3, _base_defs)
+	_check(VisionSystem.vision_for(visions3, "p1").visible_hexes.size() == _disc_size(hq_vision), "a Treehouse HQ standing in Forest reveals its full un-penalized radius-%d (own-tile halving and LOS-crossing reduction both skipped)" % hq_vision)
+
+	# Same building/hex, but on a non-Treehouse base -> the own-tile halving
+	# applies exactly like a squad's does.
+	var capital_base := _base_with("p2", "hq", 1, HexCoord.new(0, 0))
+	var visions4: Dictionary = {}
+	VisionSystem.resolve_tick([], [capital_base], [], mixed_grid, _troop_defs, _building_defs, visions4, _base_defs)
+	var capital_forest_radius: int = int(hq_vision * Terrain.FOREST_VISION_MULTIPLIER)
+	_check(VisionSystem.vision_for(visions4, "p2").visible_hexes.size() == _disc_size(capital_forest_radius), "the same HQ in Forest on a non-Treehouse (Capital) base still gets halved to radius-%d" % capital_forest_radius)

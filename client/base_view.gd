@@ -20,6 +20,7 @@
 class_name BaseView
 extends Node2D
 
+var state: MatchState
 var bases: Array[BaseInstance] = []
 var owner_colors: Dictionary = {} ## owner_id -> Color
 var owner_names: Dictionary = {} ## owner_id -> display name
@@ -27,6 +28,16 @@ var standalone_buildings: Array[BuildingInstance] = []
 var building_defs: Dictionary = {}
 var detections: Dictionary = {}
 var local_owner_id: String = ""
+
+## Redraw throttle: building geometry only changes on a sim tick, but the
+## hover tooltip (_draw_hover_tooltip) must track the mouse live — gating
+## purely on tick (main.gd used to force this every frame, then a tick-only
+## throttle) either wasted a full-map redraw 60x/sec for no reason or added
+## up to a whole tick's delay before a hovered building's title appeared.
+## Redrawing on tick change OR hovered-hex change gets both: cheap most
+## frames (a hex-key string compare), instant on actual hover changes.
+var _last_drawn_tick: int = -1
+var _last_hover_hex_key: String = ""
 
 const BUILDING_SIZE := 20.0
 const HQ_SIZE := 26.0
@@ -49,7 +60,8 @@ const TOOLTIP_LEVEL_COLOR := UITheme.TEXT_MUTED
 const TOOLTIP_NAME_OFFSET := 36.0
 const TOOLTIP_LEVEL_OFFSET := 20.0
 
-func setup(p_bases: Array[BaseInstance], p_owner_colors: Dictionary, p_standalone_buildings: Array[BuildingInstance], p_building_defs: Dictionary, p_detections: Dictionary, p_local_owner_id: String, p_owner_names: Dictionary = {}) -> void:
+func setup(p_state: MatchState, p_bases: Array[BaseInstance], p_owner_colors: Dictionary, p_standalone_buildings: Array[BuildingInstance], p_building_defs: Dictionary, p_detections: Dictionary, p_local_owner_id: String, p_owner_names: Dictionary = {}) -> void:
+	state = p_state
 	bases = p_bases
 	owner_colors = p_owner_colors
 	standalone_buildings = p_standalone_buildings
@@ -57,6 +69,16 @@ func setup(p_bases: Array[BaseInstance], p_owner_colors: Dictionary, p_standalon
 	detections = p_detections
 	local_owner_id = p_local_owner_id
 	owner_names = p_owner_names
+	queue_redraw()
+
+func _process(_delta: float) -> void:
+	if state == null:
+		return
+	var hover_key := HexView.pixel_to_axial(get_global_mouse_position()).to_key()
+	if state.tick == _last_drawn_tick and hover_key == _last_hover_hex_key:
+		return
+	_last_drawn_tick = state.tick
+	_last_hover_hex_key = hover_key
 	queue_redraw()
 
 func _draw() -> void:

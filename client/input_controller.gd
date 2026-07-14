@@ -119,7 +119,14 @@ func setup(p_state: MatchState, p_owner_id: String, p_squad_view: SquadView, p_c
 	camera_controller = p_camera_controller
 
 func _process(delta: float) -> void:
-	if not _drag_active:
+	# Also skipped while camera-panning (right-drag): the world-space mouse
+	# position sweeps across many hexes per frame during a pan, and each
+	# crossing triggered _update_hover -> _target_at_pixel's full
+	# CombatResolver.build_targets() rebuild (every squad/building/wall) —
+	# exactly the per-frame cost its own doc comment already flags as too
+	# expensive to run unthrottled, just reached via panning instead of a
+	# stationary hover.
+	if not _drag_active and not camera_controller.is_panning():
 		_update_hover(get_global_mouse_position())
 	if _failed_pings.is_empty():
 		return

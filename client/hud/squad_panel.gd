@@ -76,12 +76,21 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# ScrollContainer only accepts a wheel event when it actually has room left
+	# to scroll — at the very top/bottom it leaves the event unhandled, which
+	# falls through to CameraController's _unhandled_input and zooms the map.
+	# Swallow every wheel event over this panel unconditionally instead.
+	scroll.gui_input.connect(_on_scroll_gui_input)
 	panel.add_child(scroll)
 
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_theme_constant_override("separation", 10)
 	scroll.add_child(_content)
+
+func _on_scroll_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+		get_viewport().set_input_as_handled()
 
 ## The single squad this panel is for, or null: only when exactly one squad is
 ## selected AND no building is (BuildingPanel owns the same band and takes
@@ -239,7 +248,8 @@ func _first_material(def: Dictionary) -> String:
 ## driven by a rebuild on cargo/member/hex change, so the list stays current as
 ## the carrier moves.
 func _build_cargo_menu(squad: SquadInstance, _def: Dictionary) -> void:
-	_content.add_child(UITheme.header_label("CARGO"))
+	var capacity := int(float(_def.get("cargoCapacity", 0)) * squad.member_ids.size())
+	_content.add_child(UITheme.header_label("CARGO  -  %d/%d" % [squad.cargo_squad_ids.size(), capacity]))
 
 	var boardable := _boardable_squads(squad)
 	if boardable.is_empty():

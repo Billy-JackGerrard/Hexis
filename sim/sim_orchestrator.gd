@@ -35,7 +35,7 @@ static func resolve_tick(state: MatchState, dt: float) -> void:
 ## every call regardless of the economy's coarser 5-second cadence.
 static func _resolve_fine_tick(state: MatchState, dt: float, auras: Dictionary) -> void:
 	DetectionSystem.resolve_tick(state.squads, state.bases, state.standalone_buildings, state.grid, state.troop_defs, state.building_defs, state.detections)
-	VisionSystem.resolve_tick(state.squads, state.bases, state.standalone_buildings, state.grid, state.troop_defs, state.building_defs, state.visions)
+	VisionSystem.resolve_tick(state.squads, state.bases, state.standalone_buildings, state.grid, state.troop_defs, state.building_defs, state.visions, state.base_defs)
 
 	# Attack-move chase decisions use a target snapshot from THIS tick's
 	# starting positions (before movement below runs) — one step behind

@@ -64,15 +64,15 @@ func _start_game() -> void:
 
 	base_view = BaseView.new()
 	add_child(base_view)
-	base_view.setup(state.bases, owner_colors, state.standalone_buildings, state.building_defs, state.detections, LOCAL_PLAYER, owner_names)
+	base_view.setup(state, state.bases, owner_colors, state.standalone_buildings, state.building_defs, state.detections, LOCAL_PLAYER, owner_names)
 
 	squad_view = SquadView.new()
 	add_child(squad_view)
-	squad_view.setup(state.squads, state.regiments, owner_colors, state.grid, state.troop_defs, state.visions, state.detections, LOCAL_PLAYER)
+	squad_view.setup(state, state.squads, state.regiments, owner_colors, state.grid, state.troop_defs, state.visions, state.detections, LOCAL_PLAYER)
 
 	projectile_view = ProjectileView.new()
 	add_child(projectile_view)
-	projectile_view.setup(state.projectiles, owner_colors)
+	projectile_view.setup(state, state.projectiles, owner_colors)
 
 	input_controller = InputController.new()
 	add_child(input_controller)
@@ -85,7 +85,7 @@ func _start_game() -> void:
 	# Added last so it draws over the board/base/squad views beneath it.
 	fog_of_war = FogOfWar.new()
 	add_child(fog_of_war)
-	fog_of_war.setup(state.grid, demo_hexes, state.visions, LOCAL_PLAYER)
+	fog_of_war.setup(state, demo_hexes, LOCAL_PLAYER)
 
 	# Added last of all so it draws over every world-space view (screen-space
 	# regardless, since it's a CanvasLayer, but this keeps add-order/draw-order
@@ -113,7 +113,6 @@ func _process(delta: float) -> void:
 	if state == null:
 		return
 	sim_clock.advance(state, delta)
-	base_view.queue_redraw()
 
 func _build_demo_state() -> MatchState:
 	var demo_state := MatchState.new()

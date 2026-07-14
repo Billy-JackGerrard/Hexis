@@ -16,6 +16,9 @@ var _bounds_min := Vector2.ZERO
 var _bounds_max := Vector2.ZERO
 var _has_bounds := false
 
+func is_panning() -> bool:
+	return _panning
+
 func center_on(world_pos: Vector2) -> void:
 	position = world_pos
 	if _has_bounds:

@@ -13,15 +13,26 @@ extends Node2D
 var projectiles: Array[ProjectileInstance] = []
 var owner_colors: Dictionary = {} ## owner_id -> Color
 
+var state: MatchState
+
+## Projectile positions lerp off remaining_time/beam_elapsed, both per-tick sim
+## state (ProjectileSystem advances them on a fine tick) — so, like squad_view,
+## a 60fps redraw draws identical frames between ticks. Gate on tick change.
+var _last_drawn_tick: int = -1
+
 const RADIUS := 4.0
 const OUTLINE_COLOR := Color(0.0, 0.0, 0.0, 0.6)
 const DEFAULT_COLOR := Color(0.9, 0.15, 0.1)
 
-func setup(p_projectiles: Array[ProjectileInstance], p_owner_colors: Dictionary) -> void:
+func setup(p_state: MatchState, p_projectiles: Array[ProjectileInstance], p_owner_colors: Dictionary) -> void:
+	state = p_state
 	projectiles = p_projectiles
 	owner_colors = p_owner_colors
 
 func _process(_delta: float) -> void:
+	if state == null or state.tick == _last_drawn_tick:
+		return
+	_last_drawn_tick = state.tick
 	queue_redraw()
 
 func _draw() -> void:

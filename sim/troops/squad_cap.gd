@@ -21,5 +21,7 @@ static func max_commanders(bases: Array[BaseInstance], building_defs: Dictionary
 	var total := 0
 	for base in bases:
 		for command_centre in base.buildings_of_type("command_centre"):
+			if command_centre.is_ruin:
+				continue
 			total += CommanderProgression.slots_at_level(progression, command_centre.level)
 	return total

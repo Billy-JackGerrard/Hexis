@@ -27,6 +27,21 @@ const HILLS_INFANTRY_COST: float = 2.0
 ## number yet.
 const PLAINS_VISION_BONUS: float = 2.0
 
+## Placeholder — a troop/building standing on Forest sees at half its base
+## visionRange (Forest obscures a unit's own sightline the same way it hides
+## the unit itself for ambush — see DetectionSystem.is_squad_hidden). Applied
+## multiplicatively to the base visionRange before PLAINS_VISION_BONUS-style
+## flat bonuses (terrains are mutually exclusive so this never stacks with one).
+const FOREST_VISION_MULTIPLIER: float = 0.5
+
+## Placeholder — how much vision range a sightline loses per Forest hex it
+## crosses en route to its target, even when neither viewer nor target is
+## itself standing in that Forest (01-map-and-terrain.md's "Forests are where
+## sneaky plays happen" extended to blocking sight through them, not just
+## hiding whatever's inside). Mirrors FOREST_VISION_MULTIPLIER's own-tile
+## penalty but applies per intervening hex instead of a flat halving.
+const FOREST_LOS_RANGE_PENALTY_PER_HEX: float = 1.0
+
 ## Placeholder — 04-combat.md establishes "Hills give a defender bonus to
 ## troops stationed there" but never pins an exact multiplier. A received-
 ## damage multiplier <1.0, composed the same multiplicative way as
@@ -101,6 +116,11 @@ static func is_passable_with(terrain: Type, domain: Domain, infrastructure: Infr
 ## terrain grants none.
 static func vision_bonus(terrain: Type) -> float:
 	return PLAINS_VISION_BONUS if terrain == Type.PLAINS else 0.0
+
+## Multiplier applied to a unit/building's own base visionRange for standing
+## on this terrain — Forest halves it, every other terrain leaves it as-is.
+static func vision_multiplier(terrain: Type) -> float:
+	return FOREST_VISION_MULTIPLIER if terrain == Type.FOREST else 1.0
 
 ## Received-damage multiplier for standing on this terrain — Hills give
 ## defenders a flat damage-reduction bonus (04-combat.md); every other

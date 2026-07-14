@@ -39,6 +39,22 @@ var visions: Dictionary = {} ## owner_id -> PlayerVision
 var detections: Dictionary = {} ## owner_id -> {hex_key: true}
 var local_owner_id: String = ""
 
+var state: MatchState
+
+## Redraw throttle: everything this layer draws is either sim state that only
+## changes on a fine tick (squad positions lerp off edge_progress, which is
+## per-tick — between ticks squad_pixel_position is constant, so a 60fps redraw
+## draws the exact same frame 5/6 times), the hover label (tracks the mouse,
+## so redraw on hovered-hex change), or the selection highlight (redraw when
+## selection actually changes — InputController mutates it, doesn't redraw us).
+## This was the single heaviest map-wide layer redrawing unconditionally every
+## frame — its _draw runs _is_renderable (vision + DetectionSystem lookups)
+## over every squad twice — so gating it is the main frame-budget win.
+var _last_drawn_tick: int = -1
+var _last_hover_hex_key: String = ""
+var _selection_revision: int = 0
+var _last_drawn_selection_revision: int = -1
+
 const RADIUS := 10.0
 const SELECTION_COLOR := Color.YELLOW
 const REGIMENT_RING_COLOR := Color(1.0, 0.85, 0.2, 0.8)
@@ -50,7 +66,8 @@ const RANGE_RING_COLOR := Color(1.0, 1.0, 1.0, 0.25)
 const INFO_LABEL_WIDTH := 140.0
 const INFO_LABEL_COLOR := UITheme.TEXT
 
-func setup(p_squads: Array[SquadInstance], p_regiments: Array[RegimentInstance], p_owner_colors: Dictionary, p_grid: HexGrid, p_troop_defs: Dictionary, p_visions: Dictionary, p_detections: Dictionary, p_local_owner_id: String) -> void:
+func setup(p_state: MatchState, p_squads: Array[SquadInstance], p_regiments: Array[RegimentInstance], p_owner_colors: Dictionary, p_grid: HexGrid, p_troop_defs: Dictionary, p_visions: Dictionary, p_detections: Dictionary, p_local_owner_id: String) -> void:
+	state = p_state
 	squads = p_squads
 	regiments = p_regiments
 	owner_colors = p_owner_colors
@@ -87,24 +104,29 @@ func is_selected(squad_id: String) -> bool:
 
 func select_only(squad_id: String) -> void:
 	selected_squad_ids = {squad_id: true}
+	_selection_revision += 1
 
 func select_set(squad_ids: Array) -> void:
 	selected_squad_ids = {}
 	for id in squad_ids:
 		selected_squad_ids[id] = true
+	_selection_revision += 1
 
 func add_to_selection(squad_ids: Array) -> void:
 	for id in squad_ids:
 		selected_squad_ids[id] = true
+	_selection_revision += 1
 
 func toggle_selection(squad_id: String) -> void:
 	if selected_squad_ids.has(squad_id):
 		selected_squad_ids.erase(squad_id)
 	else:
 		selected_squad_ids[squad_id] = true
+	_selection_revision += 1
 
 func clear_selection() -> void:
 	selected_squad_ids = {}
+	_selection_revision += 1
 
 func _squad_by_id(squad_id: String) -> SquadInstance:
 	for squad in squads:
@@ -113,6 +135,14 @@ func _squad_by_id(squad_id: String) -> SquadInstance:
 	return null
 
 func _process(_delta: float) -> void:
+	if state == null:
+		return
+	var hover_key := HexView.pixel_to_axial(get_global_mouse_position()).to_key()
+	if state.tick == _last_drawn_tick and hover_key == _last_hover_hex_key and _selection_revision == _last_drawn_selection_revision:
+		return
+	_last_drawn_tick = state.tick
+	_last_hover_hex_key = hover_key
+	_last_drawn_selection_revision = _selection_revision
 	queue_redraw()
 
 ## False for empty/docked squads always; for enemy squads also gates on

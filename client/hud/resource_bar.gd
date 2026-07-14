@@ -8,12 +8,14 @@
 ## / SquadCap live every frame, same poll-don't-signal approach as every other
 ## client/ view.
 ##
-## Clicking the bar drops a breakdown panel beneath it: each resource's live
-## per-tick total (ProductionOutputSystem.compute_production, the same math
-## the economy tick itself applies) plus a "2x Level 1 Mine, 3x Level 2 Mine"
-## style count of the owner's producing buildings, grouped by (type, level).
-## Clicking again collapses it. The root switches from IGNORE to STOP so this
-## click doesn't also fall through to a world move order (hud_layer.gd's
+## Clicking the bar grows it deeper: two extra rows appear under each resource
+## column, in place — live per-tick total (ProductionOutputSystem.
+## compute_production, the same math the economy tick itself applies) then a
+## "2x Level 1 Mine, 3x Level 2 Mine" style count of producing buildings,
+## grouped by (type, level). Clicking again collapses back to the single row.
+## Fixed extra height (not measured from content) since the two rows are
+## always exactly two single-line labels. Root switches from IGNORE to STOP so
+## this click doesn't also fall through to a world move order (hud_layer.gd's
 ## general "HUD panels swallow their own clicks" contract, which this view was
 ## the one exception to until it had something clickable).
 class_name ResourceBar
@@ -23,12 +25,8 @@ var state: MatchState
 var owner_id: String
 
 const HEIGHT := 72.0
-const BREAKDOWN_WIDTH := 340.0
-const BREAKDOWN_REFRESH_INTERVAL := 0.25
-## UITheme.create_theme()'s PanelContainer stylebox uses a flat 16px content
-## margin on every side — doubled here since we size the panel from its
-## content's height, top + bottom.
-const BREAKDOWN_PANEL_VERTICAL_PADDING := 32.0
+const EXPANDED_EXTRA_HEIGHT := 54.0
+const REFRESH_INTERVAL := 0.25
 
 ## Display order + labels per 09-ui-and-controls.md's Resource HUD line.
 const DISPLAY_ORDER: Array[Array] = [
@@ -39,14 +37,14 @@ const DISPLAY_ORDER: Array[Array] = [
 	[ResourceType.Type.WOOD, "Wood"],
 ]
 
-var _res_labels: Dictionary = {} ## ResourceType.Type -> Label
+var _res_labels: Dictionary = {} ## ResourceType.Type -> Label (top row, existing amount)
+var _detail_labels: Dictionary = {} ## ResourceType.Type -> Label ("+N.N / tick")
+var _building_labels: Dictionary = {} ## ResourceType.Type -> Label ("2x Level 1 Mine, ...")
 var _squads_label: Label
 var _commanders_label: Label
 
-var _breakdown_panel: PanelContainer
-var _breakdown_content: VBoxContainer
-var _breakdown_expanded := false
-var _breakdown_refresh_accum := 0.0
+var _expanded := false
+var _refresh_accum := 0.0
 
 func setup(p_state: MatchState, p_owner_id: String) -> void:
 	state = p_state
@@ -67,7 +65,7 @@ func setup(p_state: MatchState, p_owner_id: String) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 26)
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN
-	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	# IGNORE so hit-testing falls through to the root Control's own
 	# _gui_input (the click-to-expand handler) instead of stopping here.
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -75,10 +73,29 @@ func setup(p_state: MatchState, p_owner_id: String) -> void:
 
 	for entry in DISPLAY_ORDER:
 		var type: ResourceType.Type = entry[0]
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 2)
+		col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 		var label := UITheme.body_label("")
 		label.add_theme_font_size_override("font_size", UITheme.FONT_BAR)
-		row.add_child(label)
+		col.add_child(label)
 		_res_labels[type] = label
+
+		var detail := UITheme.muted_label("")
+		detail.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		detail.visible = false
+		col.add_child(detail)
+		_detail_labels[type] = detail
+
+		var buildings := UITheme.muted_label("")
+		buildings.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		buildings.visible = false
+		col.add_child(buildings)
+		_building_labels[type] = buildings
+
+		row.add_child(col)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -92,25 +109,18 @@ func setup(p_state: MatchState, p_owner_id: String) -> void:
 	_commanders_label.add_theme_font_size_override("font_size", UITheme.FONT_BAR)
 	row.add_child(_commanders_label)
 
-	_breakdown_panel = UITheme.panel()
-	_breakdown_panel.position = Vector2(0.0, HEIGHT)
-	_breakdown_panel.custom_minimum_size = Vector2(BREAKDOWN_WIDTH, 0.0)
-	_breakdown_panel.visible = false
-	add_child(_breakdown_panel)
-
-	_breakdown_content = VBoxContainer.new()
-	_breakdown_content.add_theme_constant_override("separation", 8)
-	_breakdown_panel.add_child(_breakdown_content)
-
-## Left click toggles the breakdown dropdown; STOP (see class doc) means this
-## is the only thing on the strip that ever sees mouse input.
+## Left click toggles the expanded rows; STOP (see class doc) means this is
+## the only thing on the strip that ever sees mouse input.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_breakdown_expanded = not _breakdown_expanded
-		_breakdown_panel.visible = _breakdown_expanded
-		if _breakdown_expanded:
-			_breakdown_refresh_accum = BREAKDOWN_REFRESH_INTERVAL
-			accept_event()
+		_expanded = not _expanded
+		offset_bottom = HEIGHT + (EXPANDED_EXTRA_HEIGHT if _expanded else 0.0)
+		for type in _detail_labels:
+			_detail_labels[type].visible = _expanded
+			_building_labels[type].visible = _expanded
+		if _expanded:
+			_refresh_accum = REFRESH_INTERVAL
+		accept_event()
 
 func _process(delta: float) -> void:
 	if state == null:
@@ -133,55 +143,33 @@ func _process(delta: float) -> void:
 	_commanders_label.text = "Cmdrs %d/%d" % [commanders_used, commanders_max]
 	_commanders_label.add_theme_color_override("font_color", UITheme.WARNING if commanders_used >= commanders_max and commanders_max > 0 else UITheme.TEXT)
 
-	if _breakdown_expanded:
-		_breakdown_refresh_accum += delta
-		if _breakdown_refresh_accum >= BREAKDOWN_REFRESH_INTERVAL:
-			_breakdown_refresh_accum = 0.0
-			_refresh_breakdown()
+	if _expanded:
+		_refresh_accum += delta
+		if _refresh_accum >= REFRESH_INTERVAL:
+			_refresh_accum = 0.0
+			_refresh_breakdown(owned_bases)
 
-## Rebuilds the dropdown's content: one block per resource type in
-## DISPLAY_ORDER (its live per-tick total, colored the same as the bar's own
-## label, then a muted line grouping its producing buildings by type+level).
-## Rebuilt wholesale on every refresh tick rather than diffed in place — the
-## same "just rebuild it, it's cheap" call building_panel's queue status makes
-## — then the panel's height is recomputed from _breakdown_content's minimum
-## size (not _breakdown_panel's own — PanelContainer.get_combined_minimum_size()
-## reads a size cache that never gets invalidated while the panel is/was
-## hidden, so it sticks at (0, 0) even after content is added and the panel is
-## shown again; the inner VBoxContainer's own cache doesn't have this problem).
-func _refresh_breakdown() -> void:
-	var owned_bases := state.bases_owned_by(owner_id)
+## Updates the two per-column detail rows in place (no node rebuild needed —
+## the labels are permanent, only their text changes) from the owner's live
+## production total per resource plus a count of producing buildings grouped
+## by (type, level).
+func _refresh_breakdown(owned_bases: Array[BaseInstance]) -> void:
 	var totals: Dictionary = ProductionOutputSystem.compute_production(owned_bases, state.base_defs, state.building_defs).get(owner_id, {})
 	var groups_by_type := _compute_producer_groups(owned_bases)
-
-	for child in _breakdown_content.get_children():
-		child.queue_free()
-
 	for entry in DISPLAY_ORDER:
 		var type: ResourceType.Type = entry[0]
-		var label_text: String = entry[1]
 		var total := float(totals.get(type, 0.0))
+		_detail_labels[type].text = "%+.1f / tick" % total
+		_building_labels[type].text = _format_groups(groups_by_type.get(type, []))
 
-		var total_label := UITheme.body_label("%s  %+.1f / tick" % [label_text, total])
-		total_label.add_theme_color_override("font_color", UITheme.RESOURCE_COLOR[type])
-		_breakdown_content.add_child(total_label)
-
-		var groups: Array = groups_by_type.get(type, [])
-		var buildings_label := UITheme.muted_label(_format_groups(groups))
-		buildings_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_breakdown_content.add_child(buildings_label)
-
-	var content_height := _breakdown_content.get_combined_minimum_size().y
-	_breakdown_panel.size = Vector2(BREAKDOWN_WIDTH, content_height + BREAKDOWN_PANEL_VERTICAL_PADDING)
-
-## "2x Level 1 Mine, 3x Level 2 Mine" (levels ascending), or "No producing
-## buildings" once none of the owner's buildings output this resource.
+## "2x Level 1 Mine, 3x Level 2 Mine" (levels ascending), or "No producers"
+## once none of the owner's buildings output this resource.
 func _format_groups(groups: Array) -> String:
 	if groups.is_empty():
-		return "No producing buildings"
+		return "No producers"
 	var parts: Array[String] = []
 	for group in groups:
-		parts.append("%dx Level %d %s" % [group["count"], group["level"], group["name"]])
+		parts.append("%dx Lv%d %s" % [group["count"], group["level"], group["name"]])
 	return ", ".join(parts)
 
 ## ResourceType.Type -> Array[{name, level, count}] (sorted by level ascending)

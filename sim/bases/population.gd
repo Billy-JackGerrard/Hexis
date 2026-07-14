@@ -33,6 +33,8 @@ static func population_cap(base: BaseInstance, building_defs: Dictionary) -> int
 	var cap := _population_capacity(hq_def, base.hq_level)
 	var house_def: Dictionary = building_defs.get("house", {})
 	for house in base.buildings_of_type("house"):
+		if house.max_hp > 0.0 and house.current_hp <= 0.0:
+			continue
 		cap += _population_capacity(house_def, house.level)
 	return cap
 
@@ -43,6 +45,8 @@ static func population_cap(base: BaseInstance, building_defs: Dictionary) -> int
 static func population_used(base: BaseInstance, building_defs: Dictionary) -> int:
 	var used := 0
 	for b in base.buildings:
+		if b.max_hp > 0.0 and b.current_hp <= 0.0:
+			continue
 		var def: Dictionary = building_defs.get(b.building_type, {})
 		var cost: float = float(def.get("populationCost", 1))
 		if cost > 0:

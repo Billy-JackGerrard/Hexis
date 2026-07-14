@@ -48,7 +48,7 @@ scattered single tiles, e.g. a proper forest region rather than one random fores
 | Terrain | Infantry | Land Vehicles | Naval | Air | Vision | Buildable? |
 |---|---|---|---|---|---|---|
 | **Plains** | Normal | Normal | N/A | Normal | Normal | Yes (only buildable terrain, and majority of tiles) |
-| **Forest** | Normal | **Blocked** unless a Road is built through it | N/A | Normal | Normal | No (except Treehouse's buildings — forest tiles) |
+| **Forest** | Normal | **Blocked** unless a Road is built through it | N/A | Normal | **Reduced** (own tile halved; also blocks sightlines passing through it) | No (except Treehouse's buildings — forest tiles) |
 | **Hills** | Slowed | Normal | N/A | Normal | **Extended vision + extends fog-of-war clearing** (elevation) | No (except Windy Peaks' buildings — hill tiles) |
 | **River** | **Blocked** unless a Bridge is built | **Blocked** unless a Bridge is built | Fully passable | Normal | Normal | No |
 | **Ocean** | **Blocked** | **Blocked** | Fully passable | Normal | Normal | No |
@@ -99,7 +99,14 @@ scattered single tiles, e.g. a proper forest region rather than one random fores
   are good vantage/watchtower points despite being unbuildable and slowing Infantry.
   Plains are vision-neutral: purely economic/buildable terrain, with no vision edge
   that would make ambushes (e.g. landmines) unreliable on the tile type most squads
-  actually cross. Forests are where sneaky plays happen (see stealth mechanics).
+  actually cross. Forests are where sneaky plays happen (see stealth mechanics): a
+  troop/building standing in Forest sees at half its normal vision range, and any
+  sightline passing through a Forest hex (even when neither viewer nor target is
+  standing in it) loses additional range per Forest hex crossed — Forest blocks
+  sight, not just the things hiding inside it. Treehouse's own buildings are exempt
+  from both penalties (their vision is never reduced by Forest, on their own tile or
+  along their sightlines), since they're built into the forest rather than merely
+  standing in it.
 
 ## Movement & Positioning
 **Resolved: the game is fully hex-based — there is no continuous open-field

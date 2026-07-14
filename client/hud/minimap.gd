@@ -28,6 +28,15 @@ var local_owner_id: String = ""
 var _bounds_min: Vector2
 var _bounds_extent: Vector2 ## bounds_max - bounds_min, precomputed once
 
+## Redraw throttle: the terrain/base/squad layers only change on a sim tick
+## (10Hz), and the "you are here" viewport rect only changes while the camera
+## is actually panning/zooming — so redrawing this whole map-sized overlay
+## unconditionally every render frame (60fps+) was wasted cost the vast
+## majority of the time nothing moved. See fog_of_war.gd for the same fix.
+var _last_drawn_tick: int = -1
+var _last_cam_pos: Vector2 = Vector2.INF
+var _last_cam_zoom: Vector2 = Vector2.INF
+
 const SIZE := Vector2(220.0, 220.0)
 const MARGIN := 12.0
 const BG_COLOR := Color(0.05, 0.05, 0.08, 0.85)
@@ -56,6 +65,15 @@ func setup(p_state: MatchState, p_owner_colors: Dictionary, p_camera_controller:
 	offset_bottom = -MARGIN
 
 func _process(_delta: float) -> void:
+	if state == null:
+		return
+	var cam_pos := camera_controller.position
+	var cam_zoom := camera_controller.zoom
+	if state.tick == _last_drawn_tick and cam_pos == _last_cam_pos and cam_zoom == _last_cam_zoom:
+		return
+	_last_drawn_tick = state.tick
+	_last_cam_pos = cam_pos
+	_last_cam_zoom = cam_zoom
 	queue_redraw()
 
 ## World position -> local minimap-space position (non-uniform stretch to

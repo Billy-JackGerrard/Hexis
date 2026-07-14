@@ -38,55 +38,62 @@ func setup(p_state: MatchState, p_input_controller: InputController) -> void:
 	input_controller = p_input_controller
 
 func _process(_delta: float) -> void:
-	_refresh_if_needed()
-	_refresh_radius_if_needed()
-	queue_redraw()
+	# Both refreshes are cheap string-key compares that early-out unchanged;
+	# only when the pending placement or selected building actually changes does
+	# the valid-hex/edge set (all _draw reads) change — so redraw only then,
+	# rather than re-running this whole overlay every render frame while idle.
+	var dirty := _refresh_if_needed()
+	dirty = _refresh_radius_if_needed() or dirty
+	if dirty:
+		queue_redraw()
 
-func _refresh_if_needed() -> void:
+func _refresh_if_needed() -> bool:
 	var key := "%s|%s" % [input_controller.pending_base_id, input_controller.pending_building_type]
 	if key == _cache_key:
-		return
+		return false
 	_cache_key = key
 	_valid_hexes = []
 	_valid_edges = []
 	if input_controller.pending_building_type == "":
-		return
+		return true
 	var base := state.find_base(input_controller.pending_base_id)
 	if base == null:
-		return
+		return true
 	var base_def: Dictionary = state.base_defs.get(base.base_def_id, {})
 	var radius := BuildingPlacement.hq_build_radius(base.hq_level)
 	var candidates := HexCoord.range_within(base.hex_coord, radius)
 	if input_controller.pending_building_type == "wall":
 		_refresh_valid_edges(base, base_def, candidates)
-		return
+		return true
 	var occupied_unit_hexes := BuildingPlacement.ground_unit_hexes(state.squads, state.troop_defs)
 	for hex in candidates:
 		var result := BuildingPlacement.can_place(base, base_def, input_controller.pending_building_type, hex, state.grid, state.building_defs, occupied_unit_hexes)
 		if result == BuildingPlacement.Result.OK:
 			_valid_hexes.append(hex)
+	return true
 
 ## Recomputed only when the selected building changes (client/hud/
 ## building_panel.gd's InputController.selected_building_id) — shows the max
 ## build distance from an HQ the moment it's selected, without needing to
 ## also be actively placing something.
-func _refresh_radius_if_needed() -> void:
+func _refresh_radius_if_needed() -> bool:
 	var key := input_controller.selected_building_id
 	if key == _radius_cache_key:
-		return
+		return false
 	_radius_cache_key = key
 	_radius_hexes = []
 	if key == "":
-		return
+		return true
 	var found := state.find_base_building(key)
 	if found.is_empty():
-		return
+		return true
 	var building: BuildingInstance = found["building"]
 	if building.building_type != "hq" or building.is_ruin or building.hex == null:
-		return
+		return true
 	var base: BaseInstance = found["base"]
 	var radius := BuildingPlacement.hq_build_radius(base.hq_level)
 	_radius_hexes = HexCoord.range_within(building.hex, radius)
+	return true
 
 ## Every candidate hex's 6 edges, each checked once (seen_keys dedupes the
 ## shared edge two adjacent candidate hexes would otherwise both enumerate).

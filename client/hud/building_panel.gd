@@ -76,12 +76,21 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# ScrollContainer only accepts a wheel event when it actually has room left
+	# to scroll — at the very top/bottom it leaves the event unhandled, which
+	# falls through to CameraController's _unhandled_input and zooms the map.
+	# Swallow every wheel event over this panel unconditionally instead.
+	scroll.gui_input.connect(_on_scroll_gui_input)
 	panel.add_child(scroll)
 
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_theme_constant_override("separation", 10)
 	scroll.add_child(_content)
+
+func _on_scroll_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+		get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	var target_id := input_controller.selected_building_id
@@ -401,7 +410,9 @@ func _build_resource_body(building: BuildingInstance, def: Dictionary) -> void:
 ## as of the last rebuild (a squad flying adjacent after selection won't appear
 ## until reselect) — same selection-time caching the build menu uses.
 func _build_hangar_section(base: BaseInstance, building: BuildingInstance) -> void:
-	_content.add_child(UITheme.header_label("HANGAR"))
+	var def: Dictionary = state.building_defs.get(building.building_type, {})
+	var capacity := int(BuildingStats.cargo_capacity(def, building.level, building.material, state.building_defs))
+	_content.add_child(UITheme.header_label("HANGAR  -  %d/%d" % [building.docked_squad_ids.size(), capacity]))
 	var dockable := _dockable_squads(base, building)
 	if dockable.is_empty():
 		_content.add_child(UITheme.muted_label("No aircraft in range to land"))
@@ -468,7 +479,8 @@ func _build_naval_dock_section(building: BuildingInstance) -> void:
 		_content.add_child(UITheme.muted_label("No transport ship at the dock"))
 		return
 	var sdef: Dictionary = state.troop_defs.get(ship.troop_type, {})
-	_content.add_child(UITheme.body_label(String(sdef.get("name", ship.troop_type.capitalize()))))
+	var capacity := int(float(sdef.get("cargoCapacity", 0)) * ship.member_ids.size())
+	_content.add_child(UITheme.body_label("%s  -  %d/%d" % [String(sdef.get("name", ship.troop_type.capitalize())), ship.cargo_squad_ids.size(), capacity]))
 
 	for other in state.squads:
 		if other == ship or other.owner_id != owner_id:

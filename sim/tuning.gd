@@ -56,7 +56,7 @@ const MAX_BIOME_SEED_ATTEMPTS: int = 200
 
 ## num_rivers(player_count) = RIVER_BASE_COUNT + (player_count - 2) / 2 (int
 ## division): 2p->2, 4p->3, 6p->4.
-const RIVER_BASE_COUNT: int = 2
+const RIVER_BASE_COUNT: int = 4
 
 const RIVER_MIN_LENGTH: int = 8 ## hexes; also the source's min inset from the coastline
 const MIN_RIVER_SOURCE_SPACING: int = 8
@@ -145,8 +145,8 @@ const MIN_ADJACENT_BUILDINGS_FOR_WALL: int = 1
 
 ## hq_build_radius(hq_level) = HQ_BUILD_RADIUS_BASE + hq_level * HQ_BUILD_RADIUS_PER_LEVEL.
 ## Design doc pins the scaling relationship but not the exact number.
-const HQ_BUILD_RADIUS_BASE: int = 2
-const HQ_BUILD_RADIUS_PER_LEVEL: int = 2
+const HQ_BUILD_RADIUS_BASE: int = 1
+const HQ_BUILD_RADIUS_PER_LEVEL: int = 1
 
 ## --- Building regeneration (sim/bases/building_regen_system.gd) ---
 
