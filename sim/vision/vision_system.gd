@@ -24,7 +24,12 @@ extends RefCounted
 ## base's own buildings are exempt from every Forest vision penalty below —
 ## both the own-tile halving and the through-forest LOS reduction — since
 ## they're built into the forest rather than merely standing on it.
-static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, visions: Dictionary, base_defs: Dictionary = {}) -> void:
+## los_cache memoizes _reveal's revealed-hex-key set per [center_hex_key,
+## vision_range, ignore_forest_los] — see MatchState.vision_los_cache's own
+## doc comment. Defaults to a fresh dict (i.e. no caching across calls) so
+## every existing test call site keeps working unchanged; only
+## sim_orchestrator.gd threads through the match-lifetime one.
+static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance], grid: HexGrid, troop_defs: Dictionary, building_defs: Dictionary, visions: Dictionary, base_defs: Dictionary = {}, los_cache: Dictionary = {}) -> void:
 	var global_bonus_by_owner := _global_vision_bonus_by_owner(bases, building_defs)
 
 	for pv in visions.values():
@@ -47,7 +52,7 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 		vision *= Terrain.vision_multiplier(own_terrain)
 		vision += Terrain.vision_bonus(own_terrain)
 		vision += global_bonus_by_owner.get(squad.owner_id, 0.0)
-		_reveal(visions, squad.owner_id, squad.current_hex, vision, grid, false)
+		_reveal(visions, squad.owner_id, squad.current_hex, vision, grid, false, los_cache)
 
 	for base in bases:
 		var ignores_forest := String(base_defs.get(base.base_def_id, {}).get("terrainException", "")) == "Forest"
@@ -65,7 +70,7 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 				vision *= Terrain.vision_multiplier(own_terrain)
 			vision += Terrain.vision_bonus(own_terrain)
 			vision += global_bonus_by_owner.get(base.owner_id, 0.0)
-			_reveal(visions, base.owner_id, building.hex, vision, grid, ignores_forest)
+			_reveal(visions, base.owner_id, building.hex, vision, grid, ignores_forest, los_cache)
 
 	for building in standalone_buildings:
 		var def: Dictionary = building_defs.get(building.building_type, {})
@@ -76,7 +81,7 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 		vision *= Terrain.vision_multiplier(own_terrain)
 		vision += Terrain.vision_bonus(own_terrain)
 		vision += global_bonus_by_owner.get(building.owner_id, 0.0)
-		_reveal(visions, building.owner_id, building.hex, vision, grid, false)
+		_reveal(visions, building.owner_id, building.hex, vision, grid, false, los_cache)
 
 static func vision_for(visions: Dictionary, owner_id: String) -> PlayerVision:
 	if not visions.has(owner_id):
@@ -105,20 +110,36 @@ static func _global_vision_bonus_by_owner(bases: Array[BaseInstance], building_d
 ## endpoints — standing in or looking directly at Forest is covered by the
 ## own-tile multiplier/detection-hidden mechanics, not this). `ignore_forest_los`
 ## skips that per-hex check entirely (a Treehouse building's own vision).
-static func _reveal(visions: Dictionary, owner_id: String, center: HexCoord, vision_range: float, grid: HexGrid, ignore_forest_los: bool) -> void:
+static func _reveal(visions: Dictionary, owner_id: String, center: HexCoord, vision_range: float, grid: HexGrid, ignore_forest_los: bool, los_cache: Dictionary) -> void:
 	var pv := vision_for(visions, owner_id)
+	var cache_key := [center.to_key(), vision_range, ignore_forest_los]
+	if not los_cache.has(cache_key):
+		los_cache[cache_key] = _compute_revealed_keys(center, vision_range, grid, ignore_forest_los)
+	var revealed_keys: Array = los_cache[cache_key]
+	for key in revealed_keys:
+		pv.visible_hexes[key] = true
+		pv.explored_hexes[key] = true
+
+## The actual per-hex forest-LOS scan _reveal used to redo from scratch every
+## tick for every source — terrain never mutates after worldgen (see
+## MatchState.vision_los_cache's doc comment), so this only ever needs to run
+## once per distinct (center, vision_range, ignore_forest_los) for the whole
+## match; _reveal's los_cache memoizes the result.
+static func _compute_revealed_keys(center: HexCoord, vision_range: float, grid: HexGrid, ignore_forest_los: bool) -> Array:
+	var result: Array = []
 	var max_radius := int(ceil(vision_range))
 	for coord in HexCoord.range_within(center, max_radius):
 		if not grid.has_hex(coord):
+			continue
+		if HexCoord.distance(center, coord) > vision_range:
 			continue
 		var effective_range := vision_range
 		if not ignore_forest_los:
 			effective_range -= float(_forest_crossings(center, coord, grid)) * Terrain.FOREST_LOS_RANGE_PENALTY_PER_HEX
 		if HexCoord.distance(center, coord) > effective_range:
 			continue
-		var key := coord.to_key()
-		pv.visible_hexes[key] = true
-		pv.explored_hexes[key] = true
+		result.append(coord.to_key())
+	return result
 
 ## Forest hexes strictly between `center` and `target` on their hex line
 ## (both endpoints excluded) — how many times a sightline "passes through"
