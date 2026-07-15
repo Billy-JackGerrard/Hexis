@@ -81,7 +81,12 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 	# bottom-right footprint (same layout contract build_menu.gd held). Flips
 	# to the top-left band instead (_apply_side) whenever the selected base
 	# sits far enough right on screen that this band would sit over its build
-	# hexes — see _update_side.
+	# hexes — see _update_side. Vertical anchors set here (not _apply_side,
+	# which only ever flips left/right) since Control's default anchor_bottom
+	# is 0.0, not 1.0 -- leaving this unset collapses the panel to a sliver
+	# pinned at the top instead of spanning down to the minimap.
+	anchor_top = 0.0
+	anchor_bottom = 1.0
 	offset_top = ResourceBar.HEIGHT + MARGIN
 	offset_bottom = -(Minimap.SIZE.y + Minimap.MARGIN + MARGIN)
 	_apply_side(false)
