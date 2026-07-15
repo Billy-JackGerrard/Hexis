@@ -58,11 +58,29 @@ var _capital_names_by_owner: Dictionary = {} ## owner_id -> String, applied to e
 ## keeps its banner pinned over the transient "Waiting for players…" one.
 var _desync_halted: bool = false
 
+## TEMP: on-screen net debug log for the "waiting for players" LAN bug —
+## remove _net_debug_label/_net_debug_lines/_on_net_debug once diagnosed.
+const NET_DEBUG_MAX_LINES := 16
+var _net_debug_label: Label
+var _net_debug_lines: Array[String] = []
+
 func _ready() -> void:
 	net_manager = NetManager.new()
 	add_child(net_manager)
 	net_manager.match_starting.connect(_on_match_starting)
 	net_manager.desync_detected.connect(_on_desync_detected)
+	net_manager.net_debug.connect(_on_net_debug)
+
+	var debug_layer := CanvasLayer.new()
+	debug_layer.layer = 20
+	add_child(debug_layer)
+	_net_debug_label = Label.new()
+	_net_debug_label.add_theme_font_size_override("font_size", 14)
+	_net_debug_label.add_theme_color_override("font_color", Color.WHITE)
+	_net_debug_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_net_debug_label.add_theme_constant_override("outline_size", 3)
+	_net_debug_label.position = Vector2(8, 8)
+	debug_layer.add_child(_net_debug_label)
 
 	start_screen = StartScreen.new()
 	add_child(start_screen)
@@ -195,6 +213,14 @@ func _process(delta: float) -> void:
 ## LockstepDriver stashed when it sent that tick's checksum, so both peers
 ## dump the same tick even though the sim has advanced past it by the time the
 ## desync is reported.
+## TEMP: appends to the on-screen net debug log, capped to the last
+## NET_DEBUG_MAX_LINES entries.
+func _on_net_debug(text: String) -> void:
+	_net_debug_lines.append(text)
+	if _net_debug_lines.size() > NET_DEBUG_MAX_LINES:
+		_net_debug_lines.pop_front()
+	_net_debug_label.text = "\n".join(_net_debug_lines)
+
 func _on_desync_detected(tick: int, sections: Array) -> void:
 	_desync_halted = true
 	hud_layer.resource_bar.set_status("Desync at tick %d (%s) — match halted." % [tick, ", ".join(sections)], true)
