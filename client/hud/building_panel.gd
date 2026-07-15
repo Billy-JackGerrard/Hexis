@@ -21,10 +21,18 @@ var state: MatchState
 var owner_id: String
 var input_controller: InputController
 var troop_info_panel: TroopInfoPanel
+var camera_controller: CameraController
 
 const WIDTH := 420.0
 const MARGIN := 12.0
 const REFRESH_INTERVAL := 0.25
+## Screen-width fraction of the selected base's position past which the panel
+## flips to the left edge (and back below the FLIP_BACK fraction) — the two
+## thresholds give a dead band so a base sitting near the midpoint doesn't
+## ping-pong sides as the camera drifts a few pixels.
+const FLIP_TO_LEFT_RATIO := 0.60
+const FLIP_TO_RIGHT_RATIO := 0.40
+var _on_left := false
 ## The base-attached naval-landing buildings (Dock itself is standalone and not
 ## selectable) that get a Load/Unload section for an adjacent transport ship —
 ## the ship-side subset of BuildingPlacement.NAVAL_LANDING_BUILDING_TYPES.
@@ -62,22 +70,21 @@ var _refresh_accum := 0.0
 ## rebuild instead of going stale until some unrelated change forces one.
 var _shown_queue_key: String = ""
 
-func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_troop_info_panel: TroopInfoPanel) -> void:
+func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_troop_info_panel: TroopInfoPanel, p_camera_controller: CameraController) -> void:
 	state = p_state
 	owner_id = p_owner_id
 	input_controller = p_input_controller
 	troop_info_panel = p_troop_info_panel
+	camera_controller = p_camera_controller
 
 	# Top-right band under the resource bar, stopping short of the minimap's
-	# bottom-right footprint (same layout contract build_menu.gd held).
-	anchor_left = 1.0
-	anchor_right = 1.0
-	anchor_top = 0.0
-	anchor_bottom = 1.0
-	offset_left = -WIDTH - MARGIN
-	offset_right = -MARGIN
+	# bottom-right footprint (same layout contract build_menu.gd held). Flips
+	# to the top-left band instead (_apply_side) whenever the selected base
+	# sits far enough right on screen that this band would sit over its build
+	# hexes — see _update_side.
 	offset_top = ResourceBar.HEIGHT + MARGIN
 	offset_bottom = -(Minimap.SIZE.y + Minimap.MARGIN + MARGIN)
+	_apply_side(false)
 	# STOP (not IGNORE): this panel owns real buttons, and its background must
 	# also swallow clicks so they never fall through to a world move order.
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -136,6 +143,36 @@ func _on_scroll_gui_input(event: InputEvent) -> void:
 			_scroll.scroll_vertical += SCROLL_STEP
 			get_viewport().set_input_as_handled()
 
+## Left/right anchor+offset swap; layout only, doesn't touch _content. Keeps
+## troop_info_panel (which docks immediately beside this panel) in sync.
+func _apply_side(on_left: bool) -> void:
+	_on_left = on_left
+	anchor_left = 0.0 if on_left else 1.0
+	anchor_right = 0.0 if on_left else 1.0
+	offset_left = MARGIN if on_left else -WIDTH - MARGIN
+	offset_right = WIDTH + MARGIN if on_left else -MARGIN
+	if troop_info_panel != null:
+		troop_info_panel.set_side(on_left)
+
+## Re-picks which side the panel docks on from the selected base's current
+## screen-space position, with hysteresis (FLIP_TO_LEFT_RATIO /
+## FLIP_TO_RIGHT_RATIO) so it doesn't flip back and forth as the camera pans.
+func _update_side() -> void:
+	var found := state.find_base_building(_shown_for_building_id) if _shown_for_building_id != "" else {}
+	if found.is_empty():
+		return
+	var base: BaseInstance = found["base"]
+	if base.hex_coord == null:
+		return
+	var world_pos := HexView.axial_to_pixel(base.hex_coord)
+	var viewport_size := get_viewport().get_visible_rect().size
+	var screen_x := viewport_size.x * 0.5 + (world_pos.x - camera_controller.position.x) * camera_controller.zoom.x
+	var ratio := screen_x / viewport_size.x
+	if not _on_left and ratio > FLIP_TO_LEFT_RATIO:
+		_apply_side(true)
+	elif _on_left and ratio < FLIP_TO_RIGHT_RATIO:
+		_apply_side(false)
+
 func _process(delta: float) -> void:
 	var target_id := input_controller.selected_building_id
 	var building_changed := target_id != _shown_for_building_id
@@ -159,6 +196,7 @@ func _process(delta: float) -> void:
 			UIJuice.pop_in(self)
 	if not visible:
 		return
+	_update_side()
 	for updater in _live_updaters:
 		updater.call()
 	_refresh_accum += delta

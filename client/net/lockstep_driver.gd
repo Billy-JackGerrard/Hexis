@@ -25,6 +25,13 @@ extends RefCounted
 
 const INPUT_DELAY_TICKS := 3
 const DESYNC_CHECK_INTERVAL_TICKS := 20
+## How many past checksum ticks' full section snapshots to keep for the
+## on-desync dump. A desync is detected a few ticks after the offending tick
+## (the host has to aggregate every peer's checksum and broadcast back), so
+## the snapshot for that tick has to still be around when desync_detected
+## fires — 8 * DESYNC_CHECK_INTERVAL_TICKS ticks of slack covers the round
+## trip comfortably while staying a handful of dicts in memory.
+const SNAPSHOT_HISTORY := 8
 
 ## True whenever advance() is stalled on a missing peer input frame — main.gd
 ## surfaces this as a "Waiting for players…" banner.
@@ -37,6 +44,11 @@ var _local_seq: int = 0
 var _pending_local_commands: Array = [] ## [{"verb", "args", "seq"}], flushed every tick
 var _received_ticks: Dictionary = {} ## exec_tick -> {owner_id: true}
 var _expected_owner_ids: Array[String] = []
+## tick -> MatchState.sections() taken at that tick's checksum send, kept for
+## the on-desync dump so both peers can write the *same* diverged tick rather
+## than whatever tick they happen to have advanced to by the time the desync
+## is reported. Pruned to the newest SNAPSHOT_HISTORY entries.
+var _section_snapshots: Dictionary = {}
 
 func start(p_state: MatchState, net_manager: NetManager, roster: Dictionary) -> void:
 	state = p_state
@@ -88,6 +100,24 @@ func advance(delta: float) -> void:
 
 		if state.tick % DESYNC_CHECK_INTERVAL_TICKS == 0:
 			_net.send_checksum(state.tick, state.section_checksums())
+			_snapshot_sections(state.tick)
+
+## Stashes this tick's full section values (the same view section_checksums()
+## hashed) so the on-desync dump can reproduce exactly what diverged, then
+## prunes the ring back to SNAPSHOT_HISTORY newest ticks.
+func _snapshot_sections(tick: int) -> void:
+	_section_snapshots[tick] = state.sections()
+	if _section_snapshots.size() <= SNAPSHOT_HISTORY:
+		return
+	var ticks := _section_snapshots.keys()
+	ticks.sort()
+	for stale_tick in ticks.slice(0, ticks.size() - SNAPSHOT_HISTORY):
+		_section_snapshots.erase(stale_tick)
+
+## The stashed full section values for `tick`, or {} if it's already been
+## pruned (or was never a checksum tick). main.gd's desync dump reads this.
+func section_snapshot(tick: int) -> Dictionary:
+	return _section_snapshots.get(tick, {})
 
 func _has_all_input_for(tick: int) -> bool:
 	if not _received_ticks.has(tick):

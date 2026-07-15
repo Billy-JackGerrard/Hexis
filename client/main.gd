@@ -54,8 +54,9 @@ var lockstep_driver: LockstepDriver ## null in single-player (sim_clock drives i
 
 var _local_capital_hex: HexCoord
 var _capital_names_by_owner: Dictionary = {} ## owner_id -> String, applied to every peer identically
-var _waiting_label: Label
-var _desync_label: Label
+## Latched true once a desync is reported — halts the sim (see _process) and
+## keeps its banner pinned over the transient "Waiting for players…" one.
+var _desync_halted: bool = false
 
 func _ready() -> void:
 	net_manager = NetManager.new()
@@ -155,27 +156,6 @@ func _start_game() -> void:
 	camera_controller.set_bounds(bounds[0], bounds[1])
 	camera_controller.center_on(HexView.axial_to_pixel(_local_capital_hex))
 
-	if lockstep_driver != null:
-		_waiting_label = UITheme.body_label("Waiting for players…")
-		_waiting_label.theme = hud_layer.theme
-		_waiting_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_waiting_label.anchor_right = 1.0
-		_waiting_label.offset_top = ResourceBar.HEIGHT + 8.0
-		_waiting_label.visible = false
-		var waiting_layer := CanvasLayer.new()
-		waiting_layer.layer = 10 # above resource_bar's HUDLayer band
-		add_child(waiting_layer)
-		waiting_layer.add_child(_waiting_label)
-
-		_desync_label = UITheme.danger_label("")
-		_desync_label.theme = hud_layer.theme
-		_desync_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_desync_label.anchor_right = 1.0
-		_desync_label.offset_top = ResourceBar.HEIGHT + 8.0
-		var desync_layer := CanvasLayer.new()
-		desync_layer.layer = 10 # above resource_bar's HUDLayer band
-		add_child(desync_layer)
-		desync_layer.add_child(_desync_label)
 
 ## Pixel-space bounding box of every generated hex, plus a few hexes of
 ## margin. CameraController.set_bounds now clamps the viewport's visible
@@ -195,34 +175,47 @@ func _map_bounds() -> Array:
 func _process(delta: float) -> void:
 	if state == null:
 		return
-	if _desync_label != null and not _desync_label.text.is_empty():
+	if _desync_halted:
 		return
 	if lockstep_driver != null:
 		lockstep_driver.advance(delta)
-		_waiting_label.visible = lockstep_driver.is_waiting
+		hud_layer.resource_bar.set_status("Waiting for players…" if lockstep_driver.is_waiting else "")
 	else:
 		sim_clock.advance(state, delta)
 
 ## Names the diverging section(s) in the on-screen message (see
-## MatchState.section_checksums()) and dumps this peer's full state to disk
-## at the desync tick — compare the dump from each machine (they'll have
-## different suffixes, one per local_owner_id) to see the exact field that
-## diverged, rather than just knowing that something did.
+## MatchState.section_checksums()) and dumps this peer's snapshot of the
+## diverged sections *at the desync tick itself* to disk — compare the dump
+## from each machine (they'll have different suffixes, one per local_owner_id)
+## to see the exact field that diverged, rather than just knowing that
+## something did. The snapshot is the one LockstepDriver stashed when it sent
+## that tick's checksum, so both peers dump the same tick's state even though
+## the sim has advanced past it by the time the desync is reported.
 func _on_desync_detected(tick: int, sections: Array) -> void:
 	_desync_label.text = "Desync detected at tick %d (%s) — match halted." % [tick, ", ".join(sections)]
-	_dump_state_for_debug(tick)
+	_dump_state_for_debug(tick, sections)
 
-func _dump_state_for_debug(tick: int) -> void:
-	if state == null:
+func _dump_state_for_debug(tick: int, sections: Array) -> void:
+	if lockstep_driver == null:
 		return
+	var snapshot := lockstep_driver.section_snapshot(tick)
+	if snapshot.is_empty():
+		print("Desync at tick %d — snapshot already pruned, nothing to dump" % tick)
+		return
+	# Only the sections that actually diverged, so the two peers' files diff
+	# down to the offending field instead of the whole (mostly identical) state.
+	var diverged: Dictionary = {}
+	for key in sections:
+		if snapshot.has(key):
+			diverged[key] = snapshot[key]
 	var owner_tag := net_manager.local_owner_id if net_manager != null else "unknown"
 	var path := "user://desync_tick%d_%s.txt" % [tick, owner_tag]
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return
-	f.store_string(var_to_str(state.to_dict()))
+	f.store_string(var_to_str(diverged))
 	f.close()
-	print("Desync at tick %d — state dump written to %s" % [tick, ProjectSettings.globalize_path(path)])
+	print("Desync at tick %d — diverged sections dump written to %s" % [tick, ProjectSettings.globalize_path(path)])
 
 func _build_demo_state() -> MatchState:
 	var demo_state := MatchState.new()

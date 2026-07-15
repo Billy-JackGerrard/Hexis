@@ -55,6 +55,7 @@ var _usage_labels: Dictionary = {} ## ResourceType.Type -> Label, total troop up
 var _usage_boxes: Dictionary = {} ## ResourceType.Type -> VBoxContainer, one Label per consuming troop type
 var _squads_label: Label
 var _commanders_label: Label
+var _status_label: Label ## centered overlay for match-status banners (waiting/desync)
 
 var _prev_amount: Dictionary = {} ## ResourceType.Type -> int, last displayed value (for count-up)
 var _prev_deficit: Dictionary = {} ## ResourceType.Type -> bool, last deficit state (for the pop-on-entry flash)
@@ -154,6 +155,40 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 	_commanders_label = UITheme.body_label("")
 	_commanders_label.add_theme_font_size_override("font_size", UITheme.FONT_BAR)
 	row.add_child(_commanders_label)
+
+	# Match-status banner (waiting for players / desync halt). Overlaid centered
+	# on top of the bar's own panel so it always has the opaque panel background
+	# behind it — the old free-floating label sat over the world/fog and its
+	# text was unreadable against the black unexplored area (set_status below is
+	# what main.gd drives instead of a separate CanvasLayer). Added last so it
+	# draws over the resource row; IGNORE mouse so the click-to-expand still
+	# works through it.
+	var status_center := CenterContainer.new()
+	status_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	status_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(status_center)
+
+	var status_box := UITheme.panel()
+	status_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status_box.visible = false
+	status_center.add_child(status_box)
+
+	_status_label = UITheme.body_label("")
+	_status_label.add_theme_font_size_override("font_size", UITheme.FONT_BAR)
+	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status_box.add_child(_status_label)
+
+## Shows (or hides, on empty text) the centered status banner. `danger` recolors
+## it DANGER for a halting condition (desync) versus normal text for a transient
+## one (waiting for players). main.gd calls this instead of maintaining its own
+## screen-space labels, so the message inherits the bar's opaque background and
+## stays legible over any part of the map.
+func set_status(text: String, danger: bool = false) -> void:
+	if _status_label == null:
+		return
+	_status_label.text = text
+	_status_label.add_theme_color_override("font_color", UITheme.DANGER if danger else UITheme.TEXT)
+	_status_label.get_parent().visible = not text.is_empty()
 
 ## Left click toggles the expanded rows; STOP (see class doc) means this is
 ## the only thing on the strip that ever sees mouse input.

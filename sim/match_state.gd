@@ -212,17 +212,22 @@ func to_dict() -> Dictionary:
 		"next_id_counter": _next_id_counter,
 	}
 
-## Deterministic fingerprint of the mutable sim state, for lockstep desync
-## detection (see client/net/lockstep_driver.gd) — peers periodically compare
-## this instead of the full state. Built on top of to_dict() rather than a
-## separate serialization so it can never drift out of sync with what
-## actually gets saved/replicated; command_log is stripped first since it
-## only ever grows and carries no state a desync check needs (the state it
-## produced is already covered by everything else in the dict).
-func checksum() -> int:
+## The desync-relevant slice of to_dict(): every top-level state key except
+## command_log (which only ever grows and carries no state a desync check
+## needs — the state it produced is already covered by everything else). Both
+## the checksum path (below) and the on-desync full-state dump
+## (client/net/lockstep_driver.gd's snapshot ring) read this same view, so a
+## mismatch's hash and its dumped values can never describe different data.
+func sections() -> Dictionary:
 	var d := to_dict()
 	d.erase("command_log")
-	return hash(var_to_str(d))
+	return d
+
+## Deterministic fingerprint of the mutable sim state, for lockstep desync
+## detection (see client/net/lockstep_driver.gd) — peers periodically compare
+## this instead of the full state.
+func checksum() -> int:
+	return hash(var_to_str(sections()))
 
 ## Per-section breakdown of checksum() — same fields, each hashed on its own
 ## instead of collapsed into one int. A whole-state mismatch only tells you
@@ -232,8 +237,7 @@ func checksum() -> int:
 ## base assignment, so go look at worldgen/data loading" (see
 ## sim/data/data_loader.gd's load order bug for exactly this kind of case).
 func section_checksums() -> Dictionary:
-	var d := to_dict()
-	d.erase("command_log")
+	var d := sections()
 	var result: Dictionary = {}
 	for key in d:
 		result[key] = hash(var_to_str(d[key]))

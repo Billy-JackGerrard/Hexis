@@ -31,6 +31,8 @@ func _init() -> void:
 	_test_arrival_order_independence()
 	print("checksum() actually reflects state, not a constant")
 	_test_checksum_sanity()
+	print("Resource-starved production stays in sync over a long match")
+	_test_production_economy_determinism()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -118,3 +120,79 @@ func _test_checksum_sanity() -> void:
 	_run_ticks(state, 10)
 	var after := state.checksum()
 	_check(before != after, "checksum changes once the scheduled command + ticks actually move state")
+
+## Regression cover for the lazy-payment production refactor (HEAD): the desync
+## reported in the field was in the `bases`/`players` sections — i.e. the
+## economy + production path, which _build_scenario above never touches.
+## _test_arrival_order_independence only runs 20 ticks with a full pool, so it
+## can't see a divergence that only appears once a queue actually starves,
+## pauses on insufficient_resources, and resumes as the Farm trickles food back
+## — the exact interaction the refactor introduced. This runs a capital with a
+## Barracks (produces) + Farm (food income) for LONG_MATCH_TICKS twice from an
+## identical setup and asserts the two runs never diverge, comparing whole
+## sections at every checksum cadence so a mismatch names which one broke.
+const LONG_MATCH_TICKS := 3000
+const CHECKSUM_CADENCE := 20
+
+## A p1 capital whose starting food is set just above one rifleman's cost, so
+## the first queued rifleman pays immediately and the rest sit paused on
+## insufficient_resources until the Farm's foodOutput trickles enough back —
+## then a deep queue of riflemen to keep that starve/resume cycle running for
+## the whole match.
+func _build_economy_scenario() -> MatchState:
+	var state := MatchState.new()
+	state.grid = _flat_grid(10)
+	state.troop_defs = _troop_defs
+	state.building_defs = _building_defs
+	state.base_defs = _base_defs
+	state.seed_rng(SEED)
+
+	var base := BaseInstance.new("cap1", "capital", "p1", 1, HexCoord.new(0, 0))
+	var barracks := BuildingInstance.new("brk1", base.id, "barracks", 1, "", HexCoord.new(0, 0))
+	barracks.init_hp(_building_defs["barracks"], _building_defs)
+	var farm := BuildingInstance.new("farm1", base.id, "farm", 1, "", HexCoord.new(0, 1))
+	farm.init_hp(_building_defs["farm"], _building_defs)
+	base.buildings.append(barracks)
+	base.buildings.append(farm)
+	state.bases.append(base)
+
+	# One rifleman's worth of food + a hair, so exactly the first entry starts
+	# training and everything queued behind it starves until the Farm catches up.
+	var rifleman_food: float = float(_troop_defs["rifleman"].get("cost", {}).get("food", 20.0))
+	state.pool_for("p1").set_amount(ResourceType.Type.FOOD, rifleman_food + 1.0)
+
+	for i in range(40):
+		CommandProcessor.enqueue_production(state, barracks.id, "rifleman", "p1")
+	return state
+
+func _test_production_economy_determinism() -> void:
+	var run_a := _build_economy_scenario()
+	var run_b := _build_economy_scenario()
+
+	var starved_at_least_once := false
+	var diverged_tick := -1
+	var diverged_sections: Array = []
+	for i in range(LONG_MATCH_TICKS):
+		SimOrchestrator.resolve_tick(run_a, 1.0)
+		SimOrchestrator.resolve_tick(run_b, 1.0)
+		var queue: ProductionQueue = run_a.production_queues.get("brk1")
+		if queue != null and queue.pause_reason == "insufficient_resources":
+			starved_at_least_once = true
+		if diverged_tick == -1 and run_a.tick % CHECKSUM_CADENCE == 0:
+			var checks_a := run_a.section_checksums()
+			var checks_b := run_b.section_checksums()
+			for key in checks_a:
+				if checks_a[key] != checks_b.get(key):
+					diverged_sections.append(key)
+			if not diverged_sections.is_empty():
+				diverged_tick = run_a.tick
+
+	if diverged_tick != -1:
+		_check(false, "two identical runs diverged at tick %d in section(s): %s" % [diverged_tick, ", ".join(diverged_sections)])
+	else:
+		_check(true, "%d ticks of resource-starved production stayed byte-identical across both runs" % LONG_MATCH_TICKS)
+	_check(var_to_str(run_a.to_dict()) == var_to_str(run_b.to_dict()), "final full to_dict() snapshot matches after the long match")
+	# Proves the run actually exercised the lazy-payment starve/resume path
+	# rather than draining the queue instantly (which would make the sync
+	# assertions vacuous).
+	_check(starved_at_least_once, "a queued entry actually hit insufficient_resources at some point (the path under test really ran)")

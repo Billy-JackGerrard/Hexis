@@ -21,18 +21,16 @@ var _shown_troop_type: String = ""
 func setup(p_state: MatchState) -> void:
 	state = p_state
 
-	# Same right-hand band as BuildingPanel, shifted one further MARGIN+WIDTH
-	# to the left so it sits immediately beside it with a matching gap.
-	anchor_left = 1.0
-	anchor_right = 1.0
+	# Sits immediately beside BuildingPanel, on whichever edge it's currently
+	# docked to (see set_side) — shifted one further MARGIN+WIDTH so it never
+	# overlaps it, matching gap on both sides.
 	anchor_top = 0.0
 	anchor_bottom = 1.0
-	offset_right = -(BuildingPanel.WIDTH + 2 * MARGIN)
-	offset_left = -(BuildingPanel.WIDTH + 2 * MARGIN + WIDTH)
 	offset_top = ResourceBar.HEIGHT + MARGIN
 	offset_bottom = -(Minimap.SIZE.y + Minimap.MARGIN + MARGIN)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
+	set_side(false)
 
 	var panel := UITheme.panel()
 	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -48,6 +46,20 @@ func setup(p_state: MatchState) -> void:
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_theme_constant_override("separation", 10)
 	scroll.add_child(_content)
+
+## Docks immediately beside BuildingPanel on whichever side it's currently
+## showing on (BuildingPanel._apply_side calls this in lockstep) — left of it
+## when BuildingPanel is on the right (the original layout), right of it when
+## BuildingPanel has flipped to the left.
+func set_side(on_left: bool) -> void:
+	anchor_left = 0.0 if on_left else 1.0
+	anchor_right = 0.0 if on_left else 1.0
+	if on_left:
+		offset_left = BuildingPanel.WIDTH + 2 * MARGIN
+		offset_right = BuildingPanel.WIDTH + 2 * MARGIN + WIDTH
+	else:
+		offset_right = -(BuildingPanel.WIDTH + 2 * MARGIN)
+		offset_left = -(BuildingPanel.WIDTH + 2 * MARGIN + WIDTH)
 
 ## No-op if `troop_type` is already shown (BuildingPanel re-calls this on
 ## every rebuild — including ones triggered by an unrelated queue mutation —
