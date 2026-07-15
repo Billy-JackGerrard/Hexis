@@ -29,14 +29,22 @@ var _bounds_min: Vector2
 var _bounds_extent: Vector2 ## bounds_max - bounds_min, precomputed once
 
 ## Redraw throttle: the terrain/base/squad layers only change on a sim tick
-## (10Hz), and the "you are here" viewport rect only changes while the camera
-## is actually panning/zooming — so redrawing this whole map-sized overlay
-## unconditionally every render frame (60fps+) was wasted cost the vast
-## majority of the time nothing moved. See fog_of_war.gd for the same fix.
+## (10Hz, already sparse so left unthrottled), and the "you are here"
+## viewport rect only changes while the camera is actually panning/zooming —
+## so redrawing this whole map-sized overlay unconditionally every render
+## frame (60fps+) was wasted cost the vast majority of the time nothing
+## moved. Camera position fires a change every single rendered frame while
+## panning though (see fog_of_war.gd's own version of this same fix), and
+## this redraw always re-iterates the full (unculled — this is a whole-map
+## overview by design) hex list, so the cam-triggered path also needs a
+## real-time cooldown, not just a value-changed check, or a fast drag still
+## redraws (and re-walks every hex) every single frame.
 var _last_drawn_tick: int = -1
 var _last_cam_pos: Vector2 = Vector2.INF
 var _last_cam_zoom: Vector2 = Vector2.INF
+var _cam_redraw_cooldown: float = 0.0
 
+const CAM_REDRAW_COOLDOWN_SECONDS := 0.1
 const SIZE := Vector2(220.0, 220.0)
 const MARGIN := 12.0
 const BG_COLOR := Color(0.05, 0.05, 0.08, 0.85)
@@ -64,16 +72,20 @@ func setup(p_state: MatchState, p_owner_colors: Dictionary, p_camera_controller:
 	offset_top = -SIZE.y - MARGIN
 	offset_bottom = -MARGIN
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if state == null:
 		return
+	_cam_redraw_cooldown = maxf(0.0, _cam_redraw_cooldown - delta)
+	var tick_changed := state.tick != _last_drawn_tick
 	var cam_pos := camera_controller.position
 	var cam_zoom := camera_controller.zoom
-	if state.tick == _last_drawn_tick and cam_pos == _last_cam_pos and cam_zoom == _last_cam_zoom:
+	var cam_changed := cam_pos != _last_cam_pos or cam_zoom != _last_cam_zoom
+	if not tick_changed and not (cam_changed and _cam_redraw_cooldown <= 0.0):
 		return
 	_last_drawn_tick = state.tick
 	_last_cam_pos = cam_pos
 	_last_cam_zoom = cam_zoom
+	_cam_redraw_cooldown = CAM_REDRAW_COOLDOWN_SECONDS
 	queue_redraw()
 
 ## World position -> local minimap-space position (non-uniform stretch to

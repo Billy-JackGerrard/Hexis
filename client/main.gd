@@ -8,8 +8,14 @@
 extends Node2D
 
 const PLAYER_COUNT := 2
-const WORLD_SEED := 20260709
 const LOCAL_PLAYER := "p0"
+
+## Rolled fresh in _start_game() (Godot's global RNG is already
+## OS-entropy-seeded on engine startup, no explicit randomize() needed) so
+## every match gets a different map/spawn — was a hardcoded constant during
+## early scaffold development, when a reproducible map was more useful than a
+## varied one.
+var _world_seed: int
 
 var state: MatchState
 var sim_clock := SimClock.new()
@@ -115,13 +121,14 @@ func _process(delta: float) -> void:
 	sim_clock.advance(state, delta)
 
 func _build_demo_state() -> MatchState:
+	_world_seed = randi()
 	var demo_state := MatchState.new()
-	demo_state.seed_rng(WORLD_SEED)
+	demo_state.seed_rng(_world_seed)
 	demo_state.troop_defs = DataLoader.load_dir("res://data/troops")
 	demo_state.building_defs = DataLoader.load_dir("res://data/buildings")
 	demo_state.base_defs = DataLoader.load_dir("res://data/bases")
 
-	var result := MapGenerator.generate(PLAYER_COUNT, WORLD_SEED, demo_state.base_defs, demo_state.building_defs, [], demo_state.troop_defs)
+	var result := MapGenerator.generate(PLAYER_COUNT, _world_seed, demo_state.base_defs, demo_state.building_defs, [], demo_state.troop_defs)
 	demo_state.grid = result.grid
 	demo_state.bases = result.bases
 	demo_state.squads.append_array(result.squads)
@@ -143,4 +150,3 @@ func _find_base(demo_state: MatchState, base_id: String) -> BaseInstance:
 		if base.id == base_id:
 			return base
 	return null
-
