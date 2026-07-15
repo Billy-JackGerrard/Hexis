@@ -482,11 +482,12 @@ func _on_troop_name_pressed(troop_type: String) -> void:
 ## (starting at entries[0], the one currently training or held complete if
 ## paused) is a progress bar with the troop name centered on top, e.g.
 ## "Training Basekiller x3 (21s)"; every later run is a plain muted label row,
-## e.g. "Tonk x2". Each row gets a +1 button (queue one more, grouped right
-## after the run) and, for a run of more than one, a -1 button that drops the
-## LAST entry in the run — never the actively-training entries[0] itself, so
-## -1 only ever trims queued-but-not-yet-training copies (see
-## CommandProcessor.can_dequeue_production).
+## e.g. "Tonk x2". Each row gets a + button (queue one more, grouped right
+## after the run) and a - button that drops the LAST entry in the run — never
+## the actively-training entries[0] itself, so it only ever trims queued-but-
+## not-yet-training copies (see CommandProcessor.can_dequeue_production);
+## greyed out (disabled) when the run has only one entry, since there's
+## nothing left in it to drop.
 func _add_queue_status(building_id: String) -> void:
 	_content.add_child(HSeparator.new())
 	var box := VBoxContainer.new()
@@ -563,22 +564,24 @@ func _build_queue_rest_row(box: VBoxContainer, building_id: String, troop_type: 
 	_add_queue_buttons(row, building_id, troop_type, run_start, run_len)
 	box.add_child(row)
 
-## +1 (always) / -1 (only if run_len > 1) for one queue run. Both target the
-## LAST index in the run: for -1 that's the removal index passed to
-## dequeue_production (never run_start itself when run_start == 0); for +1
+## + (always, unless ineligible) / - (always shown, greyed out via `disabled`
+## when run_len == 1 — nothing in this run to drop) for one queue run. Both
+## target the LAST index in the run: for - that's the removal index passed to
+## dequeue_production (never run_start itself when run_start == 0); for +
 ## that's the insert_after index, keeping the new copy grouped with its run.
 func _add_queue_buttons(row: HBoxContainer, building_id: String, troop_type: String, run_start: int, run_len: int) -> void:
 	var last_index := run_start + run_len - 1
-	if run_len > 1:
-		var minus := UITheme.action_button("-1", "")
-		minus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		minus.custom_minimum_size = Vector2(64, 0)
-		minus.pressed.connect(func(): input_controller.submitter.submit("dequeue_production", [building_id, last_index, owner_id], owner_id))
-		row.add_child(minus)
 
-	var plus := UITheme.action_button("+1", "")
+	var minus := UITheme.action_button("-", "")
+	minus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	minus.custom_minimum_size = Vector2(40, 0)
+	minus.disabled = run_len <= 1
+	minus.pressed.connect(func(): input_controller.submitter.submit("dequeue_production", [building_id, last_index, owner_id], owner_id))
+	row.add_child(minus)
+
+	var plus := UITheme.action_button("+", "")
 	plus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	plus.custom_minimum_size = Vector2(64, 0)
+	plus.custom_minimum_size = Vector2(40, 0)
 	var reason_fn := func(): return UIEligibility.troop_reason(state, building_id, troop_type, owner_id)
 	var action := func(): input_controller.submitter.submit("enqueue_production_after", [building_id, troop_type, last_index, owner_id], owner_id)
 	plus.pressed.connect(func(): _handle_press(reason_fn, action))

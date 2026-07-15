@@ -142,7 +142,7 @@ func _draw() -> void:
 				continue
 			var color: Color = owner_colors.get(squad.owner_id, Color.WHITE)
 			draw_circle(_world_to_local(HexView.axial_to_pixel(squad.current_hex)), SQUAD_RADIUS, color)
-			_draw_combat_flashes(pv)
+		_draw_combat_flashes(pv)
 	_draw_viewport_rect()
 	draw_rect(Rect2(Vector2.ZERO, SIZE), BORDER_COLOR, false, BORDER_WIDTH)
 
@@ -195,6 +195,13 @@ func _draw_combat_flashes(pv: PlayerVision) -> void:
 		draw_circle(_world_to_local(HexView.axial_to_pixel(building.hex)), COMBAT_FLASH_RADIUS, COMBAT_FLASH_COLOR)
 
 func _is_combat_flash(owner_id: String, last_damaged_by: String, time_since_damage: float) -> bool:
+	# last_damaged_by == "" means "never actually hit" (its default, and what
+	# combat_resolver/command_processor reset it back to on capture/rebuild) —
+	# required explicitly so a target that's simply sitting at low
+	# time_since_damage (fresh spawn, or any future stalled-accumulator bug)
+	# can't read as "in combat" without a real recorded hit backing it.
+	if last_damaged_by == "":
+		return false
 	if time_since_damage >= COMBAT_FLASH_SECONDS:
 		return false
 	return owner_id == local_owner_id or last_damaged_by == local_owner_id

@@ -121,7 +121,7 @@ static func resolve_tick(
 		_advance_building(building, building.owner_id, dt, targets, troops_by_id, troop_defs, building_defs, grid, detections, auras, projectiles, next_projectile_id, rng)
 
 	_prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments, production_queues)
-	BuildingRegenSystem.resolve_tick(dt, bases)
+	BuildingRegenSystem.resolve_tick(dt, bases, standalone_buildings)
 
 ## Builds the CombatTarget view over every live squad and combat-tracked
 ## building (base-attached or standalone). Buildings with max_hp 0

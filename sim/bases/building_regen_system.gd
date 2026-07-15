@@ -13,10 +13,12 @@ extends RefCounted
 ## Tunables (out-of-combat delay, tick cadence, heal fraction) live in
 ## sim/tuning.gd (Tuning.BUILDING_REGEN_*) rather than here.
 
-static func resolve_tick(dt: float, bases: Array[BaseInstance]) -> void:
+static func resolve_tick(dt: float, bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance] = []) -> void:
 	for base in bases:
 		for building in base.buildings:
 			_regen(building, dt)
+	for building in standalone_buildings:
+		_regen(building, dt)
 
 static func _regen(building: BuildingInstance, dt: float) -> void:
 	if building.max_hp <= 0.0 or building.is_ruin or building.current_hp <= 0.0:
