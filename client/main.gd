@@ -192,7 +192,8 @@ func _process(delta: float) -> void:
 ## that tick's checksum, so both peers dump the same tick's state even though
 ## the sim has advanced past it by the time the desync is reported.
 func _on_desync_detected(tick: int, sections: Array) -> void:
-	_desync_label.text = "Desync detected at tick %d (%s) — match halted." % [tick, ", ".join(sections)]
+	_desync_halted = true
+	hud_layer.resource_bar.set_status("Desync at tick %d (%s) — match halted." % [tick, ", ".join(sections)], true)
 	_dump_state_for_debug(tick, sections)
 
 func _dump_state_for_debug(tick: int, sections: Array) -> void:

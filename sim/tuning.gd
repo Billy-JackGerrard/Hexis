@@ -198,7 +198,7 @@ const PRODUCTION_JOIN_RANGE_RADIUS: int = 1
 
 ## maxSquads = sum(hqLevel across every owned base) * SQUAD_CAP_PER_HQ_LEVEL + SQUAD_CAP_BASE.
 const SQUAD_CAP_BASE: int = 2
-const SQUAD_CAP_PER_HQ_LEVEL: int = 2
+const SQUAD_CAP_PER_HQ_LEVEL: int = 1
 
 ## --- Combat (sim/combat/) ---
 
