@@ -54,33 +54,20 @@ var lockstep_driver: LockstepDriver ## null in single-player (sim_clock drives i
 
 var _local_capital_hex: HexCoord
 var _capital_names_by_owner: Dictionary = {} ## owner_id -> String, applied to every peer identically
-## Latched true once a desync is reported — halts the sim (see _process) and
-## keeps its banner pinned over the transient "Waiting for players…" one.
-var _desync_halted: bool = false
+## Latched true once a desync is reported or the connection is lost mid-match
+## — halts the sim (see _process) and keeps its banner pinned over the
+## transient "Waiting for players…" one.
+var _match_halted: bool = false
 
-## TEMP: on-screen net debug log for the "waiting for players" LAN bug —
-## remove _net_debug_label/_net_debug_lines/_on_net_debug once diagnosed.
-const NET_DEBUG_MAX_LINES := 16
-var _net_debug_label: Label
-var _net_debug_lines: Array[String] = []
-
+## TEMP: net debug log for the "waiting for players" LAN bug — remove
+## _on_net_debug once diagnosed.
 func _ready() -> void:
 	net_manager = NetManager.new()
 	add_child(net_manager)
 	net_manager.match_starting.connect(_on_match_starting)
 	net_manager.desync_detected.connect(_on_desync_detected)
+	net_manager.connection_failed.connect(_on_mid_match_connection_failed)
 	net_manager.net_debug.connect(_on_net_debug)
-
-	var debug_layer := CanvasLayer.new()
-	debug_layer.layer = 20
-	add_child(debug_layer)
-	_net_debug_label = Label.new()
-	_net_debug_label.add_theme_font_size_override("font_size", 14)
-	_net_debug_label.add_theme_color_override("font_color", Color.WHITE)
-	_net_debug_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	_net_debug_label.add_theme_constant_override("outline_size", 3)
-	_net_debug_label.position = Vector2(8, 8)
-	debug_layer.add_child(_net_debug_label)
 
 	start_screen = StartScreen.new()
 	add_child(start_screen)
@@ -193,7 +180,7 @@ func _map_bounds() -> Array:
 func _process(delta: float) -> void:
 	if state == null:
 		return
-	if _desync_halted:
+	if _match_halted:
 		return
 	if lockstep_driver != null:
 		lockstep_driver.advance(delta)
@@ -213,16 +200,24 @@ func _process(delta: float) -> void:
 ## LockstepDriver stashed when it sent that tick's checksum, so both peers
 ## dump the same tick even though the sim has advanced past it by the time the
 ## desync is reported.
-## TEMP: appends to the on-screen net debug log, capped to the last
-## NET_DEBUG_MAX_LINES entries.
 func _on_net_debug(text: String) -> void:
-	_net_debug_lines.append(text)
-	if _net_debug_lines.size() > NET_DEBUG_MAX_LINES:
-		_net_debug_lines.pop_front()
-	_net_debug_label.text = "\n".join(_net_debug_lines)
+	print("[net] %s" % text)
+
+## start_screen.gd also listens to this signal for the pre-match lobby case;
+## this one only matters once a match is actually running (lockstep_driver !=
+## null) — otherwise the lobby handler already has it covered. Without this,
+## a mid-match peer drop nulled multiplayer_peer but nothing stopped
+## lockstep_driver.advance() from still running every frame, so it kept
+## retrying send_input_frame's RPC against a dead peer forever (the "no
+## multiplayer peer is active" spam).
+func _on_mid_match_connection_failed(reason: String) -> void:
+	if lockstep_driver == null:
+		return
+	_match_halted = true
+	hud_layer.resource_bar.set_status("Connection lost (%s) — match halted." % reason, true)
 
 func _on_desync_detected(tick: int, sections: Array) -> void:
-	_desync_halted = true
+	_match_halted = true
 	hud_layer.resource_bar.set_status("Desync at tick %d (%s) — match halted." % [tick, ", ".join(sections)], true)
 	_dump_state_for_debug(tick, sections)
 
