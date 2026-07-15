@@ -25,7 +25,7 @@
         "visionRange": { "mode": "flat", "value": 0.5 }
       },
       "baseCost": { "stone": 150 },
-      "upgradeBaseCost": { "stone": 150 },
+      "upgradeBaseCost": { "stone": 50 },
       "upgradeCostGrowth": { "mode": "percent", "value": 30 },
       "canTarget": ["Infantry", "Land", "Air", "Naval"],
       "damageTypes": ["Piercing"],
@@ -41,7 +41,7 @@
         "visionRange": { "mode": "flat", "value": 0.5 }
       },
       "baseCost": { "wood": 80 },
-      "upgradeBaseCost": { "wood": 80 },
+      "upgradeBaseCost": { "wood": 25 },
       "upgradeCostGrowth": { "mode": "percent", "value": 50 },
       "addsTurretPerLevel": true,
       "damageReceivedModifiers": { "Fire": 2.0 },
@@ -60,7 +60,7 @@
         "visionRange": { "mode": "flat", "value": 0 }
       },
       "baseCost": { "steel": 200 },
-      "upgradeBaseCost": { "steel": 200 },
+      "upgradeBaseCost": { "steel": 65 },
       "upgradeCostGrowth": { "mode": "percent", "value": 30 },
       "canTarget": ["Infantry", "Land", "Naval"],
       "damageTypes": [],

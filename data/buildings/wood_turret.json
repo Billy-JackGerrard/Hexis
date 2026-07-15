@@ -37,7 +37,7 @@
       "wood": 80
     },
     "upgradeBaseCost": {
-      "wood": 80
+      "wood": 25
     },
     "upgradeCostGrowth": { "mode": "percent", "value": 50 },
     "addsTurretPerLevel": true

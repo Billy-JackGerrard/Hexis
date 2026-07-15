@@ -17,14 +17,14 @@
       "baseStats": { "hp": 220 },
       "statGrowth": { "hp": { "mode": "percent", "value": 10 } },
       "baseCost": { "stone": 90, "steel": 30 },
-      "upgradeBaseCost": { "stone": 90, "steel": 30 },
+      "upgradeBaseCost": { "stone": 30, "steel": 10 },
       "upgradeCostGrowth": { "mode": "percent", "value": 22 }
     },
     "wood": {
       "baseStats": { "hp": 110 },
       "statGrowth": { "hp": { "mode": "percent", "value": 10 } },
       "baseCost": { "wood": 45 },
-      "upgradeBaseCost": { "wood": 45 },
+      "upgradeBaseCost": { "wood": 15 },
       "upgradeCostGrowth": { "mode": "percent", "value": 20 },
       "damageReceivedModifiers": { "Fire": 2.0 }
     }

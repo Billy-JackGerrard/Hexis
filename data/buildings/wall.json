@@ -14,7 +14,7 @@
       "baseStats": { "hp": 80 },
       "statGrowth": { "hp": { "mode": "percent", "value": 10 } },
       "baseCost": { "wood": 15 },
-      "upgradeBaseCost": { "wood": 15 },
+      "upgradeBaseCost": { "wood": 5 },
       "upgradeCostGrowth": { "mode": "percent", "value": 20 },
       "damageReceivedModifiers": { "Fire": 2.0 }
     },
@@ -22,7 +22,7 @@
       "baseStats": { "hp": 200 },
       "statGrowth": { "hp": { "mode": "percent", "value": 12 } },
       "baseCost": { "stone": 40 },
-      "upgradeBaseCost": { "stone": 40 },
+      "upgradeBaseCost": { "stone": 15 },
       "upgradeCostGrowth": { "mode": "percent", "value": 22 },
       "damageReceivedModifiers": {}
     },
@@ -30,7 +30,7 @@
       "baseStats": { "hp": 400, "armor": 5 },
       "statGrowth": { "hp": { "mode": "percent", "value": 15 }, "armor": { "mode": "flat", "value": 0 } },
       "baseCost": { "steel": 70 },
-      "upgradeBaseCost": { "steel": 70 },
+      "upgradeBaseCost": { "steel": 25 },
       "upgradeCostGrowth": { "mode": "percent", "value": 25 },
       "damageReceivedModifiers": {}
     }

@@ -23,8 +23,8 @@
       "steel": 200
     },
     "upgradeBaseCost": {
-      "stone": 300,
-      "steel": 200
+      "stone": 100,
+      "steel": 65
     },
     "upgradeCostGrowth": { "mode": "percent", "value": 35 },
     "minPopulationPerLevel": 3

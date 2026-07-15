@@ -24,8 +24,8 @@
       "steel": 20
     },
     "upgradeBaseCost": {
-      "stone": 80,
-      "steel": 20
+      "stone": 25,
+      "steel": 5
     },
     "upgradeCostGrowth": { "mode": "percent", "value": 30 }
   }

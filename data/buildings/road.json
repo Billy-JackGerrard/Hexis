@@ -14,7 +14,7 @@
     "baseStats": { "hp": 100 },
     "statGrowth": { "hp": { "mode": "percent", "value": 10 } },
     "baseCost": { "wood": 20, "stone": 10 },
-    "upgradeBaseCost": { "wood": 20, "stone": 10 },
+    "upgradeBaseCost": { "wood": 5, "stone": 5 },
     "upgradeCostGrowth": { "mode": "percent", "value": 20 }
   }
 }
