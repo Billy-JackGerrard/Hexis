@@ -16,6 +16,10 @@
 ## PlayerVision (state.visions) actually covers them — mirrors
 ## squad_view.gd's _is_renderable stealth/detection gate exactly, since a
 ## minimap dot would otherwise leak a stealthed enemy squad's position.
+##
+## Combat involving the local player also blinks a red dot at the fight's
+## hex (see _draw_combat_flashes) — gated on current visibility, same as
+## squads, so it can't reveal a fight happening somewhere still fogged.
 class_name Minimap
 extends Control
 
@@ -54,6 +58,12 @@ const BASE_RADIUS := 4.0
 const SQUAD_RADIUS := 2.0
 const VIEWPORT_COLOR := Color(1.0, 1.0, 1.0, 0.5)
 const EXPLORED_DARKEN := 0.5
+## How long (seconds) after a hit the combat-flash dot stays lit — mirrors
+## SquadInstance/BuildingInstance.time_since_damage's own reset-to-0-on-hit
+## semantics, just read from the client side instead of driving a system.
+const COMBAT_FLASH_SECONDS := 0.6
+const COMBAT_FLASH_RADIUS := 5.0
+const COMBAT_FLASH_COLOR := Color(1.0, 0.15, 0.1, 1.0)
 
 func setup(p_state: MatchState, p_owner_colors: Dictionary, p_camera_controller: CameraController, p_hexes: Array[HexCoord], bounds_min: Vector2, bounds_max: Vector2, p_local_owner_id: String) -> void:
 	state = p_state
@@ -132,6 +142,7 @@ func _draw() -> void:
 				continue
 			var color: Color = owner_colors.get(squad.owner_id, Color.WHITE)
 			draw_circle(_world_to_local(HexView.axial_to_pixel(squad.current_hex)), SQUAD_RADIUS, color)
+			_draw_combat_flashes(pv)
 	_draw_viewport_rect()
 	draw_rect(Rect2(Vector2.ZERO, SIZE), BORDER_COLOR, false, BORDER_WIDTH)
 
@@ -149,6 +160,44 @@ func _is_squad_visible(squad: SquadInstance, pv: PlayerVision) -> bool:
 	if not DetectionSystem.is_squad_hidden(squad, def, state.grid):
 		return true
 	return DetectionSystem.detected_hexes_for(state.detections, local_owner_id).has(squad.current_hex.to_key())
+
+## Combat-flash dot: a hex the local player can currently see (not just
+## remembered fog) where a squad or building on either side of the fight is
+## owned by the local player — mirrors last_damaged_by/time_since_damage
+## being reset on every hit (CombatResolver._damage_target) so this needs no
+## dedicated event system, just a read of state already being written.
+## Blinks (rather than fading) via a tick-parity toggle so it stays legible
+## at minimap scale; COMBAT_FLASH_SECONDS keeps it lit briefly after the last
+## hit rather than a single-tick strobe.
+func _draw_combat_flashes(pv: PlayerVision) -> void:
+	if state.tick % 4 >= 2:
+		return
+	for squad in state.squads:
+		if squad.member_ids.is_empty() or squad.is_docked():
+			continue
+		if not _is_combat_flash(squad.owner_id, squad.last_damaged_by, squad.time_since_damage):
+			continue
+		if pv == null or not pv.is_visible(squad.current_hex):
+			continue
+		draw_circle(_world_to_local(HexView.axial_to_pixel(squad.current_hex)), COMBAT_FLASH_RADIUS, COMBAT_FLASH_COLOR)
+	for base in state.bases:
+		for building in base.buildings:
+			if building.hex == null or not _is_combat_flash(base.owner_id, building.last_damaged_by, building.time_since_damage):
+				continue
+			if pv == null or not pv.is_visible(building.hex):
+				continue
+			draw_circle(_world_to_local(HexView.axial_to_pixel(building.hex)), COMBAT_FLASH_RADIUS, COMBAT_FLASH_COLOR)
+	for building in state.standalone_buildings:
+		if building.hex == null or not _is_combat_flash(building.owner_id, building.last_damaged_by, building.time_since_damage):
+			continue
+		if pv == null or not pv.is_visible(building.hex):
+			continue
+		draw_circle(_world_to_local(HexView.axial_to_pixel(building.hex)), COMBAT_FLASH_RADIUS, COMBAT_FLASH_COLOR)
+
+func _is_combat_flash(owner_id: String, last_damaged_by: String, time_since_damage: float) -> bool:
+	if time_since_damage >= COMBAT_FLASH_SECONDS:
+		return false
+	return owner_id == local_owner_id or last_damaged_by == local_owner_id
 
 ## The camera's current visible world extent, outlined on the minimap — the
 ## standard "you are here" minimap rectangle.

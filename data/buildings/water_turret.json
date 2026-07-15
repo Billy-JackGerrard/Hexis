@@ -28,7 +28,8 @@
         "visionRange": { "mode": "flat", "value": 0.5 }
       },
       "baseCost": { "stone": 140 },
-      "costGrowth": { "mode": "percent", "value": 25 },
+      "upgradeBaseCost": { "stone": 140 },
+      "upgradeCostGrowth": { "mode": "percent", "value": 25 },
       "canTarget": ["Infantry", "Land", "Naval"],
       "damageTypes": [],
       "splashRadius": 0,
@@ -44,7 +45,8 @@
         "visionRange": { "mode": "flat", "value": 0 }
       },
       "baseCost": { "wood": 70 },
-      "costGrowth": { "mode": "percent", "value": 20 },
+      "upgradeBaseCost": { "wood": 70 },
+      "upgradeCostGrowth": { "mode": "percent", "value": 20 },
       "canTarget": ["Infantry", "Land", "Naval"],
       "damageTypes": [],
       "splashRadius": 0,
@@ -62,7 +64,8 @@
         "visionRange": { "mode": "flat", "value": 0 }
       },
       "baseCost": { "steel": 180 },
-      "costGrowth": { "mode": "percent", "value": 25 },
+      "upgradeBaseCost": { "steel": 180 },
+      "upgradeCostGrowth": { "mode": "percent", "value": 25 },
       "canTarget": ["Infantry", "Land", "Naval"],
       "damageTypes": [],
       "splashRadius": 2,

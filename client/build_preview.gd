@@ -3,8 +3,12 @@
 ## (or, for Wall — edge-keyed, no single hex of its own — every edge) within
 ## the selected base's BuildingPlacement.hq_build_radius that
 ## BuildingPlacement.can_place/can_place_wall currently allows, same per-hex
-## overlay approach as fog_of_war.gd. Read-only, like every other client/
-## node.
+## overlay approach as fog_of_war.gd. When InputController.pending_engineer_squad_id
+## is set instead (an Engineer squad's standalone BUILD menu — road/bridge/
+## dock/tower/landmine), the candidate set is the squad's own
+## Tuning.STANDALONE_BUILD_RANGE disc, filtered by
+## BuildingPlacement.can_place_standalone instead. Read-only, like every other
+## client/ node.
 ##
 ## The valid set is only recomputed when the pending building/base changes,
 ## not every frame — can_place loops over every existing building for its
@@ -48,13 +52,16 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 func _refresh_if_needed() -> bool:
-	var key := "%s|%s" % [input_controller.pending_base_id, input_controller.pending_building_type]
+	var key := "%s|%s|%s" % [input_controller.pending_base_id, input_controller.pending_building_type, input_controller.pending_engineer_squad_id]
 	if key == _cache_key:
 		return false
 	_cache_key = key
 	_valid_hexes = []
 	_valid_edges = []
 	if input_controller.pending_building_type == "":
+		return true
+	if input_controller.pending_engineer_squad_id != "":
+		_refresh_standalone_valid_hexes(input_controller.pending_engineer_squad_id, input_controller.pending_building_type)
 		return true
 	var base := state.find_base(input_controller.pending_base_id)
 	if base == null:
@@ -94,6 +101,23 @@ func _refresh_radius_if_needed() -> bool:
 	var radius := BuildingPlacement.hq_build_radius(base.hq_level)
 	_radius_hexes = HexCoord.range_within(building.hex, radius)
 	return true
+
+## Engineer/standalone placement's counterpart to the base-placement loop
+## above — the squad's own STANDALONE_BUILD_RANGE disc instead of an HQ's
+## build radius, checked against BuildingPlacement.can_place_standalone
+## (the same predicate CommandProcessor.place_standalone_building itself
+## gates on) rather than can_place.
+func _refresh_standalone_valid_hexes(squad_id: String, building_type: String) -> void:
+	var squad := state.find_squad(squad_id)
+	if squad == null or squad.current_hex == null:
+		return
+	var candidates := HexCoord.range_within(squad.current_hex, Tuning.STANDALONE_BUILD_RANGE)
+	var occupied := BuildingPlacement.standalone_occupied_hexes(state.bases, state.standalone_buildings)
+	var occupied_unit_hexes := BuildingPlacement.ground_unit_hexes(state.squads, state.troop_defs)
+	for hex in candidates:
+		var result := BuildingPlacement.can_place_standalone(building_type, hex, state.grid, state.building_defs, occupied, occupied_unit_hexes)
+		if result == BuildingPlacement.Result.OK:
+			_valid_hexes.append(hex)
 
 ## Every candidate hex's 6 edges, each checked once (seen_keys dedupes the
 ## shared edge two adjacent candidate hexes would otherwise both enumerate).

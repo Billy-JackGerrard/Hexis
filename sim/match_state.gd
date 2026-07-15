@@ -224,6 +224,21 @@ func checksum() -> int:
 	d.erase("command_log")
 	return hash(var_to_str(d))
 
+## Per-section breakdown of checksum() — same fields, each hashed on its own
+## instead of collapsed into one int. A whole-state mismatch only tells you
+## *that* two peers diverged; hashing section-by-section tells you *which*
+## top-level piece of MatchState did (squads vs. bases vs. players vs. RNG
+## state, etc.), which is the difference between "desync" and "desync in
+## base assignment, so go look at worldgen/data loading" (see
+## sim/data/data_loader.gd's load order bug for exactly this kind of case).
+func section_checksums() -> Dictionary:
+	var d := to_dict()
+	d.erase("command_log")
+	var result: Dictionary = {}
+	for key in d:
+		result[key] = hash(var_to_str(d[key]))
+	return result
+
 static func _sorted_keys(d: Dictionary) -> Array:
 	var keys := d.keys()
 	keys.sort()

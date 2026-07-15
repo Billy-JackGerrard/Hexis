@@ -12,12 +12,12 @@ extends RefCounted
 ## expensive "does any valid placement hex exist" scan is hoisted out to
 ## any_valid_hex() and passed in as `has_valid_hex`, so this stays cheap enough
 ## to re-check every frame while the affordability/population parts change live.
-static func build_reason(state: MatchState, base: BaseInstance, building_type: String, owner_id: String, has_valid_hex: bool) -> String:
+static func build_reason(state: MatchState, base: BaseInstance, building_type: String, owner_id: String, has_valid_hex: bool, material: String = "") -> String:
 	var def: Dictionary = state.building_defs.get(building_type, {})
 	var required_level := int(def.get("unlockHqLevel", 1))
 	if base.hq_level < required_level:
 		return "Requires HQ level %d" % required_level
-	var named_cost := BuildingStats.base_cost(def, _first_material(def), state.building_defs)
+	var named_cost := BuildingStats.base_cost(def, material if material != "" else _first_material(def), state.building_defs)
 	var missing := _first_unaffordable(state.pool_for(owner_id), named_cost)
 	if missing != "":
 		return "Not enough %s" % missing
@@ -115,9 +115,9 @@ static func merge_reason(state: MatchState, squad: SquadInstance, donor: SquadIn
 ## it can. Same two-part shape as build_reason: affordability first, then a
 ## "does any hex within STANDALONE_BUILD_RANGE accept it" scan (mirrors
 ## any_valid_hex, but over the Engineer's own reach and can_place_standalone).
-static func standalone_build_reason(state: MatchState, squad: SquadInstance, building_type: String, owner_id: String) -> String:
+static func standalone_build_reason(state: MatchState, squad: SquadInstance, building_type: String, owner_id: String, material: String = "") -> String:
 	var def: Dictionary = state.building_defs.get(building_type, {})
-	var named_cost := BuildingStats.base_cost(def, _first_material(def), state.building_defs)
+	var named_cost := BuildingStats.base_cost(def, material if material != "" else _first_material(def), state.building_defs)
 	var missing := _first_unaffordable(state.pool_for(owner_id), named_cost)
 	if missing != "":
 		return "Not enough %s" % missing
@@ -135,6 +135,37 @@ static func _any_valid_standalone_hex(state: MatchState, squad: SquadInstance, b
 		if BuildingPlacement.can_place_standalone(building_type, hex, state.grid, state.building_defs, occupied, occupied_unit) == BuildingPlacement.Result.OK:
 			return true
 	return false
+
+## Every OTHER friendly squad `commander` (a Commander, maxSquadsLed > 0)
+## could be assigned to lead — not itself, not already in this Commander's
+## regiment, not docked/boarded, and not itself a Commander (no nested
+## regiments). Doesn't pre-filter on regiment-full; assign_reason surfaces
+## that separately so a full regiment still shows its member list to remove
+## from, just with Assign buttons greyed.
+static func assignable_squads(state: MatchState, commander: SquadInstance) -> Array[SquadInstance]:
+	var result: Array[SquadInstance] = []
+	for other in state.squads:
+		if other == commander or other.owner_id != commander.owner_id:
+			continue
+		if other.commander_id == commander.id:
+			continue
+		if other.is_docked():
+			continue
+		if int(state.troop_defs.get(other.troop_type, {}).get("maxSquadsLed", 0)) > 0:
+			continue
+		result.append(other)
+	return result
+
+## Reason `squad` can't be assigned to `commander`'s regiment right now, or ""
+## if it can. Thin mapping over CommandProcessor.can_assign_to_commander.
+static func assign_to_commander_reason(state: MatchState, commander: SquadInstance, squad: SquadInstance, owner_id: String) -> String:
+	match CommandProcessor.can_assign_to_commander(state, squad.id, commander.id, owner_id):
+		CommandProcessor.Result.OK:
+			return ""
+		CommandProcessor.Result.REGIMENT_FULL:
+			return "Regiment full"
+		_:
+			return "Can't assign"
 
 # --- internals --------------------------------------------------------------
 

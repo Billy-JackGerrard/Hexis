@@ -30,12 +30,13 @@ const HEIGHT := 72.0
 const REFRESH_INTERVAL := 0.25
 const COLUMN_WIDTH := 150.0
 ## Expanded height is measured from content, not fixed — a resource with
-## several producer groups (e.g. "1x Lv1 Farm" + "2x Lv2 Farm" + ...) lists
-## one group per line instead of comma-joining onto one row (the comma-joined
-## version clipped everything past the first group), so how tall the bar
-## needs to be depends on whichever column has the most producer groups.
-const EXPANDED_BASE_HEIGHT := 40.0 ## the "+N.N / tick" row, always present
-const EXPANDED_LINE_HEIGHT := 16.0 ## one producer-group line
+## several producer/consumer groups (e.g. "1x Lv1 Farm" + "2x Lv2 Farm" + ...,
+## or "Rifleman: -3.0/tick" + "Tonk: -8.0/tick" + ...) lists one group per
+## line instead of comma-joining onto one row (the comma-joined version
+## clipped everything past the first group), so how tall the bar needs to be
+## depends on whichever column has the most producer + consumer groups.
+const EXPANDED_BASE_HEIGHT := 40.0 ## the "+N.N / tick" or "-N.N / tick used" row, always present (one of each)
+const EXPANDED_LINE_HEIGHT := 16.0 ## one producer-group or consumer-group line
 const EXPANDED_BOTTOM_PADDING := 10.0
 
 ## Display order + labels per 09-ui-and-controls.md's Resource HUD line.
@@ -50,6 +51,8 @@ const DISPLAY_ORDER: Array[Array] = [
 var _res_labels: Dictionary = {} ## ResourceType.Type -> Label (top row, existing amount)
 var _detail_labels: Dictionary = {} ## ResourceType.Type -> Label ("+N.N / tick")
 var _building_boxes: Dictionary = {} ## ResourceType.Type -> VBoxContainer, one Label per producer group
+var _usage_labels: Dictionary = {} ## ResourceType.Type -> Label, total troop upkeep ("-N.N / tick")
+var _usage_boxes: Dictionary = {} ## ResourceType.Type -> VBoxContainer, one Label per consuming troop type
 var _squads_label: Label
 var _commanders_label: Label
 
@@ -123,6 +126,21 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 		col.add_child(buildings_box)
 		_building_boxes[type] = buildings_box
 
+		var usage := UITheme.muted_label("")
+		usage.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		usage.visible = false
+		usage.clip_text = true
+		usage.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		col.add_child(usage)
+		_usage_labels[type] = usage
+
+		var usage_box := VBoxContainer.new()
+		usage_box.add_theme_constant_override("separation", 0)
+		usage_box.visible = false
+		usage_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(usage_box)
+		_usage_boxes[type] = usage_box
+
 		row.add_child(col)
 
 	var spacer := Control.new()
@@ -154,10 +172,12 @@ func _set_expanded(value: bool) -> void:
 	# (one line's worth) so the bar doesn't flash 0-height for a frame; the
 	# forced refresh below corrects it before the player sees the expanded
 	# rows render.
-	offset_bottom = HEIGHT + (EXPANDED_BASE_HEIGHT + EXPANDED_LINE_HEIGHT + EXPANDED_BOTTOM_PADDING if _expanded else 0.0)
+	offset_bottom = HEIGHT + (2.0 * EXPANDED_BASE_HEIGHT + 2.0 * EXPANDED_LINE_HEIGHT + EXPANDED_BOTTOM_PADDING if _expanded else 0.0)
 	for type in _detail_labels:
 		_detail_labels[type].visible = _expanded
 		_building_boxes[type].visible = _expanded
+		_usage_labels[type].visible = _expanded
+		_usage_boxes[type].visible = _expanded
 	if _expanded:
 		_refresh_accum = REFRESH_INTERVAL
 
@@ -218,7 +238,10 @@ func _process(delta: float) -> void:
 func _refresh_breakdown(owned_bases: Array[BaseInstance]) -> void:
 	var totals: Dictionary = ProductionOutputSystem.compute_production(owned_bases, state.base_defs, state.building_defs).get(owner_id, {})
 	var groups_by_type := _compute_producer_groups(owned_bases)
+	var auras := AuraSystem.resolve_tick(state.squads, state.bases, state.troop_defs, state.building_defs, state.regiments)
+	var upkeep_by_type: Dictionary = UpkeepSystem.compute_upkeep_by_troop_type(state.squads, state.troop_defs, auras).get(owner_id, {})
 	var max_lines := 1
+	var max_usage_lines := 1
 	for entry in DISPLAY_ORDER:
 		var type: ResourceType.Type = entry[0]
 		var total := float(totals.get(type, 0.0))
@@ -226,8 +249,32 @@ func _refresh_breakdown(owned_bases: Array[BaseInstance]) -> void:
 		var lines := _group_lines(groups_by_type.get(type, []))
 		max_lines = max(max_lines, lines.size())
 		_rebuild_building_lines(_building_boxes[type], lines)
+
+		var by_troop: Dictionary = upkeep_by_type.get(type, {})
+		var usage_total := 0.0
+		for troop_amount in by_troop.values():
+			usage_total += float(troop_amount)
+		_usage_labels[type].text = "-%.1f / tick used" % usage_total
+		var usage_lines := _usage_lines(by_troop)
+		max_usage_lines = max(max_usage_lines, usage_lines.size())
+		_rebuild_building_lines(_usage_boxes[type], usage_lines)
 	if _expanded:
-		offset_bottom = HEIGHT + EXPANDED_BASE_HEIGHT + float(max_lines) * EXPANDED_LINE_HEIGHT + EXPANDED_BOTTOM_PADDING
+		offset_bottom = HEIGHT + 2.0 * EXPANDED_BASE_HEIGHT + float(max_lines + max_usage_lines) * EXPANDED_LINE_HEIGHT + EXPANDED_BOTTOM_PADDING
+
+## One line per troop type drawing this resource, e.g. "Rifleman: -3.0/tick"
+## (sorted by usage descending, biggest draw first), or a single "No usage"
+## line once nothing owned consumes this resource — mirrors _group_lines'
+## fallback for the production side.
+func _usage_lines(by_troop: Dictionary) -> Array[String]:
+	if by_troop.is_empty():
+		return ["No usage"]
+	var entries: Array = by_troop.keys()
+	entries.sort_custom(func(a, b): return float(by_troop[a]) > float(by_troop[b]))
+	var lines: Array[String] = []
+	for troop_type in entries:
+		var name := String(state.troop_defs.get(troop_type, {}).get("name", String(troop_type).capitalize()))
+		lines.append("%s: -%.1f/tick" % [name, float(by_troop[troop_type])])
+	return lines
 
 ## One line per group, e.g. "2x Lv1 Mine" / "3x Lv2 Mine" (levels ascending),
 ## or a single "No producers" line once none of the owner's buildings output

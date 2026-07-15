@@ -397,6 +397,7 @@ static func _damage_target(target: CombatTarget, damage: float, attacker_owner: 
 		target.building.regen_progress = 0.0
 		return
 	target.squad.time_since_damage = 0.0
+	target.squad.last_damaged_by = attacker_owner
 	for member_id in target.squad.member_ids:
 		var troop: TroopInstance = troops_by_id.get(member_id)
 		if troop != null and troop.current_hp > 0.0:

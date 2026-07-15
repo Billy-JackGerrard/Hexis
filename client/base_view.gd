@@ -26,6 +26,7 @@ var owner_colors: Dictionary = {} ## owner_id -> Color
 var owner_names: Dictionary = {} ## owner_id -> display name
 var standalone_buildings: Array[BuildingInstance] = []
 var building_defs: Dictionary = {}
+var base_defs: Dictionary = {}
 var detections: Dictionary = {}
 var local_owner_id: String = ""
 
@@ -50,6 +51,9 @@ const TOOLTIP_COLOR := UITheme.TEXT
 ## like "Missile Launcher" ran past 140px and got cut off.
 const TOOLTIP_WIDTH := 220.0
 const TOOLTIP_LEVEL_COLOR := UITheme.TEXT_MUTED
+## Wider than TOOLTIP_WIDTH — a neutral Unique base's notes hover text is a
+## full sentence or two, not a short name/level line.
+const NOTES_WIDTH := 320.0
 ## Kept close to the building itself rather than clearing squad_view.gd's own
 ## hover/selected INFO_LABEL zone (anchored RADIUS+22 above a squad, roughly
 ## -48..-28px) — these used to sit up at -70/-50 specifically to dodge that,
@@ -60,7 +64,7 @@ const TOOLTIP_LEVEL_COLOR := UITheme.TEXT_MUTED
 const TOOLTIP_NAME_OFFSET := 36.0
 const TOOLTIP_LEVEL_OFFSET := 20.0
 
-func setup(p_state: MatchState, p_bases: Array[BaseInstance], p_owner_colors: Dictionary, p_standalone_buildings: Array[BuildingInstance], p_building_defs: Dictionary, p_detections: Dictionary, p_local_owner_id: String, p_owner_names: Dictionary = {}) -> void:
+func setup(p_state: MatchState, p_bases: Array[BaseInstance], p_owner_colors: Dictionary, p_standalone_buildings: Array[BuildingInstance], p_building_defs: Dictionary, p_detections: Dictionary, p_local_owner_id: String, p_owner_names: Dictionary = {}, p_base_defs: Dictionary = {}) -> void:
 	state = p_state
 	bases = p_bases
 	owner_colors = p_owner_colors
@@ -69,6 +73,7 @@ func setup(p_state: MatchState, p_bases: Array[BaseInstance], p_owner_colors: Di
 	detections = p_detections
 	local_owner_id = p_local_owner_id
 	owner_names = p_owner_names
+	base_defs = p_base_defs
 	queue_redraw()
 
 func _process(_delta: float) -> void:
@@ -115,6 +120,15 @@ func _draw_base_title(base: BaseInstance) -> void:
 	var player_color: Color = owner_colors.get(base.owner_id, UITheme.TEXT_MUTED)
 	UITheme.draw_world_label(self, font, top - Vector2(TITLE_WIDTH * 0.5, 20.0), base_name, font_size + 6, player_color, TITLE_WIDTH)
 	UITheme.draw_world_label(self, font, top - Vector2(TITLE_WIDTH * 0.5, 0.0), player_name, font_size, TITLE_COLOR, TITLE_WIDTH)
+
+	# A neutral (uncaptured) Unique base additionally shows its notes on
+	# hover, since a player hasn't seen this base's identity/roster before —
+	# once captured it's just another owned base and this drops away.
+	if base.owner_id == BaseSiteSelector.NEUTRAL_OWNER_ID:
+		var base_def: Dictionary = base_defs.get(base.base_def_id, {})
+		var notes := String(base_def.get("notes", ""))
+		if notes != "":
+			UITheme.draw_world_multiline_label(self, font, top + Vector2(-NOTES_WIDTH * 0.5, 20.0), notes, font_size - 2, TOOLTIP_LEVEL_COLOR, NOTES_WIDTH)
 
 ## "name (Lv N)" over whichever building (base-attached or standalone) sits
 ## under the mouse, if any and if visible to the local player — Walls have no

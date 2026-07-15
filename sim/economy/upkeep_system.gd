@@ -61,6 +61,48 @@ static func compute_upkeep(squads: Array[SquadInstance], troop_defs: Dictionary,
 		upkeep[squad.owner_id] = owner_totals
 	return upkeep
 
+## Same live per-tick totals as compute_upkeep, but broken down per troop
+## type instead of summed to one number per resource — feeds the resource
+## bar's expanded "Usage" breakdown (ResourceBar._refresh_usage), mirroring
+## the producer-group breakdown it already shows for buildings. Keyed
+## owner_id -> {ResourceType.Type: {troop_type: total}}.
+static func compute_upkeep_by_troop_type(squads: Array[SquadInstance], troop_defs: Dictionary, auras: Dictionary = {}) -> Dictionary:
+	var upkeep: Dictionary = {}
+	for squad in squads:
+		if squad.member_ids.is_empty():
+			continue
+		var def: Dictionary = troop_defs.get(squad.troop_type, {})
+		var food_per_troop: float = float(def.get("foodUpkeep", 0.0))
+		var fuel_per_troop: float = float(def.get("fuelUpkeep", 0.0))
+
+		var reduction := AuraSystem.upkeep_reduction(auras, squad.id)
+		if reduction > 0.0:
+			food_per_troop = max(0.0, food_per_troop - reduction)
+			fuel_per_troop = max(0.0, fuel_per_troop - reduction)
+
+		if fuel_per_troop > 0.0 and squad.path.is_empty():
+			var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
+			if domain == Terrain.Domain.LAND:
+				fuel_per_troop = 0.0
+			elif domain == Terrain.Domain.AIR and squad.is_docked():
+				fuel_per_troop = 0.0
+
+		if food_per_troop == 0.0 and fuel_per_troop == 0.0:
+			continue
+
+		var owner_totals: Dictionary = upkeep.get(squad.owner_id, {})
+		var member_count := squad.member_ids.size()
+		if food_per_troop > 0.0:
+			var by_troop: Dictionary = owner_totals.get(ResourceType.Type.FOOD, {})
+			by_troop[squad.troop_type] = float(by_troop.get(squad.troop_type, 0.0)) + food_per_troop * member_count
+			owner_totals[ResourceType.Type.FOOD] = by_troop
+		if fuel_per_troop > 0.0:
+			var by_troop: Dictionary = owner_totals.get(ResourceType.Type.FUEL, {})
+			by_troop[squad.troop_type] = float(by_troop.get(squad.troop_type, 0.0)) + fuel_per_troop * member_count
+			owner_totals[ResourceType.Type.FUEL] = by_troop
+		upkeep[squad.owner_id] = owner_totals
+	return upkeep
+
 ## Per 03-resources.md's Deficit Consequences: each of `owner_id`'s squads
 ## with at least one member whose troop type inherently draws on a resource
 ## in `deficits` (its authored foodUpkeep/fuelUpkeep > 0 — not just this

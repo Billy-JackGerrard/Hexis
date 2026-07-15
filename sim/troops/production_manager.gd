@@ -29,6 +29,24 @@ static func enqueue(queue: ProductionQueue, troop_type: String, troop_defs: Dict
 		"remaining": production_time,
 	})
 
+## Inserts one more `troop_type` right after `index` — used for the per-entry
+## +1 button, which keeps the new copy grouped with the run it was clicked
+## from instead of jumping to the tail of the whole queue.
+static func insert_after(queue: ProductionQueue, index: int, troop_type: String, troop_defs: Dictionary) -> void:
+	var troop_def: Dictionary = troop_defs.get(troop_type, {})
+	var production_time: float = float(troop_def.get("productionTime", 0.0))
+	queue.entries.insert(index + 1, {
+		"troop_type": troop_type,
+		"production_time": production_time,
+		"remaining": production_time,
+	})
+
+## Drops queue.entries[index] outright (used for the per-entry -1 button).
+## Never call with index 0 — the actively-training entry can't be cancelled
+## this way; see CommandProcessor.can_dequeue_production.
+static func remove_at(queue: ProductionQueue, index: int) -> void:
+	queue.entries.remove_at(index)
+
 ## Ticks down entries[0] only (FIFO — later entries wait their turn). No-op
 ## while paused or empty.
 static func advance(queue: ProductionQueue, dt: float) -> void:

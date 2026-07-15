@@ -19,6 +19,9 @@
     "baseCost": {
       "stone": 60
     },
-    "costGrowth": { "mode": "percent", "value": 25 }
+    "upgradeBaseCost": {
+      "stone": 60
+    },
+    "upgradeCostGrowth": { "mode": "percent", "value": 25 }
   }
 }

@@ -20,6 +20,7 @@ extends Control
 var state: MatchState
 var owner_id: String
 var input_controller: InputController
+var troop_info_panel: TroopInfoPanel
 
 const WIDTH := 420.0
 const MARGIN := 12.0
@@ -43,17 +44,29 @@ var _shown_is_ruin: bool = false
 ## Reset whenever the selected building changes, but survives a same-building
 ## _rebuild() (toggling expansion re-enters _rebuild() itself).
 var _expanded_build_type: String = ""
+## Which TRAIN-menu troop_type has its info shown in troop_info_panel — "" when
+## none. Reset whenever the selected building changes (same lifecycle as
+## _expanded_build_type); survives a same-building _rebuild() so a queue
+## mutation (enqueue/dequeue) doesn't close the info panel out from under it.
+var _selected_troop_type: String = ""
 ## [{button: Button, variation: String, reason_fn: Callable}] — re-checked on a
 ## throttle to flip each option button between its normal look and MUTED.
 var _option_updaters: Array = []
 ## Callables refreshing volatile text (queue timers, tick countdown) every frame.
 var _live_updaters: Array[Callable] = []
 var _refresh_accum := 0.0
+## Structural signature (troop_type per entry + paused) of the shown
+## building's production queue as of the last _rebuild — compared every frame
+## like _shown_level/_shown_is_ruin so a dequeue/+1 mutation (which adds or
+## removes a queue row's buttons, not just its live text) triggers a full
+## rebuild instead of going stale until some unrelated change forces one.
+var _shown_queue_key: String = ""
 
-func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController) -> void:
+func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_troop_info_panel: TroopInfoPanel) -> void:
 	state = p_state
 	owner_id = p_owner_id
 	input_controller = p_input_controller
+	troop_info_panel = p_troop_info_panel
 
 	# Top-right band under the resource bar, stopping short of the minimap's
 	# bottom-right footprint (same layout contract build_menu.gd held).
@@ -132,8 +145,13 @@ func _process(delta: float) -> void:
 		if not found.is_empty():
 			var building: BuildingInstance = found["building"]
 			needs_rebuild = building.level != _shown_level or building.is_ruin != _shown_is_ruin
+		if not needs_rebuild:
+			needs_rebuild = _queue_structure_key(target_id) != _shown_queue_key
 	if building_changed:
 		_expanded_build_type = ""
+		_selected_troop_type = ""
+		if troop_info_panel != null:
+			troop_info_panel.hide_panel()
 	if needs_rebuild:
 		_shown_for_building_id = target_id
 		_rebuild()
@@ -162,12 +180,16 @@ func _rebuild() -> void:
 		visible = false
 		_shown_level = -1
 		_shown_is_ruin = false
+		_shown_queue_key = ""
+		if troop_info_panel != null:
+			troop_info_panel.hide_panel()
 		return
 	visible = true
 	var base: BaseInstance = found["base"]
 	var building: BuildingInstance = found["building"]
 	_shown_level = building.level
 	_shown_is_ruin = building.is_ruin
+	_shown_queue_key = _queue_structure_key(_shown_for_building_id)
 	var def: Dictionary = state.building_defs.get(building.building_type, {})
 	var base_def: Dictionary = state.base_defs.get(base.base_def_id, {})
 
@@ -177,9 +199,6 @@ func _rebuild() -> void:
 	var base_label := base.display_name if base.display_name != "" else base.base_def_id.capitalize()
 	_content.add_child(UITheme.subtitle_label("%s  -  Pop %d/%d" % [base_label, used, cap]))
 	_content.add_child(HSeparator.new())
-
-	if building.building_type == "hq":
-		_build_hq_info_section(def, base_def)
 
 	_build_level_section(building, def, base.hq_level)
 
@@ -204,28 +223,6 @@ func _rebuild() -> void:
 			_build_naval_dock_section(building)
 
 	_refresh_eligibility()
-
-## Shown only for a selected HQ: the HQ def's own notes, plus — for a Unique
-## base (isCapital false; the Capital has no lore/mechanical identity of its
-## own beyond what the HQ itself already says) — the base type's notes too,
-## so a Unique base's special rules (starting garrison, fixed defenses,
-## resource/cost modifiers) surface right where a player is already looking.
-func _build_hq_info_section(hq_def: Dictionary, base_def: Dictionary) -> void:
-	var hq_notes := String(hq_def.get("notes", ""))
-	if hq_notes != "":
-		var hq_notes_label := UITheme.muted_label(hq_notes)
-		hq_notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_content.add_child(hq_notes_label)
-
-	if not bool(base_def.get("isCapital", false)):
-		var base_notes := String(base_def.get("notes", ""))
-		if base_notes != "":
-			_content.add_child(UITheme.header_label(String(base_def.get("baseType", "")).to_upper()))
-			var base_notes_label := UITheme.muted_label(base_notes)
-			base_notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			_content.add_child(base_notes_label)
-
-	_content.add_child(HSeparator.new())
 
 # --- Level / upgrade / rebuild ----------------------------------------------
 
@@ -277,7 +274,7 @@ func _build_build_menu(base: BaseInstance, base_def: Dictionary) -> void:
 		_option_updaters.append({"button": button, "variation": "", "reason_fn": reason_fn})
 
 		if _expanded_build_type == bt:
-			_build_build_detail(base, bt, def, reason_fn)
+			_build_build_detail(base, bt, def, reason_fn, has_valid_hex)
 	if not any:
 		_content.add_child(UITheme.muted_label("Nothing to build here"))
 
@@ -315,7 +312,7 @@ func _toggle_build_row(base_id: String, bt: String, def: Dictionary, reason_fn: 
 ## A Wall-style building with a `materials` list instead gets one clickable
 ## cost row per material, since the player has to choose one before placement
 ## can start.
-func _build_build_detail(base: BaseInstance, building_type: String, def: Dictionary, reason_fn: Callable) -> void:
+func _build_build_detail(base: BaseInstance, building_type: String, def: Dictionary, reason_fn: Callable, has_valid_hex: bool) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
 	box.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -326,19 +323,21 @@ func _build_build_detail(base: BaseInstance, building_type: String, def: Diction
 		notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(notes_label)
 
-	for line in _building_stat_lines(def):
-		box.add_child(UITheme.body_label(line))
-
 	var materials: Array = def.get("materials", [])
 	var base_id := base.id
 	if materials.is_empty():
+		for line in BuildingDetailView.stat_lines(def):
+			box.add_child(UITheme.body_label(line))
 		var cost := BuildingStats.base_cost(def, "", state.building_defs)
 		box.add_child(UITheme.cost_chips(cost))
 	else:
 		for material in materials:
 			var mat := String(material)
+			for line in BuildingDetailView.stat_lines_for_material(def, mat):
+				box.add_child(UITheme.body_label(line))
 			var cost := BuildingStats.base_cost(def, mat, state.building_defs)
-			_build_material_row(box, String(mat).capitalize(), cost, reason_fn,
+			var mat_reason_fn := func(): return UIEligibility.build_reason(state, base, building_type, owner_id, has_valid_hex, mat)
+			_build_material_row(box, String(mat).capitalize(), cost, mat_reason_fn,
 				func(): input_controller.start_placement(base_id, building_type, mat))
 
 	_content.add_child(box)
@@ -353,29 +352,6 @@ func _build_material_row(box: VBoxContainer, label_text: String, cost: Dictionar
 	row.add_child(UITheme.cost_chips(cost))
 	box.add_child(row)
 	_option_updaters.append({"button": button, "variation": UITheme.PRIMARY, "reason_fn": reason_fn})
-
-## A handful of headline stats for the detail pop-down — whichever of these
-## the def's baseStats block has, in this fixed order. Buildings without a
-## single-material baseStats block (Wall's per-material materialStats) fall
-## back to the first material's stats, since the pop-down shows one Build
-## button per material anyway and this is just a rough preview.
-func _building_stat_lines(def: Dictionary) -> Array[String]:
-	var stats: Dictionary = {}
-	var non_prod: Dictionary = def.get("nonProductionUpgrade", {})
-	var production_levels: Array = def.get("productionUpgradeLevels", [])
-	var material_stats: Dictionary = def.get("materialStats", {})
-	if not non_prod.is_empty():
-		stats = non_prod.get("baseStats", {})
-	elif not production_levels.is_empty():
-		stats = {"hp": production_levels[0].get("hp", 0)}
-	elif not material_stats.is_empty():
-		stats = (material_stats.values()[0] as Dictionary).get("baseStats", {})
-
-	var lines: Array[String] = []
-	for key in ["hp", "damage", "range", "attackSpeed", "armor"]:
-		if stats.has(key):
-			lines.append("%s: %s" % [key.capitalize(), str(stats[key])])
-	return lines
 
 # --- Troop menu (Production) ------------------------------------------------
 
@@ -399,81 +375,175 @@ func _build_troop_menu(building: BuildingInstance) -> void:
 		var cost: Dictionary = tdef.get("cost", {})
 		var time := float(tdef.get("productionTime", 0.0))
 		var tt := String(troop_type)
-		_add_action_row(display_name, cost, time, "",
-			func(): return UIEligibility.troop_reason(state, building_id, tt, owner_id),
-			func(): input_controller.submitter.submit("enqueue_production", [building_id, tt, owner_id], owner_id),
-			String(tdef.get("notes", "")))
+		_build_troop_row(display_name, tt, cost, time, building_id,
+			func(): return UIEligibility.troop_reason(state, building_id, tt, owner_id))
 	if not any:
 		_content.add_child(UITheme.muted_label("No troops unlocked yet"))
 	_add_queue_status(building_id)
+	if _selected_troop_type != "" and unlocked.has(_selected_troop_type):
+		if troop_info_panel != null:
+			troop_info_panel.show_troop(_selected_troop_type)
+	elif troop_info_panel != null:
+		troop_info_panel.hide_panel()
 
-## Training row is a progress bar (0..1 across the front entry's
-## production_time) with the troop name centered on top, e.g. "Training
-## Basekiller x3 (21s)" when the front N queue entries are all the same
-## troop — collapsing the old separate "Training: X" + "Queue (N more)"
-## lines into one. Whatever's left after that leading run is shown grouped
-## by run below (e.g. "Tonk x2, Glider x1"), same as the old "queued" line
-## but with real names/counts instead of a bare total.
+## One TRAIN-menu row: the troop's name (click opens/updates troop_info_panel
+## with its stats/description instead of training — see
+## _on_troop_name_pressed) plus a separate Train button that actually submits
+## enqueue_production, greyed via `reason_fn` same as every other option row.
+func _build_troop_row(display_name: String, troop_type: String, cost: Dictionary, time_seconds: float, building_id: String, reason_fn: Callable) -> void:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var name_button := UITheme.action_button(display_name, "")
+	name_button.pressed.connect(func(): _on_troop_name_pressed(troop_type))
+	row.add_child(name_button)
+
+	var train_button := UITheme.action_button("Train", UITheme.PRIMARY)
+	train_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	train_button.custom_minimum_size = Vector2(80, 0)
+	var action := func(): input_controller.submitter.submit("enqueue_production", [building_id, troop_type, owner_id], owner_id)
+	train_button.pressed.connect(func(): _handle_press(reason_fn, action))
+	row.add_child(train_button)
+	box.add_child(row)
+
+	var chips := UITheme.cost_chips(cost)
+	if time_seconds >= 0.0:
+		chips.add_child(UITheme.chip("%ds" % int(round(time_seconds)), UITheme.TEXT_MUTED))
+	box.add_child(chips)
+	_content.add_child(box)
+	_option_updaters.append({"button": train_button, "variation": UITheme.PRIMARY, "reason_fn": reason_fn})
+
+func _on_troop_name_pressed(troop_type: String) -> void:
+	_selected_troop_type = "" if _selected_troop_type == troop_type else troop_type
+	if troop_info_panel == null:
+		return
+	if _selected_troop_type == "":
+		troop_info_panel.hide_panel()
+	else:
+		troop_info_panel.show_troop(_selected_troop_type)
+
+## One row per run of same-type consecutive queue entries. The first run
+## (starting at entries[0], the one currently training or held complete if
+## paused) is a progress bar with the troop name centered on top, e.g.
+## "Training Basekiller x3 (21s)"; every later run is a plain muted label row,
+## e.g. "Tonk x2". Each row gets a +1 button (queue one more, grouped right
+## after the run) and, for a run of more than one, a -1 button that drops the
+## LAST entry in the run — never the actively-training entries[0] itself, so
+## -1 only ever trims queued-but-not-yet-training copies (see
+## CommandProcessor.can_dequeue_production).
 func _add_queue_status(building_id: String) -> void:
 	_content.add_child(HSeparator.new())
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	_content.add_child(box)
+
+	var queue: ProductionQueue = state.production_queues.get(building_id)
+	if queue == null or queue.entries.is_empty():
+		box.add_child(UITheme.muted_label("Queue empty"))
+		return
+
+	var i := 0
+	var first := true
+	while i < queue.entries.size():
+		var troop_type := String(queue.entries[i].get("troop_type", ""))
+		var run_start := i
+		while i < queue.entries.size() and String(queue.entries[i].get("troop_type", "")) == troop_type:
+			i += 1
+		var run_len := i - run_start
+		if first:
+			_build_queue_front_row(box, building_id, troop_type, run_start, run_len)
+			first = false
+		else:
+			_build_queue_rest_row(box, building_id, troop_type, run_start, run_len)
+
+	var paused := UITheme.warning_label("")
+	box.add_child(paused)
+	var update := func():
+		var q: ProductionQueue = state.production_queues.get(building_id)
+		paused.visible = q != null and q.paused
+		if paused.visible:
+			paused.text = "Paused - %s" % String(q.pause_reason).replace("_", " ")
+	_live_updaters.append(update)
+
+func _build_queue_front_row(box: VBoxContainer, building_id: String, troop_type: String, run_start: int, run_len: int) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+
 	var bar := UITheme.progress_bar()
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var bar_label := UITheme.body_label("")
 	bar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	bar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	bar_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bar.add_child(bar_label)
-	var empty_label := UITheme.muted_label("Queue empty")
-	var rest := UITheme.muted_label("")
-	var paused := UITheme.warning_label("")
-	_content.add_child(bar)
-	_content.add_child(empty_label)
-	_content.add_child(rest)
-	_content.add_child(paused)
-	var update := func():
-		var queue: ProductionQueue = state.production_queues.get(building_id)
-		if queue == null or queue.entries.is_empty():
-			bar.visible = false
-			empty_label.visible = true
-			rest.visible = false
-			paused.visible = false
-			return
-		bar.visible = true
-		empty_label.visible = false
+	row.add_child(bar)
+	_add_queue_buttons(row, building_id, troop_type, run_start, run_len)
+	box.add_child(row)
 
-		var front: Dictionary = queue.front()
-		var troop_type := String(front.get("troop_type", ""))
-		var run := 1
-		while run < queue.entries.size() and String(queue.entries[run].get("troop_type", "")) == troop_type:
-			run += 1
+	var update := func():
+		var q: ProductionQueue = state.production_queues.get(building_id)
+		if q == null or q.entries.is_empty():
+			return
+		var front: Dictionary = q.front()
 		var total := float(front.get("production_time", 0.0))
 		var remaining := float(front.get("remaining", 0.0))
 		bar.value = 1.0 - (remaining / total if total > 0.0 else 0.0)
 		var troop_name := String(state.troop_defs.get(troop_type, {}).get("name", troop_type.capitalize()))
-		var count_suffix := " x%d" % run if run > 1 else ""
+		var count_suffix := " x%d" % run_len if run_len > 1 else ""
 		bar_label.text = "Training %s%s (%ds)" % [troop_name, count_suffix, int(ceil(remaining))]
-
-		var rest_text := _grouped_queue_text(queue.entries, run)
-		rest.visible = rest_text != ""
-		rest.text = rest_text
-
-		paused.visible = queue.paused
-		paused.text = "Paused - %s" % String(queue.pause_reason).replace("_", " ")
 	_live_updaters.append(update)
 
-## Run-length-encodes `entries[start..]` by troop_type into lines like
-## "Tonk x2, Glider x1" (singular runs drop the "x1").
-func _grouped_queue_text(entries: Array[Dictionary], start: int) -> String:
+func _build_queue_rest_row(box: VBoxContainer, building_id: String, troop_type: String, run_start: int, run_len: int) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var troop_name := String(state.troop_defs.get(troop_type, {}).get("name", troop_type.capitalize()))
+	var label := UITheme.muted_label("%s x%d" % [troop_name, run_len] if run_len > 1 else troop_name)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	_add_queue_buttons(row, building_id, troop_type, run_start, run_len)
+	box.add_child(row)
+
+## +1 (always) / -1 (only if run_len > 1) for one queue run. Both target the
+## LAST index in the run: for -1 that's the removal index passed to
+## dequeue_production (never run_start itself when run_start == 0); for +1
+## that's the insert_after index, keeping the new copy grouped with its run.
+func _add_queue_buttons(row: HBoxContainer, building_id: String, troop_type: String, run_start: int, run_len: int) -> void:
+	var last_index := run_start + run_len - 1
+	if run_len > 1:
+		var minus := UITheme.action_button("-1", "")
+		minus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		minus.custom_minimum_size = Vector2(44, 0)
+		minus.pressed.connect(func(): input_controller.submitter.submit("dequeue_production", [building_id, last_index, owner_id], owner_id))
+		row.add_child(minus)
+
+	var plus := UITheme.action_button("+1", "")
+	plus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	plus.custom_minimum_size = Vector2(44, 0)
+	var reason_fn := func(): return UIEligibility.troop_reason(state, building_id, troop_type, owner_id)
+	var action := func(): input_controller.submitter.submit("enqueue_production_after", [building_id, troop_type, last_index, owner_id], owner_id)
+	plus.pressed.connect(func(): _handle_press(reason_fn, action))
+	row.add_child(plus)
+	_option_updaters.append({"button": plus, "variation": "", "reason_fn": reason_fn})
+
+## Structural signature (troop_type per entry + paused) of building_id's
+## queue — see _shown_queue_key.
+func _queue_structure_key(building_id: String) -> String:
+	var queue: ProductionQueue = state.production_queues.get(building_id)
+	if queue == null:
+		return ""
 	var parts: Array[String] = []
-	var i := start
-	while i < entries.size():
-		var troop_type := String(entries[i].get("troop_type", ""))
-		var count := 0
-		while i < entries.size() and String(entries[i].get("troop_type", "")) == troop_type:
-			count += 1
-			i += 1
-		var troop_name := String(state.troop_defs.get(troop_type, {}).get("name", troop_type.capitalize()))
-		parts.append("%s x%d" % [troop_name, count] if count > 1 else troop_name)
-	return ", ".join(parts)
+	for entry in queue.entries:
+		parts.append(String(entry.get("troop_type", "")))
+	return "|".join(parts) + ("#paused" if queue.paused else "")
 
 # --- Resource body ----------------------------------------------------------
 

@@ -55,6 +55,8 @@ func _init() -> void:
 	_test_enqueue_production()
 	print("enqueue_production (squad/Commander cap gate)")
 	_test_enqueue_production_cap_gate()
+	print("dequeue_production / enqueue_production_after (queue -1/+1)")
+	_test_queue_adjust()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -654,3 +656,37 @@ func _test_enqueue_production_cap_gate() -> void:
 	var commander_capped := CommandProcessor.enqueue_production(state, cc.id, "commander_vanguard", "p1")
 	_check(commander_capped == CommandProcessor.Result.COMMANDER_CAP_REACHED, "queuing a Commander is rejected once the owner is at the Commander cap")
 	_check(not state.production_queues.has(cc.id), "the Commander-cap-rejected order enqueued nothing")
+
+func _test_queue_adjust() -> void:
+	var state := _new_state(_flat_grid(5))
+	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
+	state.bases.append(base)
+	var barracks := BuildingInstance.new("barracks1", base.id, "barracks", 1, "", HexCoord.new(1, -1))
+	barracks.init_hp(_building_defs["barracks"], _building_defs)
+	base.buildings.append(barracks)
+	state.pool_for("p1").set_amount(ResourceType.Type.FOOD, 1000.0)
+	var rifleman_food_cost: float = float(_troop_defs["rifleman"].get("cost", {}).get("food", 0.0))
+
+	for i in range(3):
+		CommandProcessor.enqueue_production(state, barracks.id, "rifleman", "p1")
+	var queue: ProductionQueue = state.production_queues[barracks.id]
+	_check(queue.entries.size() == 3, "3 riflemen queued")
+	var before_pool := state.pool_for("p1").get_amount(ResourceType.Type.FOOD)
+
+	_check(CommandProcessor.dequeue_production(state, barracks.id, 0, "p1") == CommandProcessor.Result.INVALID, "index 0 -- the actively-training entry -- can't be cancelled")
+	_check(CommandProcessor.dequeue_production(state, barracks.id, 5, "p1") == CommandProcessor.Result.INVALID, "out-of-range index is rejected")
+	_check(CommandProcessor.dequeue_production(state, barracks.id, 2, "p2") == CommandProcessor.Result.NOT_OWNER, "cancelling someone else's queue entry is rejected")
+
+	var removed := CommandProcessor.dequeue_production(state, barracks.id, 2, "p1")
+	_check(removed == CommandProcessor.Result.OK, "-1 on the last queued entry succeeds")
+	_check(queue.entries.size() == 2, "queue shrank by one")
+	_check(state.pool_for("p1").get_amount(ResourceType.Type.FOOD) == before_pool + rifleman_food_cost, "-1 refunded the troop's Food cost")
+
+	var added := CommandProcessor.enqueue_production_after(state, barracks.id, "rifleman", 1, "p1")
+	_check(added == CommandProcessor.Result.OK, "+1 after the last rifleman entry succeeds")
+	_check(queue.entries.size() == 3, "queue grew by one")
+	_check(String(queue.entries[2].get("troop_type", "")) == "rifleman", "+1 inserted right after the run it was clicked from")
+
+	state.pool_for("p1").set_amount(ResourceType.Type.FOOD, 0.0)
+	var poor := CommandProcessor.enqueue_production_after(state, barracks.id, "rifleman", 1, "p1")
+	_check(poor == CommandProcessor.Result.INSUFFICIENT_RESOURCES, "+1 without enough resources is rejected, same afford gate as enqueue_production")

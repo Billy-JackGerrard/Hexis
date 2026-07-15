@@ -120,7 +120,7 @@ func _start_game() -> void:
 
 	base_view = BaseView.new()
 	add_child(base_view)
-	base_view.setup(state, state.bases, owner_colors, state.standalone_buildings, state.building_defs, state.detections, _local_owner_id, owner_names)
+	base_view.setup(state, state.bases, owner_colors, state.standalone_buildings, state.building_defs, state.detections, _local_owner_id, owner_names, state.base_defs)
 
 	squad_view = SquadView.new()
 	add_child(squad_view)
@@ -160,9 +160,10 @@ func _start_game() -> void:
 		_waiting_label.theme = hud_layer.theme
 		_waiting_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_waiting_label.anchor_right = 1.0
-		_waiting_label.offset_top = 16.0
+		_waiting_label.offset_top = ResourceBar.HEIGHT + 8.0
 		_waiting_label.visible = false
 		var waiting_layer := CanvasLayer.new()
+		waiting_layer.layer = 10 # above resource_bar's HUDLayer band
 		add_child(waiting_layer)
 		waiting_layer.add_child(_waiting_label)
 
@@ -170,8 +171,9 @@ func _start_game() -> void:
 		_desync_label.theme = hud_layer.theme
 		_desync_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_desync_label.anchor_right = 1.0
-		_desync_label.offset_top = 48.0
+		_desync_label.offset_top = ResourceBar.HEIGHT + 8.0
 		var desync_layer := CanvasLayer.new()
+		desync_layer.layer = 10 # above resource_bar's HUDLayer band
 		add_child(desync_layer)
 		desync_layer.add_child(_desync_label)
 
@@ -201,8 +203,26 @@ func _process(delta: float) -> void:
 	else:
 		sim_clock.advance(state, delta)
 
-func _on_desync_detected(tick: int) -> void:
-	_desync_label.text = "Desync detected at tick %d — match halted." % tick
+## Names the diverging section(s) in the on-screen message (see
+## MatchState.section_checksums()) and dumps this peer's full state to disk
+## at the desync tick — compare the dump from each machine (they'll have
+## different suffixes, one per local_owner_id) to see the exact field that
+## diverged, rather than just knowing that something did.
+func _on_desync_detected(tick: int, sections: Array) -> void:
+	_desync_label.text = "Desync detected at tick %d (%s) — match halted." % [tick, ", ".join(sections)]
+	_dump_state_for_debug(tick)
+
+func _dump_state_for_debug(tick: int) -> void:
+	if state == null:
+		return
+	var owner_tag := net_manager.local_owner_id if net_manager != null else "unknown"
+	var path := "user://desync_tick%d_%s.txt" % [tick, owner_tag]
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(var_to_str(state.to_dict()))
+	f.close()
+	print("Desync at tick %d — state dump written to %s" % [tick, ProjectSettings.globalize_path(path)])
 
 func _build_demo_state() -> MatchState:
 	var demo_state := MatchState.new()

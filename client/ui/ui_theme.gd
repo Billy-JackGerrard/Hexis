@@ -283,6 +283,13 @@ static func draw_world_label(ci: CanvasItem, font: Font, pos: Vector2, text: Str
 	ci.draw_string_outline(font, pos, text, alignment, width, font_size, WORLD_LABEL_OUTLINE_SIZE, WORLD_LABEL_OUTLINE)
 	ci.draw_string(font, pos, text, alignment, width, font_size, color)
 
+## Same as draw_world_label but word-wraps across multiple lines within
+## `width` instead of clipping — for longer freeform text (e.g. a base's
+## notes) that a single draw_string call would just cut off.
+static func draw_world_multiline_label(ci: CanvasItem, font: Font, pos: Vector2, text: String, font_size: int, color: Color, width: float, alignment: int = HORIZONTAL_ALIGNMENT_CENTER) -> void:
+	ci.draw_multiline_string_outline(font, pos, text, alignment, width, font_size, -1, WORLD_LABEL_OUTLINE_SIZE, WORLD_LABEL_OUTLINE)
+	ci.draw_multiline_string(font, pos, text, alignment, width, font_size, -1, color)
+
 static func _label(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text

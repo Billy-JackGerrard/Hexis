@@ -172,12 +172,13 @@ static func undock_squad(state: MatchState, squad_id: String, building_id: Strin
 
 ## --- Regiment assignment (07-data-architecture.md 4b) ----------------------
 
-## Joins `squad_id` to `commander_squad_id`'s regiment, creating the
-## RegimentInstance on the Commander's first assigned squad. Rejects a
-## boarded/docked squad (can't act independently while cargo, same as a full
-## regiment) and a `commander_squad_id` that isn't actually a Commander
-## (maxSquadsLed <= 0 in its def).
-static func assign_to_commander(state: MatchState, squad_id: String, commander_squad_id: String, owner_id: String) -> Result:
+## Pure predicate behind assign_to_commander — every rejection reason it can
+## return, without spending anything or creating the RegimentInstance. Lets
+## the UI (client/ui/eligibility.gd) grey out an ineligible Assign button and
+## show the specific reason, same split as can_upgrade_building/
+## can_merge_squads. assign_to_commander calls this first and only proceeds
+## on OK, so the two can never diverge.
+static func can_assign_to_commander(state: MatchState, squad_id: String, commander_squad_id: String, owner_id: String) -> Result:
 	var squad := state.find_squad(squad_id)
 	var commander_squad := state.find_squad(commander_squad_id)
 	if squad == null or commander_squad == null:
@@ -186,11 +187,30 @@ static func assign_to_commander(state: MatchState, squad_id: String, commander_s
 		return Result.NOT_OWNER
 	if squad.is_docked():
 		return Result.INVALID
+	if squad.commander_id == commander_squad_id:
+		return Result.INVALID
 
 	var max_squads_led := int(state.troop_defs.get(commander_squad.troop_type, {}).get("maxSquadsLed", 0))
 	if max_squads_led <= 0:
 		return Result.INVALID
 
+	for regiment in state.regiments:
+		if regiment.commander_id == commander_squad_id:
+			return Result.REGIMENT_FULL if regiment.is_full(max_squads_led) else Result.OK
+	return Result.OK
+
+## Joins `squad_id` to `commander_squad_id`'s regiment, creating the
+## RegimentInstance on the Commander's first assigned squad. Rejects a
+## boarded/docked squad (can't act independently while cargo, same as a full
+## regiment) and a `commander_squad_id` that isn't actually a Commander
+## (maxSquadsLed <= 0 in its def).
+static func assign_to_commander(state: MatchState, squad_id: String, commander_squad_id: String, owner_id: String) -> Result:
+	var check := can_assign_to_commander(state, squad_id, commander_squad_id, owner_id)
+	if check != Result.OK:
+		return check
+
+	var squad := state.find_squad(squad_id)
+	var max_squads_led := int(state.troop_defs.get(state.find_squad(commander_squad_id).troop_type, {}).get("maxSquadsLed", 0))
 	var regiment: RegimentInstance = null
 	for candidate in state.regiments:
 		if candidate.commander_id == commander_squad_id:
@@ -200,8 +220,7 @@ static func assign_to_commander(state: MatchState, squad_id: String, commander_s
 		regiment = RegimentInstance.new(state.next_id("regiment"), commander_squad_id)
 		state.regiments.append(regiment)
 
-	if not regiment.assign_squad(squad_id, max_squads_led):
-		return Result.REGIMENT_FULL
+	regiment.assign_squad(squad_id, max_squads_led)
 	squad.commander_id = commander_squad_id
 	return Result.OK
 
@@ -303,6 +322,10 @@ static func _can_afford(pool: ResourcePool, cost: Dictionary) -> bool:
 static func _spend(pool: ResourcePool, cost: Dictionary) -> void:
 	for type in cost:
 		pool.add(type, -float(cost[type]))
+
+static func _refund(pool: ResourcePool, cost: Dictionary) -> void:
+	for type in cost:
+		pool.add(type, float(cost[type]))
 
 static func place_building(state: MatchState, base_id: String, building_type: String, hex: HexCoord, material: String, owner_id: String) -> BuildingPlacement.Result:
 	var base := state.find_base(base_id)
@@ -640,4 +663,56 @@ static func enqueue_production(state: MatchState, building_id: String, troop_typ
 	if not state.production_queues.has(building_id):
 		state.production_queues[building_id] = ProductionQueue.new(building_id)
 	ProductionManager.enqueue(state.production_queues[building_id], troop_type, state.troop_defs)
+	return Result.OK
+
+## Pure predicate behind dequeue_production — index 0 is always rejected: it's
+## the actively-training entry (or held complete, if paused), and this command
+## only ever trims queued-but-not-yet-training copies (the per-entry -1
+## button, which the UI itself never offers for a run of 1).
+static func can_dequeue_production(state: MatchState, building_id: String, index: int, owner_id: String) -> Result:
+	var found := state.find_base_building(building_id)
+	if found.is_empty():
+		return Result.NOT_FOUND
+	var base: BaseInstance = found["base"]
+	if base.owner_id != owner_id:
+		return Result.NOT_OWNER
+	var queue: ProductionQueue = state.production_queues.get(building_id)
+	if queue == null or index <= 0 or index >= queue.entries.size():
+		return Result.INVALID
+	return Result.OK
+
+static func dequeue_production(state: MatchState, building_id: String, index: int, owner_id: String) -> Result:
+	var check := can_dequeue_production(state, building_id, index, owner_id)
+	if check != Result.OK:
+		return check
+	var queue: ProductionQueue = state.production_queues[building_id]
+	var troop_type := String(queue.entries[index].get("troop_type", ""))
+	var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
+	_refund(state.pool_for(owner_id), cost)
+	ProductionManager.remove_at(queue, index)
+	return Result.OK
+
+## Pure predicate behind enqueue_production_after — the +1 button. Same
+## afford/unlock/cap gate as can_enqueue_production (it's exactly one more of
+## the same troop type), plus a check that `index` still points at an entry of
+## `troop_type` (the queue may have mutated between the button being drawn and
+## clicked).
+static func can_enqueue_production_after(state: MatchState, building_id: String, troop_type: String, index: int, owner_id: String) -> Result:
+	var check := can_enqueue_production(state, building_id, troop_type, owner_id)
+	if check != Result.OK:
+		return check
+	var queue: ProductionQueue = state.production_queues.get(building_id)
+	if queue == null or index < 0 or index >= queue.entries.size():
+		return Result.INVALID
+	if String(queue.entries[index].get("troop_type", "")) != troop_type:
+		return Result.INVALID
+	return Result.OK
+
+static func enqueue_production_after(state: MatchState, building_id: String, troop_type: String, index: int, owner_id: String) -> Result:
+	var check := can_enqueue_production_after(state, building_id, troop_type, index, owner_id)
+	if check != Result.OK:
+		return check
+	var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
+	_spend(state.pool_for(owner_id), cost)
+	ProductionManager.insert_after(state.production_queues[building_id], index, troop_type, state.troop_defs)
 	return Result.OK

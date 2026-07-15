@@ -50,6 +50,12 @@ var stun_tail_queued: float = 0.0
 ## unlike Ambulance/Repair Truck/Hospital's always-on `heal_over_time`). Reset
 ## by CombatResolver on every hit; incremented every tick by apply_heals().
 var time_since_damage: float = 0.0
+## owner_id of whoever last damaged this squad — same attribution field as
+## BuildingInstance.last_damaged_by, added for the minimap's combat-flash
+## dot (see minimap.gd): needs to know not just "this squad was hit" but
+## "was my owner on either side of that hit" to avoid flashing on combat
+## between two other players.
+var last_damaged_by: String = ""
 
 func _init(p_id: String, p_owner_id: String, p_troop_type: String, p_current_hex: HexCoord) -> void:
 	id = p_id
@@ -99,6 +105,7 @@ func to_dict() -> Dictionary:
 		"stun_tail_remaining": stun_tail_remaining,
 		"stun_tail_queued": stun_tail_queued,
 		"time_since_damage": time_since_damage,
+		"last_damaged_by": last_damaged_by,
 	}
 
 static func from_dict(d: Dictionary) -> SquadInstance:
@@ -121,4 +128,5 @@ static func from_dict(d: Dictionary) -> SquadInstance:
 	squad.stun_tail_remaining = d["stun_tail_remaining"]
 	squad.stun_tail_queued = d["stun_tail_queued"]
 	squad.time_since_damage = d["time_since_damage"]
+	squad.last_damaged_by = d.get("last_damaged_by", "")
 	return squad

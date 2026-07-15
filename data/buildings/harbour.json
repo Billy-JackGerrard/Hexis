@@ -25,6 +25,10 @@
       "stone": 40,
       "wood": 20
     },
-    "costGrowth": { "mode": "percent", "value": 25 }
+    "upgradeBaseCost": {
+      "stone": 40,
+      "wood": 20
+    },
+    "upgradeCostGrowth": { "mode": "percent", "value": 25 }
   }
 }

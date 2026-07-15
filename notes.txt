@@ -42,11 +42,7 @@ could have a box to put seed in?
 commander centre could contribute to squad cap
 
 
-
-
-need to fix notes bit on each building/troop/etc.
-focus on buildings for now.
-
+info panels always appear on the right, annoying if the base is on the very right.
 
 
 possibly add some kind of neutral/barbarian standalone towers/outposts?

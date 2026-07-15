@@ -297,9 +297,10 @@ static func max_level(def: Dictionary, building_defs: Dictionary) -> int:
 ## (cost to reach that row's level), Command Centre's commanderProgression
 ## (explicit tierLevels rows for 1-3, then postTierGrowth.costGrowth
 ## compounding off the last explicit row for level 4+), else the generic
-## baseCost * (1+costGrowth)^(level-1) formula every other building uses (same
-## shape as _apply_growth's stat growth, since costGrowth is itself a
-## growthRate block).
+## upgradeBaseCost * (1+upgradeCostGrowth)^(level-1) formula every other
+## building uses (same shape as _apply_growth's stat growth, since
+## upgradeCostGrowth is itself a growthRate block) — upgradeBaseCost is its
+## own field, independent of baseCost (the build/rebuild cost).
 static func upgrade_cost(def: Dictionary, level: int, material: String, building_defs: Dictionary) -> Dictionary:
 	var resolved := resolve_def(def, building_defs)
 	var target_level := level + 1
@@ -323,11 +324,11 @@ static func upgrade_cost(def: Dictionary, level: int, material: String, building
 		return cost
 
 	var upgrade_model := _hp_model(resolved, material)
-	var base_cost: Dictionary = upgrade_model.get("baseCost", {})
-	var growth: Dictionary = upgrade_model.get("costGrowth", {})
+	var upgrade_base_cost: Dictionary = upgrade_model.get("upgradeBaseCost", {})
+	var growth: Dictionary = upgrade_model.get("upgradeCostGrowth", {})
 	var cost: Dictionary = {}
-	for key in base_cost:
-		cost[key] = _apply_growth(float(base_cost[key]), growth, target_level)
+	for key in upgrade_base_cost:
+		cost[key] = _apply_growth(float(upgrade_base_cost[key]), growth, target_level)
 	return cost
 
 ## Percent of base_cost() a ruined (non-HQ, non-Wall, non-standalone) building

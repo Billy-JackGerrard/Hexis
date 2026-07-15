@@ -24,7 +24,10 @@ signal match_starting(world_seed: int, player_count: int, roster: Dictionary)
 ## empty — lockstep_driver.gd needs one of these per peer per tick (even when
 ## a peer has nothing to say) to know it's safe to resolve that tick at all.
 signal input_frame_received(exec_tick: int, commands: Array, owner_id: String)
-signal desync_detected(tick: int)
+## sections: names of MatchState.to_dict() top-level keys whose hash didn't
+## match across peers (see MatchState.section_checksums()) — narrows a
+## desync down to "which piece of state", not just "state diverged".
+signal desync_detected(tick: int, sections: Array)
 signal connection_failed(reason: String)
 
 const DEFAULT_PORT := 24545
@@ -122,13 +125,16 @@ func send_input_frame(exec_tick: int, commands: Array, owner_id: String) -> void
 	var encoded: Array = commands.map(func(c): return {"verb": c["verb"], "args": c["args"].map(_encode_arg), "seq": c["seq"]})
 	_receive_input_frame.rpc(exec_tick, encoded, owner_id)
 
-## Reports this peer's state checksum for `tick` to the host for comparison.
-## Not a broadcast — only the host aggregates and decides if peers diverged.
-func send_checksum(tick: int, checksum: int) -> void:
+## Reports this peer's per-section state checksums for `tick` to the host for
+## comparison. Not a broadcast — only the host aggregates and decides if peers
+## diverged. `sections` is MatchState.section_checksums()'s result (section
+## name -> hash) rather than one combined int, so a mismatch can be narrowed
+## down to which section actually differs.
+func send_checksum(tick: int, sections: Dictionary) -> void:
 	if is_host:
-		_report_checksum(tick, checksum, 1)
+		_report_checksum(tick, sections, 1)
 	else:
-		_report_checksum.rpc_id(1, tick, checksum)
+		_report_checksum.rpc_id(1, tick, sections)
 
 func player_count() -> int:
 	return roster.size()
@@ -243,31 +249,34 @@ func _receive_input_frame(exec_tick: int, encoded_commands: Array, owner_id: Str
 
 ## Host-only aggregation: once every roster'd peer has reported `tick`,
 ## compare — any mismatch is a desync, broadcast so every client can halt
-## rather than silently drift further apart.
+## rather than silently drift further apart. Compares per-section rather than
+## one combined value so the broadcast can name exactly which section(s)
+## diverged (see MatchState.section_checksums()).
 @rpc("any_peer", "call_remote", "reliable")
-func _report_checksum(tick: int, checksum: int, _sender_override: int = -1) -> void:
+func _report_checksum(tick: int, sections: Dictionary, _sender_override: int = -1) -> void:
 	if not is_host:
 		return
 	var sender := _sender_override if _sender_override != -1 else multiplayer.get_remote_sender_id()
 	if not _checksums_by_tick.has(tick):
 		_checksums_by_tick[tick] = {}
-	_checksums_by_tick[tick][sender] = checksum
+	_checksums_by_tick[tick][sender] = sections
 
 	if _checksums_by_tick[tick].size() < roster.size():
 		return
-	var values: Array = _checksums_by_tick[tick].values()
-	var mismatched := false
-	for i in range(1, values.size()):
-		if values[i] != values[0]:
-			mismatched = true
-			break
+	var per_sender: Array = _checksums_by_tick[tick].values()
+	var mismatched_sections: Array = []
+	for key in per_sender[0]:
+		for i in range(1, per_sender.size()):
+			if per_sender[i].get(key) != per_sender[0][key]:
+				mismatched_sections.append(key)
+				break
 	_checksums_by_tick.erase(tick)
-	if mismatched:
-		_desync_detected.rpc(tick)
+	if not mismatched_sections.is_empty():
+		_desync_detected.rpc(tick, mismatched_sections)
 
 @rpc("authority", "call_local", "reliable")
-func _desync_detected(tick: int) -> void:
-	desync_detected.emit(tick)
+func _desync_detected(tick: int, sections: Array) -> void:
+	desync_detected.emit(tick, sections)
 
 ## --- wire encoding -----------------------------------------------------------
 

@@ -87,7 +87,7 @@ func advance(delta: float) -> void:
 		steps += 1
 
 		if state.tick % DESYNC_CHECK_INTERVAL_TICKS == 0:
-			_net.send_checksum(state.tick, state.checksum())
+			_net.send_checksum(state.tick, state.section_checksums())
 
 func _has_all_input_for(tick: int) -> bool:
 	if not _received_ticks.has(tick):

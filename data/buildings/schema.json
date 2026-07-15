@@ -203,12 +203,13 @@
     },
     "nonProductionUpgradeModel": {
       "type": "object",
-      "required": ["baseStats", "statGrowth", "baseCost", "costGrowth"],
+      "required": ["baseStats", "statGrowth", "baseCost", "upgradeBaseCost", "upgradeCostGrowth"],
       "properties": {
         "baseStats": { "type": "object", "additionalProperties": { "type": "number" }, "description": "e.g. {hp: 200, damage: 15, range: 4}." },
         "statGrowth": { "type": "object", "additionalProperties": { "$ref": "#/definitions/growthRate" }, "description": "Per-stat growth rate per level, e.g. {hp: {mode: \"percent\", value: 10}, range: {mode: \"flat\", value: 0}}." },
-        "baseCost": { "type": "object", "additionalProperties": { "type": "number" } },
-        "costGrowth": { "$ref": "#/definitions/growthRate", "description": "Upgrade cost growth per level, intentionally faster than stat growth, e.g. {mode: \"percent\", value: 25}." },
+        "baseCost": { "type": "object", "additionalProperties": { "type": "number" }, "description": "Level-1 build/rebuild cost — see BuildingStats.base_cost(). Distinct from upgradeBaseCost; a building's build cost and its upgrade cost curve are independently tunable." },
+        "upgradeBaseCost": { "type": "object", "additionalProperties": { "type": "number" }, "description": "Cost to upgrade this building from level 1 to level 2 — the basis upgrade_cost() compounds from, independent of baseCost (the build/rebuild cost)." },
+        "upgradeCostGrowth": { "$ref": "#/definitions/growthRate", "description": "Per-level growth applied to the previous level's upgrade cost, intentionally faster than stat growth, e.g. {mode: \"percent\", value: 25}." },
         "addsTurretPerLevel": { "type": "boolean", "default": false, "description": "Wood Tower only — each level adds an independently-targeting turret instead of pure stat scaling." },
         "canTarget": { "type": "array", "items": { "type": "string" }, "description": "Multi-material Defensive buildings only (currently just Tower). Materials can fight differently, not just at different numbers — e.g. Steel Tower loses Air targeting, unlike Stone/Wood Tower. Each material restates its own full canTarget/damageTypes/splashRadius rather than overriding a shared block, matching how baseStats already gives each material its own damage/range/etc. The building-level defensiveStats block still holds the traits that are truly invariant across materials (detector, detectionRange)." },
         "damageTypes": { "type": "array", "items": { "type": "string" }, "description": "Per-material equivalent of defensiveStats.damageTypes — see canTarget above." },

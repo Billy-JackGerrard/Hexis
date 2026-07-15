@@ -45,6 +45,16 @@ var _shown_for_squad_id: String = ""
 var _shown_member_count: int = -1
 var _shown_cargo_count: int = -1
 var _shown_hex_key: String = ""
+## Commander only: member count of the squad's own regiment, as of the last
+## _rebuild — tracked alongside member/cargo/hex so assigning/removing a
+## regiment squad (which changes neither) still triggers a rebuild.
+var _shown_regiment_size: int = -1
+## Which Engineer BUILD-menu building_type is currently expanded to show its
+## detail (notes/stats/cost/material rows) — "" when fully collapsed. Reset
+## whenever the selected squad changes, but survives a same-squad _rebuild()
+## (e.g. the squad moving), same lifecycle as BuildingPanel's
+## _expanded_build_type.
+var _expanded_standalone_type: String = ""
 ## [{button, variation, reason_fn}] — re-checked on a throttle to flip each
 ## option button between its normal look and MUTED, same shape as BuildingPanel.
 var _option_updaters: Array = []
@@ -141,7 +151,10 @@ func _process(delta: float) -> void:
 	if not needs_rebuild and squad != null:
 		needs_rebuild = squad.member_ids.size() != _shown_member_count \
 			or squad.cargo_squad_ids.size() != _shown_cargo_count \
-			or squad.current_hex.to_key() != _shown_hex_key
+			or squad.current_hex.to_key() != _shown_hex_key \
+			or _regiment_size(squad) != _shown_regiment_size
+	if squad_changed:
+		_expanded_standalone_type = ""
 	if needs_rebuild:
 		_shown_for_squad_id = target_id
 		_rebuild(squad)
@@ -170,11 +183,13 @@ func _rebuild(squad: SquadInstance) -> void:
 		_shown_member_count = -1
 		_shown_cargo_count = -1
 		_shown_hex_key = ""
+		_shown_regiment_size = -1
 		return
 	visible = true
 	_shown_member_count = squad.member_ids.size()
 	_shown_cargo_count = squad.cargo_squad_ids.size()
 	_shown_hex_key = squad.current_hex.to_key()
+	_shown_regiment_size = _regiment_size(squad)
 	var def: Dictionary = state.troop_defs.get(squad.troop_type, {})
 
 	var cap: int = max(1, int(def.get("maxSquadSize", 1)))
@@ -198,38 +213,28 @@ func _rebuild(squad: SquadInstance) -> void:
 		_content.add_child(HSeparator.new())
 		_build_cargo_menu(squad, def)
 
+	if int(def.get("maxSquadsLed", 0)) > 0:
+		_content.add_child(HSeparator.new())
+		_build_regiment_menu(squad, def)
+
 	_refresh_eligibility()
 
 # --- Per-troop health -------------------------------------------------------
+
+## Type line (domain + tags, e.g. "Land, Vehicle, Tank"), then a handful of
+## headline combat stats, then the def's freeform "notes" description — the
+## per-troop detail a build/train list can't afford the space for, shown once
+## the player commits to selecting a squad on the map. Shared with
+## TroopInfoPanel (client/hud/troop_stats_view.gd) so a troop clicked in the
+## TRAIN menu shows the exact same block.
+func _build_stats_section(def: Dictionary) -> void:
+	TroopStatsView.build(_content, def)
 
 ## One fill bar per living member, value current_hp / def hp with a "cur/max"
 ## label centered on top — same bar-with-overlaid-label trick BuildingPanel's
 ## production queue uses. Bars are captured by member id so a live_updater can
 ## refresh their value/label each frame without a rebuild (a death changes the
 ## member count, which _process catches and rebuilds).
-## Type line (domain + tags, e.g. "Land, Vehicle, Tank"), then a handful of
-## headline combat stats, then the def's freeform "notes" description — the
-## per-troop detail a build/train list can't afford the space for, shown once
-## the player commits to selecting a squad on the map.
-func _build_stats_section(def: Dictionary) -> void:
-	var type_bits: Array[String] = []
-	var domain := String(def.get("domain", ""))
-	if domain != "":
-		type_bits.append(domain)
-	for tag in def.get("tags", []):
-		type_bits.append(String(tag))
-	if not type_bits.is_empty():
-		_content.add_child(UITheme.muted_label(", ".join(type_bits)))
-
-	for key in ["damage", "range", "attackSpeed", "armor", "speed", "visionRange"]:
-		if def.has(key):
-			_content.add_child(UITheme.body_label("%s: %s" % [String(key).capitalize(), str(def[key])]))
-
-	var notes := String(def.get("notes", ""))
-	if notes != "":
-		var notes_label := UITheme.muted_label(notes)
-		notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_content.add_child(notes_label)
 
 func _build_health_section(squad: SquadInstance, def: Dictionary) -> void:
 	_content.add_child(UITheme.header_label("SQUAD HEALTH"))
@@ -272,11 +277,14 @@ func _build_merge_row(squad: SquadInstance) -> void:
 
 # --- Engineer build menu ----------------------------------------------------
 
-## One row per Engineer-buildable standalone building (button + cost chips),
-## greyed via UIEligibility.standalone_build_reason. Clicking an eligible row
-## hands off to InputController.start_standalone_placement, which enters a
-## click-a-hex placement mode against this squad (build range = 2 hexes, per
-## Tuning.STANDALONE_BUILD_RANGE) — the standalone mirror of the HQ build menu.
+## One row per Engineer-buildable standalone building — same expand-to-detail
+## pattern as BuildingPanel's HQ BUILD menu (_toggle_build_row/
+## _build_build_detail): clicking a row toggles a pop-down showing notes,
+## headline stats, and cost, and — for a single/no-material building (Road,
+## Landmine) — immediately enters placement mode too (green valid hexes via
+## build_preview.gd, click-a-hex range = 2, per Tuning.STANDALONE_BUILD_RANGE).
+## A multi-material building (Bridge, Dock, Tower) instead shows one clickable
+## cost row per material, and placement only starts once one is picked.
 func _build_engineer_menu(squad: SquadInstance) -> void:
 	_content.add_child(UITheme.header_label("BUILD  (2 hexes)"))
 	for building_type in STANDALONE_BUILDINGS:
@@ -285,15 +293,86 @@ func _build_engineer_menu(squad: SquadInstance) -> void:
 			continue
 		var bt := String(building_type)
 		var display_name := String(def.get("name", bt.capitalize()))
-		var cost := BuildingStats.base_cost(def, _first_material(def), state.building_defs)
-		var material := _first_material(def)
-		_add_action_row(display_name, cost, -1.0, UITheme.PRIMARY,
-			func(): return UIEligibility.standalone_build_reason(state, squad, bt, owner_id),
-			func(): input_controller.start_standalone_placement(squad.id, bt, material))
+		var reason_fn := func(): return UIEligibility.standalone_build_reason(state, squad, bt, owner_id)
 
-func _first_material(def: Dictionary) -> String:
+		var button := UITheme.action_button(display_name, "")
+		var squad_id := squad.id
+		button.pressed.connect(func(): _toggle_standalone_row(squad_id, bt, reason_fn))
+		_content.add_child(button)
+		_option_updaters.append({"button": button, "variation": "", "reason_fn": reason_fn})
+
+		if _expanded_standalone_type == bt:
+			_build_standalone_detail(squad, bt, def, reason_fn)
+
+## Mirrors BuildingPanel._toggle_build_row: expanding a no/single-material row
+## enters placement immediately (if eligible); a multi-material row just opens
+## the pop-down, leaving the player to pick a material first.
+func _toggle_standalone_row(squad_id: String, bt: String, reason_fn: Callable) -> void:
+	var def: Dictionary = state.building_defs.get(bt, {})
+	var reason := ""
+	if _expanded_standalone_type == bt:
+		_expanded_standalone_type = ""
+		input_controller.cancel_placement()
+	else:
+		_expanded_standalone_type = bt
+		if def.get("materials", []).is_empty():
+			reason = String(reason_fn.call())
+			if reason == "":
+				input_controller.start_standalone_placement(squad_id, bt, "")
+			else:
+				input_controller.cancel_placement()
+		else:
+			input_controller.cancel_placement()
+	# _rebuild() clears _reason_label as part of tearing down the old content —
+	# set it only after, or it'd be wiped immediately.
+	_rebuild(state.find_squad(squad_id))
+	if reason != "":
+		_reason_label.text = reason
+		_reason_label.visible = true
+
+func _build_standalone_detail(squad: SquadInstance, building_type: String, def: Dictionary, reason_fn: Callable) -> void:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var notes := String(def.get("notes", ""))
+	if notes != "":
+		var notes_label := UITheme.muted_label(notes)
+		notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(notes_label)
+
 	var materials: Array = def.get("materials", [])
-	return String(materials[0]) if not materials.is_empty() else ""
+	var squad_id := squad.id
+	if materials.is_empty():
+		for line in BuildingDetailView.stat_lines(def):
+			box.add_child(UITheme.body_label(line))
+		var cost := BuildingStats.base_cost(def, "", state.building_defs)
+		box.add_child(UITheme.cost_chips(cost))
+	else:
+		for material in materials:
+			var mat := String(material)
+			for line in BuildingDetailView.stat_lines_for_material(def, mat):
+				box.add_child(UITheme.body_label(line))
+			var cost := BuildingStats.base_cost(def, mat, state.building_defs)
+			var mat_reason_fn := func(): return UIEligibility.standalone_build_reason(state, squad, building_type, owner_id, mat)
+			_build_material_row(box, mat.capitalize(), cost, mat_reason_fn,
+				func(): input_controller.start_standalone_placement(squad_id, building_type, mat))
+
+	_content.add_child(box)
+
+## Mirrors BuildingPanel._build_material_row: a labelled cost row for one
+## material choice, muted via `reason_fn` the same way every other option row
+## is (see _refresh_eligibility below).
+func _build_material_row(box: VBoxContainer, label_text: String, cost: Dictionary, reason_fn: Callable, action: Callable) -> void:
+	var row := VBoxContainer.new()
+	row.add_theme_constant_override("separation", 2)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	var button := UITheme.action_button(label_text, UITheme.PRIMARY)
+	button.pressed.connect(func(): _handle_press(reason_fn, action))
+	row.add_child(button)
+	row.add_child(UITheme.cost_chips(cost))
+	box.add_child(row)
+	_option_updaters.append({"button": button, "variation": UITheme.PRIMARY, "reason_fn": reason_fn})
 
 # --- Cargo (Load / Unload) --------------------------------------------------
 
@@ -361,6 +440,62 @@ func _unload_target(carrier: SquadInstance) -> HexCoord:
 				return neighbor
 		return carrier.current_hex
 	return carrier.current_hex
+
+# --- Regiment (Commander only) -----------------------------------------------
+
+## Squad count currently in `squad`'s own regiment (0 if it isn't a Commander,
+## or leads none yet) — the extra _process poll _shown_regiment_size compares
+## against so assigning/removing a member (which touches neither the
+## Commander's member/cargo count nor its hex) still triggers a rebuild.
+func _regiment_size(squad: SquadInstance) -> int:
+	for regiment in state.regiments:
+		if regiment.commander_id == squad.id:
+			return regiment.squad_ids.size()
+	return 0
+
+## Assign lists every friendly squad this Commander could take command of
+## (UIEligibility.assignable_squads: not itself, not already led by this
+## Commander, not docked, not itself a Commander). Assigned lists the
+## regiment's current members, each with a Remove button. Same
+## eligible-list-then-current-list shape as _build_cargo_menu's Load/Unload.
+func _build_regiment_menu(squad: SquadInstance, def: Dictionary) -> void:
+	var max_led := int(def.get("maxSquadsLed", 0))
+	var regiment: RegimentInstance = null
+	for candidate in state.regiments:
+		if candidate.commander_id == squad.id:
+			regiment = candidate
+			break
+	var member_count := regiment.squad_ids.size() if regiment != null else 0
+	_content.add_child(UITheme.header_label("REGIMENT  -  %d/%d" % [member_count, max_led]))
+
+	var assignable := UIEligibility.assignable_squads(state, squad)
+	if assignable.is_empty():
+		_content.add_child(UITheme.muted_label("No squads to assign"))
+	else:
+		for other in assignable:
+			var candidate_squad := other
+			var odef: Dictionary = state.troop_defs.get(candidate_squad.troop_type, {})
+			var name := String(odef.get("name", candidate_squad.troop_type.capitalize()))
+			var reason_fn := func(): return UIEligibility.assign_to_commander_reason(state, squad, candidate_squad, owner_id)
+			var action := func(): input_controller.submitter.submit("assign_to_commander", [candidate_squad.id, squad.id, owner_id], owner_id)
+			var button := UITheme.action_button("Assign %s" % name, UITheme.PRIMARY)
+			button.pressed.connect(func(): _handle_press(reason_fn, action))
+			_content.add_child(button)
+			_option_updaters.append({"button": button, "variation": UITheme.PRIMARY, "reason_fn": reason_fn})
+
+	if regiment == null or regiment.squad_ids.is_empty():
+		_content.add_child(UITheme.muted_label("No squads assigned"))
+		return
+	for member_id in regiment.squad_ids:
+		var member := state.find_squad(member_id)
+		if member == null:
+			continue
+		var mdef: Dictionary = state.troop_defs.get(member.troop_type, {})
+		var mname := String(mdef.get("name", member.troop_type.capitalize()))
+		var leaving_id := member_id
+		var button := UITheme.action_button("Remove %s" % mname, "")
+		button.pressed.connect(func(): input_controller.submitter.submit("leave_regiment", [leaving_id, owner_id], owner_id))
+		_content.add_child(button)
 
 # --- Shared option-row plumbing (mirrors BuildingPanel) ---------------------
 
