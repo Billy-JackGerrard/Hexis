@@ -70,13 +70,13 @@ func _test_commander_progression() -> void:
 
 func _test_squad_cap() -> void:
 	var one_capital: Array[BaseInstance] = [BaseInstance.new("b1", "capital", "p1", 1)]
-	_check(SquadCap.max_squads(one_capital) == 4, "fresh level-1 Capital -> maxSquads 4")
+	_check(SquadCap.max_squads(one_capital) == 3, "fresh level-1 Capital -> maxSquads 3")
 
 	var two_bases: Array[BaseInstance] = [
 		BaseInstance.new("b1", "capital", "p1", 2),
 		BaseInstance.new("b2", "fort_irongrad", "p1", 3),
 	]
-	_check(SquadCap.max_squads(two_bases) == 12, "hqLevel 2 + 3 -> maxSquads (2+3)*2+2 = 12")
+	_check(SquadCap.max_squads(two_bases) == 7, "hqLevel 2 + 3 -> maxSquads (2+3)*1+2 = 7")
 
 	var building_defs := DataLoader.load_dir("res://data/buildings")
 	var base_with_ccs := BaseInstance.new("b1", "capital", "p1", 1)
@@ -226,11 +226,11 @@ func _test_production_queue() -> void:
 	_check(empty_squads[0].member_ids.size() == 1, "the new squad has the newly trained troop")
 
 	# pause at squad_cap: owner already at maxSquads, no joinable squad exists
+	# (one_capital is a level-1 Capital -> maxSquads 3, per the SquadCap check above)
 	var at_cap_squads: Array[SquadInstance] = [
 		SquadInstance.new("g1", "p1", "grenadier", spawn_hex),
 		SquadInstance.new("g2", "p1", "grenadier", spawn_hex),
 		SquadInstance.new("g3", "p1", "grenadier", spawn_hex),
-		SquadInstance.new("g4", "p1", "grenadier", spawn_hex),
 	]
 	var pause_queue := ProductionQueue.new("barracks1")
 	ProductionManager.enqueue(pause_queue, "rifleman", troop_defs)
@@ -245,7 +245,7 @@ func _test_production_queue() -> void:
 	ProductionManager.pump(pause_queue, "p1", spawn_hex, "barracks", at_cap_squads, troops, one_capital, building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"))
 	_check(not pause_queue.paused, "re-pumping after a slot frees clears the pause")
 	_check(pause_queue.is_empty(), "held entry deploys once capacity is available again")
-	_check(at_cap_squads.size() == 4, "the held troop formed its new squad on resume")
+	_check(at_cap_squads.size() == 3, "the held troop formed its new squad on resume")
 
 	# pause at commander_cap: Command Centre, no Command Centre built yet -> maxCommanders 0
 	var commander_vanguard_production_time: float = float(troop_defs["commander_vanguard"]["productionTime"])

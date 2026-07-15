@@ -185,12 +185,16 @@ func _process(delta: float) -> void:
 
 ## Names the diverging section(s) in the on-screen message (see
 ## MatchState.section_checksums()) and dumps this peer's snapshot of the
-## diverged sections *at the desync tick itself* to disk — compare the dump
-## from each machine (they'll have different suffixes, one per local_owner_id)
-## to see the exact field that diverged, rather than just knowing that
-## something did. The snapshot is the one LockstepDriver stashed when it sent
-## that tick's checksum, so both peers dump the same tick's state even though
-## the sim has advanced past it by the time the desync is reported.
+## diverged sections *at the desync tick itself*, plus the full command log up
+## to that tick, to disk — compare the dump from each machine (they'll have
+## different suffixes, one per local_owner_id). The state diff says *what*
+## differs; the command log diff says *why* — a command missing/reordered/
+## different-args on one peer's log versus the other's is the direct cause,
+## versus a value divergence off an otherwise-identical command stream (a
+## computation bug, not a networking one). The snapshot is the one
+## LockstepDriver stashed when it sent that tick's checksum, so both peers
+## dump the same tick even though the sim has advanced past it by the time the
+## desync is reported.
 func _on_desync_detected(tick: int, sections: Array) -> void:
 	_desync_halted = true
 	hud_layer.resource_bar.set_status("Desync at tick %d (%s) — match halted." % [tick, ", ".join(sections)], true)
@@ -209,14 +213,18 @@ func _dump_state_for_debug(tick: int, sections: Array) -> void:
 	for key in sections:
 		if snapshot.has(key):
 			diverged[key] = snapshot[key]
+	var dump := {
+		"diverged_sections": diverged,
+		"command_log": lockstep_driver.command_log_snapshot(tick),
+	}
 	var owner_tag := net_manager.local_owner_id if net_manager != null else "unknown"
 	var path := "user://desync_tick%d_%s.txt" % [tick, owner_tag]
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return
-	f.store_string(var_to_str(diverged))
+	f.store_string(var_to_str(dump))
 	f.close()
-	print("Desync at tick %d — diverged sections dump written to %s" % [tick, ProjectSettings.globalize_path(path)])
+	print("Desync at tick %d — diverged sections + command log dump written to %s" % [tick, ProjectSettings.globalize_path(path)])
 
 func _build_demo_state() -> MatchState:
 	var demo_state := MatchState.new()

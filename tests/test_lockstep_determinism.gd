@@ -33,6 +33,10 @@ func _init() -> void:
 	_test_checksum_sanity()
 	print("Resource-starved production stays in sync over a long match")
 	_test_production_economy_determinism()
+	print("Regiment movement/pathing stays in sync over a long match")
+	_test_movement_regiment_determinism()
+	print("Sustained multi-squad combat stays in sync over a long match")
+	_test_combat_determinism()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -47,6 +51,46 @@ func _flat_grid(radius: int) -> HexGrid:
 	for coord in HexCoord.range_within(HexCoord.new(0, 0), radius):
 		grid.set_terrain(coord, Terrain.Type.PLAINS)
 	return grid
+
+## Builds and appends a squad of `count` `troop_type` members for `owner` at
+## `hex`, same construction _build_scenario does inline — factored out so the
+## long-run movement/combat scenarios below don't repeat it per side.
+func _add_squad(state: MatchState, owner: String, troop_type: String, hex: HexCoord, count: int) -> SquadInstance:
+	var squad := SquadInstance.new(state.next_squad_id(), owner, troop_type, hex)
+	var hp: float = float(_troop_defs[troop_type].get("hp", 100.0))
+	for i in range(count):
+		var troop := TroopInstance.new(state.next_troop_id(), troop_type, owner, squad.id, hp)
+		state.troops_by_id[troop.id] = troop
+		squad.add_member(troop.id)
+	state.squads.append(squad)
+	return squad
+
+## Runs two already-built, otherwise-identical states tick-for-tick, calling
+## `on_tick.call(state, i)` on each before every SimOrchestrator.resolve_tick
+## (both runs get the same callable, so as long as it's a pure function of
+## `i` — no reads of anything but its own arguments — both runs receive an
+## identical command stream). Compares section_checksums() every
+## CHECKSUM_CADENCE ticks, same cadence/mechanism LockstepDriver uses live, so
+## this test would have caught a real desync's exact mismatch shape. Returns
+## {} if the two runs stayed synced the whole way, or {"tick", "sections"} for
+## the first tick a mismatch showed up.
+func _run_dual_and_find_divergence(run_a: MatchState, run_b: MatchState, ticks: int, on_tick: Callable) -> Dictionary:
+	for i in range(ticks):
+		on_tick.call(run_a, i)
+		on_tick.call(run_b, i)
+		SimOrchestrator.resolve_tick(run_a, 1.0)
+		SimOrchestrator.resolve_tick(run_b, 1.0)
+		if run_a.tick % CHECKSUM_CADENCE != 0:
+			continue
+		var checks_a := run_a.section_checksums()
+		var checks_b := run_b.section_checksums()
+		var diverged_sections: Array = []
+		for key in checks_a:
+			if checks_a[key] != checks_b.get(key):
+				diverged_sections.append(key)
+		if not diverged_sections.is_empty():
+			return {"tick": run_a.tick, "sections": diverged_sections}
+	return {}
 
 ## Two owners (p1, p2) each with a squad, plus a frost_tank/rifleman pair so
 ## combat RNG (statusEffectOnHit) also runs through the scheduled path, not
@@ -196,3 +240,118 @@ func _test_production_economy_determinism() -> void:
 	# rather than draining the queue instantly (which would make the sync
 	# assertions vacuous).
 	_check(starved_at_least_once, "a queued entry actually hit insufficient_resources at some point (the path under test really ran)")
+
+## Regression cover for regiment lock-step movement/pathing over a long match
+## — _test_arrival_order_independence's regiment coverage (test_command_
+## processor.gd's _test_move_regiment) only checks the order is set correctly
+## on issue, not that repeated repathing across many ticks (A*, terrain,
+## lock-step follower sync) stays deterministic over a long run. A p1 Commander
+## leads a 2-squad regiment back and forth across the map, re-pathed every
+## REGIMENT_REROUTE_TICKS ticks (forcing fresh A* runs mid-movement, not just
+## one path resolved once) past a line of p2 squads it engages automatically
+## in range (CombatResolver.resolve_tick auto-engages, no attack_target order
+## needed) — so this exercises pathing + regiment-follower sync + combat RNG
+## all at once, for LONG_MATCH_TICKS.
+const REGIMENT_REROUTE_TICKS := 47 ## deliberately not a divisor of CHECKSUM_CADENCE
+
+func _build_regiment_scenario() -> MatchState:
+	var state := MatchState.new()
+	state.grid = _flat_grid(15)
+	state.troop_defs = _troop_defs
+	state.building_defs = _building_defs
+	state.base_defs = _base_defs
+	state.seed_rng(SEED)
+
+	var commander := _add_squad(state, "p1", "commander_vanguard", HexCoord.new(-12, 0), 1)
+	var escort_a := _add_squad(state, "p1", "rifleman", HexCoord.new(-12, 0), 3)
+	var escort_b := _add_squad(state, "p1", "frost_tank", HexCoord.new(-12, 1), 2)
+	var regiment := RegimentInstance.new(state.next_id("regiment"), commander.id)
+	regiment.assign_squad(escort_a.id, 4)
+	regiment.assign_squad(escort_b.id, 4)
+	state.regiments.append(regiment)
+
+	# A line of p2 squads across the regiment's path, so it walks into combat
+	# range partway through rather than just pathing through empty terrain.
+	for i in range(5):
+		_add_squad(state, "p2", "rifleman", HexCoord.new(-2 + i, 2), 2)
+
+	return state
+
+## Bounces the Commander between the two ends of the map every
+## REGIMENT_REROUTE_TICKS ticks, forcing a fresh regiment_move (and fresh A*
+## path for every regiment member) mid-traversal instead of letting one path
+## resolve undisturbed — this is what the follower-sync/pathing code has to
+## get identically right on both peers.
+func _regiment_reroute_step(state: MatchState, i: int) -> void:
+	if i % REGIMENT_REROUTE_TICKS != 0:
+		return
+	var commander_id := ""
+	for squad in state.squads:
+		if squad.troop_type == "commander_vanguard":
+			commander_id = squad.id
+			break
+	if commander_id == "":
+		return # the whole regiment died along the way -- nothing left to reroute
+	var goal := HexCoord.new(12, 0) if (i / REGIMENT_REROUTE_TICKS) % 2 == 0 else HexCoord.new(-12, 0)
+	state.command_queue.submit(state, "move_squad", [commander_id, goal, "p1"], "p1")
+
+func _test_movement_regiment_determinism() -> void:
+	var run_a := _build_regiment_scenario()
+	var run_b := _build_regiment_scenario()
+
+	var divergence := _run_dual_and_find_divergence(run_a, run_b, LONG_MATCH_TICKS, Callable(self, "_regiment_reroute_step"))
+
+	if divergence.is_empty():
+		_check(true, "%d ticks of rerouted regiment movement through contested territory stayed byte-identical across both runs" % LONG_MATCH_TICKS)
+	else:
+		_check(false, "two identical runs diverged at tick %d in section(s): %s" % [divergence["tick"], ", ".join(divergence["sections"])])
+	_check(var_to_str(run_a.to_dict()) == var_to_str(run_b.to_dict()), "final full to_dict() snapshot matches after the long match")
+	_check(run_a.squads.size() < 8, "at least one squad was actually destroyed during the run (combat along the path really happened)")
+
+## Regression cover for sustained multi-squad combat over a long match —
+## _build_scenario's combat coverage only runs 20 ticks with a single
+## attacker/defender pair; this runs several mixed squads (varied troop
+## types, so varied weapon ranges/RNG-bearing effects like frost_tank's
+## freeze chance) trading fire continuously for LONG_MATCH_TICKS, which is
+## long enough for squads to actually die and get pruned — exercising
+## CombatResolver's target-reassignment/death/prune paths repeatedly rather
+## than just the first-contact case.
+func _build_combat_scenario() -> MatchState:
+	var state := MatchState.new()
+	state.grid = _flat_grid(10)
+	state.troop_defs = _troop_defs
+	state.building_defs = _building_defs
+	state.base_defs = _base_defs
+	state.seed_rng(SEED)
+
+	_add_squad(state, "p1", "frost_tank", HexCoord.new(-3, 0), 4)
+	_add_squad(state, "p1", "rifleman", HexCoord.new(-3, 1), 4)
+	_add_squad(state, "p1", "rifleman", HexCoord.new(-3, -1), 4)
+	_add_squad(state, "p2", "rifleman", HexCoord.new(3, 0), 4)
+	_add_squad(state, "p2", "rifleman", HexCoord.new(3, 1), 4)
+	_add_squad(state, "p2", "frost_tank", HexCoord.new(3, -1), 4)
+
+	for squad in state.squads:
+		var enemy_owner := "p2" if squad.owner_id == "p1" else "p1"
+		var enemy: SquadInstance = null
+		for candidate in state.squads:
+			if candidate.owner_id == enemy_owner:
+				enemy = candidate
+				break
+		if enemy != null:
+			CommandProcessor.attack_target(state, squad.id, enemy.id, squad.owner_id)
+	return state
+
+func _test_combat_determinism() -> void:
+	var run_a := _build_combat_scenario()
+	var run_b := _build_combat_scenario()
+	var no_op := func(_state, _i): pass
+
+	var divergence := _run_dual_and_find_divergence(run_a, run_b, LONG_MATCH_TICKS, no_op)
+
+	if divergence.is_empty():
+		_check(true, "%d ticks of sustained multi-squad combat stayed byte-identical across both runs" % LONG_MATCH_TICKS)
+	else:
+		_check(false, "two identical runs diverged at tick %d in section(s): %s" % [divergence["tick"], ", ".join(divergence["sections"])])
+	_check(var_to_str(run_a.to_dict()) == var_to_str(run_b.to_dict()), "final full to_dict() snapshot matches after the long match")
+	_check(run_a.squads.size() < 6, "at least one squad was actually wiped out during sustained combat (the death/prune path really ran)")

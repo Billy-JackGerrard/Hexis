@@ -49,6 +49,15 @@ var _expected_owner_ids: Array[String] = []
 ## than whatever tick they happen to have advanced to by the time the desync
 ## is reported. Pruned to the newest SNAPSHOT_HISTORY entries.
 var _section_snapshots: Dictionary = {}
+## tick -> a duplicate() of state.command_queue.log as of that tick's checksum
+## send (log is append-only, so this is just "every command applied up to and
+## including this tick"). Bundled with the on-desync dump alongside the state
+## sections: a state diff says *what* differs, but the command log says *why*
+## — a command present on one peer's log and missing (or reordered, or
+## different args) on the other's is the direct cause, versus a value
+## divergence which could be either a bad command or a bad computation off an
+## otherwise-identical command stream.
+var _command_log_snapshots: Dictionary = {}
 
 func start(p_state: MatchState, net_manager: NetManager, roster: Dictionary) -> void:
 	state = p_state
@@ -103,21 +112,29 @@ func advance(delta: float) -> void:
 			_snapshot_sections(state.tick)
 
 ## Stashes this tick's full section values (the same view section_checksums()
-## hashed) so the on-desync dump can reproduce exactly what diverged, then
-## prunes the ring back to SNAPSHOT_HISTORY newest ticks.
+## hashed) plus a copy of the command log up to this tick, so the on-desync
+## dump can reproduce exactly what diverged and exactly what command stream
+## produced it, then prunes both rings back to SNAPSHOT_HISTORY newest ticks.
 func _snapshot_sections(tick: int) -> void:
 	_section_snapshots[tick] = state.sections()
+	_command_log_snapshots[tick] = state.command_queue.log.duplicate()
 	if _section_snapshots.size() <= SNAPSHOT_HISTORY:
 		return
 	var ticks := _section_snapshots.keys()
 	ticks.sort()
 	for stale_tick in ticks.slice(0, ticks.size() - SNAPSHOT_HISTORY):
 		_section_snapshots.erase(stale_tick)
+		_command_log_snapshots.erase(stale_tick)
 
 ## The stashed full section values for `tick`, or {} if it's already been
 ## pruned (or was never a checksum tick). main.gd's desync dump reads this.
 func section_snapshot(tick: int) -> Dictionary:
 	return _section_snapshots.get(tick, {})
+
+## The stashed command log (every command applied up to and including `tick`)
+## for `tick`, or [] if already pruned. main.gd's desync dump reads this.
+func command_log_snapshot(tick: int) -> Array:
+	return _command_log_snapshots.get(tick, [])
 
 func _has_all_input_for(tick: int) -> bool:
 	if not _received_ticks.has(tick):
