@@ -28,14 +28,14 @@ extends RefCounted
 ## speed_boost/slow-derived speed multiplier (same caller-computed-once
 ## convention as CombatResolver's `detections`/`auras`). `bases`/
 ## `standalone_buildings` resolve a docked squad's host building by id, and
-## also feed BuildingPlacement.land_blocking_hexes() (01-map-and-terrain.md:
-## a standing building blocks Land-domain movement, Road/Bridge/ruins excepted)
-## — default to empty so existing callers with no buildings on their grid at
-## all don't need to pass them.
+## also feed BuildingPlacement.building_blocking_hexes() (01-map-and-terrain.md:
+## a standing building blocks every non-Air unit's movement, Road/Bridge/ruins
+## excepted) — default to empty so existing callers with no buildings on
+## their grid at all don't need to pass them.
 static func resolve_tick(dt: float, squads: Array[SquadInstance], grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}, bases: Array[BaseInstance] = [], standalone_buildings: Array[BuildingInstance] = []) -> void:
-	var blocked_land_hexes := BuildingPlacement.land_blocking_hexes(bases, standalone_buildings)
+	var building_blocked_hexes := BuildingPlacement.building_blocking_hexes(bases, standalone_buildings)
 	for squad in squads:
-		_advance_squad(squad, dt, grid, troop_defs, auras, blocked_land_hexes)
+		_advance_squad(squad, dt, grid, troop_defs, auras, building_blocked_hexes)
 	_mirror_boarded_squads(squads, bases, standalone_buildings)
 
 ## Boarded/docked squads don't path/act independently — their current_hex/
@@ -96,9 +96,9 @@ static func _path_toward(squad: SquadInstance, grid: HexGrid, goal: HexCoord, tr
 	var def: Dictionary = troop_defs.get(squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
-	var blocked_land_hexes := BuildingPlacement.land_blocking_hexes(bases, standalone_buildings)
+	var building_blocked_hexes := BuildingPlacement.building_blocking_hexes(bases, standalone_buildings)
 
-	var full := grid.find_path(squad.current_hex, goal, domain, overrides, blocked_land_hexes)
+	var full := grid.find_path(squad.current_hex, goal, domain, overrides, building_blocked_hexes)
 	if full.size() <= 1:
 		squad.path = []
 		return false
@@ -149,7 +149,7 @@ static func _find_target(target_id: String, targets: Array[CombatTarget]) -> Com
 			return target
 	return null
 
-static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}, blocked_land_hexes: Dictionary = {}) -> void:
+static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop_defs: Dictionary, auras: Dictionary = {}, building_blocked_hexes: Dictionary = {}) -> void:
 	if squad.member_ids.is_empty():
 		return
 	if squad.is_docked():
@@ -177,9 +177,9 @@ static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop
 	var replanned_this_tick := false
 	while remaining_time > 0.0 and not squad.path.is_empty():
 		var next_hex: HexCoord = squad.path[0]
-		var cost := grid.edge_cost(squad.current_hex, next_hex, domain, overrides, blocked_land_hexes)
+		var cost := grid.edge_cost(squad.current_hex, next_hex, domain, overrides, building_blocked_hexes)
 		if cost == Terrain.INF:
-			if replanned_this_tick or not _replan(squad, grid, domain, overrides, blocked_land_hexes):
+			if replanned_this_tick or not _replan(squad, grid, domain, overrides, building_blocked_hexes):
 				break
 			replanned_this_tick = true
 			continue
@@ -200,7 +200,7 @@ static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop
 ## edge blocked — e.g. a wall raised mid-route. Clears path (halts in place)
 ## if no route exists. find_path never returns a blocked first edge, so the
 ## caller's post-replan retry cannot hit Terrain.INF again on the same edge.
-static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain, overrides: Dictionary, blocked_land_hexes: Dictionary = {}) -> bool:
+static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain, overrides: Dictionary, building_blocked_hexes: Dictionary = {}) -> bool:
 	var goal: HexCoord
 	var order_type := String(squad.order.get("type", ""))
 	if order_type == "move" or order_type == "regiment_move":
@@ -208,7 +208,7 @@ static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain,
 	else:
 		goal = squad.path.back()
 
-	var new_path := grid.find_path(squad.current_hex, goal, domain, overrides, blocked_land_hexes)
+	var new_path := grid.find_path(squad.current_hex, goal, domain, overrides, building_blocked_hexes)
 	if new_path.size() <= 1:
 		squad.path = []
 		return false
@@ -242,9 +242,9 @@ static func issue_regiment_move(commander_squad: SquadInstance, member_squads: A
 	var def: Dictionary = troop_defs.get(commander_squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
-	var blocked_land_hexes := BuildingPlacement.land_blocking_hexes(bases, standalone_buildings)
+	var building_blocked_hexes := BuildingPlacement.building_blocking_hexes(bases, standalone_buildings)
 
-	var full := grid.find_path(commander_squad.current_hex, goal, domain, overrides, blocked_land_hexes)
+	var full := grid.find_path(commander_squad.current_hex, goal, domain, overrides, building_blocked_hexes)
 	if full.size() <= 1:
 		commander_squad.path = []
 		return false
@@ -312,15 +312,15 @@ static func resolve_regiment_tick(dt: float, commander_squad: SquadInstance, mem
 	var commander_def: Dictionary = troop_defs.get(commander_squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(commander_def.get("domain", "Infantry")))
 	var overrides: Dictionary = commander_def.get("terrainOverrides", {})
-	var blocked_land_hexes := BuildingPlacement.land_blocking_hexes(bases, standalone_buildings)
+	var building_blocked_hexes := BuildingPlacement.building_blocking_hexes(bases, standalone_buildings)
 
 	var remaining_time := dt
 	var replanned_this_tick := false
 	while remaining_time > 0.0 and not commander_squad.path.is_empty():
 		var next_hex: HexCoord = commander_squad.path[0]
-		var cost := grid.edge_cost(commander_squad.current_hex, next_hex, domain, overrides, blocked_land_hexes)
+		var cost := grid.edge_cost(commander_squad.current_hex, next_hex, domain, overrides, building_blocked_hexes)
 		if cost == Terrain.INF:
-			if replanned_this_tick or not _replan(commander_squad, grid, domain, overrides, blocked_land_hexes):
+			if replanned_this_tick or not _replan(commander_squad, grid, domain, overrides, building_blocked_hexes):
 				break
 			replanned_this_tick = true
 			continue

@@ -32,6 +32,9 @@ const DEFAULT_NAME := "Unnamed Player"
 const DEFAULT_CAPITAL_NAME := "Unnamed Base"
 const DEFAULT_JOIN_IP := "127.0.0.1"
 const MIN_MATCH_PLAYERS := 2
+## Caps player/base name length so it can't overflow the building-hover
+## tooltip or lobby row it gets rendered into elsewhere in the UI.
+const MAX_NAME_LENGTH := 20
 
 var _net: NetManager
 var _lan_discovery: LanDiscovery
@@ -117,11 +120,13 @@ func setup(net_manager: NetManager) -> void:
 
 	_name_edit = LineEdit.new()
 	_name_edit.placeholder_text = DEFAULT_NAME
+	_name_edit.max_length = MAX_NAME_LENGTH
 	_name_edit.text_changed.connect(_on_identity_field_edited)
 	vbox.add_child(_name_edit)
 
 	_capital_name_edit = LineEdit.new()
 	_capital_name_edit.placeholder_text = DEFAULT_CAPITAL_NAME
+	_capital_name_edit.max_length = MAX_NAME_LENGTH
 	_capital_name_edit.text_changed.connect(_on_identity_field_edited)
 	vbox.add_child(_capital_name_edit)
 

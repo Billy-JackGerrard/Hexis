@@ -85,7 +85,7 @@ static func place_bases(
 		_claim(claimed_hexes, hex)
 		capital_ids_by_player[p] = base.id
 		if seed_garrisons:
-			GarrisonFactory.seed_garrison(capital_def, "p%d" % p, hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id, grid)
+			GarrisonFactory.seed_garrison(capital_def, "p%d" % p, hex, troop_defs, squads, troops_by_id, next_troop_id, next_squad_id, grid, base)
 
 	var deal := _assign_unique_defs(unique_defs, player_count, _substream(world_seed, "unique_defs"), forced_unique_ids)
 	var unique_rng := _substream(world_seed, "site_uniques")

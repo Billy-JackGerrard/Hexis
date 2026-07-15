@@ -63,6 +63,7 @@ const MIN_RIVER_SOURCE_SPACING: int = 8
 const RIVER_STRAIGHTNESS: float = 0.65 ## chance of taking the most-outward-progress step vs. a random valid one
 const RIVER_MAX_STEPS_MULTIPLIER: int = 2 ## safety cap = map_radius * this
 const MAX_RIVER_SOURCE_ATTEMPTS_PER_RIVER: int = 20
+const RIVER_SOURCE_HILL_SEARCH_RADIUS: int = 3 ## how far a river source snaps to find a nearby Hills tile
 
 ## --- Base siting (sim/worldgen/base_site_selector.gd) ---
 

@@ -75,15 +75,24 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(panel)
 
+	# _scroll's sibling in this VBox (not a scrolled child) so the ineligible-
+	# reason label below stays pinned and visible regardless of scroll position
+	# — see _reason_label.
+	var main_vbox := VBoxContainer.new()
+	main_vbox.add_theme_constant_override("separation", 8)
+	main_vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(main_vbox)
+
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# We scroll manually here (see _on_scroll_gui_input) rather than relying on
 	# ScrollContainer's built-in wheel handling: the gui_input signal fires
 	# BEFORE the built-in _gui_input, so any set_input_as_handled() we do to stop
 	# the wheel falling through to the camera would also cancel the built-in
 	# scroll. Doing the scroll ourselves and then accepting handles both.
 	_scroll.gui_input.connect(_on_scroll_gui_input)
-	panel.add_child(_scroll)
+	main_vbox.add_child(_scroll)
 
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -93,6 +102,14 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 	# it ever reaches the ScrollContainer's own scroll handling.
 	_content.mouse_filter = Control.MOUSE_FILTER_PASS
 	_scroll.add_child(_content)
+
+	# Pinned below the scroll area (not inside _content, which gets torn down
+	# and rebuilt on every selection change) so an ineligible-click reason
+	# stays visible even when the button that triggered it is scrolled out of
+	# view.
+	_reason_label = UITheme.danger_label("")
+	_reason_label.visible = false
+	main_vbox.add_child(_reason_label)
 
 const SCROLL_STEP := 40
 
@@ -144,7 +161,8 @@ func _rebuild(squad: SquadInstance) -> void:
 		child.queue_free()
 	_option_updaters.clear()
 	_live_updaters.clear()
-	_reason_label = null
+	_reason_label.visible = false
+	_reason_label.text = ""
 	_refresh_accum = 0.0
 
 	if squad == null:
@@ -164,6 +182,9 @@ func _rebuild(squad: SquadInstance) -> void:
 	_content.add_child(UITheme.subtitle_label("Squad  -  %d/%d" % [squad.member_ids.size(), cap]))
 	_content.add_child(HSeparator.new())
 
+	_build_stats_section(def)
+	_content.add_child(HSeparator.new())
+
 	_build_health_section(squad, def)
 
 	_content.add_child(HSeparator.new())
@@ -177,10 +198,6 @@ func _rebuild(squad: SquadInstance) -> void:
 		_content.add_child(HSeparator.new())
 		_build_cargo_menu(squad, def)
 
-	_reason_label = UITheme.danger_label("")
-	_reason_label.visible = false
-	_content.add_child(_reason_label)
-
 	_refresh_eligibility()
 
 # --- Per-troop health -------------------------------------------------------
@@ -190,6 +207,30 @@ func _rebuild(squad: SquadInstance) -> void:
 ## production queue uses. Bars are captured by member id so a live_updater can
 ## refresh their value/label each frame without a rebuild (a death changes the
 ## member count, which _process catches and rebuilds).
+## Type line (domain + tags, e.g. "Land, Vehicle, Tank"), then a handful of
+## headline combat stats, then the def's freeform "notes" description — the
+## per-troop detail a build/train list can't afford the space for, shown once
+## the player commits to selecting a squad on the map.
+func _build_stats_section(def: Dictionary) -> void:
+	var type_bits: Array[String] = []
+	var domain := String(def.get("domain", ""))
+	if domain != "":
+		type_bits.append(domain)
+	for tag in def.get("tags", []):
+		type_bits.append(String(tag))
+	if not type_bits.is_empty():
+		_content.add_child(UITheme.muted_label(", ".join(type_bits)))
+
+	for key in ["damage", "range", "attackSpeed", "armor", "speed", "visionRange"]:
+		if def.has(key):
+			_content.add_child(UITheme.body_label("%s: %s" % [String(key).capitalize(), str(def[key])]))
+
+	var notes := String(def.get("notes", ""))
+	if notes != "":
+		var notes_label := UITheme.muted_label(notes)
+		notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_content.add_child(notes_label)
+
 func _build_health_section(squad: SquadInstance, def: Dictionary) -> void:
 	_content.add_child(UITheme.header_label("SQUAD HEALTH"))
 	var max_hp := float(def.get("hp", 1.0))
@@ -353,4 +394,4 @@ func _refresh_eligibility() -> void:
 		var reason := String((entry["reason_fn"] as Callable).call())
 		var button: Button = entry["button"]
 		button.theme_type_variation = UITheme.MUTED if reason != "" else String(entry["variation"])
-		button.tooltip_text = reason
+		button.tooltip_text = ""

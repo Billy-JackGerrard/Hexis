@@ -120,6 +120,12 @@ static func generate_rivers(grid: HexGrid, radius: int, world_seed: int, player_
 	while paths.size() < count and attempts < count * Tuning.MAX_RIVER_SOURCE_ATTEMPTS_PER_RIVER:
 		attempts += 1
 		var source := _random_hex_in_disk(origin, max(radius - Tuning.RIVER_MIN_LENGTH, 0), rng)
+		# Rivers reading as starting in the highlands: snap the candidate onto
+		# the nearest Hills tile within a short search, if one's nearby (runs
+		# after the biome pass above, so Hills already exist on the grid).
+		# Falls back to the unsnapped candidate when no Hills tile is close,
+		# so this never breaks river generation on a hill-poor map.
+		source = _nearest_hill_hex(grid, source, Tuning.RIVER_SOURCE_HILL_SEARCH_RADIUS)
 		var too_close := false
 		for existing in sources:
 			if HexCoord.distance(source, existing) < Tuning.MIN_RIVER_SOURCE_SPACING:
@@ -162,6 +168,31 @@ static func _walk_river(origin: HexCoord, radius: int, source: HexCoord, rng: Ra
 		current = chosen
 		path.append(current)
 	return path
+
+## BFS outward from `from` for the nearest Hills hex, `max_radius` hexes out
+## at most — returns `from` unchanged if it's already Hills or nothing
+## qualifies nearby. Same shape as HexGrid.nearest_passable_hex but keyed on
+## a specific Terrain.Type instead of domain passability.
+static func _nearest_hill_hex(grid: HexGrid, from: HexCoord, max_radius: int) -> HexCoord:
+	if grid.get_terrain(from) == Terrain.Type.HILLS:
+		return from
+	var visited: Dictionary = {from.to_key(): true}
+	var frontier: Array[HexCoord] = [from]
+	var r := 0
+	while r < max_radius and not frontier.is_empty():
+		r += 1
+		var next_frontier: Array[HexCoord] = []
+		for hex in frontier:
+			for n in HexCoord.neighbors(hex):
+				var key := n.to_key()
+				if visited.has(key) or not grid.has_hex(n):
+					continue
+				visited[key] = true
+				if grid.get_terrain(n) == Terrain.Type.HILLS:
+					return n
+				next_frontier.append(n)
+		frontier = next_frontier
+	return from
 
 ## Uniform-ish random hex within `radius` of `center`, reusing
 ## range_within's own axial-disk math rather than rejection-sampling a

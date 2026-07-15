@@ -30,7 +30,7 @@ var visions: Dictionary = {} ## owner_id -> PlayerVision
 var detections: Dictionary = {} ## owner_id -> {hex_key: true}
 
 ## Memoizes VisionSystem._reveal's per-source revealed-hex-key set, keyed by
-## [center_hex_key, vision_range, ignore_forest_los] — see vision_system.gd's
+## [center_hex_key, vision_range, exempt_terrain] — see vision_system.gd's
 ## own doc comment for why this is safe (terrain never mutates after
 ## worldgen, so the same key always yields the same result for the whole
 ## match). Lives on MatchState rather than a VisionSystem static so it's

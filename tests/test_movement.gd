@@ -335,7 +335,7 @@ func _test_attack_move() -> void:
 	MovementResolver.resolve_attack_move([orphan], _troop_defs, grid, [far_target])
 	_check(orphan.path.is_empty(), "a directed order pointing at an untracked/dead target triggers no chase")
 
-## --- Buildings block Land vehicles (BuildingPlacement.land_blocking_hexes) --
+## --- Buildings block ground movement (BuildingPlacement.building_blocking_hexes) --
 
 func _test_building_blocking() -> void:
 	# 1. A standing (base-attached) building on the only route blocks a Land
@@ -346,10 +346,10 @@ func _test_building_blocking() -> void:
 	var land1 := _make_squad("p1", "basekiller", HexCoord.new(0, 0))
 	_check(not MovementResolver.issue_move(land1, grid1, HexCoord.new(2, 0), _troop_defs, [base1]), "a Land vehicle cannot path through a standing building")
 
-	# 2. ...but Infantry passes through the same hex freely (only Domain.LAND
-	# consults blocked_land_hexes).
+	# 2. ...and Infantry is blocked the same way now (every non-Air domain
+	# consults building_blocked_hexes).
 	var infantry1 := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
-	_check(MovementResolver.issue_move(infantry1, grid1, HexCoord.new(2, 0), _troop_defs, [base1]), "Infantry ignores building occupancy")
+	_check(not MovementResolver.issue_move(infantry1, grid1, HexCoord.new(2, 0), _troop_defs, [base1]), "Infantry cannot path through a standing building either")
 
 	# 3. A Road hex stays passable for Land vehicles (infrastructure exception).
 	var grid2 := _line_grid([Terrain.Type.PLAINS, Terrain.Type.PLAINS, Terrain.Type.PLAINS])

@@ -23,10 +23,20 @@ extends Control
 
 var state: MatchState
 var owner_id: String
+var input_controller: InputController
+var _last_map_click_count := 0
 
 const HEIGHT := 72.0
-const EXPANDED_EXTRA_HEIGHT := 54.0
 const REFRESH_INTERVAL := 0.25
+const COLUMN_WIDTH := 150.0
+## Expanded height is measured from content, not fixed — a resource with
+## several producer groups (e.g. "1x Lv1 Farm" + "2x Lv2 Farm" + ...) lists
+## one group per line instead of comma-joining onto one row (the comma-joined
+## version clipped everything past the first group), so how tall the bar
+## needs to be depends on whichever column has the most producer groups.
+const EXPANDED_BASE_HEIGHT := 40.0 ## the "+N.N / tick" row, always present
+const EXPANDED_LINE_HEIGHT := 16.0 ## one producer-group line
+const EXPANDED_BOTTOM_PADDING := 10.0
 
 ## Display order + labels per 09-ui-and-controls.md's Resource HUD line.
 const DISPLAY_ORDER: Array[Array] = [
@@ -39,7 +49,7 @@ const DISPLAY_ORDER: Array[Array] = [
 
 var _res_labels: Dictionary = {} ## ResourceType.Type -> Label (top row, existing amount)
 var _detail_labels: Dictionary = {} ## ResourceType.Type -> Label ("+N.N / tick")
-var _building_labels: Dictionary = {} ## ResourceType.Type -> Label ("2x Level 1 Mine, ...")
+var _building_boxes: Dictionary = {} ## ResourceType.Type -> VBoxContainer, one Label per producer group
 var _squads_label: Label
 var _commanders_label: Label
 
@@ -49,9 +59,11 @@ var _prev_deficit: Dictionary = {} ## ResourceType.Type -> bool, last deficit st
 var _expanded := false
 var _refresh_accum := 0.0
 
-func setup(p_state: MatchState, p_owner_id: String) -> void:
+func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController) -> void:
 	state = p_state
 	owner_id = p_owner_id
+	input_controller = p_input_controller
+	_last_map_click_count = input_controller.map_click_count
 	anchor_left = 0.0
 	anchor_right = 1.0
 	anchor_top = 0.0
@@ -80,6 +92,10 @@ func setup(p_state: MatchState, p_owner_id: String) -> void:
 		col.add_theme_constant_override("separation", 2)
 		col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Fixed width so the expanded detail/building rows (which can be much
+		# longer than "Food 1234") never widen the column and shove the other
+		# resources apart — they clip/ellipsize instead, see below.
+		col.custom_minimum_size.x = COLUMN_WIDTH
 
 		var head := HBoxContainer.new()
 		head.add_theme_constant_override("separation", 4)
@@ -95,14 +111,17 @@ func setup(p_state: MatchState, p_owner_id: String) -> void:
 		var detail := UITheme.muted_label("")
 		detail.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
 		detail.visible = false
+		detail.clip_text = true
+		detail.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		col.add_child(detail)
 		_detail_labels[type] = detail
 
-		var buildings := UITheme.muted_label("")
-		buildings.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
-		buildings.visible = false
-		col.add_child(buildings)
-		_building_labels[type] = buildings
+		var buildings_box := VBoxContainer.new()
+		buildings_box.add_theme_constant_override("separation", 0)
+		buildings_box.visible = false
+		buildings_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(buildings_box)
+		_building_boxes[type] = buildings_box
 
 		row.add_child(col)
 
@@ -122,18 +141,32 @@ func setup(p_state: MatchState, p_owner_id: String) -> void:
 ## the only thing on the strip that ever sees mouse input.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_expanded = not _expanded
-		offset_bottom = HEIGHT + (EXPANDED_EXTRA_HEIGHT if _expanded else 0.0)
-		for type in _detail_labels:
-			_detail_labels[type].visible = _expanded
-			_building_labels[type].visible = _expanded
-		if _expanded:
-			_refresh_accum = REFRESH_INTERVAL
+		_set_expanded(not _expanded)
+		# This click never reaches InputController's _unhandled_input (STOP
+		# swallows it here), so it can't double-count against map_click_count
+		# — no need to bump _last_map_click_count.
 		accept_event()
+
+func _set_expanded(value: bool) -> void:
+	_expanded = value
+	# Exact height isn't known until _refresh_breakdown runs (it depends on
+	# each column's producer-group count) — this is just a same-frame guess
+	# (one line's worth) so the bar doesn't flash 0-height for a frame; the
+	# forced refresh below corrects it before the player sees the expanded
+	# rows render.
+	offset_bottom = HEIGHT + (EXPANDED_BASE_HEIGHT + EXPANDED_LINE_HEIGHT + EXPANDED_BOTTOM_PADDING if _expanded else 0.0)
+	for type in _detail_labels:
+		_detail_labels[type].visible = _expanded
+		_building_boxes[type].visible = _expanded
+	if _expanded:
+		_refresh_accum = REFRESH_INTERVAL
 
 func _process(delta: float) -> void:
 	if state == null:
 		return
+	if _expanded and input_controller.map_click_count != _last_map_click_count:
+		_last_map_click_count = input_controller.map_click_count
+		_set_expanded(false)
 	var pool := state.pool_for(owner_id)
 	for entry in DISPLAY_ORDER:
 		var type: ResourceType.Type = entry[0]
@@ -142,12 +175,18 @@ func _process(delta: float) -> void:
 		var deficit := pool.is_deficit(type)
 		label.add_theme_color_override("font_color", UITheme.DANGER if deficit else UITheme.RESOURCE_COLOR[type])
 
-		var prev_amount: int = _prev_amount.get(type, amount)
-		if prev_amount != amount:
-			UIJuice.count_up(label, prev_amount, amount)
+		# Bug fix: _prev_amount.get(type, amount) used to default the "previous"
+		# value to `amount` itself when the key was still missing — so
+		# prev_amount != amount could never be true on the very frame that
+		# would've stored the key, and it's only ever stored inside that same
+		# branch. Net effect: the label was set once (below, when text was
+		# still empty) and then frozen forever, no matter how the pool changed.
+		if not _prev_amount.has(type):
 			_prev_amount[type] = amount
-		elif label.text.is_empty():
 			label.text = "%d" % amount
+		elif _prev_amount[type] != amount:
+			UIJuice.count_up(label, _prev_amount[type], amount)
+			_prev_amount[type] = amount
 
 		if deficit and not _prev_deficit.get(type, false):
 			UIJuice.pop(label.get_parent())
@@ -170,28 +209,50 @@ func _process(delta: float) -> void:
 			_refresh_accum = 0.0
 			_refresh_breakdown(owned_bases)
 
-## Updates the two per-column detail rows in place (no node rebuild needed —
-## the labels are permanent, only their text changes) from the owner's live
-## production total per resource plus a count of producing buildings grouped
-## by (type, level).
+## Updates the per-column detail row (live per-tick total) and rebuilds the
+## producer-group list (one Label per line, not comma-joined onto a single
+## row — a resource with several producer groups used to clip everything
+## past the first) from the owner's live production total per resource plus
+## a count of producing buildings grouped by (type, level). Also resizes the
+## bar to fit however many lines the tallest column needs.
 func _refresh_breakdown(owned_bases: Array[BaseInstance]) -> void:
 	var totals: Dictionary = ProductionOutputSystem.compute_production(owned_bases, state.base_defs, state.building_defs).get(owner_id, {})
 	var groups_by_type := _compute_producer_groups(owned_bases)
+	var max_lines := 1
 	for entry in DISPLAY_ORDER:
 		var type: ResourceType.Type = entry[0]
 		var total := float(totals.get(type, 0.0))
 		_detail_labels[type].text = "%+.1f / tick" % total
-		_building_labels[type].text = _format_groups(groups_by_type.get(type, []))
+		var lines := _group_lines(groups_by_type.get(type, []))
+		max_lines = max(max_lines, lines.size())
+		_rebuild_building_lines(_building_boxes[type], lines)
+	if _expanded:
+		offset_bottom = HEIGHT + EXPANDED_BASE_HEIGHT + float(max_lines) * EXPANDED_LINE_HEIGHT + EXPANDED_BOTTOM_PADDING
 
-## "2x Level 1 Mine, 3x Level 2 Mine" (levels ascending), or "No producers"
-## once none of the owner's buildings output this resource.
-func _format_groups(groups: Array) -> String:
+## One line per group, e.g. "2x Lv1 Mine" / "3x Lv2 Mine" (levels ascending),
+## or a single "No producers" line once none of the owner's buildings output
+## this resource.
+func _group_lines(groups: Array) -> Array[String]:
 	if groups.is_empty():
-		return "No producers"
-	var parts: Array[String] = []
+		return ["No producers"]
+	var lines: Array[String] = []
 	for group in groups:
-		parts.append("%dx Lv%d %s" % [group["count"], group["level"], group["name"]])
-	return ", ".join(parts)
+		lines.append("%dx Lv%d %s" % [group["count"], group["level"], group["name"]])
+	return lines
+
+## Clears `box` and adds one clipped/ellipsized muted Label per line — full
+## rebuild rather than reusing labels since the group count varies tick to
+## tick (same "torn down and rebuilt" pattern building_panel.gd already uses
+## for its own variable-length lists).
+func _rebuild_building_lines(box: VBoxContainer, lines: Array[String]) -> void:
+	for child in box.get_children():
+		child.queue_free()
+	for line in lines:
+		var lbl := UITheme.muted_label(line)
+		lbl.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
+		lbl.clip_text = true
+		lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		box.add_child(lbl)
 
 ## ResourceType.Type -> Array[{name, level, count}] (sorted by level ascending)
 ## for every Resource-category building the owner has that isn't a ruin,

@@ -49,7 +49,7 @@ scattered single tiles, e.g. a proper forest region rather than one random fores
 |---|---|---|---|---|---|---|
 | **Plains** | Normal | Normal | N/A | Normal | Normal | Yes (only buildable terrain, and majority of tiles) |
 | **Forest** | Normal | **Blocked** unless a Road is built through it | N/A | Normal | **Reduced** (own tile halved; also blocks sightlines passing through it) | No (except Treehouse's buildings — forest tiles) |
-| **Hills** | Slowed | Normal | N/A | Normal | **Extended vision + extends fog-of-war clearing** (elevation) | No (except Windy Peaks' buildings — hill tiles) |
+| **Hills** | Slowed | Normal | N/A | Normal | **Reduced** (own tile halved; also blocks sightlines passing through it) | No (except Windy Peaks' buildings — hill tiles) |
 | **River** | **Blocked** unless a Bridge is built | **Blocked** unless a Bridge is built | Fully passable | Normal | Normal | No |
 | **Ocean** | **Blocked** | **Blocked** | Fully passable | Normal | Normal | No |
 
@@ -95,18 +95,17 @@ scattered single tiles, e.g. a proper forest region rather than one random fores
 - **Full fog** until scouted.
 - Standard "explored but not currently visible" fade — persistent reveal of terrain
   shape, but current troop positions/base composition require live vision.
-- Hills extend both sight radius and how far fog clears (elevation advantage) — hills
-  are good vantage/watchtower points despite being unbuildable and slowing Infantry.
-  Plains are vision-neutral: purely economic/buildable terrain, with no vision edge
+- Plains are vision-neutral: purely economic/buildable terrain, with no vision edge
   that would make ambushes (e.g. landmines) unreliable on the tile type most squads
-  actually cross. Forests are where sneaky plays happen (see stealth mechanics): a
-  troop/building standing in Forest sees at half its normal vision range, and any
-  sightline passing through a Forest hex (even when neither viewer nor target is
-  standing in it) loses additional range per Forest hex crossed — Forest blocks
-  sight, not just the things hiding inside it. Treehouse's own buildings are exempt
-  from both penalties (their vision is never reduced by Forest, on their own tile or
-  along their sightlines), since they're built into the forest rather than merely
-  standing in it.
+  actually cross. Forests and Hills are both vision-obstructing, and identically so:
+  a troop/building standing on either sees at half its normal vision range, and any
+  sightline passing through a Forest or Hills hex (even when neither viewer nor
+  target is standing in it) loses additional range per hex crossed — both terrains
+  block sight, not just (for Forest) the things hiding inside it. Treehouse's own
+  buildings are exempt from both Forest penalties (their vision is never reduced by
+  Forest, on their own tile or along their sightlines) since they're built into the
+  forest rather than merely standing in it; Windy Peaks' own buildings get the same
+  exemption from Hills.
 
 ## Movement & Positioning
 **Resolved: the game is fully hex-based — there is no continuous open-field
@@ -155,13 +154,27 @@ occupies a hex, and moves hex-to-hex:
   line from attacker-hex to target-hex crosses a walled edge is blocked, forcing an
   attacker to path around or destroy the wall first. Air-domain units/attacks ignore
   Walls entirely, same as every other terrain rule.
-- **Buildings block Land-vehicle movement, but not Infantry**: a `Land`-domain unit
-  cannot enter a hex occupied by a standing building (base-attached or standalone) —
-  Infantry, Air, and Naval are unaffected, consistent with the Domain-specific terrain
-  rules above. Two exceptions: **Road/Bridge** hexes stay traversable (they're
-  infrastructure meant to be driven over, not obstacles), and a **ruin** (a destroyed,
-  not-yet-rebuilt building — see `06-building-stats-and-defenses.md`'s Destruction &
-  Ruins) no longer blocks either, since nothing is actually standing there anymore.
+- **Buildings block ground movement, Air excepted**: no non-Air unit (Infantry, Land
+  vehicle, or Naval) can enter a hex occupied by a standing building (base-attached or
+  standalone) — only Air ignores it, consistent with the Domain-specific terrain rules
+  above (Naval never actually encounters this in practice, since buildings only stand
+  on buildable land terrain). Two exceptions: **Road/Bridge** hexes stay traversable
+  (they're infrastructure meant to be driven over, not obstacles), and a **ruin** (a
+  destroyed, not-yet-rebuilt building — see `06-building-stats-and-defenses.md`'s
+  Destruction & Ruins) no longer blocks either, since nothing is actually standing
+  there anymore.
+- **Standing buildings block line of sight for single-target attacks, same as a
+  Wall**: an attack whose straight line from attacker-hex to target-hex passes through
+  a hex holding another standing building (any owner) is blocked — a House parked in
+  front of an HQ protects it from being shot at until the House falls (a ruin no
+  longer blocks, same as the movement rule above). Troops never block each other's
+  LOS this way, only buildings do (e.g. a multi-turret Tower can still independently
+  clear several enemy squads lined up in front of it). Air-domain attackers ignore
+  this entirely, same as every other terrain/LOS rule, and so does any attacker with a
+  `minRange` above 0 (an indirect-fire piece — Earthshaker is the first user — arcs its
+  shot in over intervening obstacles). This is separate from `lineAttack`'s own
+  building-stopping rule (see `04-combat.md`), which is about the beam's own path
+  once it's already firing, not whether the attacker can fire at all.
 
 ## Rendering Notes (2.5D Cartoon Style)
 - **Resolved: Godot, 2D sprite-based, not true 3D** (see `10-tech-stack-and-build-order.md`

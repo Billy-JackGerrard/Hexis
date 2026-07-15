@@ -36,9 +36,9 @@ static func pop(control: Control) -> void:
 	tween.tween_property(control, "scale", Vector2.ONE, PUNCH_DURATION) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
-static func _grow(control: Control) -> void:
+static func _grow(control: Control, target: Vector2) -> void:
 	var tween := control.create_tween()
-	tween.tween_property(control, "scale", Vector2(HOVER_SCALE, HOVER_SCALE), HOVER_DURATION) \
+	tween.tween_property(control, "scale", target, HOVER_DURATION) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 static func _shrink(control: Control) -> void:
@@ -47,11 +47,16 @@ static func _shrink(control: Control) -> void:
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
 ## Wires a Control (typically a Button) to grow slightly on hover — call once
-## per control, e.g. from UITheme.action_button().
-static func hover_grow(control: Control) -> void:
+## per control, e.g. from UITheme.action_button(). `horizontal_grow` false
+## scales height only, keeping the control's width fixed — for buttons that
+## already span their container's full width (e.g. action rows inside
+## BuildingPanel/SquadPanel's clipping ScrollContainer), horizontal growth
+## would push past the clip edge and get visibly cut off.
+static func hover_grow(control: Control, horizontal_grow: bool = true) -> void:
 	control.pivot_offset = control.size / 2.0
 	control.resized.connect(_center_pivot.bind(control))
-	control.mouse_entered.connect(_grow.bind(control))
+	var target := Vector2(HOVER_SCALE, HOVER_SCALE) if horizontal_grow else Vector2(1.0, HOVER_SCALE)
+	control.mouse_entered.connect(_grow.bind(control, target))
 	control.mouse_exited.connect(_shrink.bind(control))
 
 ## Arg order matters: Callable.bind() appends bound args after the ones
@@ -62,14 +67,21 @@ static func _apply_count_step(v: float, label: Label, fmt: String) -> void:
 
 ## Tweens the integer value shown by `label` from `from` to `to` over
 ## `duration` seconds, formatting each step with `fmt` (a format string with
-## one `%d`, e.g. "Food %d"). Fire-and-forget: safe to call repeatedly, each
-## call starts its own tween (kill `label`'s previous one first if overlapping
-## calls are a concern for your call site).
+## one `%d`, e.g. "Food %d"). Fire-and-forget: safe to call repeatedly — a
+## call while a previous tween on the same label is still running (e.g. a
+## resource ticking every frame, faster than `duration`) kills that one
+## first, so competing tweens never fight over `label.text` and leave it
+## stuck on a stale value.
 static func count_up(label: Label, from: int, to: int, fmt: String = "%d", duration: float = 0.4) -> void:
+	if label.has_meta("_count_up_tween"):
+		var prev: Tween = label.get_meta("_count_up_tween")
+		if prev != null and prev.is_valid():
+			prev.kill()
 	if from == to:
 		label.text = fmt % to
 		return
 	var tween := label.create_tween()
+	label.set_meta("_count_up_tween", tween)
 	var step := Callable(UIJuice, "_apply_count_step").bind(label, fmt)
 	tween.tween_method(step, float(from), float(to), duration) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

@@ -41,6 +41,7 @@ static func seed_garrison(
 	next_troop_id: Callable,
 	next_squad_id: Callable,
 	grid: HexGrid = null,
+	base: BaseInstance = null,
 ) -> void:
 	var garrison: Array = base_def.get("initialGarrison", [])
 	if garrison.is_empty():
@@ -48,7 +49,17 @@ static func seed_garrison(
 
 	var ring := HexCoord.ring(hq_hex, Tuning.GARRISON_RING_RADIUS)
 	var ring_index := 0
+	# Pre-seeded with the base's own building hexes (HQ + radius-1 ring) so a
+	# garrison squad's nearest_passable_hex search below never lands it on
+	# top of a building — the class doc's "radius 2 keeps garrison clear of
+	# the seeded footprint" assumption only held as long as the search never
+	# wandered back onto radius 1.
 	var used_hexes: Dictionary = {}
+	if base != null:
+		used_hexes[base.hex_coord.to_key()] = true
+		for building in base.buildings:
+			if building.hex != null:
+				used_hexes[building.hex.to_key()] = true
 
 	for entry in garrison:
 		var troop_type: String = entry.get("troopId", "")

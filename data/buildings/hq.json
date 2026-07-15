@@ -9,12 +9,12 @@
 
   "nonProductionUpgrade": {
     "baseStats": {
-      "hp": 300,
+      "hp": 500,
       "populationCapacity": 4,
       "visionRange": 4
     },
     "statGrowth": {
-      "hp": { "mode": "percent", "value": 10 },
+      "hp": { "mode": "percent", "value": 20 },
       "populationCapacity": { "mode": "flat", "value": 2 },
       "visionRange": { "mode": "flat", "value": 0.5 }
     },

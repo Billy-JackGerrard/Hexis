@@ -17,7 +17,7 @@ var building_id: String
 ## entries[0] is the one currently training (or held complete, if paused).
 var entries: Array[Dictionary] = []
 var paused: bool = false
-var pause_reason: String = "" ## "" | "squad_cap" | "commander_cap"
+var pause_reason: String = "" ## "" | "squad_cap" | "commander_cap" | "fuel_deficit"
 
 func _init(p_building_id: String) -> void:
 	building_id = p_building_id

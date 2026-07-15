@@ -103,6 +103,7 @@ static func _advance_production(state: MatchState, dt: float) -> void:
 			Callable(state, "next_troop_id"),
 			Callable(state, "next_squad_id"),
 			state.grid,
+			state.pool_for(base.owner_id),
 		)
 
 ## Resources/upkeep/deficits — the 5-second cadence from

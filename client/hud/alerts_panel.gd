@@ -30,7 +30,7 @@ var _list: VBoxContainer
 var _poll_accumulator: float = 0.0
 var _shown_keys: Array = []
 
-const WIDTH := 260.0
+const WIDTH := 320.0
 const MARGIN := 12.0
 const ALERT_POLL_SECONDS := 0.5
 const UNDER_ATTACK_COLOR := UITheme.DANGER
@@ -57,6 +57,16 @@ func setup(p_state: MatchState, p_owner_id: String, p_camera_controller: CameraC
 	_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_panel)
+	# Default panel stylebox's 16px content margin reads as a cream/white
+	# border ring around this panel's small toast rows — tighten it here
+	# rather than shrinking the shared UITheme panel margin every other
+	# (larger) panel also uses.
+	var style: StyleBoxFlat = _panel.get_theme_stylebox("panel").duplicate()
+	style.content_margin_left = 8.0
+	style.content_margin_right = 8.0
+	style.content_margin_top = 8.0
+	style.content_margin_bottom = 8.0
+	_panel.add_theme_stylebox_override("panel", style)
 
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 4)
@@ -103,6 +113,11 @@ func _refresh() -> void:
 		child.queue_free()
 	for alert in alerts:
 		var button := UITheme.action_button(alert["label"])
+		# action_button() already clips (no overrun marker); a long label like
+		# "Kraken Point production paused" was getting hard-cut mid-word at
+		# this panel's width, unreadable. Ellipsis reads as "yes it's cut,
+		# here's an indicator" instead of just cutting silently.
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		button.add_theme_color_override("font_color", alert["color"])
 		button.add_theme_color_override("font_hover_color", alert["color"])
 		button.add_theme_color_override("font_pressed_color", alert["color"])

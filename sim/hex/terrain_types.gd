@@ -22,17 +22,15 @@ const INF: float = -1.0 ## sentinel for "impassable", not a numeric cost
 ## an exact multiplier. Tune freely; nothing else depends on this number yet.
 const HILLS_INFANTRY_COST: float = 2.0
 
-## Placeholder — 01-map-and-terrain.md establishes Plains as "extended vision"
-## but never pins an exact bonus. Tune freely; nothing else depends on this
-## number yet.
-const PLAINS_VISION_BONUS: float = 2.0
-
 ## Placeholder — a troop/building standing on Forest sees at half its base
 ## visionRange (Forest obscures a unit's own sightline the same way it hides
-## the unit itself for ambush — see DetectionSystem.is_squad_hidden). Applied
-## multiplicatively to the base visionRange before PLAINS_VISION_BONUS-style
-## flat bonuses (terrains are mutually exclusive so this never stacks with one).
+## the unit itself for ambush — see DetectionSystem.is_squad_hidden).
 const FOREST_VISION_MULTIPLIER: float = 0.5
+
+## Hills obstruct sight the same way Forest does (elevation blocks line of
+## sight, it doesn't extend it) — a troop/building standing on Hills also
+## sees at half its base visionRange.
+const HILLS_VISION_MULTIPLIER: float = 0.5
 
 ## Placeholder — how much vision range a sightline loses per Forest hex it
 ## crosses en route to its target, even when neither viewer nor target is
@@ -41,6 +39,10 @@ const FOREST_VISION_MULTIPLIER: float = 0.5
 ## hiding whatever's inside). Mirrors FOREST_VISION_MULTIPLIER's own-tile
 ## penalty but applies per intervening hex instead of a flat halving.
 const FOREST_LOS_RANGE_PENALTY_PER_HEX: float = 1.0
+
+## Mirrors FOREST_LOS_RANGE_PENALTY_PER_HEX — a Hills hex crossed en route
+## blocks sight through it just like Forest does.
+const HILLS_LOS_RANGE_PENALTY_PER_HEX: float = 1.0
 
 ## Placeholder — 04-combat.md establishes "Hills give a defender bonus to
 ## troops stationed there" but never pins an exact multiplier. A received-
@@ -111,16 +113,22 @@ static func effective_cost(terrain: Type, domain: Domain, infrastructure: Infras
 static func is_passable_with(terrain: Type, domain: Domain, infrastructure: Infrastructure = Infrastructure.NONE) -> bool:
 	return effective_cost(terrain, domain, infrastructure) != INF
 
-## Flat vision-radius bonus for standing on this terrain — Plains "extends
-## vision + extends fog-of-war clearing" (01-map-and-terrain.md); every other
-## terrain grants none.
-static func vision_bonus(terrain: Type) -> float:
-	return PLAINS_VISION_BONUS if terrain == Type.PLAINS else 0.0
-
 ## Multiplier applied to a unit/building's own base visionRange for standing
-## on this terrain — Forest halves it, every other terrain leaves it as-is.
-static func vision_multiplier(terrain: Type) -> float:
-	return FOREST_VISION_MULTIPLIER if terrain == Type.FOREST else 1.0
+## on this terrain — Forest and Hills both halve it (elevation/foliage block
+## sight, they don't extend it); every other terrain leaves it as-is.
+## `exempt` (a Terrain.Type, or -1 for none) skips the penalty for that one
+## terrain — a Treehouse/Windy Peaks building built into Forest/Hills rather
+## than merely standing on it.
+static func vision_multiplier(terrain: Type, exempt: int = -1) -> float:
+	if terrain == exempt:
+		return 1.0
+	match terrain:
+		Type.FOREST:
+			return FOREST_VISION_MULTIPLIER
+		Type.HILLS:
+			return HILLS_VISION_MULTIPLIER
+		_:
+			return 1.0
 
 ## Received-damage multiplier for standing on this terrain — Hills give
 ## defenders a flat damage-reduction bonus (04-combat.md); every other

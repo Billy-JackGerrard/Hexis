@@ -35,24 +35,54 @@ func _draw() -> void:
 		ResourceType.Type.FUEL:
 			_draw_drop(c, r, fill, outline)
 
-## Wheat sheaf: three short strokes fanning up from a base point.
+## Wheat ear: a stem with paired kernels (pointed diamonds) tapering to a tip
+## at top — reworked from the old three-line fan, which read as a shapeless
+## asterisk at 22px and was hard to tell apart from the other glyphs.
 func _draw_food(c: Vector2, r: float, fill: Color, outline: Color) -> void:
-	var base := c + Vector2(0, r * 0.7)
-	var tips := [c + Vector2(-r * 0.55, -r * 0.7), c + Vector2(0, -r * 0.85), c + Vector2(r * 0.55, -r * 0.7)]
-	for tip in tips:
-		draw_line(base, tip, outline, 5.0)
-		draw_line(base, tip, fill, 2.5)
-	draw_circle(base, r * 0.18, outline)
-	draw_circle(base, r * 0.11, fill)
+	var top := c + Vector2(0, -r * 0.95)
+	var bottom := c + Vector2(0, r * 0.75)
+	draw_line(bottom, top, outline, 4.0)
+	draw_line(bottom, top, fill, 1.8)
 
-## Two stacked rounded stone lumps.
+	var pair_count := 3
+	for i in range(pair_count):
+		var t := float(i) / float(pair_count - 1) ## 0 (bottom pair) .. 1 (top pair)
+		var y: float = lerp(bottom.y - r * 0.1, top.y + r * 0.28, t)
+		var spread: float = r * 0.4 * (1.0 - t * 0.35)
+		var kernel_size: float = r * 0.32 * (1.0 - t * 0.2)
+		_draw_kernel(Vector2(c.x - spread, y), kernel_size, -0.5, fill, outline)
+		_draw_kernel(Vector2(c.x + spread, y), kernel_size, 0.5, fill, outline)
+	_draw_kernel(top, r * 0.28, 0.0, fill, outline)
+
+## A single wheat kernel: a thin diamond, its long axis tilted `tilt` radians
+## off vertical so paired kernels fan outward from the stem.
+func _draw_kernel(pos: Vector2, size: float, tilt: float, fill: Color, outline: Color) -> void:
+	var dir := Vector2(sin(tilt), -cos(tilt))
+	var side := dir.orthogonal()
+	var points := PackedVector2Array([
+		pos + dir * size, pos + side * size * 0.4,
+		pos - dir * size, pos - side * size * 0.4,
+	])
+	draw_colored_polygon(points, outline)
+	var inner := PackedVector2Array()
+	for p in points:
+		inner.append(pos + (p - pos) * 0.6)
+	draw_colored_polygon(inner, fill)
+
+## A rock pile: three overlapping round boulders (biggest at the base) — a
+## rounded-blob silhouette, deliberately not rectangular, so it doesn't read
+## as the same block shape as the log at a glance (Stone vs Wood was the
+## reported mix-up at small icon sizes).
 func _draw_stone(c: Vector2, r: float, fill: Color, outline: Color) -> void:
-	var bottom_rect := Rect2(c + Vector2(-r * 0.75, r * 0.05), Vector2(r * 1.5, r * 0.75))
-	var top_rect := Rect2(c + Vector2(-r * 0.5, -r * 0.55), Vector2(r * 1.0, r * 0.65))
-	draw_rect(bottom_rect.grow(2.0), outline, true)
-	draw_rect(bottom_rect, fill, true)
-	draw_rect(top_rect.grow(2.0), outline, true)
-	draw_rect(top_rect, fill, true)
+	var boulders := [
+		{"center": c + Vector2(-r * 0.4, r * 0.25), "radius": r * 0.5},
+		{"center": c + Vector2(r * 0.35, r * 0.3), "radius": r * 0.45},
+		{"center": c + Vector2(0.0, -r * 0.25), "radius": r * 0.42},
+	]
+	for b in boulders:
+		draw_circle(b["center"], b["radius"] + 2.0, outline)
+	for b in boulders:
+		draw_circle(b["center"], b["radius"], fill)
 
 ## Simple 6-tooth gear: ring + notches, dark hole in the middle.
 func _draw_gear(c: Vector2, r: float, fill: Color, outline: Color) -> void:

@@ -234,9 +234,10 @@ drops back under the (lower) cap. Full details and the data shape: see
 ## Terrain Interaction in Combat
 - See `01-map-and-terrain.md` for the full terrain/movement table. Key combat-relevant
   points:
-  - Forests grant an ambush bonus (attacker hidden until engaging).
-  - Hills give a defender bonus to troops stationed there, plus extended vision
-    (elevation).
+  - Forests grant an ambush bonus (attacker hidden until engaging), but obstruct
+    vision (own-tile halved, sightlines through it reduced further).
+  - Hills give a defender bonus to troops stationed there, but obstruct vision
+    identically to Forest (own-tile halved, sightlines through it reduced further).
   - Plains offer no combat bonus and no vision bonus — purely economic/buildable
     terrain.
 
@@ -273,6 +274,12 @@ drops back under the (lower) cap. Full details and the data shape: see
   the mirror of `range` — a dead zone some indirect-fire units can't engage into. Both
   are troop-schema fields; see `05-troop-stat-schema.md` for the full mechanic and
   `08-troop-roster.md` for their first users (Tank Obliterator, Earthshaker).
+- **A standing building anywhere on the straight line between attacker and target
+  blocks an ordinary (non-`lineAttack`) attack, same as a Wall** — troops never block
+  each other this way, only buildings do. See `01-map-and-terrain.md`'s Movement &
+  Positioning section for the full rule. Air attackers and any attacker with
+  `minRange > 0` (indirect fire — Earthshaker) ignore it, same exemptions as every
+  other LOS rule.
 - **Every weapon has ballistic travel time (`projectileSpeed`), making shots
   positionally dodgeable** — a shot aims at the target's hex *at the moment of
   firing* (a fixed hex, not the target itself) and only deals its damage once

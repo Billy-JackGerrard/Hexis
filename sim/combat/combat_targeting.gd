@@ -39,11 +39,15 @@ static func can_target(attacker_def: Dictionary, target: CombatTarget) -> bool:
 ## its own edge. `attacker_def.minRange` (default 0, e.g. Earthshaker) excludes
 ## anything closer than that dead zone, the mirror image of the max-range check
 ## — an indirect-fire siege piece that can't depress its barrel far enough to
-## hit something standing right next to it.
+## hit something standing right next to it. That same `minRange > 0` condition
+## also exempts an indirect-fire attacker from the troop/building LOS-blocking
+## check below (`_object_line_blocked`) — it arcs its shot in over whatever's
+## in the way, the same reasoning Air already gets everywhere else.
 static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null) -> Array[CombatTarget]:
 	var result: Array[CombatTarget] = []
 	var is_air := String(attacker_def.get("domain", "")) == "Air"
 	var min_range := int(attacker_def.get("minRange", 0))
+	var ignores_los := is_air or min_range > 0
 	for target in targets:
 		if target.owner_id == attacker_owner or not target.is_alive():
 			continue
@@ -59,9 +63,33 @@ static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_
 			continue
 		if grid != null and not is_air and target.hex_b == null and grid.is_line_blocked(attacker_hex, target.hex):
 			continue
+		# A standing building (any owner) anywhere on the straight line
+		# between attacker and target blocks an ordinary attack, same as a
+		# Wall (01-map-and-terrain.md/04-combat.md) — never checked against a
+		# Wall target itself (hex_b set), same carve-out as the Wall check
+		# above. Troops never block each other's LOS, only buildings do (a
+		# level-3 Wood Tower's 3 turrets can still independently clear 3
+		# squads lined up in front of it — see test_combat.gd).
+		if grid != null and not ignores_los and target.hex_b == null and _building_line_blocked(attacker_hex, target, targets):
+			continue
 		if can_target(attacker_def, target):
 			result.append(target)
 	return result
+
+## True if some other alive building (any owner, Walls excluded — they have
+## no single hex of their own and their own edge-based rule already runs
+## above) occupies a hex strictly between `attacker_hex` and `target.hex`. A
+## ruin/destroyed building is not alive (CombatTarget.is_alive) so it never
+## blocks, matching the movement rule's ruin exception.
+static func _building_line_blocked(attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget]) -> bool:
+	var hexes := HexCoord.line(attacker_hex, target.hex)
+	for i in range(1, hexes.size() - 1):
+		for other in targets:
+			if other == target or other.kind != CombatTarget.Kind.BUILDING or other.hex_b != null or not other.is_alive():
+				continue
+			if other.hex != null and other.hex.equals(hexes[i]):
+				return true
+	return false
 
 ## A hidden target is still seen if the attacker is within its reveal_range
 ## (proximity, no detector needed) or the attacker's owner has detector

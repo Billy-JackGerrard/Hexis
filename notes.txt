@@ -12,12 +12,6 @@ My recommendation: add a data-driven frontlinePriority field to the troop schema
 The main tradeoff is scope: binary front/back flip is cheap and reuses the existing single-array targeting model, but it won't handle side attacks or multiple simultaneous attackers gracefully — true facing/flanking would need a real orientation field on regiments and touches pathing/rendering too. Want me to sketch this out as a fuller design doc addition, or start scoping the implementation?
 
 
-TROOP CONTROL:
-Click and click on where you want them to go. simple.
-but we could also add click + use arrow keys to control them?
-
-
-
 AIRCRAFT:
 Gliders and Hot Air Balloons can't land at all?
 Or they can, but hot air balloon counts as a helicopter, and gliders.. see below.
@@ -30,13 +24,9 @@ should flamecopter have a burning effect?
 
 Should amphibious raider be able to be turned into Naval class, so it can be targeted by submarines etc
 
+should wind spire be renamed to be wind turret?
 
-NEW TROOPS:
-
-
-
-
-
+OTHER:
 
 possibly we could have cone gun mechanics? eg wind spire.
 
@@ -47,9 +37,16 @@ Hex size (rendering) — client/hex_view.gd:9, flat-top hexes, HEX_SIZE = 32.0 (
 
 
 
-HQ could unlock more buildings as it gets upgraded, rather than allowing all buildings be built at the start.
-
-
 could have a box to put seed in?
 
 commander centre could contribute to squad cap
+
+
+
+
+need to fix notes bit on each building/troop/etc.
+focus on buildings for now.
+
+
+
+possibly add some kind of neutral/barbarian standalone towers/outposts?

@@ -794,7 +794,15 @@ func _test_line_attack() -> void:
 	var troops2: Dictionary = {}
 	var attacker2 := _make_squad("p1", "tank_obliterator", HexCoord.new(0, 0), 1, troops2)
 	var f1 := _make_squad("p2", "rifleman", HexCoord.new(1, 0), 1, troops2)
-	var f3 := _make_squad("p2", "rifleman", HexCoord.new(4, 0), 1, troops2)
+	# f3 sits beyond rifleman's own range (4) from both the attacker and the
+	# building, not just the 4-away spot used in the enemy-building case above
+	# -- otherwise the friendly building sitting between it and the attacker
+	# now blocks ITS OWN line of sight (the new troop/building LOS-blocking
+	# rule, 01-map-and-terrain.md), and it'd auto-redirect its independent
+	# counter-fire onto the only thing it can still see: the building itself,
+	# muddying the friendly-fire-immunity assertion below with unrelated
+	# rifleman damage.
+	var f3 := _make_squad("p2", "rifleman", HexCoord.new(7, 0), 1, troops2)
 	var friendly_base := BaseInstance.new("p1base_beam", "capital", "p1", 1, HexCoord.new(5, 5))
 	var friendly_building := BuildingInstance.new("bld_friendly_farm", "p1base_beam", "farm", 1, "", HexCoord.new(2, 0))
 	friendly_building.init_hp(_building_defs["farm"], _building_defs)

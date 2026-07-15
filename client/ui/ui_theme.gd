@@ -203,7 +203,10 @@ static func action_button(text: String, variation: String = "") -> Button:
 	# thin gaps between rows. PASS still clicks normally; it just lets unhandled
 	# wheel input bubble up too.
 	button.mouse_filter = Control.MOUSE_FILTER_PASS
-	UIJuice.hover_grow(button)
+	# These buttons stretch full-width inside a clipping ScrollContainer
+	# (BuildingPanel/SquadPanel) — horizontal hover growth would bleed past
+	# the clip edge and get cut off, so only grow vertically.
+	UIJuice.hover_grow(button, false)
 	return button
 
 ## A fill bar (0..1 `value`) for showing training/production progress, with

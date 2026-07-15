@@ -29,7 +29,7 @@ func setup(state: MatchState, owner_id: String, input_controller: InputControlle
 	resource_bar = ResourceBar.new()
 	resource_bar.theme = theme
 	add_child(resource_bar)
-	resource_bar.setup(state, owner_id)
+	resource_bar.setup(state, owner_id, input_controller)
 
 	building_panel = BuildingPanel.new()
 	building_panel.theme = theme

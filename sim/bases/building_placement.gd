@@ -297,29 +297,29 @@ static func standalone_occupied_hexes(bases: Array[BaseInstance], standalone_bui
 			result[building.hex.to_key()] = building
 	return result
 
-## Building types exempt from the Land-vehicle building-block rule below —
+## Building types exempt from the building-block movement rule below —
 ## infrastructure meant to be driven over, not an obstacle (01-map-and-terrain.md).
 const LAND_PASSABLE_BUILDING_TYPES := ["road", "bridge"]
 
-## {hex_key: true} for every hex a `Land`-domain unit cannot enter: any
-## standing (non-ruin, non-destroyed) building's hex, base-attached or
-## standalone, except Road/Bridge (see LAND_PASSABLE_BUILDING_TYPES) and Wall
-## (edge-keyed, `hex == null`, already excluded by base.occupied_hexes()).
-## Infantry/Air/Naval never consult this — HexGrid.edge_cost only applies it
-## for Domain.LAND, same as every other Domain-specific terrain rule.
-static func land_blocking_hexes(bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance]) -> Dictionary:
+## {hex_key: true} for every hex no non-Air unit can enter: any standing
+## (non-ruin, non-destroyed) building's hex, base-attached or standalone,
+## except Road/Bridge (see LAND_PASSABLE_BUILDING_TYPES) and Wall (edge-keyed,
+## `hex == null`, already excluded by base.occupied_hexes()). Air never
+## consults this — HexGrid.edge_cost only applies it to non-Air domains
+## (Infantry/Land/Naval), same as every other Domain-specific terrain rule.
+static func building_blocking_hexes(bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance]) -> Dictionary:
 	var result: Dictionary = {}
 	for base in bases:
 		var occupied := base.occupied_hexes()
 		for key in occupied:
-			if _blocks_land(occupied[key]):
+			if _blocks_movement(occupied[key]):
 				result[key] = true
 	for building in standalone_buildings:
-		if building.hex != null and _blocks_land(building):
+		if building.hex != null and _blocks_movement(building):
 			result[building.hex.to_key()] = true
 	return result
 
-static func _blocks_land(building: BuildingInstance) -> bool:
+static func _blocks_movement(building: BuildingInstance) -> bool:
 	if LAND_PASSABLE_BUILDING_TYPES.has(building.building_type):
 		return false
 	if building.is_ruin or (building.max_hp > 0.0 and building.current_hp <= 0.0):

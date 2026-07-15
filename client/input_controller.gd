@@ -74,6 +74,11 @@ var pending_material: String = ""
 ## the clicked hex instead of place_building. See start_standalone_placement.
 var pending_engineer_squad_id: String = ""
 
+## Bumped on every world (map) click, left or right — polled by
+## client/hud/resource_bar.gd to collapse its expanded view on any map click,
+## same poll-don't-signal convention as selected_base_id etc.
+var map_click_count: int = 0
+
 var _drag_active := false
 var _drag_start := Vector2.ZERO
 var _drag_current := Vector2.ZERO
@@ -147,14 +152,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	# build-menu placement and close whatever building panel is open, per
 	# 09-ui-and-controls.md's build-menu cancel affordance.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		pending_building_type = ""
-		pending_base_id = ""
-		pending_material = ""
-		pending_engineer_squad_id = ""
+		map_click_count += 1
+		cancel_placement()
 		_clear_building_selection()
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
+			map_click_count += 1
 			_drag_active = true
 			_drag_start = get_global_mouse_position()
 			_drag_current = _drag_start
@@ -171,10 +175,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_jump_to_base(event.shift_pressed)
 			return
 		if event.keycode == KEY_ESCAPE and pending_building_type != "":
-			pending_building_type = ""
-			pending_base_id = ""
-			pending_material = ""
-			pending_engineer_squad_id = ""
+			cancel_placement()
 			return
 		_handle_control_group_key(event)
 
@@ -196,6 +197,15 @@ func start_standalone_placement(squad_id: String, building_type: String, materia
 	pending_base_id = ""
 	pending_building_type = building_type
 	pending_material = material
+
+## Drops any in-progress build-menu or standalone placement without committing
+## it — Escape, right-click, and client/hud/building_panel.gd (collapsing an
+## expanded BUILD row) all funnel through here.
+func cancel_placement() -> void:
+	pending_building_type = ""
+	pending_base_id = ""
+	pending_material = ""
+	pending_engineer_squad_id = ""
 
 func _on_left_release(event: InputEventMouseButton) -> void:
 	_drag_active = false

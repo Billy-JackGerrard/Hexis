@@ -10,6 +10,13 @@
 ## pauses the queue (entries[0] holds complete-but-undeployed) rather than
 ## dropping the troop. Re-calling pump() after capacity frees is what resumes
 ## it; there's no separate "resume" entry point.
+##
+## The fuel-deficit pause rule follows the same shape: entries[0] whose troop
+## type has a fuelUpkeep > 0 (i.e. would draw on Fuel once deployed) holds
+## undeployed — not joined, not spawned — for as long as the owner's Fuel
+## pool is in deficit (ResourcePool.is_deficit, amount < 0), same as
+## 03-resources.md's Deficit Consequences already bleeds troops for. A troop
+## type with no fuel upkeep (e.g. Infantry) is unaffected and keeps deploying.
 class_name ProductionManager
 extends RefCounted
 
@@ -58,6 +65,9 @@ static func advance(queue: ProductionQueue, dt: float) -> void:
 ## - next_troop_id/next_squad_id: Callables returning a fresh id String each
 ##   call — multiple entries can deploy in one pump() (e.g. a zero-duration
 ##   entry immediately following the one that just completed).
+## - pool: owner_id's ResourcePool, for the fuel-deficit pause rule above.
+##   Optional (null skips the check, same as `grid`) so cap-math-only callers
+##   that don't care about Fuel can omit it.
 static func pump(
 	queue: ProductionQueue,
 	owner_id: String,
@@ -72,12 +82,18 @@ static func pump(
 	next_troop_id: Callable,
 	next_squad_id: Callable,
 	grid: HexGrid = null,
+	pool: ResourcePool = null,
 ) -> void:
 	while queue.front_complete():
 		var entry: Dictionary = queue.front()
 		var troop_type: String = entry.get("troop_type", "")
 		var troop_def: Dictionary = troop_defs.get(troop_type, {})
 		var max_squad_size: int = int(troop_def.get("maxSquadSize", 1))
+
+		if pool != null and float(troop_def.get("fuelUpkeep", 0.0)) > 0.0 and pool.is_deficit(ResourceType.Type.FUEL):
+			queue.paused = true
+			queue.pause_reason = "fuel_deficit"
+			return
 
 		var joinable: SquadInstance = SquadManager.find_joinable_squad(
 			squads, owner_id, troop_type, spawn_hex, max_squad_size, Tuning.PRODUCTION_JOIN_RANGE_RADIUS

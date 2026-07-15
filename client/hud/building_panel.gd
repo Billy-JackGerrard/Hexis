@@ -75,15 +75,24 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(panel)
 
+	# _scroll's sibling in this VBox (not a scrolled child) so the ineligible-
+	# reason label below stays pinned and visible regardless of scroll position
+	# or how far down the clicked button was — see _reason_label.
+	var main_vbox := VBoxContainer.new()
+	main_vbox.add_theme_constant_override("separation", 8)
+	main_vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(main_vbox)
+
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# We scroll manually here (see _on_scroll_gui_input) rather than relying on
 	# ScrollContainer's built-in wheel handling: the gui_input signal fires
 	# BEFORE the built-in _gui_input, so any set_input_as_handled() we do to stop
 	# the wheel falling through to the camera would also cancel the built-in
 	# scroll. Doing the scroll ourselves and then accepting handles both.
 	_scroll.gui_input.connect(_on_scroll_gui_input)
-	panel.add_child(_scroll)
+	main_vbox.add_child(_scroll)
 
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -93,6 +102,15 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 	# it ever reaches the ScrollContainer's own scroll handling.
 	_content.mouse_filter = Control.MOUSE_FILTER_PASS
 	_scroll.add_child(_content)
+
+	# Pinned below the scroll area (not inside _content, which gets torn down
+	# and rebuilt on every selection change) so an ineligible-click reason
+	# stays visible even when the button that triggered it is scrolled out of
+	# view — previously this lived at the bottom of a long BUILD/TRAIN list
+	# and was easy to miss.
+	_reason_label = UITheme.danger_label("")
+	_reason_label.visible = false
+	main_vbox.add_child(_reason_label)
 
 const SCROLL_STEP := 40
 
@@ -135,7 +153,8 @@ func _rebuild() -> void:
 		child.queue_free()
 	_option_updaters.clear()
 	_live_updaters.clear()
-	_reason_label = null
+	_reason_label.visible = false
+	_reason_label.text = ""
 	_refresh_accum = 0.0
 
 	var found := state.find_base_building(_shown_for_building_id) if _shown_for_building_id != "" else {}
@@ -181,10 +200,6 @@ func _rebuild() -> void:
 			_content.add_child(HSeparator.new())
 			_build_naval_dock_section(building)
 
-	_reason_label = UITheme.danger_label("")
-	_reason_label.visible = false
-	_content.add_child(_reason_label)
-
 	_refresh_eligibility()
 
 # --- Level / upgrade / rebuild ----------------------------------------------
@@ -221,6 +236,8 @@ func _build_build_menu(base: BaseInstance, base_def: Dictionary) -> void:
 		var def: Dictionary = state.building_defs.get(building_type, {})
 		if def.get("isFixed", false):
 			continue
+		if base.hq_level < int(def.get("unlockHqLevel", 1)):
+			continue
 		any = true
 		var bt := String(building_type)
 		var display_name := String(def.get("name", bt.capitalize()))
@@ -229,9 +246,8 @@ func _build_build_menu(base: BaseInstance, base_def: Dictionary) -> void:
 		var reason_fn := func(): return UIEligibility.build_reason(state, base, bt, owner_id, has_valid_hex)
 
 		var button := UITheme.action_button(display_name, "")
-		button.pressed.connect(func():
-			_expanded_build_type = "" if _expanded_build_type == bt else bt
-			_rebuild())
+		var base_id := base.id
+		button.pressed.connect(func(): _toggle_build_row(base_id, bt, def, reason_fn))
 		_content.add_child(button)
 		_option_updaters.append({"button": button, "variation": "", "reason_fn": reason_fn})
 
@@ -240,11 +256,40 @@ func _build_build_menu(base: BaseInstance, base_def: Dictionary) -> void:
 	if not any:
 		_content.add_child(UITheme.muted_label("Nothing to build here"))
 
-## The pop-down shown under an expanded BUILD row: notes, a few headline
-## stats if the def has any, then one cost row + Build button per material
-## (just one, unbranded, for a single-material/no-material building like
-## Turret; one per entry in `materials` for a Wall-style building where the
-## player picks the resource, e.g. "Build (Stone)" / "Build (Steel)").
+## Expanding a BUILD row shows its notes/stats and, for a single-material
+## building (the common case — Turret, House, ...), immediately enters
+## placement mode too: there's nothing left to choose, so a separate "Build"
+## click would just be an extra step between reading the row and seeing the
+## green valid-hex tiles. Multi-material buildings (Wall) still need the
+## player to pick a material first — see _build_material_row.
+func _toggle_build_row(base_id: String, bt: String, def: Dictionary, reason_fn: Callable) -> void:
+	var reason := ""
+	if _expanded_build_type == bt:
+		_expanded_build_type = ""
+		input_controller.cancel_placement()
+	else:
+		_expanded_build_type = bt
+		if def.get("materials", []).is_empty():
+			reason = String(reason_fn.call())
+			if reason == "":
+				input_controller.start_placement(base_id, bt, "")
+			else:
+				input_controller.cancel_placement()
+		else:
+			input_controller.cancel_placement()
+	# _rebuild() clears _reason_label as part of tearing down the old content —
+	# set it only after, or it'd be wiped immediately.
+	_rebuild()
+	if reason != "":
+		_reason_label.text = reason
+		_reason_label.visible = true
+
+## The pop-down shown under an expanded BUILD row: notes, then a few headline
+## stats if the def has any. A single-material/no-material building (e.g.
+## Turret) stops there — _toggle_build_row already put it in placement mode.
+## A Wall-style building with a `materials` list instead gets one clickable
+## cost row per material, since the player has to choose one before placement
+## can start.
 func _build_build_detail(base: BaseInstance, building_type: String, def: Dictionary, reason_fn: Callable) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
@@ -263,13 +308,12 @@ func _build_build_detail(base: BaseInstance, building_type: String, def: Diction
 	var base_id := base.id
 	if materials.is_empty():
 		var cost := BuildingStats.base_cost(def, "", state.building_defs)
-		_build_material_row(box, "Build", cost, reason_fn,
-			func(): input_controller.start_placement(base_id, building_type, ""))
+		box.add_child(UITheme.cost_chips(cost))
 	else:
 		for material in materials:
 			var mat := String(material)
 			var cost := BuildingStats.base_cost(def, mat, state.building_defs)
-			_build_material_row(box, "Build (%s)" % mat.capitalize(), cost, reason_fn,
+			_build_material_row(box, String(mat).capitalize(), cost, reason_fn,
 				func(): input_controller.start_placement(base_id, building_type, mat))
 
 	_content.add_child(box)
@@ -332,7 +376,8 @@ func _build_troop_menu(building: BuildingInstance) -> void:
 		var tt := String(troop_type)
 		_add_action_row(display_name, cost, time, "",
 			func(): return UIEligibility.troop_reason(state, building_id, tt, owner_id),
-			func(): input_controller.submitter.submit("enqueue_production", [building_id, tt, owner_id], owner_id))
+			func(): input_controller.submitter.submit("enqueue_production", [building_id, tt, owner_id], owner_id),
+			String(tdef.get("notes", "")))
 	if not any:
 		_content.add_child(UITheme.muted_label("No troops unlocked yet"))
 	_add_queue_status(building_id)
@@ -549,7 +594,10 @@ func _adjacent_transport_ship(building: BuildingInstance) -> SquadInstance:
 ## for a neutral slate button, UITheme.PRIMARY for a call to action); it's
 ## swapped to MUTED whenever reason_fn returns non-empty. Clicking runs
 ## reason_fn first and either shows the red reason or fires `action`.
-func _add_action_row(label_text: String, named_cost: Dictionary, time_seconds: float, variation: String, reason_fn: Callable, action: Callable) -> void:
+## `tooltip` (e.g. a troop/building's "notes" description) shows on hover when
+## the option is eligible; while ineligible, hover tooltip is suppressed and
+## the reason instead shows in `_reason_label` on click (see _handle_press).
+func _add_action_row(label_text: String, named_cost: Dictionary, time_seconds: float, variation: String, reason_fn: Callable, action: Callable, tooltip: String = "") -> void:
 	var row := VBoxContainer.new()
 	row.add_theme_constant_override("separation", 2)
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -561,7 +609,7 @@ func _add_action_row(label_text: String, named_cost: Dictionary, time_seconds: f
 		chips.add_child(UITheme.chip("%ds" % int(round(time_seconds)), UITheme.TEXT_MUTED))
 	row.add_child(chips)
 	_content.add_child(row)
-	_option_updaters.append({"button": button, "variation": variation, "reason_fn": reason_fn})
+	_option_updaters.append({"button": button, "variation": variation, "reason_fn": reason_fn, "tooltip": tooltip})
 
 func _handle_press(reason_fn: Callable, action: Callable) -> void:
 	var reason := String(reason_fn.call())
@@ -579,7 +627,7 @@ func _refresh_eligibility() -> void:
 		var reason := String((entry["reason_fn"] as Callable).call())
 		var button: Button = entry["button"]
 		button.theme_type_variation = UITheme.MUTED if reason != "" else String(entry["variation"])
-		button.tooltip_text = reason
+		button.tooltip_text = String(entry.get("tooltip", "")) if reason == "" else ""
 
 # --- helpers ----------------------------------------------------------------
 
