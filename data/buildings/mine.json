@@ -5,7 +5,7 @@
   "unlockHqLevel": 1,
   "populationCost": 1,
 
-  "notes": "Stone-producing building. Deliberately priced in a different resource than the one it produces, avoiding a chicken-and-egg problem where a base couldn't afford its first one from a standing start.",
+  "notes": "Steel-producing building. Deliberately priced in a different resource than the one it produces, avoiding a chicken-and-egg problem where a base couldn't afford its first one from a standing start.",
 
   "nonProductionUpgrade": {
     "baseStats": {

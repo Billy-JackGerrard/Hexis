@@ -8,7 +8,7 @@
 
   "damageReceivedModifiers": { "Fire": 2.0 },
 
-  "notes": "Specialty defense carrying over a rapid-fire, swarm-clearing identity: low damage and fast attacks, gaining an extra independently-targeting turret per upgrade rather than scaling its own stats, suited to clearing weak, fast attackers rather than focusing down a lone dangerous target. Vulnerable to fire like other wood construction. Tied to a base, and, unlike its standalone counterpart, has no alternate material choice.",
+  "notes": "Specialty defense carrying over a rapid-fire, swarm-clearing identity: low damage and fast attacks, gaining an extra independently-targeting turret per upgrade on top of its own growth, suited to clearing weak, fast attackers rather than focusing down a lone dangerous target. Vulnerable to fire like other wood construction. Tied to a base, and, unlike its standalone counterpart, has no alternate material choice.",
 
   "defensiveStats": {
     "damage": 10,

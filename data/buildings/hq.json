@@ -5,7 +5,7 @@
   "isFixed": true,
   "populationCost": 0,
 
-  "notes": "A base's core structure. Never rebuilt fresh — losing it flips ownership of the whole base to the attacker rather than destroying it outright. Grants population capacity that grows as it's upgraded. Carries a baseline visionRange so a base is never fog-covered on its own doorstep even before a player has any squad or defensive building up.",
+  "notes": "A base's core structure. Never rebuilt fresh — losing it flips ownership of the whole base to the attacker rather than destroying it outright. No other building at the base can be upgraded past the HQ's own level, so upgrading the HQ is what raises that ceiling. Grants population capacity that grows as it's upgraded, and its level also widens how far from itself the base may build. Carries a baseline visionRange so a base is never fog-covered on its own doorstep even before a player has any squad or defensive building up. Unlike every other building, it's never built by a player at all — it's already standing the moment a base exists, and every other building at that base must be placed within a growing radius of it, next to at least two already-built neighboring hexes.",
 
   "nonProductionUpgrade": {
     "baseStats": {

@@ -10,7 +10,7 @@
     "adjacentTerrainRequired": "Water"
   },
 
-  "notes": "Water-adjacent food-producing building, mechanically equivalent to the basic food building but with a steeper growth curve: weaker at first, but eventually out-producing it at high levels. Costs a different material to build than the basic version.",
+  "notes": "Water-adjacent food-producing building with a steep growth curve: weak at first, but scaling into a strong food producer at high levels.",
 
   "nonProductionUpgrade": {
     "baseStats": {

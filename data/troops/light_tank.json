@@ -2,7 +2,7 @@
   "id": "light_tank",
   "name": "Light Tank",
   "domain": "Land",
-  "tags": ["Vehicle", "Tank"],
+  "tags": ["Vehicle", "Tank", "Light"],
 
   "hp": 180,
   "damage": 15,
@@ -24,5 +24,5 @@
   "fuelUpkeep": 1,
   "productionTime": 16,
 
-  "notes": "Cheap, generalist light vehicle and a solid all-rounder against ground troops — the baseline other light vehicles are measured against."
+  "notes": "Cheap, generalist light vehicle and a solid all-rounder against ground troops."
 }

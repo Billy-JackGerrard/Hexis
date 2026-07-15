@@ -31,10 +31,9 @@
   ],
 
   "initialGarrison": [
-    { "troopId": "juggernaut", "count": 4 },
+    { "troopId": "chonky", "count": 6 },
     { "troopId": "rocket_tank", "count": 3 },
-    { "troopId": "granite_crumbler", "count": 2 },
-    { "troopId": "chonky", "count": 2 }
+    { "troopId": "granite_crumbler", "count": 2 }
   ],
 
   "notes": "Heavy-armor specialist base — the map's sole example of its kind, fielding the full heavy-vehicle roster from its production building, including a heavy vehicle found nowhere else."

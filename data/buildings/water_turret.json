@@ -7,7 +7,7 @@
 
   "materials": ["stone", "wood", "steel"],
 
-  "notes": "Shared specialty water-cannon defense that trades air targeting for a strong bonus against ships — effective at the waterline but hard to aim skyward. Must be placed next to water to cover a crossing or coastline. Comes in several material variants: a balanced baseline, a cheap, fast, fragile option suited to spamming against small raids, and a pricier, tankier option that splashes on hit and lands the heaviest per-hit naval bonus, built to punish a grouped push.",
+  "notes": "Shared specialty water-cannon defense that trades air targeting for a strong bonus against ships — effective at the waterline but hard to aim skyward. Must be placed next to water to cover a crossing or coastline. Comes in several material variants: a balanced baseline, a cheap, fast, fragile option suited to spamming against small raids, and a pricier, tankier option that splashes on hit, trading some raw naval bite for area coverage and survivability against a grouped push.",
 
   "placementRequirement": {
     "adjacentTerrainRequired": "Water"

@@ -7,7 +7,7 @@
 
   "materials": ["wood", "stone", "steel"],
 
-  "notes": "Sits on the border between two hexes rather than on a hex itself, blocking movement and line-of-sight/projectiles across that edge; aircraft ignore it entirely. Never attacks — a purely passive barrier. Comes in a cheap, fragile, fire-vulnerable material, a balanced middle option, and a pricier option with flat damage reduction. A destroyed wall disappears outright rather than leaving a discounted ruin to rebuild from.",
+  "notes": "Sits on the border between two hexes rather than on a hex itself, blocking movement and line-of-sight/projectiles across that edge; aircraft ignore it entirely. Never attacks — a purely passive barrier. Placement only needs one of the two bordering hexes to already have a building on it, unlike the usual two-building rule. Comes in a cheap, fragile, fire-vulnerable material, a balanced middle option, and a pricier option with flat damage reduction. A destroyed wall disappears outright rather than leaving a discounted ruin to rebuild from.",
 
   "materialStats": {
     "wood": {

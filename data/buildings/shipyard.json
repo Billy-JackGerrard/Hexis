@@ -10,7 +10,7 @@
     "adjacentTerrainRequired": "Water"
   },
 
-  "notes": "Advanced naval production building that builds everything the basic version does, plus larger and more powerful warships up to the navy's biggest vessel.",
+  "notes": "Advanced naval production building fielding a heavier roster of warships up to the navy's biggest vessel.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 280, "unlocks": "destroyer", "cost": { "stone": 340, "steel": 140 } },

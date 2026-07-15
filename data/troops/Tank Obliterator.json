@@ -24,5 +24,5 @@
   "fuelUpkeep": 2,
   "productionTime": 48,
 
-  "notes": "Heavy-artillery rail gun that fires a piercing beam through its target and beyond, hitting everything lined up behind it until it reaches a wall or building in its path. Rewards catching enemies stacked in a line rather than spread out. Slow to fire and only modestly effective against fortified structures despite its reach."
+  "notes": "Heavy-artillery rail gun that fires a piercing beam through its target and beyond, hitting everything lined up behind it until it reaches a building in its path — walls don't stop it. Rewards catching enemies stacked in a line rather than spread out. Slow to fire and only modestly effective against fortified structures despite its reach."
 }

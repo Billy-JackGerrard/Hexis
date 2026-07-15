@@ -178,6 +178,9 @@ func _rebuild() -> void:
 	_content.add_child(UITheme.subtitle_label("%s  -  Pop %d/%d" % [base_label, used, cap]))
 	_content.add_child(HSeparator.new())
 
+	if building.building_type == "hq":
+		_build_hq_info_section(def, base_def)
+
 	_build_level_section(building, def, base.hq_level)
 
 	if not building.is_ruin:
@@ -201,6 +204,28 @@ func _rebuild() -> void:
 			_build_naval_dock_section(building)
 
 	_refresh_eligibility()
+
+## Shown only for a selected HQ: the HQ def's own notes, plus — for a Unique
+## base (isCapital false; the Capital has no lore/mechanical identity of its
+## own beyond what the HQ itself already says) — the base type's notes too,
+## so a Unique base's special rules (starting garrison, fixed defenses,
+## resource/cost modifiers) surface right where a player is already looking.
+func _build_hq_info_section(hq_def: Dictionary, base_def: Dictionary) -> void:
+	var hq_notes := String(hq_def.get("notes", ""))
+	if hq_notes != "":
+		var hq_notes_label := UITheme.muted_label(hq_notes)
+		hq_notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_content.add_child(hq_notes_label)
+
+	if not bool(base_def.get("isCapital", false)):
+		var base_notes := String(base_def.get("notes", ""))
+		if base_notes != "":
+			_content.add_child(UITheme.header_label(String(base_def.get("baseType", "")).to_upper()))
+			var base_notes_label := UITheme.muted_label(base_notes)
+			base_notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_content.add_child(base_notes_label)
+
+	_content.add_child(HSeparator.new())
 
 # --- Level / upgrade / rebuild ----------------------------------------------
 

@@ -37,5 +37,5 @@
   "fuelUpkeep": 4,
   "productionTime": 45,
 
-  "notes": "Common command unit whose aura gives a strong speed boost to every squad serving under it, anywhere on the map — good for a fast rush or a rapid repositioning. The boost depends on formal command assignment rather than standing nearby."
+  "notes": "Common command unit whose aura gives a modest speed boost to every squad serving under it, anywhere on the map — good for a fast rush or a rapid repositioning. The boost depends on formal command assignment rather than standing nearby."
 }

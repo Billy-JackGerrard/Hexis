@@ -25,5 +25,5 @@
   "fuelUpkeep": 3,
   "productionTime": 28,
 
-  "notes": "Heavy vehicle whose attacks have a chance to fully freeze the target in place, useful for locking down a dangerous threat rather than maximizing damage output. Otherwise an unremarkable heavy vehicle with no combat bonuses of its own."
+  "notes": "Vehicle whose attacks have a chance to fully freeze the target in place, useful for locking down a dangerous threat rather than maximizing damage output. Otherwise an unremarkable vehicle with no combat bonuses of its own."
 }

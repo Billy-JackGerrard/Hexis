@@ -10,7 +10,7 @@
     "adjacentTerrainRequired": "Water"
   },
 
-  "notes": "Basic naval production building buildable at any water-adjacent base, fielding an early combat ship and a lightly-armed troop transport. A more advanced specialist building elsewhere builds everything this does plus larger warships.",
+  "notes": "Basic naval production building buildable at any water-adjacent base, fielding an early combat ship and a lightly-armed troop transport.",
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 250, "unlocks": "gunboat", "cost": { "stone": 180, "steel": 120 } },
