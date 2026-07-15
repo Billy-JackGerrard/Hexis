@@ -32,6 +32,11 @@ const ACCENT_HOVER := Color(0.686, 0.902, 0.318)
 const ACCENT_PRESSED := Color(0.494, 0.706, 0.180)
 const ACCENT_TEXT := Color(0.157, 0.114, 0.086)     ## dark text on lime fill
 
+const INFO := Color(0.180, 0.541, 0.902)            ## saturated blue — small clickable +/- style controls
+const INFO_HOVER := Color(0.318, 0.639, 0.949)
+const INFO_PRESSED := Color(0.129, 0.416, 0.729)
+const INFO_TEXT := Color(1.0, 1.0, 1.0)             ## white text on the blue fill
+
 const DANGER := Color(0.937, 0.294, 0.294)          ## cherry red — blocked / deficit
 const WARNING := Color(0.988, 0.686, 0.153)         ## sunny orange — paused / caution
 
@@ -77,6 +82,7 @@ const RESOURCE_LABEL := {
 # neutral default; these override it.
 const PRIMARY := "PrimaryButton" ## emerald fill — main call to action
 const MUTED := "MutedButton"     ## greyed, still clickable (ineligible options)
+const INFO_BUTTON := "InfoButton" ## saturated blue — small +/- style controls, clickable state
 
 # --- Theme construction -----------------------------------------------------
 
@@ -101,6 +107,8 @@ static func create_theme() -> Theme:
 	_apply_button(t, "Button", SLATE, SLATE_HOVER, SLATE_PRESSED, TEXT, PANEL_BORDER)
 	t.set_type_variation(PRIMARY, "Button")
 	_apply_button(t, PRIMARY, ACCENT, ACCENT_HOVER, ACCENT_PRESSED, ACCENT_TEXT, ACCENT)
+	t.set_type_variation(INFO_BUTTON, "Button")
+	_apply_button(t, INFO_BUTTON, INFO, INFO_HOVER, INFO_PRESSED, INFO_TEXT, INFO_PRESSED)
 	t.set_type_variation(MUTED, "Button")
 	# Hover/pressed match normal so a muted button reads as inert even though it
 	# still fires pressed (so we can surface a red reason on click).
@@ -213,10 +221,19 @@ static func action_button(text: String, variation: String = "") -> Button:
 ## bakes in 18px each side, sized for multi-word labels — too much for a
 ## small fixed-width glyph button like "+"/"-", which clips its own text
 ## before the button even runs out of room). Duplicates and overrides just
-## this instance's styleboxes rather than touching the shared theme.
-static func shrink_button_padding(button: Button, horizontal_margin: float) -> void:
+## this instance's styleboxes rather than touching the shared theme. Reads
+## `theme` directly (the panel's own Theme resource — pass its `theme`
+## property) rather than via button.get_theme_stylebox(): that call resolves
+## through the scene tree, and this always runs before the button is parented
+## (built up-front, added to its row/box afterward), so it would silently
+## fall back to Godot's built-in default stylebox instead of ours — baking in
+## the wrong (grey, not our button color) box permanently as an override.
+static func shrink_button_padding(button: Button, theme: Theme, horizontal_margin: float) -> void:
+	var type_name: String = String(button.theme_type_variation) if button.theme_type_variation != "" else "Button"
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var box: StyleBox = button.get_theme_stylebox(state)
+		if not theme.has_stylebox(state, type_name):
+			continue
+		var box: StyleBox = theme.get_stylebox(state, type_name)
 		if box is StyleBoxFlat:
 			var copy: StyleBoxFlat = box.duplicate()
 			copy.content_margin_left = horizontal_margin

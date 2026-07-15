@@ -572,23 +572,23 @@ func _build_queue_rest_row(box: VBoxContainer, building_id: String, troop_type: 
 func _add_queue_buttons(row: HBoxContainer, building_id: String, troop_type: String, run_start: int, run_len: int) -> void:
 	var last_index := run_start + run_len - 1
 
-	var minus := UITheme.action_button("-", "")
+	var minus := UITheme.action_button("-", UITheme.INFO_BUTTON)
 	minus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	minus.custom_minimum_size = Vector2(40, 0)
-	UITheme.shrink_button_padding(minus, 4.0)
+	UITheme.shrink_button_padding(minus, theme, 4.0)
 	minus.disabled = run_len <= 1
 	minus.pressed.connect(func(): input_controller.submitter.submit("dequeue_production", [building_id, last_index, owner_id], owner_id))
 	row.add_child(minus)
 
-	var plus := UITheme.action_button("+", "")
+	var plus := UITheme.action_button("+", UITheme.INFO_BUTTON)
 	plus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	plus.custom_minimum_size = Vector2(40, 0)
-	UITheme.shrink_button_padding(plus, 4.0)
+	UITheme.shrink_button_padding(plus, theme, 4.0)
 	var reason_fn := func(): return UIEligibility.troop_reason(state, building_id, troop_type, owner_id)
 	var action := func(): input_controller.submitter.submit("enqueue_production_after", [building_id, troop_type, last_index, owner_id], owner_id)
 	plus.pressed.connect(func(): _handle_press(reason_fn, action))
 	row.add_child(plus)
-	_option_updaters.append({"button": plus, "variation": "", "reason_fn": reason_fn})
+	_option_updaters.append({"button": plus, "variation": UITheme.INFO_BUTTON, "reason_fn": reason_fn})
 
 ## Structural signature (troop_type per entry + paused) of building_id's
 ## queue — see _shown_queue_key.
