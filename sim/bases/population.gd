@@ -7,6 +7,9 @@ extends RefCounted
 
 ## Evaluates a data/buildings/schema.json `growthRate` dict ({mode, value})
 ## against a base stat at level N (level 1 = base_value, no growth applied).
+## Percent growth uses _int_pow, not pow() — see its doc comment: pow()'s
+## rounding isn't guaranteed identical across platforms, which is exactly the
+## kind of thing that silently desyncs a lockstepped sim.
 static func _grown_stat(base_value: float, growth: Dictionary, level: int) -> float:
 	if level <= 1 or growth.is_empty():
 		return base_value
@@ -14,7 +17,21 @@ static func _grown_stat(base_value: float, growth: Dictionary, level: int) -> fl
 	var value: float = float(growth.get("value", 0.0))
 	if mode == "flat":
 		return base_value + value * (level - 1)
-	return base_value * pow(1.0 + value / 100.0, level - 1)
+	return base_value * _int_pow(1.0 + value / 100.0, level - 1)
+
+## Deterministic integer-exponent power (exponentiation by squaring) — only
+## +/-/*// are guaranteed bit-identical across platforms under IEEE 754;
+## pow() is not. `exponent` must be >= 0 (every growthRate caller's is).
+static func _int_pow(base: float, exponent: int) -> float:
+	var result := 1.0
+	var b := base
+	var e := exponent
+	while e > 0:
+		if e & 1 == 1:
+			result *= b
+		b *= b
+		e >>= 1
+	return result
 
 ## Building's populationCapacity output at a given level, per its def's
 ## nonProductionUpgrade.baseStats/statGrowth (used for both HQ and House).

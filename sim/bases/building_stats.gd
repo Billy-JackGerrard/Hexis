@@ -28,11 +28,33 @@ static func resolve_def(def: Dictionary, building_defs: Dictionary) -> Dictionar
 ## Applies a schema `growthRate` block to a level-1 base value: percent
 ## compounds as base*(1+value/100)^(level-1), flat adds value*(level-1). A
 ## missing/empty growth block means no growth.
+##
+## The percent branch uses _int_pow rather than Godot's pow() — the exponent
+## is always a non-negative int (level-1), and pow()'s libm implementation is
+## not required to be bit-identical across platforms/architectures (unlike
+## +-*/), so two lockstepped peers computing the same cost/stat on different
+## machines could round a ULP apart and silently disagree on something like
+## upgrade affordability, applying the same command on one peer but not the
+## other — a real desync this project hit (HQ upgrades, cross-machine LAN).
 static func _apply_growth(base: float, growth: Dictionary, level: int) -> float:
 	var value: float = float(growth.get("value", 0.0))
 	if growth.get("mode", "flat") == "percent":
-		return base * pow(1.0 + value / 100.0, level - 1)
+		return base * _int_pow(1.0 + value / 100.0, level - 1)
 	return base + value * (level - 1)
+
+## Deterministic integer-exponent power (exponentiation by squaring) — only
+## +/-/*// are guaranteed bit-identical across platforms under IEEE 754;
+## pow() is not. `exponent` must be >= 0 (every growthRate caller's is).
+static func _int_pow(base: float, exponent: int) -> float:
+	var result := 1.0
+	var b := base
+	var e := exponent
+	while e > 0:
+		if e & 1 == 1:
+			result *= b
+		b *= b
+		e >>= 1
+	return result
 
 ## Max HP for a building of this type/level/material. Returns 0.0 if the def
 ## carries no HP anywhere (e.g. an Infrastructure stub) — callers treat 0 as
