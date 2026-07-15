@@ -164,18 +164,29 @@ func pool_for(owner_id: String) -> ResourcePool:
 ## DetectionSystem fully recomputes it from scratch every tick (see its own
 ## doc comment), so it's disposable, unlike PlayerVision.explored_hexes
 ## (persistent, and so included via `visions`).
+##
+## Every dict-keyed section below serializes in *sorted* key order rather
+## than raw Dictionary insertion order. `players` in particular is populated
+## lazily by pool_for()/player_for(), including from client-side HUD code
+## (resource_bar.gd etc.) that only ever touches the local player's entry —
+## two peers in a multiplayer match can easily insert "p0"/"p1" in opposite
+## order despite having otherwise-identical state, which produced two
+## different var_to_str() outputs (and checksum() values) for the same
+## match — a false-positive desync. Sorting makes to_dict()/checksum() a
+## function of the state's actual contents, not of incidental client-side
+## read order.
 func to_dict() -> Dictionary:
 	var troops_dict: Dictionary = {}
-	for key in troops_by_id:
+	for key in _sorted_keys(troops_by_id):
 		troops_dict[key] = troops_by_id[key].to_dict()
 	var queues_dict: Dictionary = {}
-	for key in production_queues:
+	for key in _sorted_keys(production_queues):
 		queues_dict[key] = production_queues[key].to_dict()
 	var players_dict: Dictionary = {}
-	for key in players:
+	for key in _sorted_keys(players):
 		players_dict[key] = players[key].to_dict()
 	var visions_dict: Dictionary = {}
-	for key in visions:
+	for key in _sorted_keys(visions):
 		visions_dict[key] = visions[key].to_dict()
 
 	return {
@@ -200,6 +211,23 @@ func to_dict() -> Dictionary:
 		}),
 		"next_id_counter": _next_id_counter,
 	}
+
+## Deterministic fingerprint of the mutable sim state, for lockstep desync
+## detection (see client/net/lockstep_driver.gd) — peers periodically compare
+## this instead of the full state. Built on top of to_dict() rather than a
+## separate serialization so it can never drift out of sync with what
+## actually gets saved/replicated; command_log is stripped first since it
+## only ever grows and carries no state a desync check needs (the state it
+## produced is already covered by everything else in the dict).
+func checksum() -> int:
+	var d := to_dict()
+	d.erase("command_log")
+	return hash(var_to_str(d))
+
+static func _sorted_keys(d: Dictionary) -> Array:
+	var keys := d.keys()
+	keys.sort()
+	return keys
 
 ## CommandQueue.log's args are whatever CommandProcessor.<verb> takes (mixed
 ## String/HexCoord) — flat, one level deep, for every command wired through

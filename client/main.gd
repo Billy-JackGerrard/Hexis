@@ -53,7 +53,7 @@ var net_manager: NetManager
 var lockstep_driver: LockstepDriver ## null in single-player (sim_clock drives instead)
 
 var _local_capital_hex: HexCoord
-var _local_capital_name: String = ""
+var _capital_names_by_owner: Dictionary = {} ## owner_id -> String, applied to every peer identically
 var _waiting_label: Label
 var _desync_label: Label
 
@@ -71,7 +71,7 @@ func _ready() -> void:
 func _on_single_player_requested(player_name: String, capital_name: String) -> void:
 	_local_owner_id = LOCAL_PLAYER
 	_player_count = PLAYER_COUNT
-	_local_capital_name = capital_name
+	_capital_names_by_owner = {LOCAL_PLAYER: capital_name}
 	_build_owner_visuals(_player_count, {LOCAL_PLAYER: player_name})
 	_world_seed = randi()
 	_start_game()
@@ -82,8 +82,10 @@ func _on_match_starting(world_seed: int, player_count: int, roster: Dictionary) 
 	_player_count = player_count
 	_world_seed = world_seed
 	var names_by_owner: Dictionary = {}
+	_capital_names_by_owner = {}
 	for entry in roster.values():
 		names_by_owner[entry["owner_id"]] = entry["name"]
+		_capital_names_by_owner[entry["owner_id"]] = entry["capital_name"]
 	_build_owner_visuals(_player_count, names_by_owner)
 
 	lockstep_driver = LockstepDriver.new()
@@ -220,11 +222,22 @@ func _build_demo_state() -> MatchState:
 
 	for player_index in range(_player_count):
 		var owner := "p%d" % player_index
+		# Eagerly vivifies every player's ResourcePool from tick 0, symmetrically
+		# on every peer. Without this, players.player_for()'s lazy-create only
+		# ever gets triggered by each client's OWN HUD polling its OWN local
+		# owner_id (resource_bar.gd etc.) — the sim's own economy tick would
+		# eventually touch every owner symmetrically too, but not for the first
+		# 5 real seconds of a match (Tuning.ECONOMY_TICK_SECONDS), during which
+		# every peer's `players` dict would otherwise only ever contain its own
+		# local entry — a false-positive desync the very first time
+		# lockstep_driver.gd's periodic checksum comparison runs.
+		demo_state.player_for(owner)
 		var capital := _find_base(demo_state, result.capital_ids_by_player[player_index])
 		if owner == _local_owner_id:
 			_local_capital_hex = capital.hex_coord
-			if not _local_capital_name.is_empty():
-				capital.display_name = _local_capital_name
+		var capital_name: String = _capital_names_by_owner.get(owner, "")
+		if not capital_name.is_empty():
+			capital.display_name = capital_name
 
 	return demo_state
 

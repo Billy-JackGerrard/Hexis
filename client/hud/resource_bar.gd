@@ -43,6 +43,9 @@ var _building_labels: Dictionary = {} ## ResourceType.Type -> Label ("2x Level 1
 var _squads_label: Label
 var _commanders_label: Label
 
+var _prev_amount: Dictionary = {} ## ResourceType.Type -> int, last displayed value (for count-up)
+var _prev_deficit: Dictionary = {} ## ResourceType.Type -> bool, last deficit state (for the pop-on-entry flash)
+
 var _expanded := false
 var _refresh_accum := 0.0
 
@@ -78,10 +81,16 @@ func setup(p_state: MatchState, p_owner_id: String) -> void:
 		col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
+		var head := HBoxContainer.new()
+		head.add_theme_constant_override("separation", 4)
+		head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		head.add_child(UITheme.resource_icon(type, 22.0))
+
 		var label := UITheme.body_label("")
 		label.add_theme_font_size_override("font_size", UITheme.FONT_BAR)
-		col.add_child(label)
+		head.add_child(label)
 		_res_labels[type] = label
+		col.add_child(head)
 
 		var detail := UITheme.muted_label("")
 		detail.add_theme_font_size_override("font_size", UITheme.FONT_SMALL)
@@ -129,8 +138,20 @@ func _process(delta: float) -> void:
 	for entry in DISPLAY_ORDER:
 		var type: ResourceType.Type = entry[0]
 		var label: Label = _res_labels[type]
-		label.text = "%s %d" % [entry[1], int(round(pool.get_amount(type)))]
-		label.add_theme_color_override("font_color", UITheme.DANGER if pool.is_deficit(type) else UITheme.RESOURCE_COLOR[type])
+		var amount := int(round(pool.get_amount(type)))
+		var deficit := pool.is_deficit(type)
+		label.add_theme_color_override("font_color", UITheme.DANGER if deficit else UITheme.RESOURCE_COLOR[type])
+
+		var prev_amount: int = _prev_amount.get(type, amount)
+		if prev_amount != amount:
+			UIJuice.count_up(label, prev_amount, amount)
+			_prev_amount[type] = amount
+		elif label.text.is_empty():
+			label.text = "%d" % amount
+
+		if deficit and not _prev_deficit.get(type, false):
+			UIJuice.pop(label.get_parent())
+		_prev_deficit[type] = deficit
 
 	var owned_bases := state.bases_owned_by(owner_id)
 	var squads_used := _owned_squad_count()

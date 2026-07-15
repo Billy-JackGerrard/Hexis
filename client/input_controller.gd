@@ -35,6 +35,7 @@ var state: MatchState
 var owner_id: String
 var squad_view: SquadView
 var camera_controller: CameraController
+var submitter: CommandSubmitter
 
 ## Set when a left-click lands on one of the local player's own base
 ## buildings (see precedence case 3 above); "" when nothing is selected.
@@ -112,11 +113,12 @@ const HOVER_STRUCTURE_COLOR := Color(1.0, 0.65, 0.15, 0.9)
 const HOVER_RADIUS := 14.0
 const WALL_CLICK_RADIUS := 10.0
 
-func setup(p_state: MatchState, p_owner_id: String, p_squad_view: SquadView, p_camera_controller: CameraController) -> void:
+func setup(p_state: MatchState, p_owner_id: String, p_squad_view: SquadView, p_camera_controller: CameraController, p_submitter: CommandSubmitter) -> void:
 	state = p_state
 	owner_id = p_owner_id
 	squad_view = p_squad_view
 	camera_controller = p_camera_controller
+	submitter = p_submitter
 
 func _process(delta: float) -> void:
 	# Also skipped while camera-panning (right-drag): the world-space mouse
@@ -206,7 +208,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	# hex_b doc comment), so it resolves the clicked edge instead of a hex.
 	if pending_building_type == "wall":
 		var edge := _edge_at_pixel(release_pos)
-		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_wall", [pending_base_id, edge[0], edge[1], pending_material, owner_id], owner_id) if not edge.is_empty() else BuildingPlacement.Result.OUT_OF_HEX_BOUNDS
+		var result: BuildingPlacement.Result = submitter.submit("place_wall", [pending_base_id, edge[0], edge[1], pending_material, owner_id], owner_id, BuildingPlacement.Result.OK) if not edge.is_empty() else BuildingPlacement.Result.OUT_OF_HEX_BOUNDS
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
 			pending_base_id = ""
@@ -221,7 +223,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	# case below.
 	if pending_engineer_squad_id != "":
 		var hex := HexView.pixel_to_axial(release_pos)
-		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_standalone_building", [pending_engineer_squad_id, pending_building_type, hex, pending_material, owner_id], owner_id)
+		var result: BuildingPlacement.Result = submitter.submit("place_standalone_building", [pending_engineer_squad_id, pending_building_type, hex, pending_material, owner_id], owner_id, BuildingPlacement.Result.OK)
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
 			pending_engineer_squad_id = ""
@@ -231,7 +233,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 		return
 	if pending_building_type != "":
 		var hex := HexView.pixel_to_axial(release_pos)
-		var result: BuildingPlacement.Result = state.command_queue.submit(state, "place_building", [pending_base_id, pending_building_type, hex, pending_material, owner_id], owner_id)
+		var result: BuildingPlacement.Result = submitter.submit("place_building", [pending_base_id, pending_building_type, hex, pending_material, owner_id], owner_id, BuildingPlacement.Result.OK)
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
 			pending_base_id = ""
@@ -272,7 +274,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	if enemy_target != null and not squad_view.selected_squad_ids.is_empty():
 		var target_id := enemy_target.target_id()
 		for squad_id in squad_view.selected_squad_ids.keys():
-			var result: CommandProcessor.Result = state.command_queue.submit(state, "attack_target", [squad_id, target_id, owner_id], owner_id)
+			var result: CommandProcessor.Result = submitter.submit("attack_target", [squad_id, target_id, owner_id], owner_id)
 			if result != CommandProcessor.Result.OK:
 				_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
 		return
@@ -317,7 +319,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 		if skip_ids.has(squad_id):
 			continue
 		var goal := _formation_hex(target_hex, index)
-		var result: CommandProcessor.Result = state.command_queue.submit(state, "move_squad", [squad_id, goal, owner_id], owner_id)
+		var result: CommandProcessor.Result = submitter.submit("move_squad", [squad_id, goal, owner_id], owner_id)
 		if result != CommandProcessor.Result.OK:
 			_failed_pings.append({"pos": HexView.axial_to_pixel(goal), "remaining": FAILED_PING_DURATION})
 		index += 1

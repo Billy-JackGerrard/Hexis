@@ -53,9 +53,13 @@ static func population_used(base: BaseInstance, building_defs: Dictionary) -> in
 			used += 1
 	return used
 
-## House and HQ grant capacity rather than consume it, so they're always
-## placeable regardless of how full the base already is.
+## House and HQ grant capacity rather than consume it, and any building whose
+## populationCost is 0 (Walls) doesn't consume population — all are placeable
+## regardless of how full the base already is.
 static func has_capacity_for(base: BaseInstance, building_type: String, building_defs: Dictionary) -> bool:
 	if building_type == "house" or building_type == "hq":
+		return true
+	var def: Dictionary = building_defs.get(building_type, {})
+	if float(def.get("populationCost", 1)) <= 0.0:
 		return true
 	return population_used(base, building_defs) < population_cap(base, building_defs)

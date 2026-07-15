@@ -8,54 +8,62 @@
 ## own _draw() palettes and are deliberately NOT themed — they're placeholder
 ## art, not HUD chrome.
 ##
-## Default look: "Slate + emerald" — charcoal panels, emerald accent for
-## primary/affordable actions, red for blocked, amber for warnings, muted grey
-## for ineligible-but-clickable options.
+## Default look: "Candy" — bright cream panels with thick dark cartoon
+## outlines and drop shadows, glossy lime accent for primary/affordable
+## actions, cherry red for blocked, sunny orange for warnings, warm grey for
+## ineligible-but-clickable options. Every Label/Button gets a dark text
+## outline for a "sticker" pop.
 class_name UITheme
 extends RefCounted
 
 # --- Palette ----------------------------------------------------------------
 # Swap these to reskin the whole HUD. Every other client/ui + client/hud file
 # reads colors through here, never as raw literals.
-const BG := Color(0.078, 0.086, 0.110)              ## full-screen overlay bg (start screen)
-const PANEL_BG := Color(0.106, 0.118, 0.145, 0.97)  ## HUD panel fill
-const PANEL_BORDER := Color(0.235, 0.267, 0.318)    ## HUD panel/border hairline
+const BG := Color(0.204, 0.706, 0.816)              ## full-screen overlay bg (start screen)
+const PANEL_BG := Color(0.988, 0.957, 0.898, 1.0)   ## HUD panel fill — warm cream
+const PANEL_BORDER := Color(0.157, 0.114, 0.086)    ## thick dark cartoon outline
 
-const SLATE := Color(0.152, 0.169, 0.204)           ## neutral button
-const SLATE_HOVER := Color(0.200, 0.224, 0.267)
-const SLATE_PRESSED := Color(0.117, 0.129, 0.157)
+const SLATE := Color(0.529, 0.816, 0.922)           ## neutral button — sky blue
+const SLATE_HOVER := Color(0.639, 0.878, 0.965)
+const SLATE_PRESSED := Color(0.412, 0.678, 0.784)
 
-const ACCENT := Color(0.243, 0.651, 0.447)          ## emerald — primary/affordable
-const ACCENT_HOVER := Color(0.302, 0.745, 0.522)
-const ACCENT_PRESSED := Color(0.196, 0.545, 0.373)
-const ACCENT_TEXT := Color(0.055, 0.086, 0.067)     ## dark text on emerald fill
+const ACCENT := Color(0.596, 0.827, 0.239)          ## candy lime — primary/affordable
+const ACCENT_HOVER := Color(0.686, 0.902, 0.318)
+const ACCENT_PRESSED := Color(0.494, 0.706, 0.180)
+const ACCENT_TEXT := Color(0.157, 0.114, 0.086)     ## dark text on lime fill
 
-const DANGER := Color(0.851, 0.345, 0.290)          ## blocked / deficit / red reason
-const WARNING := Color(0.878, 0.651, 0.235)         ## paused / caution
+const DANGER := Color(0.937, 0.294, 0.294)          ## cherry red — blocked / deficit
+const WARNING := Color(0.988, 0.686, 0.153)         ## sunny orange — paused / caution
 
-const TEXT := Color(0.878, 0.898, 0.918)
-const TEXT_MUTED := Color(0.478, 0.510, 0.549)
+const TEXT := Color(0.157, 0.114, 0.086)            ## near-black on cream panels
+const TEXT_MUTED := Color(0.478, 0.427, 0.388)
 
-const MUTED_BG := Color(0.113, 0.125, 0.149)        ## ineligible-but-clickable button fill
-const MUTED_BORDER := Color(0.200, 0.220, 0.259)
+const MUTED_BG := Color(0.851, 0.816, 0.749)        ## ineligible-but-clickable button fill
+const MUTED_BORDER := Color(0.157, 0.114, 0.086)
+
+# --- Font -------------------------------------------------------------------
+const FONT_PATH := "res://assets/fonts/Fredoka.ttf"
 
 # --- Font sizes -------------------------------------------------------------
-const FONT_TITLE := 28
-const FONT_SUBTITLE := 18
-const FONT_HEADER := 19
-const FONT_BODY := 21
-const FONT_SMALL := 16
-const FONT_BAR := 24
+const FONT_TITLE := 34
+const FONT_SUBTITLE := 20
+const FONT_HEADER := 21
+const FONT_BODY := 22
+const FONT_SMALL := 17
+const FONT_BAR := 26
+
+# --- Cartoon text outline ----------------------------------------------------
+const TEXT_OUTLINE_SIZE := 4
 
 # --- Per-resource palette ---------------------------------------------------
 ## ResourceType.Type -> display color, keyed the same as resource_bar.gd's
 ## DISPLAY_ORDER / building_info_panel.gd's RESOURCE_NAMES.
 const RESOURCE_COLOR := {
-	ResourceType.Type.FOOD: Color(0.482, 0.745, 0.408),
-	ResourceType.Type.STEEL: Color(0.588, 0.647, 0.706),
-	ResourceType.Type.FUEL: Color(0.878, 0.573, 0.235),
-	ResourceType.Type.STONE: Color(0.706, 0.647, 0.545),
-	ResourceType.Type.WOOD: Color(0.647, 0.478, 0.353),
+	ResourceType.Type.FOOD: Color(0.596, 0.827, 0.239),
+	ResourceType.Type.STEEL: Color(0.545, 0.616, 0.678),
+	ResourceType.Type.FUEL: Color(0.988, 0.573, 0.153),
+	ResourceType.Type.STONE: Color(0.816, 0.729, 0.549),
+	ResourceType.Type.WOOD: Color(0.729, 0.475, 0.259),
 }
 const RESOURCE_LABEL := {
 	ResourceType.Type.FOOD: "Food",
@@ -77,11 +85,16 @@ const MUTED := "MutedButton"     ## greyed, still clickable (ineligible options)
 ## hud_layer.gd sets it per panel rather than once at the layer).
 static func create_theme() -> Theme:
 	var t := Theme.new()
+	var font: Font = load(FONT_PATH)
+	t.default_font = font
 	t.default_font_size = FONT_BODY
 	t.set_color("font_color", "Label", TEXT)
+	t.set_color("font_outline_color", "Label", PANEL_BORDER)
+	t.set_constant("outline_size", "Label", TEXT_OUTLINE_SIZE)
 
-	var panel := _flat(PANEL_BG, PANEL_BORDER, 8, 1)
+	var panel := _flat(PANEL_BG, PANEL_BORDER, 16, 4)
 	panel.set_content_margin_all(16.0)
+	_add_shadow(panel)
 	t.set_stylebox("panel", "PanelContainer", panel)
 	t.set_stylebox("panel", "Panel", panel)
 
@@ -93,35 +106,46 @@ static func create_theme() -> Theme:
 	# still fires pressed (so we can surface a red reason on click).
 	_apply_button(t, MUTED, MUTED_BG, MUTED_BG, MUTED_BG, TEXT_MUTED, MUTED_BORDER)
 
-	var line_edit := _flat(SLATE, PANEL_BORDER, 6, 1)
+	var line_edit := _flat(SLATE, PANEL_BORDER, 12, 3)
 	line_edit.set_content_margin_all(8.0)
 	t.set_stylebox("normal", "LineEdit", line_edit)
 	t.set_color("font_color", "LineEdit", TEXT)
 	t.set_color("font_placeholder_color", "LineEdit", TEXT_MUTED)
+	t.set_color("font_outline_color", "LineEdit", PANEL_BORDER)
+	t.set_constant("outline_size", "LineEdit", TEXT_OUTLINE_SIZE)
 
 	return t
 
 static func _apply_button(t: Theme, type: String, bg: Color, hover: Color, pressed: Color, font_color: Color, border: Color) -> void:
-	var normal := _flat(bg, border, 6, 1)
+	var normal := _flat(bg, border, 16, 4)
 	normal.set_content_margin_all(12.0)
-	normal.content_margin_left = 16.0
-	normal.content_margin_right = 16.0
+	normal.content_margin_left = 18.0
+	normal.content_margin_right = 18.0
+	_add_shadow(normal)
 	t.set_stylebox("normal", type, normal)
 	t.set_stylebox("hover", type, _button_state(normal, hover))
-	t.set_stylebox("pressed", type, _button_state(normal, pressed))
+	t.set_stylebox("pressed", type, _button_state(normal, pressed, Vector2(0, 1), 1.0))
 	t.set_stylebox("disabled", type, _button_state(normal, MUTED_BG))
-	t.set_stylebox("focus", type, _flat(Color(0, 0, 0, 0), ACCENT, 6, 1))
+	t.set_stylebox("focus", type, _flat(Color(0, 0, 0, 0), ACCENT, 16, 4))
 	t.set_color("font_color", type, font_color)
 	t.set_color("font_hover_color", type, font_color)
 	t.set_color("font_pressed_color", type, font_color)
 	t.set_color("font_disabled_color", type, TEXT_MUTED)
+	t.set_color("font_outline_color", type, PANEL_BORDER)
+	t.set_constant("outline_size", type, TEXT_OUTLINE_SIZE)
 	t.set_font_size("font_size", type, FONT_BODY)
 
-static func _button_state(base: StyleBoxFlat, bg: Color) -> StyleBoxFlat:
+## `shadow_scale` shrinks the drop shadow (e.g. on press, to read as "pushed down").
+static func _button_state(base: StyleBoxFlat, bg: Color, shadow_offset: Vector2 = Vector2(0, 4), shadow_scale: float = 1.0) -> StyleBoxFlat:
 	var box: StyleBoxFlat = base.duplicate()
 	box.bg_color = bg
+	box.shadow_size = int(4 * shadow_scale)
+	box.shadow_offset = shadow_offset
 	return box
 
+## Cartoon-style flat panel/button background: thick dark outline, big rounded
+## corners. `_add_shadow` layers a soft drop shadow on top for the glossy/lifted
+## candy look.
 static func _flat(bg: Color, border: Color, radius: int, border_width: int) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = bg
@@ -129,6 +153,11 @@ static func _flat(bg: Color, border: Color, radius: int, border_width: int) -> S
 	box.set_border_width_all(border_width)
 	box.border_color = border
 	return box
+
+static func _add_shadow(box: StyleBoxFlat) -> void:
+	box.shadow_color = Color(0.157, 0.114, 0.086, 0.35)
+	box.shadow_size = 4
+	box.shadow_offset = Vector2(0, 4)
 
 # --- Node factories ---------------------------------------------------------
 
@@ -167,6 +196,14 @@ static func action_button(text: String, variation: String = "") -> Button:
 	button.theme_type_variation = variation
 	button.clip_text = true
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# PASS (not the Button default STOP): these buttons live inside a
+	# ScrollContainer wall-to-wall (BuildingPanel/SquadPanel) — STOP would eat
+	# every mouse-wheel event that lands on a button before it reaches the
+	# ScrollContainer above, making the list unscrollable everywhere except the
+	# thin gaps between rows. PASS still clicks normally; it just lets unhandled
+	# wheel input bubble up too.
+	button.mouse_filter = Control.MOUSE_FILTER_PASS
+	UIJuice.hover_grow(button)
 	return button
 
 ## A fill bar (0..1 `value`) for showing training/production progress, with
@@ -178,10 +215,16 @@ static func progress_bar() -> ProgressBar:
 	bar.max_value = 1.0
 	bar.step = 0.0
 	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(0, 30)
-	bar.add_theme_stylebox_override("background", _flat(SLATE, PANEL_BORDER, 6, 1))
-	bar.add_theme_stylebox_override("fill", _flat(ACCENT, ACCENT, 6, 1))
+	bar.custom_minimum_size = Vector2(0, 34)
+	bar.add_theme_stylebox_override("background", _flat(SLATE, PANEL_BORDER, 14, 3))
+	bar.add_theme_stylebox_override("fill", _flat(ACCENT, PANEL_BORDER, 14, 3))
+	bar.mouse_filter = Control.MOUSE_FILTER_PASS
 	return bar
+
+## A small procedurally-drawn glyph for `type` (wheat/stone/gear/log/drop),
+## tinted via RESOURCE_COLOR — see client/ui/resource_icon.gd.
+static func resource_icon(type: ResourceType.Type, icon_size: float = 20.0) -> ResourceIcon:
+	return ResourceIcon.new(type, icon_size)
 
 ## A row of small colored pills, one per resource in `named` (a data/*.json
 ## cost dict, e.g. {"stone": 80, "steel": 20}) — the styled replacement for the
@@ -190,6 +233,7 @@ static func progress_bar() -> ProgressBar:
 static func cost_chips(named: Dictionary) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	if named.is_empty():
 		row.add_child(_label("Free", FONT_SMALL, TEXT_MUTED))
 		return row
@@ -197,19 +241,28 @@ static func cost_chips(named: Dictionary) -> HBoxContainer:
 		var key := String(RESOURCE_LABEL[type]).to_lower()
 		if not named.has(key):
 			continue
-		row.add_child(chip("%s %d" % [RESOURCE_LABEL[type], int(named[key])], RESOURCE_COLOR[type]))
+		row.add_child(chip("%d" % int(named[key]), RESOURCE_COLOR[type], resource_icon(type, 16.0)))
 	return row
 
-## One pill: a color-tinted rounded background with the text in that color.
-static func chip(text: String, color: Color) -> PanelContainer:
-	var box := _flat(Color(color.r, color.g, color.b, 0.16), Color(color.r, color.g, color.b, 0.55), 8, 1)
+## One pill: a glossy color-tinted rounded background with the text in that
+## color — a small candy button that doesn't press. Pass `icon` (e.g. from
+## resource_icon()) to show a small glyph before the text.
+static func chip(text: String, color: Color, icon: Control = null) -> PanelContainer:
+	var box := _flat(Color(color.r, color.g, color.b, 0.35), PANEL_BORDER, 12, 3)
 	box.content_margin_left = 10.0
 	box.content_margin_right = 10.0
 	box.content_margin_top = 4.0
 	box.content_margin_bottom = 4.0
 	var pill := PanelContainer.new()
 	pill.add_theme_stylebox_override("panel", box)
-	pill.add_child(_label(text, FONT_SMALL, color.lightened(0.15)))
+	pill.mouse_filter = Control.MOUSE_FILTER_PASS
+	var content := HBoxContainer.new()
+	content.add_theme_constant_override("separation", 4)
+	content.mouse_filter = Control.MOUSE_FILTER_PASS
+	if icon != null:
+		content.add_child(icon)
+	content.add_child(_label(text, FONT_SMALL, color.darkened(0.35)))
+	pill.add_child(content)
 	return pill
 
 # --- World-space text (Node2D views) ----------------------------------------

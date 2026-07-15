@@ -30,6 +30,7 @@ const REFRESH_INTERVAL := 0.25
 const NAVAL_DOCK_BUILDINGS := ["port", "shipyard", "harbour"]
 
 var _content: VBoxContainer
+var _scroll: ScrollContainer
 var _reason_label: Label
 var _shown_for_building_id: String = ""
 ## Snapshot of the shown building's level/ruin state as of the last _rebuild —
@@ -74,23 +75,35 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(panel)
 
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	# ScrollContainer only accepts a wheel event when it actually has room left
-	# to scroll — at the very top/bottom it leaves the event unhandled, which
-	# falls through to CameraController's _unhandled_input and zooms the map.
-	# Swallow every wheel event over this panel unconditionally instead.
-	scroll.gui_input.connect(_on_scroll_gui_input)
-	panel.add_child(scroll)
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# We scroll manually here (see _on_scroll_gui_input) rather than relying on
+	# ScrollContainer's built-in wheel handling: the gui_input signal fires
+	# BEFORE the built-in _gui_input, so any set_input_as_handled() we do to stop
+	# the wheel falling through to the camera would also cancel the built-in
+	# scroll. Doing the scroll ourselves and then accepting handles both.
+	_scroll.gui_input.connect(_on_scroll_gui_input)
+	panel.add_child(_scroll)
 
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_theme_constant_override("separation", 10)
-	scroll.add_child(_content)
+	# PASS, not the Control default STOP: _content covers the full scroll area,
+	# so without this every wheel event over any gap/label is eaten here before
+	# it ever reaches the ScrollContainer's own scroll handling.
+	_content.mouse_filter = Control.MOUSE_FILTER_PASS
+	_scroll.add_child(_content)
+
+const SCROLL_STEP := 40
 
 func _on_scroll_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
-		get_viewport().set_input_as_handled()
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_scroll.scroll_vertical -= SCROLL_STEP
+			get_viewport().set_input_as_handled()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_scroll.scroll_vertical += SCROLL_STEP
+			get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	var target_id := input_controller.selected_building_id
@@ -106,6 +119,8 @@ func _process(delta: float) -> void:
 	if needs_rebuild:
 		_shown_for_building_id = target_id
 		_rebuild()
+		if building_changed and visible:
+			UIJuice.pop_in(self)
 	if not visible:
 		return
 	for updater in _live_updaters:
@@ -233,6 +248,7 @@ func _build_build_menu(base: BaseInstance, base_def: Dictionary) -> void:
 func _build_build_detail(base: BaseInstance, building_type: String, def: Dictionary, reason_fn: Callable) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
 
 	var notes := String(def.get("notes", ""))
 	if notes != "":
@@ -261,6 +277,7 @@ func _build_build_detail(base: BaseInstance, building_type: String, def: Diction
 func _build_material_row(box: VBoxContainer, label_text: String, cost: Dictionary, reason_fn: Callable, action: Callable) -> void:
 	var row := VBoxContainer.new()
 	row.add_theme_constant_override("separation", 2)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	var button := UITheme.action_button(label_text, UITheme.PRIMARY)
 	button.pressed.connect(func(): _handle_press(reason_fn, action))
 	row.add_child(button)
@@ -315,7 +332,7 @@ func _build_troop_menu(building: BuildingInstance) -> void:
 		var tt := String(troop_type)
 		_add_action_row(display_name, cost, time, "",
 			func(): return UIEligibility.troop_reason(state, building_id, tt, owner_id),
-			func(): state.command_queue.submit(state, "enqueue_production", [building_id, tt, owner_id], owner_id))
+			func(): input_controller.submitter.submit("enqueue_production", [building_id, tt, owner_id], owner_id))
 	if not any:
 		_content.add_child(UITheme.muted_label("No troops unlocked yet"))
 	_add_queue_status(building_id)
@@ -423,7 +440,7 @@ func _build_hangar_section(base: BaseInstance, building: BuildingInstance) -> vo
 			var name := String(sdef.get("name", landing.troop_type.capitalize()))
 			var button := UITheme.action_button("Land %s (%d)" % [name, landing.member_ids.size()], UITheme.PRIMARY)
 			var building_id := building.id
-			button.pressed.connect(func(): state.command_queue.submit(state, "dock_squad", [landing.id, building_id, owner_id], owner_id))
+			button.pressed.connect(func(): input_controller.submitter.submit("dock_squad", [landing.id, building_id, owner_id], owner_id))
 			_content.add_child(button)
 
 	if building.docked_squad_ids.is_empty():
@@ -440,7 +457,7 @@ func _build_hangar_section(base: BaseInstance, building: BuildingInstance) -> vo
 		var button := UITheme.action_button("Launch %s" % name, "")
 		button.pressed.connect(func():
 			var target := _dock_launch_hex(building, docked)
-			state.command_queue.submit(state, "undock_squad", [squad_id, building_id, target, owner_id], owner_id))
+			input_controller.submitter.submit("undock_squad", [squad_id, building_id, target, owner_id], owner_id))
 		_content.add_child(button)
 
 func _dockable_squads(base: BaseInstance, building: BuildingInstance) -> Array[SquadInstance]:
@@ -492,7 +509,7 @@ func _build_naval_dock_section(building: BuildingInstance) -> void:
 		var name := String(odef.get("name", boarding.troop_type.capitalize()))
 		var button := UITheme.action_button("Load %s (%d)" % [name, boarding.member_ids.size()], UITheme.PRIMARY)
 		var ship_id := ship.id
-		button.pressed.connect(func(): state.command_queue.submit(state, "board_cargo", [ship_id, boarding.id, owner_id], owner_id))
+		button.pressed.connect(func(): input_controller.submitter.submit("board_cargo", [ship_id, boarding.id, owner_id], owner_id))
 		_content.add_child(button)
 
 	for cargo_id in ship.cargo_squad_ids:
@@ -505,7 +522,7 @@ func _build_naval_dock_section(building: BuildingInstance) -> void:
 		var ship_id := ship.id
 		var dock_hex := building.hex
 		var button := UITheme.action_button("Unload %s" % name, "")
-		button.pressed.connect(func(): state.command_queue.submit(state, "unload_cargo", [ship_id, boarded_id, dock_hex, owner_id], owner_id))
+		button.pressed.connect(func(): input_controller.submitter.submit("unload_cargo", [ship_id, boarded_id, dock_hex, owner_id], owner_id))
 		_content.add_child(button)
 
 ## First friendly Naval transport (cargoCapacity > 0) on or adjacent to the dock
@@ -535,6 +552,7 @@ func _adjacent_transport_ship(building: BuildingInstance) -> SquadInstance:
 func _add_action_row(label_text: String, named_cost: Dictionary, time_seconds: float, variation: String, reason_fn: Callable, action: Callable) -> void:
 	var row := VBoxContainer.new()
 	row.add_theme_constant_override("separation", 2)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	var button := UITheme.action_button(label_text, variation)
 	button.pressed.connect(func(): _handle_press(reason_fn, action))
 	row.add_child(button)

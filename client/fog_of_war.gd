@@ -68,7 +68,7 @@ func _process(delta: float) -> void:
 	# cushion below default zoom, where the up-front margin is already at
 	# its screen-space widest and can afford to be spent further before
 	# forcing a catch-up redraw.
-	var cushion_fraction := 1.0 if cam_zoom.x < 0.9 else 0.5
+	var cushion_fraction := 1.0 if cam_zoom.x < 1.1 else 0.5
 	var cam_outran_margin := cam_pos.distance_to(_last_cam_pos) >= MARGIN_HEXES * HexView.HEX_SIZE / cam_zoom.x * cushion_fraction
 	if not tick_changed and not cam_changed:
 		return

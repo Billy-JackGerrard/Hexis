@@ -36,6 +36,7 @@ const REFRESH_INTERVAL := 0.25
 const STANDALONE_BUILDINGS := ["road", "bridge", "dock", "tower", "landmine"]
 
 var _content: VBoxContainer
+var _scroll: ScrollContainer
 var _reason_label: Label
 var _shown_for_squad_id: String = ""
 ## Snapshot of the shown squad's member/cargo count and hex as of the last
@@ -74,23 +75,35 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(panel)
 
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	# ScrollContainer only accepts a wheel event when it actually has room left
-	# to scroll — at the very top/bottom it leaves the event unhandled, which
-	# falls through to CameraController's _unhandled_input and zooms the map.
-	# Swallow every wheel event over this panel unconditionally instead.
-	scroll.gui_input.connect(_on_scroll_gui_input)
-	panel.add_child(scroll)
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# We scroll manually here (see _on_scroll_gui_input) rather than relying on
+	# ScrollContainer's built-in wheel handling: the gui_input signal fires
+	# BEFORE the built-in _gui_input, so any set_input_as_handled() we do to stop
+	# the wheel falling through to the camera would also cancel the built-in
+	# scroll. Doing the scroll ourselves and then accepting handles both.
+	_scroll.gui_input.connect(_on_scroll_gui_input)
+	panel.add_child(_scroll)
 
 	_content = VBoxContainer.new()
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_content.add_theme_constant_override("separation", 10)
-	scroll.add_child(_content)
+	# PASS, not the Control default STOP: _content covers the full scroll area,
+	# so without this every wheel event over any gap/label is eaten here before
+	# it ever reaches the ScrollContainer's own scroll handling.
+	_content.mouse_filter = Control.MOUSE_FILTER_PASS
+	_scroll.add_child(_content)
+
+const SCROLL_STEP := 40
 
 func _on_scroll_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
-		get_viewport().set_input_as_handled()
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_scroll.scroll_vertical -= SCROLL_STEP
+			get_viewport().set_input_as_handled()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_scroll.scroll_vertical += SCROLL_STEP
+			get_viewport().set_input_as_handled()
 
 ## The single squad this panel is for, or null: only when exactly one squad is
 ## selected AND no building is (BuildingPanel owns the same band and takes
@@ -106,7 +119,8 @@ func _target_squad() -> SquadInstance:
 func _process(delta: float) -> void:
 	var squad := _target_squad()
 	var target_id := squad.id if squad != null else ""
-	var needs_rebuild := target_id != _shown_for_squad_id
+	var squad_changed := target_id != _shown_for_squad_id
+	var needs_rebuild := squad_changed
 	if not needs_rebuild and squad != null:
 		needs_rebuild = squad.member_ids.size() != _shown_member_count \
 			or squad.cargo_squad_ids.size() != _shown_cargo_count \
@@ -114,6 +128,8 @@ func _process(delta: float) -> void:
 	if needs_rebuild:
 		_shown_for_squad_id = target_id
 		_rebuild(squad)
+		if squad_changed and visible:
+			UIJuice.pop_in(self)
 	if not visible:
 		return
 	for updater in _live_updaters:
@@ -207,7 +223,7 @@ func _build_merge_row(squad: SquadInstance) -> void:
 	var action := func():
 		var donor := UIEligibility.find_merge_donor(state, squad)
 		if donor != null:
-			state.command_queue.submit(state, "merge_squads", [squad.id, donor.id, owner_id], owner_id)
+			input_controller.submitter.submit("merge_squads", [squad.id, donor.id, owner_id], owner_id)
 	var button := UITheme.action_button("Merge Squads", "")
 	button.pressed.connect(func(): _handle_press(reason_fn, action))
 	_content.add_child(button)
@@ -260,7 +276,7 @@ func _build_cargo_menu(squad: SquadInstance, _def: Dictionary) -> void:
 			var odef: Dictionary = state.troop_defs.get(boarding.troop_type, {})
 			var name := String(odef.get("name", boarding.troop_type.capitalize()))
 			var button := UITheme.action_button("Load %s (%d)" % [name, boarding.member_ids.size()], UITheme.PRIMARY)
-			button.pressed.connect(func(): state.command_queue.submit(state, "board_cargo", [squad.id, boarding.id, owner_id], owner_id))
+			button.pressed.connect(func(): input_controller.submitter.submit("board_cargo", [squad.id, boarding.id, owner_id], owner_id))
 			_content.add_child(button)
 
 	if squad.cargo_squad_ids.is_empty():
@@ -276,7 +292,7 @@ func _build_cargo_menu(squad: SquadInstance, _def: Dictionary) -> void:
 		var button := UITheme.action_button("Unload %s" % name, "")
 		button.pressed.connect(func():
 			var target := _unload_target(squad)
-			state.command_queue.submit(state, "unload_cargo", [squad.id, boarded_id, target, owner_id], owner_id))
+			input_controller.submitter.submit("unload_cargo", [squad.id, boarded_id, target, owner_id], owner_id))
 		_content.add_child(button)
 
 ## Friendly squads this carrier can board right now (CargoSystem.can_board holds
@@ -310,6 +326,7 @@ func _unload_target(carrier: SquadInstance) -> HexCoord:
 func _add_action_row(label_text: String, named_cost: Dictionary, time_seconds: float, variation: String, reason_fn: Callable, action: Callable) -> void:
 	var row := VBoxContainer.new()
 	row.add_theme_constant_override("separation", 2)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	var button := UITheme.action_button(label_text, variation)
 	button.pressed.connect(func(): _handle_press(reason_fn, action))
 	row.add_child(button)

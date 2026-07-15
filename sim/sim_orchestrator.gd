@@ -23,6 +23,7 @@ extends RefCounted
 
 static func resolve_tick(state: MatchState, dt: float) -> void:
 	state.tick += 1
+	state.command_queue.drain_due(state, state.tick)
 	var auras := AuraSystem.resolve_tick(state.squads, state.bases, state.troop_defs, state.building_defs, state.regiments)
 	_resolve_fine_tick(state, dt, auras)
 
