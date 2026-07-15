@@ -30,7 +30,7 @@ func _init() -> void:
 	var bar := ResourceBar.new()
 	bar.theme = host.theme
 	host.add_child(bar)
-	bar.setup(state, "p0")
+	bar.setup(state, "p0", InputController.new())
 
 	print("  ok   setup (expanded=%s, breakdown visible=%s)" % [bar._breakdown_expanded, bar._breakdown_panel.visible])
 
