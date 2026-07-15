@@ -48,7 +48,8 @@ const CAM_REDRAW_COOLDOWN_SECONDS := 0.1
 const SIZE := Vector2(220.0, 220.0)
 const MARGIN := 12.0
 const BG_COLOR := Color(0.05, 0.05, 0.08, 0.85)
-const BORDER_COLOR := Color(1.0, 1.0, 1.0, 0.6)
+const BORDER_COLOR := UITheme.PANEL_BORDER
+const BORDER_WIDTH := 4.0
 const BASE_RADIUS := 4.0
 const SQUAD_RADIUS := 2.0
 const VIEWPORT_COLOR := Color(1.0, 1.0, 1.0, 0.5)
@@ -132,7 +133,7 @@ func _draw() -> void:
 			var color: Color = owner_colors.get(squad.owner_id, Color.WHITE)
 			draw_circle(_world_to_local(HexView.axial_to_pixel(squad.current_hex)), SQUAD_RADIUS, color)
 	_draw_viewport_rect()
-	draw_rect(Rect2(Vector2.ZERO, SIZE), BORDER_COLOR, false, 1.5)
+	draw_rect(Rect2(Vector2.ZERO, SIZE), BORDER_COLOR, false, BORDER_WIDTH)
 
 ## Mirrors squad_view.gd's _is_renderable exactly (own squads always shown;
 ## an enemy one only while currently visible and not hidden by stealth/

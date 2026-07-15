@@ -30,6 +30,10 @@ signal connection_failed(reason: String)
 const DEFAULT_PORT := 24545
 const MAX_PLAYERS := 6
 const HEX_ARG_PREFIX := "@hex:"
+## ENet's own connect timeout is up to ~30s (silently dropped packets, no
+## ICMP refusal on most setups) — way too long to sit on "Connecting..." when
+## there's simply no server listening. We give up sooner and report failure.
+const JOIN_TIMEOUT_SEC := 5.0
 
 var is_host: bool = false
 var local_owner_id: String = ""
@@ -66,7 +70,19 @@ func join(ip: String, port: int, player_name: String, capital_name: String) -> E
 	is_host = false
 	_pending_name = player_name
 	_pending_capital_name = capital_name
+	get_tree().create_timer(JOIN_TIMEOUT_SEC).timeout.connect(_on_join_timeout.bind(peer))
 	return OK
+
+## Fires JOIN_TIMEOUT_SEC after join() regardless of outcome; the `peer` bind
+## lets it recognize a stale timer from an earlier/abandoned join attempt
+## (multiplayer.multiplayer_peer will have moved on) and no-op instead of
+## misreporting a since-succeeded or since-replaced connection.
+func _on_join_timeout(peer: ENetMultiplayerPeer) -> void:
+	if multiplayer.multiplayer_peer != peer:
+		return
+	if peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		connection_failed.emit("no response from server")
+		leave()
 
 ## Called by the start screen when the name/capital-name fields are edited
 ## while already connected. Host applies directly and rebroadcasts; a client

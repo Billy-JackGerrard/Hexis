@@ -102,9 +102,10 @@ func _refresh() -> void:
 	for child in _list.get_children():
 		child.queue_free()
 	for alert in alerts:
-		var button := Button.new()
-		button.text = alert["label"]
+		var button := UITheme.action_button(alert["label"])
 		button.add_theme_color_override("font_color", alert["color"])
+		button.add_theme_color_override("font_hover_color", alert["color"])
+		button.add_theme_color_override("font_pressed_color", alert["color"])
 		var hex: HexCoord = alert["hex"]
 		button.pressed.connect(func(): camera_controller.center_on(HexView.axial_to_pixel(hex)))
 		_list.add_child(button)
@@ -113,3 +114,5 @@ func _refresh() -> void:
 	# alert count, same "recompute the anchored-corner extent on rebuild"
 	# approach the old dynamic button-list panels used.
 	offset_top = -MARGIN - alerts.size() * 40.0 - 16.0
+	if visible:
+		UIJuice.pop_in(_panel)

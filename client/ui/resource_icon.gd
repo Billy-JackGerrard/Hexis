@@ -84,7 +84,7 @@ func _draw_drop(c: Vector2, r: float, fill: Color, outline: Color) -> void:
 	for i in range(steps + 1):
 		var t := float(i) / float(steps) * TAU
 		# Teardrop: circle bottom, pinched point at top.
-		var wobble := 1.0 - 0.5 * max(0.0, cos(t))
+		var wobble: float = 1.0 - 0.5 * maxf(0.0, cos(t))
 		var pt := c + Vector2(sin(t) * r * 0.7 * wobble, -cos(t) * r * 0.85)
 		points.append(pt)
 	draw_colored_polygon(points, outline)

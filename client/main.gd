@@ -156,8 +156,8 @@ func _start_game() -> void:
 	camera_controller.center_on(HexView.axial_to_pixel(_local_capital_hex))
 
 	if lockstep_driver != null:
-		_waiting_label = Label.new()
-		_waiting_label.text = "Waiting for players…"
+		_waiting_label = UITheme.body_label("Waiting for players…")
+		_waiting_label.theme = hud_layer.theme
 		_waiting_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_waiting_label.anchor_right = 1.0
 		_waiting_label.offset_top = 16.0
@@ -166,12 +166,11 @@ func _start_game() -> void:
 		add_child(waiting_layer)
 		waiting_layer.add_child(_waiting_label)
 
-		_desync_label = Label.new()
-		_desync_label.text = ""
+		_desync_label = UITheme.danger_label("")
+		_desync_label.theme = hud_layer.theme
 		_desync_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_desync_label.anchor_right = 1.0
 		_desync_label.offset_top = 48.0
-		_desync_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
 		var desync_layer := CanvasLayer.new()
 		add_child(desync_layer)
 		desync_layer.add_child(_desync_label)

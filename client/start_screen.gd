@@ -34,6 +34,7 @@ const DEFAULT_JOIN_IP := "127.0.0.1"
 const MIN_MATCH_PLAYERS := 2
 
 var _net: NetManager
+var _lan_discovery: LanDiscovery
 
 var _name_edit: LineEdit
 var _capital_name_edit: LineEdit
@@ -42,6 +43,7 @@ var _multiplayer_row: HBoxContainer
 var _mp_setup_row: VBoxContainer
 var _join_ip_edit: LineEdit
 var _join_port_edit: LineEdit
+var _server_list_container: VBoxContainer
 var _lobby_panel: VBoxContainer
 var _host_info_column: VBoxContainer
 var _host_info_label: Label
@@ -54,6 +56,9 @@ func setup(net_manager: NetManager) -> void:
 	_net = net_manager
 	_net.roster_updated.connect(_on_roster_updated)
 	_net.connection_failed.connect(_on_connection_failed)
+	_lan_discovery = LanDiscovery.new()
+	add_child(_lan_discovery)
+	_lan_discovery.servers_updated.connect(_on_servers_updated)
 	var root := Control.new()
 	root.anchor_right = 1.0
 	root.anchor_bottom = 1.0
@@ -61,8 +66,17 @@ func setup(net_manager: NetManager) -> void:
 	root.theme = UITheme.create_theme()
 	add_child(root)
 
-	var bg := ColorRect.new()
-	bg.color = UITheme.BG
+	# Bright vertical candy-sky gradient rather than a flat fill.
+	var gradient := Gradient.new()
+	gradient.set_color(0, UITheme.BG.lightened(0.15))
+	gradient.set_color(1, UITheme.BG.darkened(0.25))
+	var gradient_texture := GradientTexture2D.new()
+	gradient_texture.gradient = gradient
+	gradient_texture.fill_from = Vector2(0, 0)
+	gradient_texture.fill_to = Vector2(0, 1)
+	var bg := TextureRect.new()
+	bg.texture = gradient_texture
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
 	bg.anchor_right = 1.0
 	bg.anchor_bottom = 1.0
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -76,6 +90,7 @@ func setup(net_manager: NetManager) -> void:
 	# A themed card so the menu reads as one styled surface, not loose controls.
 	var card := UITheme.panel()
 	center.add_child(card)
+	UIJuice.pop_in(card)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 28)
@@ -90,10 +105,11 @@ func setup(net_manager: NetManager) -> void:
 	margin.add_child(vbox)
 
 	var title := UITheme.title_label("HEXIS")
-	title.add_theme_font_size_override("font_size", 48)
+	title.add_theme_font_size_override("font_size", 56)
 	title.add_theme_color_override("font_color", UITheme.ACCENT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
+	_start_title_wobble(title)
 
 	var tagline := UITheme.subtitle_label("Hex-grid real-time strategy")
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -144,6 +160,11 @@ func setup(net_manager: NetManager) -> void:
 	host_button.pressed.connect(_on_host_pressed)
 	_mp_setup_row.add_child(host_button)
 
+	_server_list_container = VBoxContainer.new()
+	_server_list_container.add_theme_constant_override("separation", 6)
+	_mp_setup_row.add_child(_server_list_container)
+	_refresh_server_list({})
+
 	var divider := UITheme.subtitle_label("— or join one —")
 	divider.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mp_setup_row.add_child(divider)
@@ -174,9 +195,13 @@ func setup(net_manager: NetManager) -> void:
 	join_button.pressed.connect(_on_join_pressed)
 	_mp_setup_row.add_child(join_button)
 
-	var setup_back_button := Button.new()
-	setup_back_button.text = "Back"
+	var setup_back_button := UITheme.action_button("Back")
 	setup_back_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# clip_text (set by action_button) makes get_minimum_size() ignore text
+	# width entirely — fine for EXPAND_FILL buttons that get stretched by
+	# their row, but SHRINK_CENTER sizes this one to its own minimum, which
+	# collapsed to just the stylebox margins and clipped "Back" to nothing.
+	setup_back_button.clip_text = false
 	setup_back_button.pressed.connect(_on_back_pressed)
 	_mp_setup_row.add_child(setup_back_button)
 
@@ -237,14 +262,27 @@ func setup(net_manager: NetManager) -> void:
 	_start_match_button.pressed.connect(_on_start_match_pressed)
 	lobby_buttons.add_child(_start_match_button)
 
-	var leave_button := Button.new()
-	leave_button.text = "Leave Lobby"
+	var leave_button := UITheme.action_button("Leave Lobby")
 	leave_button.pressed.connect(_on_leave_lobby_pressed)
 	lobby_buttons.add_child(leave_button)
 
-	_status_label = Label.new()
+	_status_label = UITheme.muted_label("")
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(_status_label)
+
+## Idle "sticker wobble" for the title — a small back-and-forth rotation,
+## looping forever. Pivot is set on the deferred call once CenterContainer/
+## VBoxContainer layout has actually sized the label (it's 0-size the instant
+## it's added).
+func _start_title_wobble(title: Label) -> void:
+	title.set_deferred("pivot_offset", title.size / 2.0)
+	call_deferred("_loop_title_wobble", title)
+
+func _loop_title_wobble(title: Label) -> void:
+	var tween := title.create_tween()
+	tween.set_loops()
+	tween.tween_property(title, "rotation", deg_to_rad(-3.0), 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(title, "rotation", deg_to_rad(3.0), 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 func _resolve_player_name() -> String:
 	var player_name := _name_edit.text.strip_edges()
@@ -272,18 +310,41 @@ func _on_multiplayer_pressed() -> void:
 	_multiplayer_row.visible = true
 	_mp_setup_row.visible = true
 	_lobby_panel.visible = false
+	_lan_discovery.start_browsing()
 
 func _on_back_pressed() -> void:
 	_multiplayer_row.visible = false
 	_mp_setup_row.visible = false
 	_mode_row.visible = true
 	_status_label.text = ""
+	_lan_discovery.stop_browsing()
 
 func _on_host_pressed() -> void:
-	var err := _net.host(NetManager.DEFAULT_PORT, _resolve_player_name(), _resolve_capital_name())
+	var player_name := _resolve_player_name()
+	var capital_name := _resolve_capital_name()
+	var err := _net.host(NetManager.DEFAULT_PORT, player_name, capital_name)
 	if err != OK:
 		_status_label.text = "Failed to host (error %d)" % err
 		return
+	_lan_discovery.stop_browsing()
+	_lan_discovery.start_announcing({
+		"name": player_name,
+		"capital_name": capital_name,
+		"player_count": _net.roster.size(),
+		"max_players": NetManager.MAX_PLAYERS,
+		"port": NetManager.DEFAULT_PORT,
+	})
+	_show_lobby()
+
+## Shared by the manual Join Server button and clicking a discovered-server
+## row (_on_server_row_pressed) — same connect path either way.
+func _join(ip: String, port: int) -> void:
+	var err := _net.join(ip, port, _resolve_player_name(), _resolve_capital_name())
+	if err != OK:
+		_status_label.text = "Failed to connect (error %d)" % err
+		return
+	_status_label.text = "Connecting..."
+	_lan_discovery.stop_browsing()
 	_show_lobby()
 
 func _on_join_pressed() -> void:
@@ -294,21 +355,26 @@ func _on_join_pressed() -> void:
 	var port_text := _join_port_edit.text.strip_edges()
 	if not port_text.is_empty():
 		port = int(port_text)
-	var err := _net.join(ip, port, _resolve_player_name(), _resolve_capital_name())
-	if err != OK:
-		_status_label.text = "Failed to connect (error %d)" % err
-		return
-	_status_label.text = "Connecting..."
-	_show_lobby()
+	_join(ip, port)
+
+func _on_server_row_pressed(ip: String, port: int) -> void:
+	_join_ip_edit.text = ip
+	_join_port_edit.text = str(port)
+	_join(ip, port)
 
 func _on_start_match_pressed() -> void:
+	_lan_discovery.stop_announcing()
 	_net.start_match(randi())
 
 func _on_leave_lobby_pressed() -> void:
+	var was_host := _net.is_host
 	_net.leave()
 	_status_label.text = ""
 	_lobby_panel.visible = false
 	_mp_setup_row.visible = true
+	if was_host:
+		_lan_discovery.stop_announcing()
+	_lan_discovery.start_browsing()
 
 func _show_lobby() -> void:
 	_mp_setup_row.visible = false
@@ -322,11 +388,47 @@ func _show_lobby() -> void:
 func _on_roster_updated(_roster: Dictionary) -> void:
 	_status_label.text = ""
 	_refresh_lobby_list()
+	if _net.is_host:
+		_lan_discovery.update_announce_info({
+			"name": _resolve_player_name(),
+			"capital_name": _resolve_capital_name(),
+			"player_count": _net.roster.size(),
+			"max_players": NetManager.MAX_PLAYERS,
+			"port": NetManager.DEFAULT_PORT,
+		})
 
 func _on_connection_failed(reason: String) -> void:
 	_status_label.text = "Connection failed: %s" % reason
 	_lobby_panel.visible = false
 	_mp_setup_row.visible = true
+	_lan_discovery.start_browsing()
+
+## Discovered LAN hosts, minus ones you can't actually join: match already
+## started (that host's announce would already have stopped, but a stale
+## packet could still be in flight) or the roster is already full.
+func _on_servers_updated(servers: Dictionary) -> void:
+	var joinable := {}
+	for key in servers:
+		var info: Dictionary = servers[key]
+		if int(info.get("player_count", 0)) < int(info.get("max_players", 0)):
+			joinable[key] = info
+	_refresh_server_list(joinable)
+
+func _refresh_server_list(servers: Dictionary) -> void:
+	for row in _server_list_container.get_children():
+		row.queue_free()
+
+	if servers.is_empty():
+		_server_list_container.add_child(UITheme.muted_label("Searching for LAN servers…"))
+		return
+
+	var keys := servers.keys()
+	keys.sort()
+	for key in keys:
+		var info: Dictionary = servers[key]
+		var row := UITheme.action_button("%s — %s (%d/%d)" % [info["name"], info["capital_name"], info["player_count"], info["max_players"]])
+		row.pressed.connect(_on_server_row_pressed.bind(info["ip"], int(info["port"])))
+		_server_list_container.add_child(row)
 
 func _refresh_lobby_list() -> void:
 	for row in _lobby_list_container.get_children():

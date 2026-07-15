@@ -51,3 +51,5 @@ HQ could unlock more buildings as it gets upgraded, rather than allowing all bui
 
 
 could have a box to put seed in?
+
+commander centre could contribute to squad cap
