@@ -57,9 +57,19 @@ func _process(delta: float) -> void:
 	# hexes at once (bigger on zoom-out, since the viewport suddenly covers
 	# far more world), so any zoom change always forces an immediate redraw.
 	var cam_zoom_changed := cam_zoom != _last_cam_zoom
-	# Trigger at half the margin, not the full margin — leaves a cushion
-	# instead of forcing the redraw exactly as the buffer runs out.
-	var cam_outran_margin := cam_pos.distance_to(_last_cam_pos) >= MARGIN_HEXES * HexView.HEX_SIZE / cam_zoom.x * 0.5
+	# Triggering at the full margin (zero slack) flashes: queue_redraw()'s
+	# result doesn't land until next frame, so the exact-margin trigger point
+	# has no room for that one frame of latency. Need a cushion — but a small
+	# one (frequent, eager redraws) is only "free" where each redraw is
+	# cheap, i.e. at normal zoom and zoomed in, where the culled draw pass
+	# covers little of the map. Zoomed out, the same eager cushion was the
+	# earlier lag: every one of those extra redraws is pricier because far
+	# more hexes fall inside a zoomed-out visible_rect. So only relax the
+	# cushion below default zoom, where the up-front margin is already at
+	# its screen-space widest and can afford to be spent further before
+	# forcing a catch-up redraw.
+	var cushion_fraction := 1.0 if cam_zoom.x < 0.9 else 0.5
+	var cam_outran_margin := cam_pos.distance_to(_last_cam_pos) >= MARGIN_HEXES * HexView.HEX_SIZE / cam_zoom.x * cushion_fraction
 	if not tick_changed and not cam_changed:
 		return
 	if not tick_changed and not cam_zoom_changed and _cam_redraw_cooldown > 0.0 and not cam_outran_margin:

@@ -48,3 +48,6 @@ Hex size (rendering) — client/hex_view.gd:9, flat-top hexes, HEX_SIZE = 32.0 (
 
 
 HQ could unlock more buildings as it gets upgraded, rather than allowing all buildings be built at the start.
+
+
+could have a box to put seed in?
