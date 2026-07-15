@@ -88,7 +88,7 @@ static func _advance_production(state: MatchState, dt: float) -> void:
 		if building.is_ruin or (building.max_hp > 0.0 and building.current_hp <= 0.0):
 			continue
 
-		ProductionManager.advance(queue, dt)
+		ProductionManager.advance(queue, dt, state.troop_defs, state.pool_for(base.owner_id))
 		ProductionManager.pump(
 			queue,
 			base.owner_id,

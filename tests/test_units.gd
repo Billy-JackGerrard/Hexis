@@ -173,6 +173,30 @@ func _test_production_queue() -> void:
 	_check(queue.entries[0]["remaining"] == remaining_before, "advance is a no-op while paused")
 	queue.paused = false
 
+	# lazy payment: an entry queued behind others (cost_paid false) doesn't
+	# tick down until advance() can actually pay for it -- omitting pool
+	# above kept every prior entry auto-paid, so this needs it explicitly.
+	var rifleman_cost := ResourceType.dict_from_named(troop_defs["rifleman"].get("cost", {}))
+	var poor_pool := ResourcePool.new()
+	for type in rifleman_cost:
+		poor_pool.set_amount(type, 0.0)
+	var pay_queue := ProductionQueue.new("barracks1")
+	ProductionManager.enqueue(pay_queue, "rifleman", troop_defs)
+	ProductionManager.advance(pay_queue, 5.0, troop_defs, poor_pool)
+	_check(pay_queue.paused, "advance pauses an unpaid front entry it can't afford")
+	_check(pay_queue.pause_reason == "insufficient_resources", "pause_reason is insufficient_resources")
+	_check(pay_queue.entries[0]["remaining"] == rifleman_production_time, "the unpaid entry's timer doesn't move while it can't be paid for")
+	_check(not bool(pay_queue.entries[0]["cost_paid"]), "still unpaid")
+
+	for type in rifleman_cost:
+		poor_pool.set_amount(type, float(rifleman_cost[type]))
+	ProductionManager.advance(pay_queue, 5.0, troop_defs, poor_pool)
+	_check(not pay_queue.paused, "advance clears the pause once the entry can be paid for")
+	_check(bool(pay_queue.entries[0]["cost_paid"]), "cost_paid flips true once spent")
+	_check(pay_queue.entries[0]["remaining"] == max(0.0, rifleman_production_time - 5.0), "the same advance() call that pays also ticks the timer")
+	for type in rifleman_cost:
+		_check(poor_pool.get_amount(type) == 0.0, "paying spent the full cost out of the pool")
+
 	# completion joins an in-range squad with room, bypassing the cap entirely
 	var other_a := SquadInstance.new("oa", "p1", "grenadier", spawn_hex)
 	var other_b := SquadInstance.new("ob", "p1", "grenadier", spawn_hex)

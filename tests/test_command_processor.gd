@@ -667,10 +667,17 @@ func _test_queue_adjust() -> void:
 	state.pool_for("p1").set_amount(ResourceType.Type.FOOD, 1000.0)
 	var rifleman_food_cost: float = float(_troop_defs["rifleman"].get("cost", {}).get("food", 0.0))
 
-	for i in range(3):
+	# Only the first (queue was empty) is charged immediately; the 2nd and
+	# 3rd queue in behind it unpaid, per enqueue_production's lazy-payment
+	# rule for anything that isn't starting training right now.
+	CommandProcessor.enqueue_production(state, barracks.id, "rifleman", "p1")
+	var after_first_pool := state.pool_for("p1").get_amount(ResourceType.Type.FOOD)
+	_check(after_first_pool == 1000.0 - rifleman_food_cost, "the first (queue-empty) enqueue spends its Food cost immediately")
+	for i in range(2):
 		CommandProcessor.enqueue_production(state, barracks.id, "rifleman", "p1")
 	var queue: ProductionQueue = state.production_queues[barracks.id]
 	_check(queue.entries.size() == 3, "3 riflemen queued")
+	_check(state.pool_for("p1").get_amount(ResourceType.Type.FOOD) == after_first_pool, "queuing behind an occupied queue spends nothing yet")
 	var before_pool := state.pool_for("p1").get_amount(ResourceType.Type.FOOD)
 
 	_check(CommandProcessor.dequeue_production(state, barracks.id, 0, "p1") == CommandProcessor.Result.INVALID, "index 0 -- the actively-training entry -- can't be cancelled")
@@ -680,13 +687,17 @@ func _test_queue_adjust() -> void:
 	var removed := CommandProcessor.dequeue_production(state, barracks.id, 2, "p1")
 	_check(removed == CommandProcessor.Result.OK, "-1 on the last queued entry succeeds")
 	_check(queue.entries.size() == 2, "queue shrank by one")
-	_check(state.pool_for("p1").get_amount(ResourceType.Type.FOOD) == before_pool + rifleman_food_cost, "-1 refunded the troop's Food cost")
+	_check(state.pool_for("p1").get_amount(ResourceType.Type.FOOD) == before_pool, "-1 refunds nothing -- the cancelled entry was never charged")
 
 	var added := CommandProcessor.enqueue_production_after(state, barracks.id, "rifleman", 1, "p1")
 	_check(added == CommandProcessor.Result.OK, "+1 after the last rifleman entry succeeds")
 	_check(queue.entries.size() == 3, "queue grew by one")
 	_check(String(queue.entries[2].get("troop_type", "")) == "rifleman", "+1 inserted right after the run it was clicked from")
+	_check(state.pool_for("p1").get_amount(ResourceType.Type.FOOD) == before_pool, "+1 spends nothing up front either")
 
+	# The queue is occupied (entries[0] is still mid-training), so +1 must
+	# succeed even with zero Food on hand -- it'll only be gated for real once
+	# it reaches the front and ProductionManager.advance tries to pay for it.
 	state.pool_for("p1").set_amount(ResourceType.Type.FOOD, 0.0)
 	var poor := CommandProcessor.enqueue_production_after(state, barracks.id, "rifleman", 1, "p1")
-	_check(poor == CommandProcessor.Result.INSUFFICIENT_RESOURCES, "+1 without enough resources is rejected, same afford gate as enqueue_production")
+	_check(poor == CommandProcessor.Result.OK, "+1 succeeds with zero resources as long as the queue is occupied")

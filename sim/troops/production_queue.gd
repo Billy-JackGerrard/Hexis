@@ -13,11 +13,15 @@ class_name ProductionQueue
 extends RefCounted
 
 var building_id: String
-## FIFO; each entry is { troop_type: String, production_time: float, remaining: float }.
+## FIFO; each entry is { troop_type: String, production_time: float, remaining: float, cost_paid: bool }.
 ## entries[0] is the one currently training (or held complete, if paused).
+## cost_paid is true once the troop's resource cost has actually been spent —
+## upfront at enqueue time for the entry that starts training immediately
+## (queue was empty), lazily by ProductionManager.advance() for every entry
+## queued behind others, the moment it becomes entries[0].
 var entries: Array[Dictionary] = []
 var paused: bool = false
-var pause_reason: String = "" ## "" | "squad_cap" | "commander_cap" | "fuel_deficit"
+var pause_reason: String = "" ## "" | "squad_cap" | "commander_cap" | "fuel_deficit" | "insufficient_resources"
 
 func _init(p_building_id: String) -> void:
 	building_id = p_building_id

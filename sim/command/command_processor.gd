@@ -323,10 +323,6 @@ static func _spend(pool: ResourcePool, cost: Dictionary) -> void:
 	for type in cost:
 		pool.add(type, -float(cost[type]))
 
-static func _refund(pool: ResourcePool, cost: Dictionary) -> void:
-	for type in cost:
-		pool.add(type, float(cost[type]))
-
 static func place_building(state: MatchState, base_id: String, building_type: String, hex: HexCoord, material: String, owner_id: String) -> BuildingPlacement.Result:
 	var base := state.find_base(base_id)
 	if base == null:
@@ -627,9 +623,15 @@ static func can_enqueue_production(state: MatchState, building_id: String, troop
 	if not _troop_unlocked(state, building, building_def, troop_type):
 		return Result.NOT_UNLOCKED
 
-	var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
-	if not _can_afford(state.pool_for(owner_id), cost):
-		return Result.INSUFFICIENT_RESOURCES
+	# Cost is only checked/spent up front when this order would start training
+	# immediately (queue empty) -- an order queued behind others pays lazily
+	# once it reaches the front (ProductionManager.advance), so it's never
+	# rejected for insufficient resources here; see enqueue_production.
+	var queue: ProductionQueue = state.production_queues.get(building_id)
+	if queue == null or queue.is_empty():
+		var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
+		if not _can_afford(state.pool_for(owner_id), cost):
+			return Result.INSUFFICIENT_RESOURCES
 
 	var troop_def: Dictionary = state.troop_defs.get(troop_type, {})
 	var max_squad_size: int = int(troop_def.get("maxSquadSize", 1))
@@ -657,12 +659,19 @@ static func enqueue_production(state: MatchState, building_id: String, troop_typ
 	if check != Result.OK:
 		return check
 
-	var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
-	_spend(state.pool_for(owner_id), cost)
-
 	if not state.production_queues.has(building_id):
 		state.production_queues[building_id] = ProductionQueue.new(building_id)
-	ProductionManager.enqueue(state.production_queues[building_id], troop_type, state.troop_defs)
+	var queue: ProductionQueue = state.production_queues[building_id]
+
+	# Queue empty -> this entry starts training immediately, so its cost is
+	# spent now, synchronously with the command. Queue occupied -> this entry
+	# waits its turn and pays lazily when it reaches the front (see
+	# ProductionManager.advance), same as the +1 button.
+	var starts_immediately := queue.is_empty()
+	if starts_immediately:
+		var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
+		_spend(state.pool_for(owner_id), cost)
+	ProductionManager.enqueue(queue, troop_type, state.troop_defs, starts_immediately)
 	return Result.OK
 
 ## Pure predicate behind dequeue_production — index 0 is always rejected: it's
@@ -681,14 +690,15 @@ static func can_dequeue_production(state: MatchState, building_id: String, index
 		return Result.INVALID
 	return Result.OK
 
+## No refund here: index 0 (the only entry ever charged before completion) is
+## always rejected above, so every cancellable entry is one that's still
+## queued unpaid -- nothing was ever spent on it, per enqueue_production's
+## lazy-payment rule.
 static func dequeue_production(state: MatchState, building_id: String, index: int, owner_id: String) -> Result:
 	var check := can_dequeue_production(state, building_id, index, owner_id)
 	if check != Result.OK:
 		return check
 	var queue: ProductionQueue = state.production_queues[building_id]
-	var troop_type := String(queue.entries[index].get("troop_type", ""))
-	var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
-	_refund(state.pool_for(owner_id), cost)
 	ProductionManager.remove_at(queue, index)
 	return Result.OK
 
@@ -708,11 +718,12 @@ static func can_enqueue_production_after(state: MatchState, building_id: String,
 		return Result.INVALID
 	return Result.OK
 
+## Never spends up front: the entry it inserts is always behind entries[0]
+## (it's a copy of an already-queued run), so it pays lazily like any other
+## queued entry once it reaches the front -- see enqueue_production.
 static func enqueue_production_after(state: MatchState, building_id: String, troop_type: String, index: int, owner_id: String) -> Result:
 	var check := can_enqueue_production_after(state, building_id, troop_type, index, owner_id)
 	if check != Result.OK:
 		return check
-	var cost := ResourceType.dict_from_named(state.troop_defs.get(troop_type, {}).get("cost", {}))
-	_spend(state.pool_for(owner_id), cost)
 	ProductionManager.insert_after(state.production_queues[building_id], index, troop_type, state.troop_defs)
 	return Result.OK

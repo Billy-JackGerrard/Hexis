@@ -20,13 +20,20 @@
 class_name ProductionManager
 extends RefCounted
 
-static func enqueue(queue: ProductionQueue, troop_type: String, troop_defs: Dictionary) -> void:
+## `cost_paid` is true only for the entry that starts training immediately
+## (the queue was empty, so CommandProcessor already spent its cost
+## synchronously with the command) — every other entry is queued unpaid and
+## pays lazily in advance() once it reaches entries[0], per 07-data-
+## architecture.md 3b's "resources reserve when training starts, not when
+## queued" rule.
+static func enqueue(queue: ProductionQueue, troop_type: String, troop_defs: Dictionary, cost_paid: bool = false) -> void:
 	var troop_def: Dictionary = troop_defs.get(troop_type, {})
 	var production_time: float = float(troop_def.get("productionTime", 0.0))
 	queue.entries.append({
 		"troop_type": troop_type,
 		"production_time": production_time,
 		"remaining": production_time,
+		"cost_paid": cost_paid,
 	})
 
 ## Inserts one more `troop_type` right after `index` — used for the per-entry
@@ -39,6 +46,7 @@ static func insert_after(queue: ProductionQueue, index: int, troop_type: String,
 		"troop_type": troop_type,
 		"production_time": production_time,
 		"remaining": production_time,
+		"cost_paid": false,
 	})
 
 ## Drops queue.entries[index] outright (used for the per-entry -1 button).
@@ -47,12 +55,48 @@ static func insert_after(queue: ProductionQueue, index: int, troop_type: String,
 static func remove_at(queue: ProductionQueue, index: int) -> void:
 	queue.entries.remove_at(index)
 
-## Ticks down entries[0] only (FIFO — later entries wait their turn). No-op
-## while paused or empty.
-static func advance(queue: ProductionQueue, dt: float) -> void:
-	if queue.paused or queue.is_empty():
+static func _can_afford(pool: ResourcePool, cost: Dictionary) -> bool:
+	for type in cost:
+		if pool.get_amount(type) < float(cost[type]):
+			return false
+	return true
+
+static func _spend(pool: ResourcePool, cost: Dictionary) -> void:
+	for type in cost:
+		pool.add(type, -float(cost[type]))
+
+## Ticks down entries[0] only (FIFO — later entries wait their turn).
+##
+## An entry queued behind others (cost_paid false) hasn't been charged yet —
+## before it can start counting down, this tries to spend its cost here, the
+## moment it becomes entries[0]. Affordable: spend it, mark cost_paid, clear
+## any insufficient_resources pause, and fall through to tick this same call.
+## Not affordable: pause (insufficient_resources) and leave `remaining`
+## untouched, so it doesn't start training on credit — the +1 button that
+## queued it always succeeds regardless of funds, but the resources still
+## have to actually appear before the timer moves.
+##
+## `troop_defs`/`pool` default null so callers that only care about timer
+## mechanics (existing tests, cap-math-only pumps) can omit them — omitting
+## either treats the front entry as already paid, same as pre-lazy-payment
+## behavior.
+static func advance(queue: ProductionQueue, dt: float, troop_defs: Dictionary = {}, pool: ResourcePool = null) -> void:
+	if queue.is_empty():
 		return
 	var entry: Dictionary = queue.front()
+	if pool != null and not bool(entry.get("cost_paid", false)):
+		var troop_type: String = entry.get("troop_type", "")
+		var cost := ResourceType.dict_from_named(troop_defs.get(troop_type, {}).get("cost", {}))
+		if not _can_afford(pool, cost):
+			queue.paused = true
+			queue.pause_reason = "insufficient_resources"
+			return
+		_spend(pool, cost)
+		entry["cost_paid"] = true
+		queue.paused = false
+		queue.pause_reason = ""
+	if queue.paused:
+		return
 	entry["remaining"] = max(0.0, float(entry.get("remaining", 0.0)) - dt)
 
 ## Deploys every already-complete front entry it can, stopping at the first
