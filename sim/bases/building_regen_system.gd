@@ -21,10 +21,10 @@ static func resolve_tick(dt: float, bases: Array[BaseInstance]) -> void:
 static func _regen(building: BuildingInstance, dt: float) -> void:
 	if building.max_hp <= 0.0 or building.is_ruin or building.current_hp <= 0.0:
 		return
+	building.time_since_damage += dt
 	if building.current_hp >= building.max_hp:
 		building.regen_progress = 0.0
 		return
-	building.time_since_damage += dt
 	if building.time_since_damage < Tuning.BUILDING_REGEN_OUT_OF_COMBAT_DELAY_SECONDS:
 		return
 	building.regen_progress += dt

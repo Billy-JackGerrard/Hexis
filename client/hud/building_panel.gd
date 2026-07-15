@@ -288,7 +288,7 @@ func _build_level_section(building: BuildingInstance, def: Dictionary, hq_level:
 		var material := building.material
 		_add_action_row("Rebuild", scaled, -1.0, UITheme.PRIMARY,
 			func(): return _rebuild_reason(def, material, hq_level),
-			func(): CommandProcessor.rebuild_building(state, _shown_for_building_id, owner_id))
+			func(): input_controller.submitter.submit("rebuild_building", [_shown_for_building_id, owner_id], owner_id))
 		return
 
 	_content.add_child(UITheme.body_label("Level %d" % building.level))
@@ -298,7 +298,7 @@ func _build_level_section(building: BuildingInstance, def: Dictionary, hq_level:
 	var cost := BuildingStats.upgrade_cost(def, building.level, building.material, state.building_defs)
 	_add_action_row("Upgrade", cost, -1.0, UITheme.PRIMARY,
 		func(): return UIEligibility.upgrade_reason(state, _shown_for_building_id, owner_id),
-		func(): CommandProcessor.upgrade_building(state, _shown_for_building_id, owner_id))
+		func(): input_controller.submitter.submit("upgrade_building", [_shown_for_building_id, owner_id], owner_id))
 
 # --- Build menu (HQ) --------------------------------------------------------
 
@@ -456,7 +456,7 @@ func _build_troop_row(display_name: String, troop_type: String, cost: Dictionary
 
 	var train_button := UITheme.action_button("Train", UITheme.PRIMARY)
 	train_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	train_button.custom_minimum_size = Vector2(80, 0)
+	train_button.custom_minimum_size = Vector2(110, 0)
 	var action := func(): input_controller.submitter.submit("enqueue_production", [building_id, troop_type, owner_id], owner_id)
 	train_button.pressed.connect(func(): _handle_press(reason_fn, action))
 	row.add_child(train_button)
@@ -572,13 +572,13 @@ func _add_queue_buttons(row: HBoxContainer, building_id: String, troop_type: Str
 	if run_len > 1:
 		var minus := UITheme.action_button("-1", "")
 		minus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		minus.custom_minimum_size = Vector2(44, 0)
+		minus.custom_minimum_size = Vector2(64, 0)
 		minus.pressed.connect(func(): input_controller.submitter.submit("dequeue_production", [building_id, last_index, owner_id], owner_id))
 		row.add_child(minus)
 
 	var plus := UITheme.action_button("+1", "")
 	plus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	plus.custom_minimum_size = Vector2(44, 0)
+	plus.custom_minimum_size = Vector2(64, 0)
 	var reason_fn := func(): return UIEligibility.troop_reason(state, building_id, troop_type, owner_id)
 	var action := func(): input_controller.submitter.submit("enqueue_production_after", [building_id, troop_type, last_index, owner_id], owner_id)
 	plus.pressed.connect(func(): _handle_press(reason_fn, action))
