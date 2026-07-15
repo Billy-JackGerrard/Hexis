@@ -2,6 +2,7 @@
   "id": "flame_turret",
   "name": "Flame Turret",
   "category": "Defensive",
+  "unlockHqLevel": 2,
   "populationCost": 1,
   "extends": "turret",
 

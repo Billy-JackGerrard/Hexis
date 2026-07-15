@@ -30,6 +30,8 @@ func _init() -> void:
 	_test_garrison_seeding()
 	print("BuildingPlacement eligibility/fixed/standalone")
 	_test_eligibility()
+	print("BuildingPlacement HQ-level building unlock gate")
+	_test_hq_level_unlock()
 	print("BuildingPlacement hex occupancy")
 	_test_hex_occupancy()
 	print("BuildingPlacement terrain requirements")
@@ -207,6 +209,34 @@ func _test_eligibility() -> void:
 	_check(BuildingPlacement.can_place(seeded, standalone_test_def, "road", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.IS_STANDALONE,
 		"standalone buildings (Road) are rejected by the base-tied validator")
 
+func _test_hq_level_unlock() -> void:
+	# (0,-1) included so seed_base's Command Centre (direction 2) lands there
+	# on-grid instead of spilling over onto (0,1), which this test needs free.
+	var grid := _plains_grid([HexCoord.new(0, 0), HexCoord.new(1, 0), HexCoord.new(1, -1), HexCoord.new(0, -1), HexCoord.new(0, 1)])
+	var capital_def: Dictionary = _base_defs["capital"]
+
+	var level1 := _fresh_seeded_base("hq1", grid, 1)
+	_check(BuildingPlacement.can_place(level1, capital_def, "barracks", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
+		"Barracks (unlockHqLevel 1) is buildable at HQ level 1")
+	_check(BuildingPlacement.can_place(level1, capital_def, "turret", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
+		"Turret (unlockHqLevel 2) is rejected at HQ level 1")
+	_check(BuildingPlacement.can_place(level1, capital_def, "hospital", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
+		"Hospital (unlockHqLevel 3) is rejected at HQ level 1")
+	_check(BuildingPlacement.can_place_wall(level1, capital_def, HexCoord.new(0, 0), HexCoord.new(1, 0), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
+		"Wall (unlockHqLevel 2) is rejected at HQ level 1")
+
+	var level2 := _fresh_seeded_base("hq2", grid, 2)
+	_check(BuildingPlacement.can_place(level2, capital_def, "turret", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
+		"Turret becomes buildable once HQ reaches level 2")
+	_check(BuildingPlacement.can_place_wall(level2, capital_def, HexCoord.new(0, 0), HexCoord.new(1, 0), grid, _building_defs) == BuildingPlacement.Result.OK,
+		"Wall becomes buildable once HQ reaches level 2")
+	_check(BuildingPlacement.can_place(level2, capital_def, "hospital", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
+		"Hospital (unlockHqLevel 3) is still rejected at HQ level 2")
+
+	var level3 := _fresh_seeded_base("hq3", grid, 3)
+	_check(BuildingPlacement.can_place(level3, capital_def, "hospital", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
+		"Hospital becomes buildable once HQ reaches level 3")
+
 func _test_hex_occupancy() -> void:
 	# (0,-1) included so seed_base's Command Centre (direction 2) lands there
 	# on-grid instead of spilling over onto (0,1), which this test needs free.
@@ -335,7 +365,10 @@ func _test_bridge_foothold_exemption() -> void:
 
 func _test_hq_radius() -> void:
 	var grid := _plains_grid([HexCoord.new(10, 0), HexCoord.new(11, 0), HexCoord.new(10, 1)])
-	var far_base := BaseInstance.new("b7", "capital", "p1", 1, HexCoord.new(0, 0))
+	# hq_level 2, not 1: Turret's unlockHqLevel is 2 -- this test is exercising
+	# the build-radius gate specifically, so the fixture must already clear the
+	# unrelated unlock-level gate.
+	var far_base := BaseInstance.new("b7", "capital", "p1", 2, HexCoord.new(0, 0))
 	far_base.buildings.append(BuildingInstance.new("far1", "b7", "turret", 1, "", HexCoord.new(10, 0)))
 	far_base.buildings.append(BuildingInstance.new("far2", "b7", "turret", 1, "", HexCoord.new(11, 0)))
 	var capital_def: Dictionary = _base_defs["capital"]
@@ -366,7 +399,9 @@ func _test_population_gate() -> void:
 		i += 1
 	_check(Population.population_used(base, _building_defs) == expected_used and Population.population_cap(base, _building_defs) == hq_cap,
 		"fixture is already at population cap (Farm+Quarry+filler turrets == HQ's authored populationCapacity)")
-	_check(BuildingPlacement.can_place(base, capital_def, "turret", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.POPULATION_FULL,
+	# Barracks (unlockHqLevel 1), not Turret (unlockHqLevel 2): this test is
+	# exercising the population gate specifically, at the fixture's hq_level 1.
+	_check(BuildingPlacement.can_place(base, capital_def, "barracks", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.POPULATION_FULL,
 		"non-House placement rejected once population is full")
 	_check(BuildingPlacement.can_place(base, capital_def, "house", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
 		"House placement still allowed once population is full")

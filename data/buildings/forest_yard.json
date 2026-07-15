@@ -2,6 +2,7 @@
   "id": "forest_yard",
   "name": "Forest Yard",
   "category": "Production",
+  "unlockHqLevel": 3,
   "populationCost": 1,
 
   "placementRequirement": {

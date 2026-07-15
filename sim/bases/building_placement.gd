@@ -17,6 +17,7 @@ enum Result {
 	NOT_BUILDABLE_AT_BASE,
 	IS_FIXED,
 	IS_STANDALONE,
+	NOT_UNLOCKED, ## building_defs[type].unlockHqLevel is higher than base.hq_level
 	HEX_OCCUPIED,
 	HEX_OCCUPIED_BY_UNIT,
 	OUT_OF_HEX_BOUNDS,
@@ -102,6 +103,8 @@ static func can_place(base: BaseInstance, base_def: Dictionary, building_type: S
 		return Result.IS_FIXED
 	if building_def.get("isStandalone", false):
 		return Result.IS_STANDALONE
+	if base.hq_level < int(building_def.get("unlockHqLevel", 1)):
+		return Result.NOT_UNLOCKED
 
 	if not grid.has_hex(hex):
 		return Result.OUT_OF_HEX_BOUNDS
@@ -235,6 +238,8 @@ static func can_place_wall(base: BaseInstance, base_def: Dictionary, hex_a: HexC
 	var buildable: Array = base_def.get("buildableBuildings", [])
 	if not buildable.has("wall"):
 		return Result.NOT_BUILDABLE_AT_BASE
+	if base.hq_level < int(building_defs.get("wall", {}).get("unlockHqLevel", 1)):
+		return Result.NOT_UNLOCKED
 
 	if not grid.has_hex(hex_a) or not grid.has_hex(hex_b):
 		return Result.OUT_OF_HEX_BOUNDS

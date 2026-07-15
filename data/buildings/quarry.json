@@ -2,6 +2,7 @@
   "id": "quarry",
   "name": "Quarry",
   "category": "Resource",
+  "unlockHqLevel": 1,
   "populationCost": 1,
 
   "notes": "Steel-producing building, present at every base from the start. Deliberately priced in a different resource than the one it produces, avoiding a chicken-and-egg problem for a base's very first construction.",
@@ -18,6 +19,6 @@
     "baseCost": {
       "steel": 40
     },
-    "costGrowth": { "mode": "percent", "value": 30 }
+    "costGrowth": { "mode": "percent", "value": 25 }
   }
 }

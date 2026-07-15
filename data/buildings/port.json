@@ -2,6 +2,7 @@
   "id": "port",
   "name": "Port",
   "category": "Production",
+  "unlockHqLevel": 2,
   "populationCost": 1,
 
   "placementRequirement": {

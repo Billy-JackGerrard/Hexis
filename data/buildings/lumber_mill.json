@@ -2,6 +2,7 @@
   "id": "lumber_mill",
   "name": "Lumber Mill",
   "category": "Resource",
+  "unlockHqLevel": 1,
   "populationCost": 1,
 
   "placementRequirement": {

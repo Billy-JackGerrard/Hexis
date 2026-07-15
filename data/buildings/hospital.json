@@ -2,6 +2,7 @@
   "id": "hospital",
   "name": "Hospital",
   "category": "Support",
+  "unlockHqLevel": 3,
   "populationCost": 1,
 
   "notes": "Passive structure that slowly heals every friendly troop within its radius, with no queue or targeting of its own. Only buildable at a handful of bases, not universal.",

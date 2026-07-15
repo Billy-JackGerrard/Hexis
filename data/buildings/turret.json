@@ -2,6 +2,7 @@
   "id": "turret",
   "name": "Turret",
   "category": "Defensive",
+  "unlockHqLevel": 2,
   "populationCost": 1,
 
   "notes": "Generic default defense buildable at every base, and the base pattern several specialty defenses are built from.",

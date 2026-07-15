@@ -2,6 +2,7 @@
   "id": "stone_works",
   "name": "Stone Works",
   "category": "Resource",
+  "unlockHqLevel": 2,
   "populationCost": 1,
 
   "notes": "Stone-producing building unique to a particular base's economy, mechanically equivalent to the basic stone building but with a steeper growth curve: weaker at first, but eventually out-producing it at high levels.",
@@ -13,7 +14,7 @@
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 10 },
-      "stoneOutput": { "mode": "percent", "value": 60 }
+      "stoneOutput": { "mode": "percent", "value": 16 }
     },
     "baseCost": {
       "steel": 60

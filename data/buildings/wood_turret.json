@@ -2,6 +2,7 @@
   "id": "wood_turret",
   "name": "Wood Turret",
   "category": "Defensive",
+  "unlockHqLevel": 2,
   "populationCost": 1,
   "extends": "turret",
 

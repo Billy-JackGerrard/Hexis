@@ -2,6 +2,7 @@
   "id": "ford_yard",
   "name": "Ford Yard",
   "category": "Production",
+  "unlockHqLevel": 3,
   "populationCost": 1,
 
   "placementRequirement": {

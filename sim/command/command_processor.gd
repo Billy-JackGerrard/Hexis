@@ -438,6 +438,8 @@ static func rebuild_building(state: MatchState, building_id: String, owner_id: S
 		return Result.INVALID
 
 	var def: Dictionary = state.building_defs.get(building.building_type, {})
+	if base.hq_level < int(def.get("unlockHqLevel", 1)):
+		return Result.NOT_UNLOCKED
 	var percent := BuildingStats.rebuild_cost_percent(def, state.building_defs) / 100.0
 	var cost := ResourceType.dict_from_named(BuildingStats.base_cost(def, building.material, state.building_defs))
 	for type in cost:

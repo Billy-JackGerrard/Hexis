@@ -115,6 +115,29 @@ eliminated on the spot and all their remaining troops/squads disappear from the 
   breakdown, including the **HQ's own upgrade model** (non-production/formula-based,
   a deliberately steep cost curve, gated by a minimum population requirement per level
   on top of resource cost).
+- **Building Unlock Levels**: separately from the upgrade-level ceiling above, HQ
+  level also gates which building *types* are available to build at all — a base's
+  `buildableBuildings` list (data/bases/schema.json) is still the sole source of truth
+  for *which* building types a given base can ever build, but each building type now
+  additionally carries its own `unlockHqLevel` (data/buildings/schema.json, default 1),
+  and the base's HQ must be at least that level before that type appears as buildable.
+  This is a property of the building type itself, not of the base — a Barracks needs
+  HQ level 1 at every base that can build one at all. Checked by
+  `BuildingPlacement.can_place`/`can_place_wall` (fresh construction) and
+  `CommandProcessor.rebuild_building` (`Result.NOT_UNLOCKED` either way) — **a building
+  that already exists (e.g. inherited by capturing a base) but is ruined while the
+  HQ is below its unlock level cannot be rebuilt until the HQ reaches that level**, the
+  same as if it had never been built. `isFixed`/`isStandalone` buildings (HQ, Command
+  Centre, Ice Spire, Radar Array, Road, Bridge, Dock, Tower, Landmine) never carry this
+  field — they're either pre-seeded-only or placed outside the base-menu flow entirely,
+  so an HQ-level gate doesn't apply to them.
+
+  | HQ level | Unlocks |
+  |---|---|
+  | 1 | Barracks, Farm, House, Lumber Mill, Mine, Quarry |
+  | 2 | Harbour, Turret, Wood Turret, Flame Turret, Grenade Turret, Water Turret, Oil Rig, Stone Works, Wall, Port |
+  | 3 | Missile Launcher, Cold Turret, EMP Turret, Wind Spire, Factory, Ford Yard, Forest Yard, Wind Sanctuary, Hangar, Hospital, Supply Depot, Sniper Turret |
+  | 4 | Frostworks, Blazeworks, Covert Works, Covert Airfield, Demolition Plant, Iron Aviary, Salvage Works, Shipyard, Tank Plant |
 - **Building construction is instant** (no build timers). **Buildings can be
   upgraded** (see `06-building-stats-and-defenses.md`) — **troops cannot be
   upgraded** once trained (see `05-troop-stat-schema.md`).

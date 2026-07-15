@@ -2,6 +2,7 @@
   "id": "hangar",
   "name": "Hangar",
   "category": "Support",
+  "unlockHqLevel": 3,
   "populationCost": 1,
 
   "notes": "Storage building that lets aircraft land to stop their constant fuel drain, and hides them from enemy detection while docked. Also serves as the required landing pad for the aircraft that can only load or unload passengers while sitting on this building rather than open ground. Covers every kind of aircraft alike.",

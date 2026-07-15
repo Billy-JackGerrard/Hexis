@@ -2,6 +2,7 @@
   "id": "shipyard",
   "name": "Shipyard",
   "category": "Production",
+  "unlockHqLevel": 4,
   "populationCost": 1,
 
   "placementRequirement": {

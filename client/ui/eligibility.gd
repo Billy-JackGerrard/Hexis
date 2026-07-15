@@ -14,6 +14,9 @@ extends RefCounted
 ## to re-check every frame while the affordability/population parts change live.
 static func build_reason(state: MatchState, base: BaseInstance, building_type: String, owner_id: String, has_valid_hex: bool) -> String:
 	var def: Dictionary = state.building_defs.get(building_type, {})
+	var required_level := int(def.get("unlockHqLevel", 1))
+	if base.hq_level < required_level:
+		return "Requires HQ level %d" % required_level
 	var named_cost := BuildingStats.base_cost(def, _first_material(def), state.building_defs)
 	var missing := _first_unaffordable(state.pool_for(owner_id), named_cost)
 	if missing != "":

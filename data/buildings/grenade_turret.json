@@ -2,6 +2,7 @@
   "id": "grenade_turret",
   "name": "Grenade Turret",
   "category": "Defensive",
+  "unlockHqLevel": 2,
   "populationCost": 1,
   "extends": "turret",
 

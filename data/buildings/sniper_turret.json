@@ -2,6 +2,7 @@
   "id": "sniper_turret",
   "name": "Sniper Turret",
   "category": "Defensive",
+  "unlockHqLevel": 3,
   "populationCost": 1,
   "extends": "turret",
 

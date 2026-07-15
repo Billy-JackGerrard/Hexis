@@ -2,6 +2,7 @@
   "id": "wall",
   "name": "Wall",
   "category": "Defensive",
+  "unlockHqLevel": 2,
   "populationCost": 0,
 
   "materials": ["wood", "stone", "steel"],

@@ -2,6 +2,7 @@
   "id": "farm",
   "name": "Farm",
   "category": "Resource",
+  "unlockHqLevel": 1,
   "populationCost": 1,
 
   "notes": "Basic food-producing building present at every base from the start. Losing it doesn't block rebuilding more.",

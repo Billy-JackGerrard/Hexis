@@ -159,7 +159,7 @@ func _rebuild() -> void:
 	_content.add_child(UITheme.subtitle_label("%s  -  Pop %d/%d" % [base_label, used, cap]))
 	_content.add_child(HSeparator.new())
 
-	_build_level_section(building, def)
+	_build_level_section(building, def, base.hq_level)
 
 	if not building.is_ruin:
 		if building.building_type == "hq":
@@ -189,7 +189,7 @@ func _rebuild() -> void:
 
 # --- Level / upgrade / rebuild ----------------------------------------------
 
-func _build_level_section(building: BuildingInstance, def: Dictionary) -> void:
+func _build_level_section(building: BuildingInstance, def: Dictionary, hq_level: int) -> void:
 	if building.is_ruin:
 		_content.add_child(UITheme.danger_label("RUINED"))
 		var percent := BuildingStats.rebuild_cost_percent(def, state.building_defs) / 100.0
@@ -199,7 +199,7 @@ func _build_level_section(building: BuildingInstance, def: Dictionary) -> void:
 			scaled[key] = int(round(float(full_cost[key]) * percent))
 		var material := building.material
 		_add_action_row("Rebuild", scaled, -1.0, UITheme.PRIMARY,
-			func(): return _rebuild_reason(def, material),
+			func(): return _rebuild_reason(def, material, hq_level),
 			func(): CommandProcessor.rebuild_building(state, _shown_for_building_id, owner_id))
 		return
 
@@ -583,7 +583,10 @@ func _refresh_eligibility() -> void:
 
 # --- helpers ----------------------------------------------------------------
 
-func _rebuild_reason(def: Dictionary, material: String) -> String:
+func _rebuild_reason(def: Dictionary, material: String, hq_level: int) -> String:
+	var required_level := int(def.get("unlockHqLevel", 1))
+	if hq_level < required_level:
+		return "Requires HQ level %d" % required_level
 	var percent := BuildingStats.rebuild_cost_percent(def, state.building_defs) / 100.0
 	var named := BuildingStats.base_cost(def, material, state.building_defs)
 	var pool := state.pool_for(owner_id)

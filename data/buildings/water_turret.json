@@ -2,6 +2,7 @@
   "id": "water_turret",
   "name": "Water Turret",
   "category": "Defensive",
+  "unlockHqLevel": 2,
   "populationCost": 1,
 
   "materials": ["stone", "wood", "steel"],

@@ -2,6 +2,7 @@
   "id": "harbour",
   "name": "Harbour",
   "category": "Resource",
+  "unlockHqLevel": 2,
   "populationCost": 1,
 
   "placementRequirement": {
@@ -18,7 +19,7 @@
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 10 },
-      "foodOutput": { "mode": "percent", "value": 60 }
+      "foodOutput": { "mode": "percent", "value": 24 }
     },
     "baseCost": {
       "stone": 40,

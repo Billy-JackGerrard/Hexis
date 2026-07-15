@@ -2,6 +2,7 @@
   "id": "frostworks",
   "name": "Frostworks",
   "category": "Production",
+  "unlockHqLevel": 4,
   "populationCost": 1,
 
   "notes": "Specialist production building fielding part of the heavy-vehicle roster alongside an ice-themed control unit found nowhere else.",

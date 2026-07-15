@@ -2,6 +2,7 @@
   "id": "salvage_works",
   "name": "Salvage Works",
   "category": "Production",
+  "unlockHqLevel": 4,
   "populationCost": 1,
 
   "notes": "Specialist production building pairing part of the heavy-vehicle roster with a dedicated vehicle-repair support unit.",

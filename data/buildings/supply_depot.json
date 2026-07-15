@@ -2,6 +2,7 @@
   "id": "supply_depot",
   "name": "Supply Depot",
   "category": "Production",
+  "unlockHqLevel": 3,
   "populationCost": 1,
 
   "notes": "Specialist production building for support and logistics vehicles, distinct from the general combat-vehicle roster elsewhere.",

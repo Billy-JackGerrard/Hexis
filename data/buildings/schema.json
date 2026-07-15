@@ -15,6 +15,12 @@
       "description": "Determines whether the building needs player input (Production = queue a troop) or just runs on its own once built. \"Core\" is a single-instance category for HQ only — it doesn't attack, produce, or apply an aura; its only mechanical effects are the capture-on-zero-HP rule and gating every other building's max level at that base (see game-design/02-bases-and-buildings.md)."
     },
 
+    "unlockHqLevel": {
+      "type": "number",
+      "default": 1,
+      "description": "HQ level (BaseInstance.hqLevel) the owning base must reach before this building type can be freshly built or rebuilt from a ruin — see game-design/02-bases-and-buildings.md's Building Unlock Levels section. Absent/1 means available from HQ level 1 (no gate). Only meaningful for buildings that actually go through BuildingPlacement.can_place/CommandProcessor.rebuild_building — never set on isFixed (HQ, Command Centre, Ice Spire, Radar Array) or isStandalone (Road/Bridge/Dock/Tower/Landmine) buildings, which have no HQ-level gate at all."
+    },
+
     "extends": { "type": "string", "description": "Id of another building this one is a variant of, e.g. River Battery/Flame Turret/Cold Turret/Grenade Turret extending \"turret\". Inheritance is shallow and field-level: any of defensiveStats/nonProductionUpgrade/populationCost present on this file override the corresponding field on the base building wholesale (e.g. providing defensiveStats.canTarget replaces the whole canTarget array, it does not merge array entries); anything omitted here is inherited unchanged. Purely a data-authoring convenience to avoid restating identical stat blocks across Turret variants — has no other engine meaning." },
 
     "isStandalone": { "type": "boolean", "default": false, "description": "True for Road/Bridge/Dock/Tower — placed anywhere by an Engineer, not tied to a base (never appears in any BaseDef.buildableBuildings list — see data/bases/schema.json). Standalone instances carry their own ownerId directly (no baseId to derive ownership from) and, like Walls, do NOT ruin on destruction — a standalone building at 0 HP is deleted permanently, freeing the hex/edge; rebuilding it there is a fresh build at full cost, not a ruin-rebuild. See game-design/07-data-architecture.md." },

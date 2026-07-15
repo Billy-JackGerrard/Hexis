@@ -2,6 +2,7 @@
   "id": "tank_plant",
   "name": "Tank Plant",
   "category": "Production",
+  "unlockHqLevel": 4,
   "populationCost": 1,
 
   "notes": "Specialist production building for the heavy-vehicle roster.",

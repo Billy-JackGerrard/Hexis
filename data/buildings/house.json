@@ -2,6 +2,7 @@
   "id": "house",
   "name": "House",
   "category": "Support",
+  "unlockHqLevel": 1,
   "populationCost": 0,
 
   "notes": "Cheap building whose only purpose is granting extra population capacity rather than costing any — a simple way for any base to keep expanding once it outgrows its starting capacity.",

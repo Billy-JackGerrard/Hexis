@@ -2,6 +2,7 @@
   "id": "barracks",
   "name": "Barracks",
   "category": "Production",
+  "unlockHqLevel": 1,
   "populationCost": 1,
 
   "notes": "Trains the standard infantry roster. Available at many bases rather than being an exclusive specialist building.",

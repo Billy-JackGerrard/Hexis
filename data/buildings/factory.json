@@ -2,6 +2,7 @@
   "id": "factory",
   "name": "Factory",
   "category": "Production",
+  "unlockHqLevel": 3,
   "populationCost": 1,
 
   "notes": "Trains light land vehicles and the infrastructure specialist. Heavier armor requires a different, more specialized production building.",
