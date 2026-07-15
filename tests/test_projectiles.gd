@@ -271,9 +271,10 @@ func _test_status_effect_applies_to_whoever_is_at_aim_hex() -> void:
 	var squads: Array[SquadInstance] = [attacker, original_target]
 	var targets := CombatResolver.build_targets(squads, [], troops, grid, synthetic_troop_defs, _building_defs)
 	var target_ct := CombatTargeting.select_target(attacker, synthetic_def, targets, {}, grid)
+	var target_index := CombatResolver.build_target_index(targets)
 
 	var projectiles: Array[ProjectileInstance] = []
-	CombatResolver._fire_or_apply(synthetic_def, float(synthetic_def.get("damage", 0.0)), "p1", attacker.current_hex, target_ct, targets, troops, int(synthetic_def.get("splashRadius", 0)), synthetic_troop_defs, _building_defs, grid, projectiles, Callable(self, "_next_projectile_id"))
+	CombatResolver._fire_or_apply(synthetic_def, float(synthetic_def.get("damage", 0.0)), "p1", attacker.current_hex, target_ct, target_index, troops, int(synthetic_def.get("splashRadius", 0)), synthetic_troop_defs, _building_defs, grid, projectiles, Callable(self, "_next_projectile_id"))
 	_check(projectiles.size() == 1, "the synthetic ballistic attack spawns a projectile")
 
 	# original_target relocates off the aim hex; a fresh enemy squad is
