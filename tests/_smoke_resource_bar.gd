@@ -32,31 +32,33 @@ func _init() -> void:
 	host.add_child(bar)
 	bar.setup(state, "p0", InputController.new())
 
-	print("  ok   setup (expanded=%s, breakdown visible=%s)" % [bar._breakdown_expanded, bar._breakdown_panel.visible])
+	print("  ok   setup (expanded=%s)" % bar._expanded)
 
 	# Simulate the click.
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
 	bar._gui_input(click)
-	print("  ok   clicked (expanded=%s, breakdown visible=%s)" % [bar._breakdown_expanded, bar._breakdown_panel.visible])
-	assert(bar._breakdown_expanded)
-	assert(bar._breakdown_panel.visible)
+	print("  ok   clicked (expanded=%s)" % bar._expanded)
+	assert(bar._expanded)
+	for type in bar._detail_labels:
+		assert(bar._detail_labels[type].visible)
+		assert(bar._usage_labels[type].visible)
 
 	for i in range(4):
 		bar._process(0.3)
-	print("  ok   drove _process 4x (panel size=%s, rows=%d)" % [bar._breakdown_panel.size, bar._breakdown_content.get_child_count()])
-	assert(bar._breakdown_content.get_child_count() == ResourceBar.DISPLAY_ORDER.size() * 2)
+	print("  ok   drove _process 4x (bar size=%s)" % bar.size)
 
-	for child in bar._breakdown_content.get_children():
-		if child is Label:
-			print("    - %s" % child.text)
+	for type in bar._detail_labels:
+		print("    - %s: %s (%s)" % [type, bar._detail_labels[type].text, bar._usage_labels[type].text])
 
 	# Click again: should collapse.
 	bar._gui_input(click)
-	print("  ok   clicked again (expanded=%s, breakdown visible=%s)" % [bar._breakdown_expanded, bar._breakdown_panel.visible])
-	assert(not bar._breakdown_expanded)
-	assert(not bar._breakdown_panel.visible)
+	print("  ok   clicked again (expanded=%s)" % bar._expanded)
+	assert(not bar._expanded)
+	for type in bar._detail_labels:
+		assert(not bar._detail_labels[type].visible)
+		assert(not bar._usage_labels[type].visible)
 
 	print("\nAll checks passed.")
 	quit()
