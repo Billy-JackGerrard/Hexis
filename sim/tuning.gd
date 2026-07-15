@@ -173,11 +173,11 @@ const DEMOLISH_REFUND_FRACTION: float = 0.5
 ## Starting Resources section. Wood/Fuel start at zero deliberately, since a
 ## bare starting Capital has no Forest-adjacent Lumber Mill or built Oil Rig
 ## yet.
-const STARTING_FOOD: float = 100.0
-const STARTING_STONE: float = 100.0
-const STARTING_STEEL: float = 50.0
-const STARTING_WOOD: float = 0.0
-const STARTING_FUEL: float = 0.0
+const STARTING_FOOD: float = 10000.0
+const STARTING_STONE: float = 100000.0
+const STARTING_STEEL: float = 50000.0
+const STARTING_WOOD: float = 5000.0
+const STARTING_FUEL: float = 10000.0
 
 ## --- Troops (sim/troops/) ---
 
