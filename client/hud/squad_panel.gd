@@ -26,10 +26,16 @@ var state: MatchState
 var owner_id: String
 var input_controller: InputController
 var squad_view: SquadView
+var camera_controller: CameraController
 
 const WIDTH := BuildingPanel.WIDTH
 const MARGIN := 12.0
 const REFRESH_INTERVAL := 0.25
+## Same hysteresis-flip contract as BuildingPanel (see its own constants'
+## doc) so the two panels' docking behavior reads as one system.
+const FLIP_TO_LEFT_RATIO := 0.60
+const FLIP_TO_RIGHT_RATIO := 0.40
+var _on_left := false
 ## Engineer-buildable standalone buildings, in build-menu order. Kept as an
 ## explicit list (rather than scanning building_defs for isStandalone every
 ## rebuild) so the menu order is stable and intentional.
@@ -62,21 +68,22 @@ var _option_updaters: Array = []
 var _live_updaters: Array[Callable] = []
 var _refresh_accum := 0.0
 
-func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_squad_view: SquadView) -> void:
+func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_squad_view: SquadView, p_camera_controller: CameraController) -> void:
 	state = p_state
 	owner_id = p_owner_id
 	input_controller = p_input_controller
 	squad_view = p_squad_view
+	camera_controller = p_camera_controller
 
-	# Same right-hand band as BuildingPanel (the two never show at once).
-	anchor_left = 1.0
-	anchor_right = 1.0
+	# Same right/left-flipping band as BuildingPanel (the two never show at
+	# once) — vertical anchors set here, left/right via _apply_side/
+	# _update_side so this panel ducks out from under a squad sitting far
+	# enough right on screen the same way BuildingPanel does for a base.
 	anchor_top = 0.0
 	anchor_bottom = 1.0
-	offset_left = -WIDTH - MARGIN
-	offset_right = -MARGIN
 	offset_top = ResourceBar.HEIGHT + MARGIN
 	offset_bottom = -(Minimap.SIZE.y + Minimap.MARGIN + MARGIN)
+	_apply_side(false)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 
@@ -132,6 +139,30 @@ func _on_scroll_gui_input(event: InputEvent) -> void:
 			_scroll.scroll_vertical += SCROLL_STEP
 			get_viewport().set_input_as_handled()
 
+## Left/right anchor+offset swap; layout only, doesn't touch _content.
+## Mirrors BuildingPanel._apply_side exactly.
+func _apply_side(on_left: bool) -> void:
+	_on_left = on_left
+	anchor_left = 0.0 if on_left else 1.0
+	anchor_right = 0.0 if on_left else 1.0
+	offset_left = MARGIN if on_left else -WIDTH - MARGIN
+	offset_right = WIDTH + MARGIN if on_left else -MARGIN
+
+## Re-picks which side the panel docks on from the selected squad's current
+## screen-space position, with hysteresis — mirrors BuildingPanel._update_side.
+func _update_side() -> void:
+	var squad := _target_squad()
+	if squad == null:
+		return
+	var world_pos := HexView.axial_to_pixel(squad.current_hex)
+	var viewport_size := get_viewport().get_visible_rect().size
+	var screen_x := viewport_size.x * 0.5 + (world_pos.x - camera_controller.position.x) * camera_controller.zoom.x
+	var ratio := screen_x / viewport_size.x
+	if not _on_left and ratio > FLIP_TO_LEFT_RATIO:
+		_apply_side(true)
+	elif _on_left and ratio < FLIP_TO_RIGHT_RATIO:
+		_apply_side(false)
+
 ## The single squad this panel is for, or null: only when exactly one squad is
 ## selected AND no building is (BuildingPanel owns the same band and takes
 ## precedence — selecting a building leaves the squad selection intact).
@@ -162,6 +193,7 @@ func _process(delta: float) -> void:
 			UIJuice.pop_in(self)
 	if not visible:
 		return
+	_update_side()
 	for updater in _live_updaters:
 		updater.call()
 	_refresh_accum += delta

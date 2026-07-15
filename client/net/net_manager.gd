@@ -29,7 +29,6 @@ signal input_frame_received(exec_tick: int, commands: Array, owner_id: String)
 ## desync down to "which piece of state", not just "state diverged".
 signal desync_detected(tick: int, sections: Array)
 signal connection_failed(reason: String)
-signal net_debug(text: String) ## TEMP: on-screen debug log for the "waiting for players" LAN bug, see main.gd
 
 const DEFAULT_PORT := 24545
 const MAX_PLAYERS := 6
@@ -124,7 +123,6 @@ func start_match(world_seed: int) -> void:
 ## included, via call_local) — see lockstep_driver.gd for exec_tick/commands.
 func send_input_frame(exec_tick: int, commands: Array, owner_id: String) -> void:
 	var encoded: Array = commands.map(func(c): return {"verb": c["verb"], "args": c["args"].map(_encode_arg), "seq": c["seq"]})
-	net_debug.emit("send tick=%d owner=%s peer_id=%d" % [exec_tick, owner_id, multiplayer.get_unique_id()])
 	_receive_input_frame.rpc(exec_tick, encoded, owner_id)
 
 ## Reports this peer's per-section state checksums for `tick` to the host for
@@ -246,7 +244,6 @@ func _receive_match_start(world_seed: int, player_count_value: int, final_roster
 
 @rpc("any_peer", "call_local", "reliable")
 func _receive_input_frame(exec_tick: int, encoded_commands: Array, owner_id: String) -> void:
-	net_debug.emit("recv tick=%d owner=%s sender_peer=%d local_peer=%d" % [exec_tick, owner_id, multiplayer.get_remote_sender_id(), multiplayer.get_unique_id()])
 	var commands: Array = encoded_commands.map(func(c): return {"verb": c["verb"], "args": c["args"].map(_decode_arg), "seq": c["seq"]})
 	input_frame_received.emit(exec_tick, commands, owner_id)
 

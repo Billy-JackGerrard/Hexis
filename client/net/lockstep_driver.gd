@@ -98,17 +98,8 @@ func advance(delta: float) -> void:
 		_pending_local_commands = []
 
 		if not _has_all_input_for(state.tick + 1):
-			if not is_waiting:
-				var received: Dictionary = _received_ticks.get(state.tick + 1, {})
-				var missing: Array = []
-				for owner_id in _expected_owner_ids:
-					if not received.has(owner_id):
-						missing.append(owner_id)
-				_net.net_debug.emit("stall start tick=%d missing=%s expected=%s" % [state.tick + 1, missing, _expected_owner_ids])
 			is_waiting = true
 			break
-		if is_waiting:
-			_net.net_debug.emit("stall cleared tick=%d" % (state.tick + 1))
 		is_waiting = false
 
 		SimOrchestrator.resolve_tick(state, Tuning.SIM_TICK_SECONDS)
@@ -155,7 +146,6 @@ func _has_all_input_for(tick: int) -> bool:
 	return true
 
 func _on_input_frame_received(exec_tick: int, commands: Array, owner_id: String) -> void:
-	_net.net_debug.emit("lockstep applied tick=%d owner=%s" % [exec_tick, owner_id])
 	for command in commands:
 		state.command_queue.schedule(exec_tick, command["verb"], command["args"], owner_id, command["seq"])
 	if not _received_ticks.has(exec_tick):

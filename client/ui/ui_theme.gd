@@ -209,6 +209,20 @@ static func action_button(text: String, variation: String = "") -> Button:
 	UIJuice.hover_grow(button, false)
 	return button
 
+## Shrinks a button's horizontal content padding (the shared Button stylebox
+## bakes in 18px each side, sized for multi-word labels — too much for a
+## small fixed-width glyph button like "+"/"-", which clips its own text
+## before the button even runs out of room). Duplicates and overrides just
+## this instance's styleboxes rather than touching the shared theme.
+static func shrink_button_padding(button: Button, horizontal_margin: float) -> void:
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var box: StyleBox = button.get_theme_stylebox(state)
+		if box is StyleBoxFlat:
+			var copy: StyleBoxFlat = box.duplicate()
+			copy.content_margin_left = horizontal_margin
+			copy.content_margin_right = horizontal_margin
+			button.add_theme_stylebox_override(state, copy)
+
 ## A fill bar (0..1 `value`) for showing training/production progress, with
 ## room for a centered label (add it as a child, e.g. a body_label) drawn on
 ## top of the fill since Control children paint after their parent.
@@ -282,13 +296,6 @@ const WORLD_LABEL_OUTLINE_SIZE := 5
 static func draw_world_label(ci: CanvasItem, font: Font, pos: Vector2, text: String, font_size: int, color: Color, width: float = -1.0, alignment: int = HORIZONTAL_ALIGNMENT_CENTER) -> void:
 	ci.draw_string_outline(font, pos, text, alignment, width, font_size, WORLD_LABEL_OUTLINE_SIZE, WORLD_LABEL_OUTLINE)
 	ci.draw_string(font, pos, text, alignment, width, font_size, color)
-
-## Same as draw_world_label but word-wraps across multiple lines within
-## `width` instead of clipping — for longer freeform text (e.g. a base's
-## notes) that a single draw_string call would just cut off.
-static func draw_world_multiline_label(ci: CanvasItem, font: Font, pos: Vector2, text: String, font_size: int, color: Color, width: float, alignment: int = HORIZONTAL_ALIGNMENT_CENTER) -> void:
-	ci.draw_multiline_string_outline(font, pos, text, alignment, width, font_size, -1, WORLD_LABEL_OUTLINE_SIZE, WORLD_LABEL_OUTLINE)
-	ci.draw_multiline_string(font, pos, text, alignment, width, font_size, -1, color)
 
 static func _label(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()

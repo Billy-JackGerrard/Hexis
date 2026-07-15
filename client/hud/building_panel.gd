@@ -575,6 +575,7 @@ func _add_queue_buttons(row: HBoxContainer, building_id: String, troop_type: Str
 	var minus := UITheme.action_button("-", "")
 	minus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	minus.custom_minimum_size = Vector2(40, 0)
+	UITheme.shrink_button_padding(minus, 4.0)
 	minus.disabled = run_len <= 1
 	minus.pressed.connect(func(): input_controller.submitter.submit("dequeue_production", [building_id, last_index, owner_id], owner_id))
 	row.add_child(minus)
@@ -582,6 +583,7 @@ func _add_queue_buttons(row: HBoxContainer, building_id: String, troop_type: Str
 	var plus := UITheme.action_button("+", "")
 	plus.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	plus.custom_minimum_size = Vector2(40, 0)
+	UITheme.shrink_button_padding(plus, 4.0)
 	var reason_fn := func(): return UIEligibility.troop_reason(state, building_id, troop_type, owner_id)
 	var action := func(): input_controller.submitter.submit("enqueue_production_after", [building_id, troop_type, last_index, owner_id], owner_id)
 	plus.pressed.connect(func(): _handle_press(reason_fn, action))

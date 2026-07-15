@@ -59,15 +59,12 @@ var _capital_names_by_owner: Dictionary = {} ## owner_id -> String, applied to e
 ## transient "Waiting for players…" one.
 var _match_halted: bool = false
 
-## TEMP: net debug log for the "waiting for players" LAN bug — remove
-## _on_net_debug once diagnosed.
 func _ready() -> void:
 	net_manager = NetManager.new()
 	add_child(net_manager)
 	net_manager.match_starting.connect(_on_match_starting)
 	net_manager.desync_detected.connect(_on_desync_detected)
 	net_manager.connection_failed.connect(_on_mid_match_connection_failed)
-	net_manager.net_debug.connect(_on_net_debug)
 
 	start_screen = StartScreen.new()
 	add_child(start_screen)
@@ -188,21 +185,6 @@ func _process(delta: float) -> void:
 	else:
 		sim_clock.advance(state, delta)
 
-## Names the diverging section(s) in the on-screen message (see
-## MatchState.section_checksums()) and dumps this peer's snapshot of the
-## diverged sections *at the desync tick itself*, plus the full command log up
-## to that tick, to disk — compare the dump from each machine (they'll have
-## different suffixes, one per local_owner_id). The state diff says *what*
-## differs; the command log diff says *why* — a command missing/reordered/
-## different-args on one peer's log versus the other's is the direct cause,
-## versus a value divergence off an otherwise-identical command stream (a
-## computation bug, not a networking one). The snapshot is the one
-## LockstepDriver stashed when it sent that tick's checksum, so both peers
-## dump the same tick even though the sim has advanced past it by the time the
-## desync is reported.
-func _on_net_debug(text: String) -> void:
-	print("[net] %s" % text)
-
 ## start_screen.gd also listens to this signal for the pre-match lobby case;
 ## this one only matters once a match is actually running (lockstep_driver !=
 ## null) — otherwise the lobby handler already has it covered. Without this,
@@ -221,6 +203,18 @@ func _on_desync_detected(tick: int, sections: Array) -> void:
 	hud_layer.resource_bar.set_status("Desync at tick %d (%s) — match halted." % [tick, ", ".join(sections)], true)
 	_dump_state_for_debug(tick, sections)
 
+## Names the diverging section(s) in the on-screen message (see
+## MatchState.section_checksums()) and dumps this peer's snapshot of the
+## diverged sections *at the desync tick itself*, plus the full command log up
+## to that tick, to disk — compare the dump from each machine (they'll have
+## different suffixes, one per local_owner_id). The state diff says *what*
+## differs; the command log diff says *why* — a command missing/reordered/
+## different-args on one peer's log versus the other's is the direct cause,
+## versus a value divergence off an otherwise-identical command stream (a
+## computation bug, not a networking one). The snapshot is the one
+## LockstepDriver stashed when it sent that tick's checksum, so both peers
+## dump the same tick even though the sim has advanced past it by the time the
+## desync is reported.
 func _dump_state_for_debug(tick: int, sections: Array) -> void:
 	if lockstep_driver == null:
 		return

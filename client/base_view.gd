@@ -51,9 +51,6 @@ const TOOLTIP_COLOR := UITheme.TEXT
 ## like "Missile Launcher" ran past 140px and got cut off.
 const TOOLTIP_WIDTH := 220.0
 const TOOLTIP_LEVEL_COLOR := UITheme.TEXT_MUTED
-## Wider than TOOLTIP_WIDTH — a neutral Unique base's notes hover text is a
-## full sentence or two, not a short name/level line.
-const NOTES_WIDTH := 320.0
 ## Kept close to the building itself rather than clearing squad_view.gd's own
 ## hover/selected INFO_LABEL zone (anchored RADIUS+22 above a squad, roughly
 ## -48..-28px) — these used to sit up at -70/-50 specifically to dodge that,
@@ -120,15 +117,6 @@ func _draw_base_title(base: BaseInstance) -> void:
 	var player_color: Color = owner_colors.get(base.owner_id, UITheme.TEXT_MUTED)
 	UITheme.draw_world_label(self, font, top - Vector2(TITLE_WIDTH * 0.5, 20.0), base_name, font_size + 6, player_color, TITLE_WIDTH)
 	UITheme.draw_world_label(self, font, top - Vector2(TITLE_WIDTH * 0.5, 0.0), player_name, font_size, TITLE_COLOR, TITLE_WIDTH)
-
-	# A neutral (uncaptured) Unique base additionally shows its notes on
-	# hover, since a player hasn't seen this base's identity/roster before —
-	# once captured it's just another owned base and this drops away.
-	if base.owner_id == BaseSiteSelector.NEUTRAL_OWNER_ID:
-		var base_def: Dictionary = base_defs.get(base.base_def_id, {})
-		var notes := String(base_def.get("notes", ""))
-		if notes != "":
-			UITheme.draw_world_multiline_label(self, font, top + Vector2(-NOTES_WIDTH * 0.5, 20.0), notes, font_size - 2, TOOLTIP_LEVEL_COLOR, NOTES_WIDTH)
 
 ## "name (Lv N)" over whichever building (base-attached or standalone) sits
 ## under the mouse, if any and if visible to the local player — Walls have no

@@ -46,7 +46,7 @@ func setup(state: MatchState, owner_id: String, input_controller: InputControlle
 	squad_panel = SquadPanel.new()
 	squad_panel.theme = theme
 	add_child(squad_panel)
-	squad_panel.setup(state, owner_id, input_controller, input_controller.squad_view)
+	squad_panel.setup(state, owner_id, input_controller, input_controller.squad_view, camera_controller)
 
 	alerts_panel = AlertsPanel.new()
 	alerts_panel.theme = theme
