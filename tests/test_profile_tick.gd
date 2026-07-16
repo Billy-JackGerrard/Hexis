@@ -78,7 +78,11 @@ func _run() -> void:
 		prof.start("combat_targeting")
 		var pre_move_targets := CombatResolver.build_targets(state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, auras, state.standalone_buildings)
 		var targeting_ms := prof.end("combat_targeting")
-		system_totals["CombatTargeting"] = system_totals.get("CombatTargeting", 0.0) + targeting_ms
+		# NOTE: this only times CombatTarget-list construction. The real hot
+		# path — CombatTargeting.select_target/candidates, called per attacker
+		# every tick — runs inside CombatResolver.resolve_tick() below and is
+		# included in "CombatResolve", not this bucket.
+		system_totals["BuildTargetsList"] = system_totals.get("BuildTargetsList", 0.0) + targeting_ms
 		
 		prof.start("movement_attack_move")
 		MovementResolver.resolve_attack_move(state.squads, state.troop_defs, state.grid, pre_move_targets, state.bases, state.standalone_buildings)
@@ -119,7 +123,11 @@ func _run() -> void:
 		
 		var tick_ms := prof.end("total_tick")
 		tick_times.append(tick_ms)
+		if tick % 10 == 0:
+			print("  tick %d: %d squads alive" % [tick, state.squads.size()])
 	
+	print("Squads remaining after 100 ticks: %d" % state.squads.size())
+
 	# Stats
 	var avg_tick: float = tick_times.reduce(func(a, b): return a + b) / float(tick_times.size())
 	var max_tick: float = tick_times.reduce(func(a, b): return max(a, b))
@@ -142,6 +150,7 @@ func _run() -> void:
 		print("%25s: %7.2fms/tick (%5.1f%% of frame)" % [system, per_tick_ms, pct])
 	
 	print("\nAll checks passed.")
+	quit()
 
 func _resolve_regiment_movement(state: MatchState, dt: float, auras: Dictionary) -> void:
 	for regiment in state.regiments:
@@ -185,10 +194,15 @@ func _advance_production(state: MatchState, dt: float) -> void:
 			BuildingPlacement.building_blocking_hexes(state.bases, state.standalone_buildings),
 		)
 
+## Late-game 6-player scenario: a big frontline clash (armies packed within
+## engagement range of each other, not parked idle back home) plus a full
+## base/building spread per player, sized to approximate the worst-case tick
+## this profiling exists to chase — a large multi-front teamfight, not an
+## empty map.
 func _setup_test_scenario(state: MatchState, grid: HexGrid) -> void:
-	# Create a 80x80 hex map
-	for x in range(-40, 40):
-		for y in range(-40, 40):
+	# 200x200 hex map.
+	for x in range(-100, 100):
+		for y in range(-100, 100):
 			var coord := HexCoord.new(x, y)
 			var terrain_type := Terrain.Type.PLAINS
 			if randf() < 0.15:
@@ -196,52 +210,59 @@ func _setup_test_scenario(state: MatchState, grid: HexGrid) -> void:
 			elif randf() < 0.1:
 				terrain_type = Terrain.Type.HILLS
 			grid.set_terrain(coord, terrain_type)
-	
-	# Player 1 base at center
-	var p1_base := BaseInstance.new("base_p1", "BaseA", "player_1", 1, HexCoord.new(-5, -5))
-	state.bases.append(p1_base)
-	
-	var hq := BuildingInstance.new("hq_p1", p1_base.id, "HQ", 1, "wood", HexCoord.new(-5, -5))
-	hq.max_hp = 100.0
-	hq.current_hp = 100.0
-	p1_base.buildings.append(hq)
-	
-	# Player 2 base
-	var p2_base := BaseInstance.new("base_p2", "BaseB", "player_2", 1, HexCoord.new(5, 5))
-	state.bases.append(p2_base)
-	
-	var hq2 := BuildingInstance.new("hq_p2", p2_base.id, "HQ", 1, "wood", HexCoord.new(5, 5))
-	hq2.max_hp = 100.0
-	hq2.current_hp = 100.0
-	p2_base.buildings.append(hq2)
-	
-	# Create squads for both players (~15 per side)
-	for player_idx in range(2):
+
+	var player_count := 6
+	var squads_per_player := 20
+
+	for player_idx in range(player_count):
 		var owner_id := "player_%d" % (player_idx + 1)
-		var base := state.bases[player_idx]
-		var squad_count := 15
-		
-		for i in range(squad_count):
-			var offset_q := (i % 5) - 2
-			var offset_r := (i / 5) - 1
-			var squad_hex := HexCoord.add(base.hex_coord, HexCoord.new(offset_q, offset_r))
-			var squad := SquadInstance.new("%s_squad_%d" % [owner_id, i], owner_id, "Infantry", squad_hex)
-			squad.member_ids = ["m1", "m2", "m3", "m4", "m5"]
+		var base_hex := HexCoord.new(-60 + player_idx * 24, -60 + player_idx * 24)
+		var base := BaseInstance.new("base_%s" % owner_id, "BaseA", owner_id, 1, base_hex)
+		state.bases.append(base)
+
+		var hq := BuildingInstance.new("hq_%s" % owner_id, base.id, "hq", 1, "wood", base_hex)
+		hq.max_hp = 100.0
+		hq.current_hp = 100.0
+		base.buildings.append(hq)
+
+		# A handful of production/defense buildings around the HQ so the
+		# building-count side of the target list is realistic, not just HQs.
+		for b in range(3):
+			var b_hex := HexCoord.add(base_hex, HexCoord.new(b - 1, 1))
+			var extra := BuildingInstance.new("bldg_%s_%d" % [owner_id, b], base.id, "barracks", 1, "wood", b_hex)
+			extra.max_hp = 80.0
+			extra.current_hp = 80.0
+			base.buildings.append(extra)
+
+		state.players[owner_id] = Player.new(owner_id)
+
+		# Three separate 2-player fronts spread far apart across the map
+		# (players 0&1, 2&3, 4&5 each clash at their own front, ~80 hexes from
+		# the other fronts) — the realistic case spatial partitioning targets:
+		# each attacker's real enemies are close by, but most of the map's
+		# total targets are on a front that's completely irrelevant to it.
+		var front_origin := HexCoord.new(-80 + (player_idx / 2) * 80, -80 + (player_idx / 2) * 80)
+		for i in range(squads_per_player):
+			var offset_q := (i % 8) - 4 + (player_idx % 2)
+			var offset_r := (i / 8) - 4 + (player_idx % 2)
+			var squad_hex := HexCoord.add(front_origin, HexCoord.new(offset_q, offset_r))
+			var squad_id := "%s_squad_%d" % [owner_id, i]
+			var squad := SquadInstance.new(squad_id, owner_id, "grenadier", squad_hex)
+			var member_ids: Array[String] = []
+			for m in range(5):
+				var member_id := "%s_m%d" % [squad_id, m]
+				var troop := TroopInstance.new(member_id, "grenadier", owner_id, squad_id, 100.0)
+				state.troops_by_id[member_id] = troop
+				member_ids.append(member_id)
+			squad.member_ids = member_ids
 			squad.path = []
 			squad.order = {"type": "idle"}
 			state.squads.append(squad)
-	
-	# Create some tower defenses (standalone buildings)
-	for i in range(4):
-		var tower := BuildingInstance.new("tower_%d" % i, "", "Tower", 1, "wood", HexCoord.new((-10 + i * 5), (-10 + i * 5)), ["player_1", "player_2"][i % 2])
+
+	# Standalone tower defenses scattered near the frontline (also in
+	# everyone's engagement range, and building-LOS blockers for one another).
+	for i in range(12):
+		var tower := BuildingInstance.new("tower_%d" % i, "", "cold_turret", 1, "steel", HexCoord.new(-6 + i, -6 + (i % 5)), ["player_1", "player_2", "player_3"][i % 3])
 		tower.max_hp = 50.0
 		tower.current_hp = 50.0
 		state.standalone_buildings.append(tower)
-	
-	# Initialize player data
-	state.players["player_1"] = Player.new("player_1")
-	state.players["player_2"] = Player.new("player_2")
-	
-	# Initialize resources
-	state.resource_pools["player_1"] = ResourcePool.new()
-	state.resource_pools["player_2"] = ResourcePool.new()

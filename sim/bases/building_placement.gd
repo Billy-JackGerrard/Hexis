@@ -302,12 +302,12 @@ static func standalone_occupied_hexes(bases: Array[BaseInstance], standalone_bui
 ## infrastructure meant to be driven over, not an obstacle (01-map-and-terrain.md).
 const LAND_PASSABLE_BUILDING_TYPES := ["road", "bridge"]
 
-## {hex_key: true} for every hex no non-Air unit can enter: any standing
+## {hex_key: true} for every hex no Land/Naval unit can enter: any standing
 ## (non-ruin, non-destroyed) building's hex, base-attached or standalone,
 ## except Road/Bridge (see LAND_PASSABLE_BUILDING_TYPES) and Wall (edge-keyed,
-## `hex == null`, already excluded by base.occupied_hexes()). Air never
-## consults this — HexGrid.edge_cost only applies it to non-Air domains
-## (Infantry/Land/Naval), same as every other Domain-specific terrain rule.
+## `hex == null`, already excluded by base.occupied_hexes()). Air and Infantry
+## never consult this — HexGrid.edge_cost only applies it to Land/Naval,
+## same as every other Domain-specific terrain rule.
 static func building_blocking_hexes(bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance]) -> Dictionary:
 	var result: Dictionary = {}
 	for base in bases:

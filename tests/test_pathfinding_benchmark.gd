@@ -75,3 +75,4 @@ func _run() -> void:
 	print("Total time: %.1fms" % total)
 	print("\nBinary heap A* is working correctly!")
 	print("All checks passed.")
+	quit()

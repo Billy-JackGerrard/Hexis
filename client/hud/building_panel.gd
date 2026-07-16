@@ -466,10 +466,14 @@ const HQ_STANDALONE_BUILDINGS := ["road", "bridge"]
 ## BUILD-menu category.
 func _build_infrastructure_menu(base: BaseInstance, building: BuildingInstance) -> void:
 	_content.add_child(UITheme.header_label("INFRASTRUCTURE"))
+	var any_unlocked := false
 	for building_type in HQ_STANDALONE_BUILDINGS:
 		var def: Dictionary = state.building_defs.get(building_type, {})
 		if def.is_empty():
 			continue
+		if base.hq_level < int(def.get("unlockHqLevel", 1)):
+			continue
+		any_unlocked = true
 		var bt := String(building_type)
 		var display_name := String(def.get("name", bt.capitalize()))
 		var reason_fn := func(): return UIEligibility.hq_standalone_build_reason(state, base, building, bt, owner_id)
@@ -479,6 +483,8 @@ func _build_infrastructure_menu(base: BaseInstance, building: BuildingInstance) 
 		button.pressed.connect(func(): _toggle_infra_row(building_id, bt, reason_fn))
 		_content.add_child(button)
 		_option_updaters.append({"button": button, "variation": "", "reason_fn": reason_fn})
+	if not any_unlocked:
+		_content.add_child(UITheme.muted_label("Nothing to build here"))
 
 		if _expanded_infra_type == bt:
 			_build_infra_detail(base, building, bt, def, reason_fn)

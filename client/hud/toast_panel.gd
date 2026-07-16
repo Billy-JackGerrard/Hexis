@@ -141,7 +141,10 @@ func _refresh_alerts() -> void:
 	for child in _alerts_list.get_children():
 		child.queue_free()
 	for alert in alerts:
-		var button := UITheme.action_button(alert["label"])
+		var label_text: String = alert["label"]
+		if label_text == "":
+			continue
+		var button := UITheme.action_button(label_text)
 		# action_button() already clips (no overrun marker); a long label like
 		# "Kraken Point production paused" was getting hard-cut mid-word at
 		# this panel's width, unreadable. Ellipsis reads as "yes it's cut,

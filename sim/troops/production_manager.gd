@@ -110,9 +110,12 @@ static func advance(queue: ProductionQueue, dt: float, troop_defs: Dictionary = 
 ##   spawn_hex for the nearest open, unoccupied water hex via `grid` (a Naval
 ##   production building — Shipyard/Port/Harbour — sits on the adjacent
 ##   Plains hex, not on water itself, so spawning right on top of it would
-##   otherwise land the new ship on dry land). Every other domain spawns at
-##   spawn_hex unchanged. `grid` is optional (null skips this correction) so
-##   callers that don't care (e.g. cap-math-only tests) can omit it.
+##   otherwise land the new ship on dry land). Infantry and Land troop_types
+##   search outward the same way for the nearest empty (unoccupied,
+##   non-building) hex instead of spawning stacked on the producing building.
+##   Every other domain spawns at spawn_hex unchanged. `grid` is optional
+##   (null skips this correction) so callers that don't care (e.g.
+##   cap-math-only tests) can omit it.
 ## - squads: the owner's live SquadInstance list; mutated in place (append on
 ##   new squad, add_member on join).
 ## - troops_by_id: id -> TroopInstance registry; mutated in place (a deployed
@@ -211,14 +214,20 @@ static func pump(
 ##   outward the same way, excluding both squad-occupied AND building-blocked
 ##   hexes (its own producing building included — that hex is in
 ##   `building_blocked_hexes` too, which is what pushes the search off it).
+## - Infantry: spawns on the barracks hex itself just like Land does its own
+##   producing building — same outward search, excluding squad-occupied AND
+##   building-blocked hexes, so a fresh squad lands beside the barracks
+##   instead of stacked on it. This is a spawn-placement preference only:
+##   Infantry ignores standing buildings for movement afterward
+##   (HexGrid.edge_cost) and can walk back across the barracks hex freely.
 static func _domain_spawn_hex(spawn_hex: HexCoord, troop_def: Dictionary, grid: HexGrid, squads: Array[SquadInstance], building_blocked_hexes: Dictionary = {}) -> HexCoord:
 	if grid == null:
 		return spawn_hex
 	var domain := Terrain.domain_from_string(String(troop_def.get("domain", "Infantry")))
 	if domain == Terrain.Domain.NAVAL:
 		return grid.nearest_passable_hex(spawn_hex, Terrain.Domain.NAVAL, func(h): return not _hex_has_squad(h, squads))
-	if domain == Terrain.Domain.LAND:
-		return grid.nearest_passable_hex(spawn_hex, Terrain.Domain.LAND, func(h): return not _hex_has_squad(h, squads) and not building_blocked_hexes.has(h.to_key()))
+	if domain == Terrain.Domain.LAND or domain == Terrain.Domain.INFANTRY:
+		return grid.nearest_passable_hex(spawn_hex, domain, func(h): return not _hex_has_squad(h, squads) and not building_blocked_hexes.has(h.to_key()))
 	return spawn_hex
 
 static func _hex_has_squad(hex: HexCoord, squads: Array[SquadInstance]) -> bool:

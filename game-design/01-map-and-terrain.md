@@ -150,15 +150,16 @@ occupies a hex, and moves hex-to-hex:
   line from attacker-hex to target-hex crosses a walled edge is blocked, forcing an
   attacker to path around or destroy the wall first. Air-domain units/attacks ignore
   Walls entirely, same as every other terrain rule.
-- **Buildings block ground movement, Air excepted**: no non-Air unit (Infantry, Land
-  vehicle, or Naval) can enter a hex occupied by a standing building (base-attached or
-  standalone) — only Air ignores it, consistent with the Domain-specific terrain rules
-  above (Naval never actually encounters this in practice, since buildings only stand
-  on buildable land terrain). Two exceptions: **Road/Bridge** hexes stay traversable
-  (they're infrastructure meant to be driven over, not obstacles), and a **ruin** (a
-  destroyed, not-yet-rebuilt building — see `06-building-stats-and-defenses.md`'s
-  Destruction & Ruins) no longer blocks either, since nothing is actually standing
-  there anymore.
+- **Buildings block ground movement, Air and Infantry excepted**: no Land vehicle or
+  Naval unit can enter a hex occupied by a standing building (base-attached or
+  standalone) — Air ignores it same as it ignores every other terrain rule, and
+  Infantry can walk through/over standing buildings, friendly or enemy, same as it
+  walks any other terrain (Naval never actually encounters this in practice, since
+  buildings only stand on buildable land terrain). Two exceptions for Land vehicles:
+  **Road/Bridge** hexes stay traversable (they're infrastructure meant to be driven
+  over, not obstacles), and a **ruin** (a destroyed, not-yet-rebuilt building — see
+  `06-building-stats-and-defenses.md`'s Destruction & Ruins) no longer blocks either,
+  since nothing is actually standing there anymore.
 - **Standing buildings block line of sight for single-target attacks, same as a
   Wall**: an attack whose straight line from attacker-hex to target-hex passes through
   a hex holding another standing building (any owner) is blocked — a House parked in

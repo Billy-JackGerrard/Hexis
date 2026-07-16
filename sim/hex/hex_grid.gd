@@ -59,14 +59,14 @@ func get_infrastructure(coord: HexCoord) -> Terrain.Infrastructure:
 ## clears a Wall, only terrain blocks. `building_blocked_hexes` is a
 ## caller-supplied {hex_key: true} set (see
 ## BuildingPlacement.building_blocking_hexes) of hexes a standing building
-## occupies — consulted for every non-Air domain (Infantry/Land/Naval), same
-## Domain-gated shape as the wall check above.
+## occupies — consulted for Land/Naval only; Infantry ignores standing
+## buildings same as Air ignores walls/buildings (01-map-and-terrain.md).
 func edge_cost(from: HexCoord, to: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}, building_blocked_hexes: Dictionary = {}) -> float:
 	if not has_hex(to):
 		return Terrain.INF
 	if domain != Terrain.Domain.AIR and is_walled_edge(from, to):
 		return Terrain.INF
-	if domain != Terrain.Domain.AIR and building_blocked_hexes.has(to.to_key()):
+	if domain != Terrain.Domain.AIR and domain != Terrain.Domain.INFANTRY and building_blocked_hexes.has(to.to_key()):
 		return Terrain.INF
 	return Terrain.effective_cost(get_terrain(to), domain, get_infrastructure(to), overrides)
 

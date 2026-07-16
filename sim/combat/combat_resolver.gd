@@ -196,15 +196,19 @@ static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[Comba
 
 	squad.attack_progress += dt * attack_speed
 	# Ready-but-idle: hold at most one banked volley so a unit fires promptly
-	# when an enemy arrives, without stockpiling charge over a long lull.
-	if CombatTargeting.select_target(squad, def, targets, detections, grid) == null:
+	# when an enemy arrives, without stockpiling charge over a long lull. Only
+	# worth the (relatively expensive) target-selection call once progress
+	# has actually reached 1.0 — capping below that is a no-op, so this used
+	# to run a full candidate scan every tick for every squad still charging
+	# toward its next shot (most of a squad's lifetime between volleys).
+	if squad.attack_progress >= 1.0 and CombatTargeting.select_target(squad, def, targets, detections, grid, target_index) == null:
 		squad.attack_progress = min(squad.attack_progress, 1.0)
 		return
 
 	var base_damage := float(def.get("damage", 0.0)) * AuraSystem.damage_mult(auras, squad.id)
 	var splash := int(def.get("splashRadius", 0))
 	while squad.attack_progress >= 1.0:
-		var target := CombatTargeting.select_target(squad, def, targets, detections, grid)
+		var target := CombatTargeting.select_target(squad, def, targets, detections, grid, target_index)
 		if target == null:
 			break
 		for member_id in _living_members(squad, troops_by_id):
@@ -251,7 +255,7 @@ static func _advance_building(building: BuildingInstance, owner_id: String, dt: 
 	for i in building.turret_progress.size():
 		building.turret_progress[i] += dt * attack_speed
 		while building.turret_progress[i] >= 1.0:
-			var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections, grid, claimed_this_tick)
+			var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections, grid, claimed_this_tick, target_index)
 			if target == null:
 				building.turret_progress[i] = min(building.turret_progress[i], 1.0)
 				break
@@ -270,7 +274,7 @@ static func _trigger_self_destruct(building: BuildingInstance, owner_id: String,
 	if stats.get("canTarget", []).is_empty():
 		return
 	var attacker_range := int(stats.get("range", 0))
-	var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections, grid)
+	var target := CombatTargeting.select_auto(building.hex, owner_id, attacker_range, stats, targets, detections, grid, {}, target_index)
 	if target == null:
 		return
 	var base_damage := float(stats.get("damage", 0.0))

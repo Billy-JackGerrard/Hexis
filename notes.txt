@@ -49,3 +49,17 @@ this'll encourage more infantry production.
 
 
 add letters to buildings
+
+buildings should use food/fuel
+
+
+idea: bridges dont last forever
+
+
+roads should double or even triple speed of land troops.
+in addition, resource buildings and stuff can be built as standalone if its next to a road that's attached to a base? thoughts?
+this would mean in the future we can add better, rare terrain/natural resources on the map, to encourage exploration.
+
+if a quarry is on/next to a hill, bonus?
+
+shortcut to upgrade multiple/app buildings?

@@ -50,12 +50,30 @@ static func can_target(attacker_def: Dictionary, target: CombatTarget) -> bool:
 ## also exempts an indirect-fire attacker from the troop/building LOS-blocking
 ## check below (`_object_line_blocked`) — it arcs its shot in over whatever's
 ## in the way, the same reasoning Air already gets everywhere else.
-static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null) -> Array[CombatTarget]:
+## `target_index` (hex.to_key() -> Array[CombatTarget], CombatResolver.
+## build_target_index's output — default {} so existing callers keep
+## compiling/scanning the full `targets` array unchanged) lets this skip
+## straight to the hexes within `attacker_range` instead of walking every
+## target on the map to compute a distance that's usually going to fail the
+## range check anyway — the O(attackers * targets) scan that dominates a
+## large battle's tick cost. See _nearby_targets for the one correctness
+## wrinkle (Walls) this requires.
+static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null, target_index: Dictionary = {}) -> Array[CombatTarget]:
 	var result: Array[CombatTarget] = []
 	var is_air := String(attacker_def.get("domain", "")) == "Air"
 	var min_range := int(attacker_def.get("minRange", 0))
 	var ignores_los := is_air or min_range > 0
-	for target in targets:
+	# Built once per call (O(targets)) instead of once per candidate-in-range
+	# check inside the loop below — that used to make _building_line_blocked's
+	# full-targets scan run T times per candidates() call (O(T^2) total),
+	# the dominant cost of combat targeting at high squad/building counts.
+	var building_index: Dictionary = {}
+	if grid != null and not ignores_los:
+		building_index = _building_occupancy_index(targets)
+	var pool: Array[CombatTarget] = targets
+	if not target_index.is_empty():
+		pool = _nearby_targets(attacker_hex, attacker_range, targets, target_index)
+	for target in pool:
 		if target.owner_id == attacker_owner or not target.is_alive():
 			continue
 		var dist := target.distance_from(attacker_hex)
@@ -77,24 +95,61 @@ static func candidates(attacker_hex: HexCoord, attacker_owner: String, attacker_
 		# above. Troops never block each other's LOS, only buildings do (a
 		# level-3 Wood Tower's 3 turrets can still independently clear 3
 		# squads lined up in front of it — see test_combat.gd).
-		if grid != null and not ignores_los and target.hex_b == null and _building_line_blocked(attacker_hex, target, targets):
+		if grid != null and not ignores_los and target.hex_b == null and _building_line_blocked(attacker_hex, target, building_index):
 			continue
 		if can_target(attacker_def, target):
 			result.append(target)
 	return result
+
+## Every target within `attacker_range` hexes of `attacker_hex`, gathered via
+## `target_index` instead of a full scan of `targets`. A Wall's distance_from
+## takes the closer of its two endpoint hexes (hex_a/hex_b), but target_index
+## only keys it under hex_a (CombatTarget.for_building's canonical anchor) —
+## so a ring gather rooted at hex_a alone could miss a Wall that's actually
+## in range via hex_b. Walls are rare (a handful per map at most), so instead
+## of indexing both endpoints, every Wall in `targets` is just always
+## included here; the caller's own distance/range filtering still applies
+## after this, so an out-of-range Wall is discarded same as ever.
+static func _nearby_targets(attacker_hex: HexCoord, attacker_range: int, targets: Array[CombatTarget], target_index: Dictionary) -> Array[CombatTarget]:
+	var result: Array[CombatTarget] = []
+	var seen: Dictionary = {}
+	for coord in HexCoord.range_within(attacker_hex, attacker_range):
+		for target in target_index.get(coord.to_key(), []):
+			if not seen.has(target):
+				seen[target] = true
+				result.append(target)
+	for target in targets:
+		if target.hex_b != null and not seen.has(target):
+			seen[target] = true
+			result.append(target)
+	return result
+
+## hex.to_key() -> Array[CombatTarget] for every alive, single-hex building
+## (Walls excluded via hex_b != null, same carve-out as the caller) — built
+## once per candidates() call so _building_line_blocked can look up only the
+## hexes actually on a given line instead of rescanning every target.
+static func _building_occupancy_index(targets: Array[CombatTarget]) -> Dictionary:
+	var index: Dictionary = {}
+	for other in targets:
+		if other.kind != CombatTarget.Kind.BUILDING or other.hex_b != null or not other.is_alive():
+			continue
+		var key := other.hex.to_key()
+		if not index.has(key):
+			index[key] = []
+		index[key].append(other)
+	return index
 
 ## True if some other alive building (any owner, Walls excluded — they have
 ## no single hex of their own and their own edge-based rule already runs
 ## above) occupies a hex strictly between `attacker_hex` and `target.hex`. A
 ## ruin/destroyed building is not alive (CombatTarget.is_alive) so it never
 ## blocks, matching the movement rule's ruin exception.
-static func _building_line_blocked(attacker_hex: HexCoord, target: CombatTarget, targets: Array[CombatTarget]) -> bool:
+static func _building_line_blocked(attacker_hex: HexCoord, target: CombatTarget, building_index: Dictionary) -> bool:
 	var hexes := HexCoord.line(attacker_hex, target.hex)
 	for i in range(1, hexes.size() - 1):
-		for other in targets:
-			if other == target or other.kind != CombatTarget.Kind.BUILDING or other.hex_b != null or not other.is_alive():
-				continue
-			if other.hex != null and other.hex.equals(hexes[i]):
+		var occupants: Array = building_index.get(hexes[i].to_key(), [])
+		for other in occupants:
+			if other != target:
 				return true
 	return false
 
@@ -151,8 +206,8 @@ static func _best_in_tier(attacker_hex: HexCoord, attacker_def: Dictionary, tier
 ## than all focus-firing the single best target; if excluding would leave
 ## nothing in range, it's ignored and the normal best-target is picked instead
 ## (turrets are allowed to double up rather than skip a shot).
-static func select_auto(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null, exclude_ids: Dictionary = {}) -> CombatTarget:
-	var in_range := candidates(attacker_hex, attacker_owner, attacker_range, attacker_def, targets, detections, grid)
+static func select_auto(attacker_hex: HexCoord, attacker_owner: String, attacker_range: int, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null, exclude_ids: Dictionary = {}, target_index: Dictionary = {}) -> CombatTarget:
+	var in_range := candidates(attacker_hex, attacker_owner, attacker_range, attacker_def, targets, detections, grid, target_index)
 	if in_range.is_empty():
 		return null
 
@@ -179,13 +234,13 @@ static func select_auto(attacker_hex: HexCoord, attacker_owner: String, attacker
 ## `attack_target` order when still valid (clearing it when the target is dead),
 ## then falls back to auto tier/priority selection. Returns null if nothing is
 ## engageable.
-static func select_target(attacker_squad: SquadInstance, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null) -> CombatTarget:
+static func select_target(attacker_squad: SquadInstance, attacker_def: Dictionary, targets: Array[CombatTarget], detections: Dictionary = {}, grid: HexGrid = null, target_index: Dictionary = {}) -> CombatTarget:
 	var attacker_range := int(attacker_def.get("range", 0))
 
 	var order: Dictionary = attacker_squad.order
 	if order.get("type", "") == "attack_target":
 		var directed_id: String = order.get("targetId", "")
-		var in_range := candidates(attacker_squad.current_hex, attacker_squad.owner_id, attacker_range, attacker_def, targets, detections, grid)
+		var in_range := candidates(attacker_squad.current_hex, attacker_squad.owner_id, attacker_range, attacker_def, targets, detections, grid, target_index)
 		for target in in_range:
 			if target.target_id() == directed_id:
 				return target
@@ -197,7 +252,7 @@ static func select_target(attacker_squad: SquadInstance, attacker_def: Dictionar
 		if not _target_alive_anywhere(directed_id, targets):
 			attacker_squad.order = {}
 
-	return select_auto(attacker_squad.current_hex, attacker_squad.owner_id, attacker_range, attacker_def, targets, detections, grid)
+	return select_auto(attacker_squad.current_hex, attacker_squad.owner_id, attacker_range, attacker_def, targets, detections, grid, {}, target_index)
 
 static func _target_alive_anywhere(target_id: String, targets: Array[CombatTarget]) -> bool:
 	for target in targets:
