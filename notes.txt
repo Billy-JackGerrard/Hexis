@@ -45,3 +45,7 @@ commander centre could contribute to squad cap
 infantry could have its own cap, separate to squad cap?
 actually nah, but do increase number of troops in a squad.
 this'll encourage more infantry production.
+
+
+
+add letters to buildings

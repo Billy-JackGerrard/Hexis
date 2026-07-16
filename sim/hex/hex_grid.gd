@@ -122,7 +122,8 @@ func nearest_passable_hex(from: HexCoord, domain: Terrain.Domain, is_free: Calla
 		frontier = next_frontier
 	return from
 
-## Standard hex A*, edge cost per `edge_cost`. Returns [] if no path exists.
+## Standard hex A* with binary heap priority queue (O(N log N) instead of O(N²)).
+## Edge cost per `edge_cost`. Returns [] if no path exists.
 ## Path is computed once per order per the design (not re-planned every tick);
 ## callers own re-invoking this when blocked or re-ordered.
 func find_path(start: HexCoord, goal: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}, building_blocked_hexes: Dictionary = {}) -> Array[HexCoord]:
@@ -131,41 +132,48 @@ func find_path(start: HexCoord, goal: HexCoord, domain: Terrain.Domain, override
 	if start.equals(goal):
 		return [start]
 
-	var open: Dictionary = {start.to_key(): true}
+	var open: BinaryHeap = BinaryHeap.new()
+	var closed: Dictionary = {}
 	var came_from: Dictionary = {}
 	var g_score: Dictionary = {start.to_key(): 0.0}
-	var f_score: Dictionary = {start.to_key(): HexCoord.distance(start, goal)}
 	var coord_by_key: Dictionary = {start.to_key(): start}
 
-	while not open.is_empty():
-		var current_key: String = ""
-		var best_f: float = INF
-		for k in open.keys():
-			if f_score.get(k, INF) < best_f:
-				best_f = f_score[k]
-				current_key = k
-		var current: HexCoord = coord_by_key[current_key]
+	var start_key := start.to_key()
+	var goal_key := goal.to_key()
+	var start_h: int = HexCoord.distance(start, goal)
+	open.push(start_key, float(start_h))
 
-		if current.equals(goal):
-			var path: Array[HexCoord] = [current]
+	while not open.is_empty():
+		var current_key: String = open.pop()
+		if closed.has(current_key):
+			continue
+		closed[current_key] = true
+
+		if current_key == goal_key:
+			var path: Array[HexCoord] = [coord_by_key[current_key]]
 			var k: String = current_key
 			while came_from.has(k):
 				k = came_from[k]
 				path.push_front(coord_by_key[k])
 			return path
 
-		open.erase(current_key)
+		var current: HexCoord = coord_by_key[current_key]
 		for neighbor in HexCoord.neighbors(current):
+			var neighbor_key := neighbor.to_key()
+			if closed.has(neighbor_key):
+				continue
+
 			var step_cost := edge_cost(current, neighbor, domain, overrides, building_blocked_hexes)
 			if step_cost == Terrain.INF:
 				continue
-			var neighbor_key := neighbor.to_key()
+
 			var tentative_g: float = g_score[current_key] + step_cost
 			if tentative_g < g_score.get(neighbor_key, INF):
 				coord_by_key[neighbor_key] = neighbor
 				came_from[neighbor_key] = current_key
 				g_score[neighbor_key] = tentative_g
-				f_score[neighbor_key] = tentative_g + HexCoord.distance(neighbor, goal)
-				open[neighbor_key] = true
+				var h: int = HexCoord.distance(neighbor, goal)
+				var f: float = tentative_g + float(h)
+				open.push(neighbor_key, f)
 
 	return []
