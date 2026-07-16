@@ -18,11 +18,20 @@ var troops_by_id: Dictionary = {} ## id -> TroopInstance, members of `squads`
 ## requested seed if MapGenerator retried with a derived seed after a
 ## constrained-placement dead end. See MapGenerator.generate().
 var seed_used: int
+## Standalone (non-base-attached) buildings placed at world-gen — currently
+## just barbarian outpost towers (see BarbarianOutpostPlacer), empty when
+## MapGenerator.generate() is called without outpost_defs.
+var standalone_buildings: Array[BuildingInstance] = []
+## Barbarian outpost camps placed at world-gen (see BarbarianOutpostPlacer) —
+## empty when MapGenerator.generate() is called without outpost_defs.
+var barbarian_outposts: Array[BarbarianOutpostInstance] = []
 
-func _init(p_grid: HexGrid, p_bases: Array[BaseInstance], p_capital_ids_by_player: Dictionary, p_seed_used: int, p_squads: Array[SquadInstance] = [], p_troops_by_id: Dictionary = {}) -> void:
+func _init(p_grid: HexGrid, p_bases: Array[BaseInstance], p_capital_ids_by_player: Dictionary, p_seed_used: int, p_squads: Array[SquadInstance] = [], p_troops_by_id: Dictionary = {}, p_standalone_buildings: Array[BuildingInstance] = [], p_barbarian_outposts: Array[BarbarianOutpostInstance] = []) -> void:
 	grid = p_grid
 	bases = p_bases
 	capital_ids_by_player = p_capital_ids_by_player
 	seed_used = p_seed_used
 	squads = p_squads
 	troops_by_id = p_troops_by_id
+	standalone_buildings = p_standalone_buildings
+	barbarian_outposts = p_barbarian_outposts

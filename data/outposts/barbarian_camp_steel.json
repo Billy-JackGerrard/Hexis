@@ -1,0 +1,12 @@
+{
+  "id": "barbarian_camp_steel",
+  "buildingType": "tower",
+  "material": "steel",
+  "garrison": [
+    { "troopId": "chonky", "count": 4 },
+    { "troopId": "rocket_tank", "count": 4 },
+    { "troopId": "tank_obliterator", "count": 1 }
+  ],
+  "loot": { "steel": 200, "stone": 100 },
+  "notes": "Far tier (closest_capital_distance/map_radius >= Tuning.BARBARIAN_TIER_FAR_FRACTION) — a real commitment to crack, guarding the tanky splash steel tower. Best loot on the map outside of capturing a Unique base."
+}

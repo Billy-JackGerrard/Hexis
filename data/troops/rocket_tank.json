@@ -5,7 +5,6 @@
   "tags": ["Vehicle", "Tank", "Anti-Air"],
 
   "hp": 260,
-  "armor": 3,
   "damage": 20,
   "attackSpeed": 1.1,
   "range": 6,

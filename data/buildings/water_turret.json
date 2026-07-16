@@ -19,12 +19,12 @@
 
   "materialStats": {
     "stone": {
-      "baseStats": { "hp": 250, "damage": 16, "attackSpeed": 1.2, "range": 4, "visionRange": 8 },
+      "baseStats": { "hp": 250, "damage": 16, "attackSpeed": 1.2, "range": 8, "visionRange": 10 },
       "statGrowth": {
         "hp": { "mode": "percent", "value": 12 },
         "damage": { "mode": "percent", "value": 10 },
         "attackSpeed": { "mode": "flat", "value": 0 },
-        "range": { "mode": "flat", "value": 0.5 },
+        "range": { "mode": "flat", "value": 0.25 },
         "visionRange": { "mode": "flat", "value": 0.5 }
       },
       "baseCost": { "stone": 140 },
@@ -36,13 +36,13 @@
       "damageDealtModifiers": { "Naval": 2.5 }
     },
     "wood": {
-      "baseStats": { "hp": 150, "damage": 10, "attackSpeed": 1.6, "range": 4, "visionRange": 8 },
+      "baseStats": { "hp": 150, "damage": 10, "attackSpeed": 1.6, "range": 7, "visionRange": 9 },
       "statGrowth": {
         "hp": { "mode": "percent", "value": 15 },
         "damage": { "mode": "flat", "value": 1 },
         "attackSpeed": { "mode": "flat", "value": 0 },
-        "range": { "mode": "flat", "value": 0 },
-        "visionRange": { "mode": "flat", "value": 0 }
+        "range": { "mode": "flat", "value": 0.25 },
+        "visionRange": { "mode": "flat", "value": 0.5 }
       },
       "baseCost": { "wood": 70 },
       "upgradeBaseCost": { "wood": 25 },
@@ -54,14 +54,14 @@
       "damageReceivedModifiers": { "Fire": 2.0 }
     },
     "steel": {
-      "baseStats": { "hp": 350, "armor": 3, "damage": 15, "attackSpeed": 0.9, "range": 4, "visionRange": 8 },
+      "baseStats": { "hp": 350, "armor": 3, "damage": 15, "attackSpeed": 0.9, "range": 6, "visionRange": 8 },
       "statGrowth": {
         "hp": { "mode": "percent", "value": 10 },
         "armor": { "mode": "flat", "value": 0 },
         "damage": { "mode": "percent", "value": 8 },
         "attackSpeed": { "mode": "flat", "value": 0 },
-        "range": { "mode": "flat", "value": 0 },
-        "visionRange": { "mode": "flat", "value": 0 }
+        "range": { "mode": "flat", "value": 0.25 },
+        "visionRange": { "mode": "flat", "value": 0.5 }
       },
       "baseCost": { "steel": 180 },
       "upgradeBaseCost": { "steel": 60 },

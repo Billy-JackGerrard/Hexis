@@ -49,8 +49,9 @@ static func _resolve_fine_tick(state: MatchState, dt: float, auras: Dictionary) 
 	MovementResolver.resolve_tick(dt, state.squads, state.grid, state.troop_defs, auras, state.bases, state.standalone_buildings)
 	_resolve_regiment_movement(state, dt, auras)
 
-	CombatResolver.resolve_tick(dt, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, state.detections, auras, state.standalone_buildings, state.regiments, state.production_queues, state.projectiles, Callable(state, "next_projectile_id"), state.rng)
-	ProjectileSystem.resolve_tick(dt, state.projectiles, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, auras, state.standalone_buildings, state.regiments, state.production_queues, state.rng)
+	CombatResolver.resolve_tick(dt, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, state.detections, auras, state.standalone_buildings, state.regiments, state.production_queues, state.projectiles, Callable(state, "next_projectile_id"), state.rng, state.barbarian_outposts, state.events)
+	ProjectileSystem.resolve_tick(dt, state.projectiles, state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, auras, state.standalone_buildings, state.regiments, state.production_queues, state.rng, state.barbarian_outposts, state.events)
+	BarbarianOutpostLootSystem.resolve_tick(state.barbarian_outposts, state.squads, Callable(state, "pool_for"), state.events)
 
 	_advance_production(state, dt)
 
@@ -138,4 +139,4 @@ static func _resolve_economy_tick(state: MatchState, auras: Dictionary) -> void:
 		var pool := state.pool_for(owner_id)
 		var deficits := ResourceTick.apply(pool, production.get(owner_id, {}), upkeep.get(owner_id, {}))
 		if not deficits.is_empty():
-			UpkeepSystem.apply_deficit_deaths(owner_id, deficits, state.squads, state.troops_by_id, state.troop_defs)
+			UpkeepSystem.apply_deficit_deaths(owner_id, deficits, state.squads, state.troops_by_id, state.troop_defs, state.events)

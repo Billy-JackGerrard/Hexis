@@ -14,6 +14,15 @@ var bases: Array[BaseInstance] = []
 var troops_by_id: Dictionary = {} ## id -> TroopInstance
 var regiments: Array[RegimentInstance] = []
 var standalone_buildings: Array[BuildingInstance] = []
+var barbarian_outposts: Array[BarbarianOutpostInstance] = [] ## see sim/outposts/
+## Player-facing "this happened" records appended during tick resolution (see
+## sim/events/match_event.gd) — drained (read then cleared) by the client once
+## per rendered frame, NOT once per tick, since SimClock.advance()/
+## LockstepDriver can run several ticks per frame and every one of them must
+## accumulate here before the client drains. Deliberately excluded from
+## to_dict()/sections()/checksum() below, same as command_log's own exclusion
+## — see MatchEvent's own doc comment for why.
+var events: Array[MatchEvent] = []
 var projectiles: Array[ProjectileInstance] = [] ## in-flight ballistic shots, see ProjectileSystem
 var production_queues: Dictionary = {} ## building_id -> ProductionQueue
 var players: Dictionary = {} ## owner_id -> Player
@@ -195,6 +204,7 @@ func to_dict() -> Dictionary:
 		"troops_by_id": troops_dict,
 		"regiments": regiments.map(func(r): return r.to_dict()),
 		"standalone_buildings": standalone_buildings.map(func(b): return b.to_dict()),
+		"barbarian_outposts": barbarian_outposts.map(func(o): return o.to_dict()),
 		"projectiles": projectiles.map(func(p): return p.to_dict()),
 		"production_queues": queues_dict,
 		"players": players_dict,
@@ -280,6 +290,8 @@ static func from_dict(d: Dictionary, grid: HexGrid, troop_defs: Dictionary, buil
 		state.regiments.append(RegimentInstance.from_dict(regiment_dict))
 	for building_dict in d["standalone_buildings"]:
 		state.standalone_buildings.append(BuildingInstance.from_dict(building_dict))
+	for outpost_dict in d["barbarian_outposts"]:
+		state.barbarian_outposts.append(BarbarianOutpostInstance.from_dict(outpost_dict))
 	for projectile_dict in d["projectiles"]:
 		state.projectiles.append(ProjectileInstance.from_dict(projectile_dict))
 	for key in d["production_queues"]:

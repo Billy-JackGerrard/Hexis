@@ -13,7 +13,7 @@
   "defensiveStats": {
     "damage": 10,
     "attackSpeed": 1.6,
-    "range": 5,
+    "range": 8,
     "splashRadius": 0,
     "projectileSpeed": 14,
     "canTarget": ["Infantry", "Land", "Naval", "Air"],
@@ -25,12 +25,13 @@
     "baseStats": {
       "hp": 150,
       "damage": 10,
-      "range": 5
+      "range": 8,
+      "visionRange": 10
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 15 },
       "damage": { "mode": "flat", "value": 1 },
-      "range": { "mode": "flat", "value": 0 },
+      "range": { "mode": "flat", "value": 0.25 },
       "visionRange": { "mode": "flat", "value": 0.5 }
     },
     "baseCost": {

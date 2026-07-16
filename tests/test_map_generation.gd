@@ -6,6 +6,7 @@ var _failures: int = 0
 var _base_defs: Dictionary
 var _building_defs: Dictionary
 var _troop_defs: Dictionary
+var _outpost_defs: Dictionary
 
 func _check(condition: bool, label: String) -> void:
 	if condition:
@@ -18,6 +19,7 @@ func _init() -> void:
 	_base_defs = DataLoader.load_dir("res://data/bases")
 	_building_defs = DataLoader.load_dir("res://data/buildings")
 	_troop_defs = DataLoader.load_dir("res://data/troops")
+	_outpost_defs = DataLoader.load_dir("res://data/outposts")
 
 	print("Hexagon + ocean fringe")
 	_test_hexagon_and_fringe()
@@ -25,6 +27,8 @@ func _init() -> void:
 	_test_biomes()
 	print("Rivers")
 	_test_rivers()
+	print("Super river")
+	_test_super_river()
 	print("Base spacing")
 	_test_base_spacing()
 	print("Expansion viability")
@@ -49,6 +53,8 @@ func _init() -> void:
 	_test_map_generator_garrisons()
 	print("MapGenerator player_count guard")
 	_test_player_count_guard()
+	print("Barbarian outpost placement")
+	_test_barbarian_outpost_placement()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -136,6 +142,60 @@ func _test_rivers() -> void:
 			if grid.get_terrain(hex) != Terrain.Type.RIVER:
 				river_tiles_match = false
 	_check(river_tiles_match, "every path hex is actually River terrain on the grid")
+
+## Covers TerrainGenerator.generate_super_river's chance roll, full-map-
+## crossing shape, and 2-wide sections, across enough seeds to see both a
+## hit and a miss (Tuning.SUPER_RIVER_CHANCE is 0.5).
+func _test_super_river() -> void:
+	var radius := 24
+	var origin := HexCoord.new(0, 0)
+	var saw_hit := false
+	var saw_miss := false
+	var all_contiguous := true
+	var all_cross_center := true
+	var all_span_full_diameter := true
+	var all_tiles_are_river := true
+	var any_widened := true
+
+	for world_seed in range(40):
+		var grid := TerrainGenerator.generate_base_terrain(radius, 0)
+		var path := TerrainGenerator.generate_super_river(grid, radius, world_seed)
+		if path.is_empty():
+			saw_miss = true
+			continue
+		saw_hit = true
+
+		var touches_center := false
+		for i in range(path.size()):
+			if HexCoord.distance(origin, path[i]) <= 1:
+				touches_center = true
+			if i > 0 and HexCoord.distance(path[i - 1], path[i]) != 1:
+				all_contiguous = false
+			if grid.get_terrain(path[i]) != Terrain.Type.RIVER:
+				all_tiles_are_river = false
+		if not touches_center:
+			all_cross_center = false
+		if path.size() != radius * 2 + 1:
+			all_span_full_diameter = false
+
+		var path_keys: Dictionary = {}
+		for hex in path:
+			path_keys[hex.to_key()] = true
+		var widened := false
+		for hex in path:
+			for n in HexCoord.neighbors(hex):
+				if grid.get_terrain(n) == Terrain.Type.RIVER and not path_keys.has(n.to_key()):
+					widened = true
+		if not widened:
+			any_widened = false
+
+	_check(saw_hit, "the chance roll hits at least once across 40 seeds (fixture sanity check)")
+	_check(saw_miss, "the chance roll also misses at least once across 40 seeds (it's a 50% roll, not guaranteed)")
+	_check(all_contiguous, "every rolled super river is an unbroken chain of adjacent hexes")
+	_check(all_cross_center, "every rolled super river passes through/adjacent to the origin")
+	_check(all_span_full_diameter, "every rolled super river spans the full map diameter (edge to opposite edge)")
+	_check(all_tiles_are_river, "every super river path hex is actually River terrain on the grid")
+	_check(any_widened, "every rolled super river has at least one 2-hex-wide section")
 
 func _test_base_spacing() -> void:
 	var player_count := 2
@@ -578,3 +638,105 @@ func _test_map_generator_garrisons() -> void:
 func _test_player_count_guard() -> void:
 	var result := MapGenerator.generate(MapGenerator.MAX_SUPPORTED_PLAYER_COUNT + 1, 1, _base_defs, _building_defs)
 	_check(result == null, "player_count beyond MAX_SUPPORTED_PLAYER_COUNT fails loudly (returns null)")
+
+## Covers BarbarianOutpostPlacer end-to-end via MapGenerator.generate(): camp
+## count/spacing/ownership, distance-scaled tier assignment, and determinism.
+## See sim/outposts/barbarian_outpost_placer.gd; loot-on-death logic itself is
+## covered separately in tests/test_barbarian_outposts.gd.
+func _test_barbarian_outpost_placement() -> void:
+	var player_count := 2
+	var world_seed := 42
+	var result := MapGenerator.generate(player_count, world_seed, _base_defs, _building_defs, [], _troop_defs, _outpost_defs)
+	_check(result != null, "generation with outpost_defs succeeds")
+	if result == null:
+		return
+
+	var expected_count := Tuning.BARBARIAN_OUTPOST_BASE_COUNT + player_count * Tuning.BARBARIAN_OUTPOST_COUNT_PER_PLAYER
+	_check(result.barbarian_outposts.size() > 0 and result.barbarian_outposts.size() <= expected_count, "placed at least one and at most the expected %d outposts (best-effort)" % expected_count)
+	_check(result.standalone_buildings.size() == result.barbarian_outposts.size(), "one standalone tower per outpost record")
+
+	var building_by_id: Dictionary = {}
+	for b in result.standalone_buildings:
+		building_by_id[b.id] = b
+
+	var every_tower_is_tower_type := true
+	var every_tower_neutral := true
+	var every_material_valid := true
+	for outpost in result.barbarian_outposts:
+		var building: BuildingInstance = building_by_id.get(outpost.building_id)
+		if building == null or building.building_type != "tower":
+			every_tower_is_tower_type = false
+			continue
+		if building.owner_id != BaseSiteSelector.NEUTRAL_OWNER_ID:
+			every_tower_neutral = false
+		if not ["wood", "stone", "steel"].has(building.material):
+			every_material_valid = false
+	_check(every_tower_is_tower_type, "every outpost's building_id resolves to an actual standalone tower")
+	_check(every_tower_neutral, "every outpost tower is owned by BaseSiteSelector.NEUTRAL_OWNER_ID")
+	_check(every_material_valid, "every outpost tower has a valid material")
+
+	var squads_by_id: Dictionary = {}
+	for squad in result.squads:
+		squads_by_id[squad.id] = squad
+	var every_guard_neutral := true
+	var any_guard := false
+	for outpost in result.barbarian_outposts:
+		for guard_id in outpost.guard_squad_ids:
+			any_guard = true
+			var squad: SquadInstance = squads_by_id.get(guard_id)
+			if squad == null or squad.owner_id != BaseSiteSelector.NEUTRAL_OWNER_ID:
+				every_guard_neutral = false
+	_check(any_guard, "at least one outpost has guard squads (fixture sanity check)")
+	_check(every_guard_neutral, "every outpost guard squad is owned by BaseSiteSelector.NEUTRAL_OWNER_ID")
+
+	var spacing_from_base_ok := true
+	var spacing_from_outpost_ok := true
+	for i in range(result.barbarian_outposts.size()):
+		var a: BuildingInstance = building_by_id.get(result.barbarian_outposts[i].building_id)
+		if a == null:
+			continue
+		for base in result.bases:
+			if HexCoord.distance(a.hex, base.hex_coord) < Tuning.BARBARIAN_OUTPOST_MIN_SPACING_FROM_BASE:
+				spacing_from_base_ok = false
+		for j in range(i + 1, result.barbarian_outposts.size()):
+			var b: BuildingInstance = building_by_id.get(result.barbarian_outposts[j].building_id)
+			if b != null and HexCoord.distance(a.hex, b.hex) < Tuning.BARBARIAN_OUTPOST_MIN_SPACING_FROM_OUTPOST:
+				spacing_from_outpost_ok = false
+	_check(spacing_from_base_ok, "every outpost respects BARBARIAN_OUTPOST_MIN_SPACING_FROM_BASE")
+	_check(spacing_from_outpost_ok, "every outpost pair respects BARBARIAN_OUTPOST_MIN_SPACING_FROM_OUTPOST")
+
+	var capital_hexes: Array[HexCoord] = []
+	for base in result.bases:
+		if _base_defs.get(base.base_def_id, {}).get("isCapital", false):
+			capital_hexes.append(base.hex_coord)
+	var map_radius := TerrainGenerator.map_radius(player_count)
+	var tier_matches_distance := true
+	for outpost in result.barbarian_outposts:
+		var building: BuildingInstance = building_by_id.get(outpost.building_id)
+		if building == null or capital_hexes.is_empty():
+			continue
+		var closest: int = HexCoord.distance(building.hex, capital_hexes[0])
+		for k in range(1, capital_hexes.size()):
+			closest = min(closest, HexCoord.distance(building.hex, capital_hexes[k]))
+		var fraction := float(closest) / float(map_radius)
+		var expected_material := "steel"
+		if fraction < Tuning.BARBARIAN_TIER_NEAR_FRACTION:
+			expected_material = "wood"
+		elif fraction < Tuning.BARBARIAN_TIER_FAR_FRACTION:
+			expected_material = "stone"
+		if building.material != expected_material:
+			tier_matches_distance = false
+	_check(tier_matches_distance, "every outpost's tier matches its distance-from-nearest-Capital bucket")
+
+	var result2 := MapGenerator.generate(player_count, world_seed, _base_defs, _building_defs, [], _troop_defs, _outpost_defs)
+	var deterministic := result2 != null and result2.barbarian_outposts.size() == result.barbarian_outposts.size()
+	if deterministic:
+		var building_by_id2: Dictionary = {}
+		for b in result2.standalone_buildings:
+			building_by_id2[b.id] = b
+		for i in range(result.barbarian_outposts.size()):
+			var b1: BuildingInstance = building_by_id.get(result.barbarian_outposts[i].building_id)
+			var b2: BuildingInstance = building_by_id2.get(result2.barbarian_outposts[i].building_id)
+			if b1 == null or b2 == null or not b1.hex.equals(b2.hex) or b1.material != b2.material:
+				deterministic = false
+	_check(deterministic, "same seed produces the same outpost placement")

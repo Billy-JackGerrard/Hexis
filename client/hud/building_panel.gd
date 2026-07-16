@@ -302,32 +302,76 @@ func _build_level_section(building: BuildingInstance, def: Dictionary, hq_level:
 
 # --- Build menu (HQ) --------------------------------------------------------
 
+## Grouping/display order for the BUILD menu's per-category sub-headers —
+## Terrain.category values (data/buildings/*.json) grouped the way a player
+## thinks about them rather than the raw data label ("Production" -> TROOPS,
+## since every Production building here is a troop-producing structure).
+## A category not in this map (shouldn't happen for anything actually
+## reachable via buildableBuildings today) still gets a header, just its raw
+## name upper-cased, so a future category doesn't silently vanish.
+const _BUILD_CATEGORY_ORDER := ["Resource", "Defensive", "Production", "Support"]
+const _BUILD_CATEGORY_LABELS := {
+	"Resource": "RESOURCES",
+	"Defensive": "DEFENCE",
+	"Production": "TROOPS",
+	"Support": "SUPPORT",
+}
+
 func _build_build_menu(base: BaseInstance, base_def: Dictionary) -> void:
 	_content.add_child(UITheme.header_label("BUILD"))
-	var any := false
+
+	# Bucket by category first (in buildableBuildings' own order within each
+	# bucket), skipping the same isFixed/not-yet-unlocked entries the old flat
+	# loop did, so a locked-behind-HQ-level building doesn't leave a category
+	# header with nothing under it.
+	var by_category: Dictionary = {}
+	var category_order: Array[String] = []
 	for building_type in base_def.get("buildableBuildings", []):
 		var def: Dictionary = state.building_defs.get(building_type, {})
 		if def.get("isFixed", false):
 			continue
 		if base.hq_level < int(def.get("unlockHqLevel", 1)):
 			continue
-		any = true
-		var bt := String(building_type)
-		var display_name := String(def.get("name", bt.capitalize()))
-		# Cached once here (the expensive tile scan) and reused by reason_fn.
-		var has_valid_hex := UIEligibility.any_valid_hex(state, base, base_def, bt)
-		var reason_fn := func(): return UIEligibility.build_reason(state, base, bt, owner_id, has_valid_hex)
+		var category := String(def.get("category", ""))
+		if not by_category.has(category):
+			by_category[category] = []
+			category_order.append(category)
+		(by_category[category] as Array).append(String(building_type))
 
-		var button := UITheme.action_button(display_name, "")
-		var base_id := base.id
-		button.pressed.connect(func(): _toggle_build_row(base_id, bt, def, reason_fn))
-		_content.add_child(button)
-		_option_updaters.append({"button": button, "variation": "", "reason_fn": reason_fn})
-
-		if _expanded_build_type == bt:
-			_build_build_detail(base, bt, def, reason_fn, has_valid_hex)
-	if not any:
+	if category_order.is_empty():
 		_content.add_child(UITheme.muted_label("Nothing to build here"))
+		return
+
+	category_order.sort_custom(func(a, b): return _build_category_rank(a) < _build_category_rank(b))
+	for category in category_order:
+		_content.add_child(UITheme.subheader_label(_BUILD_CATEGORY_LABELS.get(category, category.to_upper())))
+		for building_type in by_category[category]:
+			_add_build_row(base, base_def, building_type)
+
+static func _build_category_rank(category: String) -> int:
+	var idx := _BUILD_CATEGORY_ORDER.find(category)
+	return idx if idx != -1 else _BUILD_CATEGORY_ORDER.size()
+
+## One BUILD-menu row: the action button plus its expanded detail if this
+## building_type is the currently-expanded one. Split out of
+## _build_build_menu so that loop can iterate grouped-by-category instead of
+## the flat buildableBuildings list.
+func _add_build_row(base: BaseInstance, base_def: Dictionary, building_type: String) -> void:
+	var def: Dictionary = state.building_defs.get(building_type, {})
+	var bt := String(building_type)
+	var display_name := String(def.get("name", bt.capitalize()))
+	# Cached once here (the expensive tile scan) and reused by reason_fn.
+	var has_valid_hex := UIEligibility.any_valid_hex(state, base, base_def, bt)
+	var reason_fn := func(): return UIEligibility.build_reason(state, base, bt, owner_id, has_valid_hex)
+
+	var button := UITheme.action_button(display_name, "")
+	var base_id := base.id
+	button.pressed.connect(func(): _toggle_build_row(base_id, bt, def, reason_fn))
+	_content.add_child(button)
+	_option_updaters.append({"button": button, "variation": "", "reason_fn": reason_fn})
+
+	if _expanded_build_type == bt:
+		_build_build_detail(base, bt, def, reason_fn, has_valid_hex)
 
 ## Expanding a BUILD row shows its notes/stats and, for a single-material
 ## building (the common case — Turret, House, ...), immediately enters

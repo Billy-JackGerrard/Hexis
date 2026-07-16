@@ -32,8 +32,11 @@ const MAX_SUPPORTED_PLAYER_COUNT: int = 6
 ## BaseSiteSelector.place_bases — production callers never set it. `troop_defs`
 ## seeds each placed base's `initialGarrison` (see GarrisonFactory) — optional
 ## so callers that only care about terrain/base siting can omit it and get
-## empty result.squads/result.troops_by_id back.
-static func generate(player_count: int, world_seed: int, base_defs: Dictionary, building_defs: Dictionary, forced_unique_ids: Array[String] = [], troop_defs: Dictionary = {}) -> MapGenerationResult:
+## empty result.squads/result.troops_by_id back. `outpost_defs`
+## (data/outposts/*.json via DataLoader) scatters barbarian outpost camps via
+## BarbarianOutpostPlacer once base siting succeeds — optional, empty skips
+## outpost placement entirely (also requires troop_defs to garrison them).
+static func generate(player_count: int, world_seed: int, base_defs: Dictionary, building_defs: Dictionary, forced_unique_ids: Array[String] = [], troop_defs: Dictionary = {}, outpost_defs: Dictionary = {}) -> MapGenerationResult:
 	if player_count > MAX_SUPPORTED_PLAYER_COUNT:
 		push_error("MapGenerator.generate: player_count %d exceeds MAX_SUPPORTED_PLAYER_COUNT %d given the current authored Unique base roster" % [player_count, MAX_SUPPORTED_PLAYER_COUNT])
 		return null
@@ -67,7 +70,20 @@ static func generate(player_count: int, world_seed: int, base_defs: Dictionary, 
 				return "garrison_squad_%d" % next_squad_id_counter["n"]
 		var placement := BaseSiteSelector.place_bases(grid, player_count, attempt_seed, base_defs, building_defs, next_id, forced_unique_ids, troop_defs, next_troop_id, next_squad_id)
 		if not (placement["bases"] as Array).is_empty() or player_count == 0:
-			return MapGenerationResult.new(grid, placement["bases"], placement["capital_ids_by_player"], attempt_seed, placement["squads"], placement["troops_by_id"])
+			var squads: Array[SquadInstance] = placement["squads"]
+			var troops_by_id: Dictionary = placement["troops_by_id"]
+			var standalone_buildings: Array[BuildingInstance] = []
+			var barbarian_outposts: Array[BarbarianOutpostInstance] = []
+			if not outpost_defs.is_empty() and not troop_defs.is_empty():
+				var map_radius := TerrainGenerator.map_radius(player_count)
+				var outpost_count := Tuning.BARBARIAN_OUTPOST_BASE_COUNT + player_count * Tuning.BARBARIAN_OUTPOST_COUNT_PER_PLAYER
+				var outposts := BarbarianOutpostPlacer.place_outposts(grid, map_radius, placement["bases"], base_defs, outpost_count, attempt_seed, outpost_defs, building_defs, troop_defs, next_id, next_troop_id, next_squad_id)
+				squads.append_array(outposts["squads"])
+				for key in (outposts["troops_by_id"] as Dictionary):
+					troops_by_id[key] = outposts["troops_by_id"][key]
+				standalone_buildings = outposts["standalone_buildings"]
+				barbarian_outposts = outposts["barbarian_outposts"]
+			return MapGenerationResult.new(grid, placement["bases"], placement["capital_ids_by_player"], attempt_seed, squads, troops_by_id, standalone_buildings, barbarian_outposts)
 		last_failure_reason = placement["failure_reason"]
 
 	push_error("MapGenerator.generate: exhausted %d attempts for player_count %d, seed %d — last failure: %s" % [Tuning.MAX_GENERATION_ATTEMPTS, player_count, world_seed, last_failure_reason])

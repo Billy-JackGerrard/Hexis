@@ -1,0 +1,12 @@
+{
+  "id": "barbarian_camp_wood",
+  "buildingType": "tower",
+  "material": "wood",
+  "garrison": [
+    { "troopId": "rifleman", "count": 8 },
+    { "troopId": "grenadier", "count": 4 },
+    { "troopId": "shielder", "count": 8 }
+  ],
+  "loot": { "wood": 100 },
+  "notes": "Near-capital tier (closest_capital_distance/map_radius < Tuning.BARBARIAN_TIER_NEAR_FRACTION) — a loose patrol guarding a cheap, fast-firing wood tower. Low-risk, low-reward: a viable early detour, not a wall."
+}

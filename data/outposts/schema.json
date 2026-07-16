@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "hexis/outpost.schema.json",
+  "title": "OutpostDef",
+  "description": "Static definition for a barbarian outpost camp archetype — a standalone, world-gen-only structure guarded by a fixed-strength garrison, owned by BaseSiteSelector.NEUTRAL_OWNER_ID. Destroyed outright (no capture, no ruin) once both its tower and its garrison are dead, at which point whoever dealt the tower's killing blow is granted `loot`. See sim/outposts/. Live per-match state (BarbarianOutpostInstance) is NOT part of this schema.",
+  "type": "object",
+  "required": ["id", "buildingType", "material", "garrison", "loot"],
+  "properties": {
+    "id": { "type": "string", "description": "Unique identifier for this camp archetype, e.g. \"barbarian_camp_wood\"." },
+    "buildingType": { "type": "string", "description": "A data/buildings/*.json id with isStandalone:true — V1 always reuses \"tower\" rather than authoring a barbarian-specific building." },
+    "material": { "type": "string", "enum": ["wood", "stone", "steel"], "description": "Must be a key in buildingType's materialStats. No fallback: an empty or non-matching material silently resolves to a zero-HP, free, harmless building (see sim/bases/building_stats.gd _hp_model), so this is required rather than optional." },
+    "garrison": {
+      "type": "array",
+      "description": "Standing troops guarding the tower, same shape/semantics as BaseDef.initialGarrison (data/bases/schema.json) — seeded directly onto the map at world-gen via GarrisonFactory, independently owned so they never change hands (there is no capture for outposts, only destruction).",
+      "items": {
+        "type": "object",
+        "required": ["troopId", "count"],
+        "properties": {
+          "troopId": { "type": "string" },
+          "count": { "type": "number" }
+        }
+      }
+    },
+    "loot": {
+      "type": "object",
+      "description": "One-time resource grant to whoever destroys the tower, paid out once the garrison is also cleared (in either order) — see BarbarianOutpostLootSystem.",
+      "additionalProperties": { "type": "number" }
+    },
+    "notes": { "type": "string", "description": "Free-text design notes, if useful." }
+  },
+  "additionalProperties": false
+}

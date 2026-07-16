@@ -11,7 +11,7 @@
     "baseStats": {
       "hp": 500,
       "populationCapacity": 4,
-      "visionRange": 4
+      "visionRange": 6
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 20 },
@@ -23,10 +23,10 @@
       "steel": 200
     },
     "upgradeBaseCost": {
-      "stone": 100,
-      "steel": 65
+      "stone": 300,
+      "steel": 200
     },
-    "upgradeCostGrowth": { "mode": "percent", "value": 35 },
+    "upgradeCostGrowth": { "mode": "percent", "value": 50 },
     "minPopulationPerLevel": 3
   }
 }

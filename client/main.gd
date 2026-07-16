@@ -49,6 +49,7 @@ var camera_controller: CameraController
 var hud_layer: HUDLayer
 var build_preview: BuildPreview
 var start_screen: StartScreen
+var pause_menu: PauseMenu
 var net_manager: NetManager
 var lockstep_driver: LockstepDriver ## null in single-player (sim_clock drives instead)
 
@@ -156,6 +157,13 @@ func _start_game() -> void:
 	add_child(hud_layer)
 	hud_layer.setup(state, _local_owner_id, input_controller, camera_controller, owner_colors, demo_hexes, bounds[0], bounds[1])
 
+	# Added last of all — draws over hud_layer too, same convention.
+	pause_menu = PauseMenu.new()
+	add_child(pause_menu)
+	pause_menu.setup(state, _local_owner_id, owner_names)
+	input_controller.escape_pressed.connect(pause_menu.toggle)
+	pause_menu.exit_requested.connect(_on_pause_exit_requested)
+
 	camera_controller.set_bounds(bounds[0], bounds[1])
 	camera_controller.center_on(HexView.axial_to_pixel(_local_capital_hex))
 
@@ -183,8 +191,20 @@ func _process(delta: float) -> void:
 	if lockstep_driver != null:
 		lockstep_driver.advance(delta)
 		hud_layer.resource_bar.set_status("Waiting for players…" if lockstep_driver.is_waiting else "")
-	else:
+	elif not pause_menu.is_open:
 		sim_clock.advance(state, delta)
+	# Once per rendered frame, after every tick this frame has already run
+	# (SimClock/LockstepDriver can each run several ticks per advance() call)
+	# — see ToastPanel.drain()'s own doc comment for why per-frame, not per-tick.
+	hud_layer.toast_panel.drain()
+
+## Multiplayer: leave cleanly (proper ENet close) before quitting so remaining
+## peers see a normal disconnect rather than a hard socket drop. Singleplayer:
+## nothing else to tear down first.
+func _on_pause_exit_requested() -> void:
+	if lockstep_driver != null:
+		net_manager.leave()
+	get_tree().quit()
 
 ## start_screen.gd also listens to this signal for the pre-match lobby case;
 ## this one only matters once a match is actually running (lockstep_driver !=
@@ -266,13 +286,16 @@ func _build_demo_state() -> MatchState:
 	demo_state.troop_defs = DataLoader.load_dir("res://data/troops")
 	demo_state.building_defs = DataLoader.load_dir("res://data/buildings")
 	demo_state.base_defs = DataLoader.load_dir("res://data/bases")
+	var outpost_defs := DataLoader.load_dir("res://data/outposts")
 
-	var result := MapGenerator.generate(_player_count, _world_seed, demo_state.base_defs, demo_state.building_defs, [], demo_state.troop_defs)
+	var result := MapGenerator.generate(_player_count, _world_seed, demo_state.base_defs, demo_state.building_defs, [], demo_state.troop_defs, outpost_defs)
 	demo_state.grid = result.grid
 	demo_state.bases = result.bases
 	demo_state.squads.append_array(result.squads)
 	for troop_id in result.troops_by_id:
 		demo_state.troops_by_id[troop_id] = result.troops_by_id[troop_id]
+	demo_state.standalone_buildings.append_array(result.standalone_buildings)
+	demo_state.barbarian_outposts.append_array(result.barbarian_outposts)
 	demo_hexes = HexCoord.range_within(HexCoord.new(0, 0), TerrainGenerator.map_radius(_player_count) + Tuning.OCEAN_FRINGE_WIDTH)
 
 	for player_index in range(_player_count):

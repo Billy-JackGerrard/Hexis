@@ -24,6 +24,11 @@ extends RefCounted
 ## neutral city-states until a player captures one (HQ capture-flip already
 ## reassigns base.owner_id; CombatTargeting's owner_id-inequality check
 ## already treats this as hostile to every player without any extra wiring).
+## Also shared by barbarian outpost camps (see sim/outposts/) — a lighter-
+## weight, non-capturable neutral map feature that reuses the same owner id
+## rather than inventing a second one, since CombatTargeting's hostile-to-all
+## treatment and the economy tick's neutral skip (sim_orchestrator.gd) both
+## already apply generically to any "neutral"-owned entity.
 const NEUTRAL_OWNER_ID := "neutral"
 
 ## Tunable constants (MIN_BASE_SPACING, CAPITAL_MIN_SPACING, moat/expansion

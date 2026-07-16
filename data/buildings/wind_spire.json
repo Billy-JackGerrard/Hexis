@@ -30,12 +30,14 @@
     "baseStats": {
       "hp": 210,
       "damage": 4,
-      "range": 6
+      "range": 6,
+      "visionRange": 8
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 12 },
       "damage": { "mode": "percent", "value": 10 },
-      "range": { "mode": "flat", "value": 0.5 }
+      "range": { "mode": "flat", "value": 0.5 },
+      "visionRange": { "mode": "flat", "value": 0.5 }
     },
     "baseCost": {
       "stone": 90,

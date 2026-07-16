@@ -17,15 +17,17 @@ static func map_radius(player_count: int) -> int:
 static func num_rivers(player_count: int) -> int:
 	return Tuning.RIVER_BASE_COUNT + (player_count - 2) / 2
 
-## Entry point: builds hexagon+fringe, then biomes, then rivers, in that
-## fixed order (biomes before rivers so a river can flow through/skirt
-## existing patches realistically — a river tile always overwrites whatever
-## biome was there, since it's generated last).
+## Entry point: builds hexagon+fringe, then biomes, then rivers, then (maybe)
+## a super river, in that fixed order (biomes before rivers so a river can
+## flow through/skirt existing patches realistically — a river tile always
+## overwrites whatever biome was there, since it's generated last; the super
+## river runs last of all so it can freely cross normal rivers/biomes too).
 static func generate_all(player_count: int, world_seed: int) -> HexGrid:
 	var radius := map_radius(player_count)
 	var grid := generate_base_terrain(radius, Tuning.OCEAN_FRINGE_WIDTH)
 	generate_biomes(grid, radius, world_seed)
 	generate_rivers(grid, radius, world_seed, player_count)
+	generate_super_river(grid, radius, world_seed)
 	return grid
 
 ## Hexagon of Plains out to `radius`, plus a `fringe_width`-wide Ocean ring
@@ -116,16 +118,30 @@ static func generate_rivers(grid: HexGrid, radius: int, world_seed: int, player_
 	var paths: Array = []
 	var sources: Array[HexCoord] = []
 	var count := num_rivers(player_count)
+	var inset_radius: int = max(radius - Tuning.RIVER_MIN_LENGTH, 0)
+
+	# Rivers reading as starting in the highlands: draw sources directly from
+	# the Hills tiles already on the grid (runs after the biome pass above)
+	# within the same inland inset every source has to respect anyway, so
+	# nearly every river starts on Hills rather than only the ones lucky
+	# enough to land within a short snap radius of one.
+	var hill_candidates: Array[HexCoord] = []
+	for hex in HexCoord.range_within(origin, inset_radius):
+		if grid.get_terrain(hex) == Terrain.Type.HILLS:
+			hill_candidates.append(hex)
+
 	var attempts := 0
 	while paths.size() < count and attempts < count * Tuning.MAX_RIVER_SOURCE_ATTEMPTS_PER_RIVER:
 		attempts += 1
-		var source := _random_hex_in_disk(origin, max(radius - Tuning.RIVER_MIN_LENGTH, 0), rng)
-		# Rivers reading as starting in the highlands: snap the candidate onto
-		# the nearest Hills tile within a short search, if one's nearby (runs
-		# after the biome pass above, so Hills already exist on the grid).
-		# Falls back to the unsnapped candidate when no Hills tile is close,
-		# so this never breaks river generation on a hill-poor map.
-		source = _nearest_hill_hex(grid, source, Tuning.RIVER_SOURCE_HILL_SEARCH_RADIUS)
+		var source: HexCoord
+		if not hill_candidates.is_empty():
+			source = hill_candidates[rng.randi_range(0, hill_candidates.size() - 1)]
+		else:
+			# Hill-poor map (or a caller that skipped the biome pass, e.g.
+			# a unit test exercising generate_rivers on bare terrain): fall
+			# back to the old unsnapped random candidate so this never
+			# breaks river generation.
+			source = _random_hex_in_disk(origin, inset_radius, rng)
 		var too_close := false
 		for existing in sources:
 			if HexCoord.distance(source, existing) < Tuning.MIN_RIVER_SOURCE_SPACING:
@@ -139,6 +155,43 @@ static func generate_rivers(grid: HexGrid, radius: int, world_seed: int, player_
 			grid.set_terrain(hex, Terrain.Type.RIVER)
 		paths.append(path)
 	return paths
+
+## Tuning.SUPER_RIVER_CHANCE roll for one additional River, distinct from the
+## radial hill-to-coast rivers above: a single straight line from one edge of
+## the map to the exact opposite edge (HexCoord.line between two boundary
+## hexes in opposite directions), always passing through the origin, so it
+## reads as a river crossing the whole map through the middle rather than
+## draining outward from a highland source. Intermittently widened to 2 hexes
+## along a lateral direction picked once per river (Tuning.SUPER_RIVER_WIDE_
+## SECTION_CHANCE per hex) for "many sections 2 hexes wide". Runs on its own
+## RNG substream, after the normal rivers, so it can freely overwrite them
+## (or biome tiles) where they cross, and never perturbs any other phase's
+## draws for the same seed. Returns the primary line path, or [] if the
+## chance roll fails.
+static func generate_super_river(grid: HexGrid, radius: int, world_seed: int) -> Array:
+	var rng := _substream(world_seed, "super_river")
+	if rng.randf() >= Tuning.SUPER_RIVER_CHANCE:
+		return []
+
+	var origin := HexCoord.new(0, 0)
+	var direction := rng.randi_range(0, 5)
+	var opposite := (direction + 3) % 6
+	var from := HexCoord.new(origin.q + HexCoord.DIRECTIONS[direction].x * radius, origin.r + HexCoord.DIRECTIONS[direction].y * radius)
+	var to := HexCoord.new(origin.q + HexCoord.DIRECTIONS[opposite].x * radius, origin.r + HexCoord.DIRECTIONS[opposite].y * radius)
+	var path := HexCoord.line(from, to)
+	for hex in path:
+		grid.set_terrain(hex, Terrain.Type.RIVER)
+
+	# One consistent lateral side for the whole river (picked once, not per
+	# hex) so widened stretches read as a straight parallel bank rather than
+	# random bumps poking off either side.
+	var lateral_dir := (direction + 2) % 6 if rng.randf() < 0.5 else (direction + 4) % 6
+	for hex in path:
+		if rng.randf() < Tuning.SUPER_RIVER_WIDE_SECTION_CHANCE:
+			var wide_hex := HexCoord.neighbor(hex, lateral_dir)
+			if HexCoord.distance(origin, wide_hex) <= radius:
+				grid.set_terrain(wide_hex, Terrain.Type.RIVER)
+	return path
 
 static func _walk_river(origin: HexCoord, radius: int, source: HexCoord, rng: RandomNumberGenerator) -> Array:
 	var path: Array[HexCoord] = [source]
@@ -168,31 +221,6 @@ static func _walk_river(origin: HexCoord, radius: int, source: HexCoord, rng: Ra
 		current = chosen
 		path.append(current)
 	return path
-
-## BFS outward from `from` for the nearest Hills hex, `max_radius` hexes out
-## at most — returns `from` unchanged if it's already Hills or nothing
-## qualifies nearby. Same shape as HexGrid.nearest_passable_hex but keyed on
-## a specific Terrain.Type instead of domain passability.
-static func _nearest_hill_hex(grid: HexGrid, from: HexCoord, max_radius: int) -> HexCoord:
-	if grid.get_terrain(from) == Terrain.Type.HILLS:
-		return from
-	var visited: Dictionary = {from.to_key(): true}
-	var frontier: Array[HexCoord] = [from]
-	var r := 0
-	while r < max_radius and not frontier.is_empty():
-		r += 1
-		var next_frontier: Array[HexCoord] = []
-		for hex in frontier:
-			for n in HexCoord.neighbors(hex):
-				var key := n.to_key()
-				if visited.has(key) or not grid.has_hex(n):
-					continue
-				visited[key] = true
-				if grid.get_terrain(n) == Terrain.Type.HILLS:
-					return n
-				next_frontier.append(n)
-		frontier = next_frontier
-	return from
 
 ## Uniform-ish random hex within `radius` of `center`, reusing
 ## range_within's own axial-disk math rather than rejection-sampling a

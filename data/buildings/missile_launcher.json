@@ -10,13 +10,13 @@
   "defensiveStats": {
     "damage": 22,
     "attackSpeed": 0.8,
-    "range": 6,
+    "range": 10,
     "splashRadius": 0,
     "projectileSpeed": 6,
     "canTarget": ["Infantry", "Land", "Air", "Naval"],
     "damageTypes": [],
     "damageDealtModifiers": { "Air": 1.5 },
-    "visionRange": 8,
+    "visionRange": 10,
     "statusEffectOnHit": { "type": "stun", "duration": 1.5, "magnitude": 0, "chance": 10 }
   },
 
@@ -24,12 +24,14 @@
     "baseStats": {
       "hp": 230,
       "damage": 22,
-      "range": 6
+      "range": 10,
+      "visionRange": 10
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 12 },
       "damage": { "mode": "percent", "value": 10 },
-      "range": { "mode": "flat", "value": 0.5 }
+      "range": { "mode": "flat", "value": 0.25 },
+      "visionRange": { "mode": "flat", "value": 0.25 }
     },
     "baseCost": {
       "stone": 70,

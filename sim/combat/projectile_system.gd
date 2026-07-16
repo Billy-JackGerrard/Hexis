@@ -34,6 +34,8 @@ static func resolve_tick(
 	regiments: Array[RegimentInstance] = [],
 	production_queues: Dictionary = {},
 	rng: RandomNumberGenerator = null,
+	barbarian_outposts: Array[BarbarianOutpostInstance] = [],
+	events: Array[MatchEvent] = [],
 ) -> void:
 	if projectiles.is_empty():
 		return
@@ -52,7 +54,7 @@ static func resolve_tick(
 		_resolve_impact(projectile, target_index, troops_by_id, troop_defs, building_defs, grid, rng)
 		projectiles.remove_at(i)
 
-	CombatResolver._prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments, production_queues)
+	CombatResolver._prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments, production_queues, barbarian_outposts, events)
 
 ## Whoever's actually standing on `aim_hex` right now (first live enemy
 ## found) is treated as primary, regardless of whether it's the unit this

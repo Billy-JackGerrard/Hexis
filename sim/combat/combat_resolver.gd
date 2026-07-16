@@ -105,6 +105,8 @@ static func resolve_tick(
 	projectiles: Array[ProjectileInstance] = [],
 	next_projectile_id: Callable = Callable(),
 	rng: RandomNumberGenerator = null,
+	barbarian_outposts: Array[BarbarianOutpostInstance] = [],
+	events: Array[MatchEvent] = [],
 ) -> void:
 	StatusEffectSystem.resolve_tick(dt, squads, bases)
 	AuraSystem.apply_heals(dt, auras, squads, troops_by_id, troop_defs)
@@ -121,7 +123,7 @@ static func resolve_tick(
 	for building in standalone_buildings:
 		_advance_building(building, building.owner_id, dt, targets, target_index, troops_by_id, troop_defs, building_defs, grid, detections, auras, projectiles, next_projectile_id, rng)
 
-	_prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments, production_queues)
+	_prune_dead(squads, bases, troops_by_id, grid, standalone_buildings, regiments, production_queues, barbarian_outposts, events)
 	BuildingRegenSystem.resolve_tick(dt, bases, standalone_buildings)
 
 ## Builds the CombatTarget view over every live squad and combat-tracked
@@ -448,7 +450,7 @@ static func _living_members(squad: SquadInstance, troops_by_id: Dictionary) -> A
 ## erased, and a captured base (HQ hits 0 HP) erases every one of its
 ## buildings' queue entries — in both cases the in-progress entry and its
 ## already-spent resources are lost, not refunded/carried over.
-static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, standalone_buildings: Array[BuildingInstance] = [], regiments: Array[RegimentInstance] = [], production_queues: Dictionary = {}) -> void:
+static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance], troops_by_id: Dictionary, grid: HexGrid, standalone_buildings: Array[BuildingInstance] = [], regiments: Array[RegimentInstance] = [], production_queues: Dictionary = {}, barbarian_outposts: Array[BarbarianOutpostInstance] = [], events: Array[MatchEvent] = []) -> void:
 	for squad in squads:
 		var survivors: Array[String] = []
 		for member_id in squad.member_ids:
@@ -492,6 +494,10 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 
 	for i in range(squads.size() - 1, -1, -1):
 		if squads[i].member_ids.is_empty():
+			var dead_squad := squads[i]
+			events.append(MatchEvent.new(MatchEvent.Type.SQUAD_LOST, dead_squad.owner_id, {
+				"troop_type": dead_squad.troop_type, "hex": dead_squad.current_hex, "killed_by": dead_squad.last_damaged_by,
+			}))
 			squads.remove_at(i)
 
 	_disband_regiments_for_dead_commanders(squads, regiments)
@@ -514,7 +520,12 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 				# owner_id and are untouched (elimination-on-last-base is a
 				# separate, not-yet-built system).
 				if building.last_damaged_by != "" and building.last_damaged_by != base.owner_id:
-					base.owner_id = building.last_damaged_by
+					var previous_owner := base.owner_id
+					var new_owner := building.last_damaged_by
+					base.owner_id = new_owner
+					events.append(MatchEvent.new(MatchEvent.Type.BASE_CAPTURED, new_owner, {"base_def_id": base.base_def_id, "hex": base.hex_coord, "previous_owner": previous_owner}))
+					if previous_owner != "" and previous_owner != BaseSiteSelector.NEUTRAL_OWNER_ID:
+						events.append(MatchEvent.new(MatchEvent.Type.BASE_LOST, previous_owner, {"base_def_id": base.base_def_id, "hex": base.hex_coord, "captured_by": new_owner}))
 					for captured_building in base.buildings:
 						production_queues.erase(captured_building.id)
 						if captured_building.building_type != "hq" and captured_building.building_type != "wall":
@@ -530,18 +541,43 @@ static func _prune_dead(squads: Array[SquadInstance], bases: Array[BaseInstance]
 				# defenses.md's Destruction & Ruins section (same treatment as
 				# a standalone building). Clearing grid.set_wall() reopens the
 				# edge for movement/pathing immediately.
+				events.append(MatchEvent.new(MatchEvent.Type.BUILDING_DESTROYED, base.owner_id, {"building_type": "wall", "hex": building.hex_a, "destroyed_by": building.last_damaged_by}))
 				grid.set_wall(building.hex_a, building.hex_b, false)
 				base.buildings.remove_at(i)
 			else:
 				# Non-HQ, non-Wall buildings become a rebuildable ruin instead
 				# of vanishing: the hex/adjacency slot stays occupied but the
 				# building no longer functions (every consuming system already
-				# gates on current_hp <= 0).
+				# gates on current_hp <= 0). Guarded on `not building.is_ruin`
+				# for the event specifically — this branch re-enters every tick
+				# a ruin sits at 0 HP (the outer condition is current_hp <= 0.0,
+				# not "just now destroyed"), so without the guard it would
+				# re-fire a BUILDING_DESTROYED event every tick forever instead
+				# of once on the false->true transition.
+				if not building.is_ruin:
+					events.append(MatchEvent.new(MatchEvent.Type.BUILDING_DESTROYED, base.owner_id, {"building_type": building.building_type, "hex": building.hex, "destroyed_by": building.last_damaged_by}))
 				building.is_ruin = true
 				production_queues.erase(building.id)
 
 	for i in range(standalone_buildings.size() - 1, -1, -1):
 		if standalone_buildings[i].max_hp > 0.0 and standalone_buildings[i].current_hp <= 0.0:
+			# A dying standalone building's BuildingInstance is gone after
+			# remove_at below, taking last_damaged_by with it — if this is a
+			# barbarian outpost's tower, capture the kill (and its killer) onto
+			# the BarbarianOutpostInstance first, since that record outlives the
+			# building and is what BarbarianOutpostLootSystem waits on (see its
+			# own doc comment for why tower + garrison are tracked independently).
+			for outpost in barbarian_outposts:
+				if outpost.building_id == standalone_buildings[i].id:
+					outpost.tower_destroyed = true
+					outpost.tower_killer = standalone_buildings[i].last_damaged_by
+					break
+			# A barbarian tower's owner_id is "neutral" — no HUD to notify, and
+			# its destruction is already communicated via BarbarianOutpostLootSystem's
+			# own OUTPOST_LOOT event once the whole camp clears, so skip a
+			# redundant/unaddressed event for it here.
+			if standalone_buildings[i].owner_id != "" and standalone_buildings[i].owner_id != BaseSiteSelector.NEUTRAL_OWNER_ID:
+				events.append(MatchEvent.new(MatchEvent.Type.BUILDING_DESTROYED, standalone_buildings[i].owner_id, {"building_type": standalone_buildings[i].building_type, "hex": standalone_buildings[i].hex, "destroyed_by": standalone_buildings[i].last_damaged_by}))
 			standalone_buildings.remove_at(i)
 
 ## Per 04-combat.md: "if a Commander dies mid-battle, its regiment disbands —

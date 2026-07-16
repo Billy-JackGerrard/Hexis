@@ -10,24 +10,26 @@
   "defensiveStats": {
     "damage": 18,
     "attackSpeed": 1.0,
-    "range": 4,
+    "range": 8,
     "splashRadius": 0,
     "projectileSpeed": 12,
     "canTarget": ["Infantry", "Land", "Naval", "Air"],
     "damageTypes": [],
-    "visionRange": 7
+    "visionRange": 10
   },
 
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 250,
       "damage": 18,
-      "range": 4
+      "range": 8,
+      "visionRange": 10
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 12 },
       "damage": { "mode": "percent", "value": 10 },
-      "range": { "mode": "flat", "value": 0.5 }
+      "range": { "mode": "flat", "value": 0.25 },
+      "visionRange": { "mode": "flat", "value": 0.5 }
     },
     "baseCost": {
       "stone": 140,

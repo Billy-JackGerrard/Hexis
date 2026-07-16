@@ -111,7 +111,7 @@ static func compute_upkeep_by_troop_type(squads: Array[SquadInstance], troop_def
 ## squad emptied by this is removed from `squads` outright, same as
 ## CombatResolver._prune_dead's squad-disband treatment. Returns the ids of
 ## every troop killed this way.
-static func apply_deficit_deaths(owner_id: String, deficits: Array[ResourceType.Type], squads: Array[SquadInstance], troops_by_id: Dictionary, troop_defs: Dictionary) -> Array[String]:
+static func apply_deficit_deaths(owner_id: String, deficits: Array[ResourceType.Type], squads: Array[SquadInstance], troops_by_id: Dictionary, troop_defs: Dictionary, events: Array[MatchEvent] = []) -> Array[String]:
 	var killed: Array[String] = []
 	if deficits.is_empty():
 		return killed
@@ -144,5 +144,12 @@ static func apply_deficit_deaths(owner_id: String, deficits: Array[ResourceType.
 	for i in range(squads.size() - 1, -1, -1):
 		if squads[i].owner_id == owner_id and squads[i].member_ids.is_empty():
 			squads.remove_at(i)
+
+	# One aggregate event per owner per call (this function is already called
+	# once per owner per economy tick) rather than per troop or per squad —
+	# a deficit kills the single weakest member across many squads, not whole
+	# squads, so "per squad wipe" doesn't apply the way it does for combat.
+	if not killed.is_empty():
+		events.append(MatchEvent.new(MatchEvent.Type.DEFICIT_DEATH, owner_id, {"resource_types": deficits.duplicate(), "troop_count": killed.size()}))
 
 	return killed

@@ -273,6 +273,24 @@ func _test_combat_targeting() -> void:
 	var wvpick2 := CombatTargeting.select_target(wv_attacker, weak_vs_land, dampened_only)
 	_check(wvpick2 != null and wvpick2.target_id() == near_land.id, "Still engages a dampened target once it's the only option")
 
+	# armor tiebreak: with no directed order and equal priority multiplier
+	# (rifleman has no Land/Vehicle/Tank modifier, so both Land targets are
+	# neutral 1.0x), auto-targeting prefers the tankier (higher-armor) target
+	# over an equally-near, equal-multiplier one.
+	var chonky: Dictionary = _troop_defs["chonky"]
+	var chonky_armor: float = float(chonky.get("armor", 0.0))
+	var basekiller_armor: float = float(basekiller.get("armor", 0.0))
+	_check(chonky_armor > basekiller_armor, "fixture assumption: Chonky has more armor than Basekiller")
+	var armor_attacker := _make_squad("p1", "rifleman", HexCoord.new(0, 0), 1, troops)
+	var chonky_squad := _make_squad("p2", "chonky", HexCoord.new(1, 0), 1, troops)
+	var basekiller_squad := _make_squad("p2", "basekiller", HexCoord.new(0, 1), 1, troops)
+	var armor_mixed: Array[CombatTarget] = [
+		CombatTarget.for_squad(chonky_squad, chonky, troops),
+		CombatTarget.for_squad(basekiller_squad, basekiller, troops),
+	]
+	var apick := CombatTargeting.select_target(armor_attacker, rifleman, armor_mixed)
+	_check(apick != null and apick.target_id() == chonky_squad.id, "equal-multiplier, equal-distance tie goes to the higher-armor (tankier) target")
+
 	# tier gating: a plain Structure is only chosen when no troop/Defensive is in
 	# range. enemy_troop is an Engineer (Land) since Basekiller can't target Infantry.
 	var bk := _make_squad("p1", "basekiller", HexCoord.new(0, 0), 1, troops)

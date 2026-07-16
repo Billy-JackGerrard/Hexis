@@ -1,0 +1,12 @@
+{
+  "id": "barbarian_camp_stone",
+  "buildingType": "tower",
+  "material": "stone",
+  "garrison": [
+    { "troopId": "plasmacopter", "count": 2 },
+    { "troopId": "light_tank", "count": 6 },
+    { "troopId": "tonk", "count": 6 }
+  ],
+  "loot": { "stone": 150, "steel": 60 },
+  "notes": "Mid-distance tier (BARBARIAN_TIER_NEAR_FRACTION <= closest_capital_distance/map_radius < BARBARIAN_TIER_FAR_FRACTION) — balanced heavy push-back guarding a balanced piercing stone tower."
+}

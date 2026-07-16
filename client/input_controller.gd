@@ -31,6 +31,10 @@
 class_name InputController
 extends Node2D
 
+## Escape with no build-menu placement pending (placement-cancel above always
+## keeps priority) — main.gd wires this to PauseMenu.toggle().
+signal escape_pressed
+
 var state: MatchState
 var owner_id: String
 var squad_view: SquadView
@@ -174,8 +178,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_TAB:
 			_jump_to_base(event.shift_pressed)
 			return
-		if event.keycode == KEY_ESCAPE and pending_building_type != "":
-			cancel_placement()
+		if event.keycode == KEY_ESCAPE:
+			if pending_building_type != "":
+				cancel_placement()
+			else:
+				escape_pressed.emit()
 			return
 		_handle_control_group_key(event)
 

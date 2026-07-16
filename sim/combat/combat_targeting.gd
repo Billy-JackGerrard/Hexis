@@ -13,7 +13,14 @@
 ##      neutral default (1.0, no matching entry); a value below 1.0 — a
 ##      dampener, e.g. 0.5x — is deprioritized *below* that same neutral
 ##      default, not tied with it, since it deals strictly less damage.
-##      Distance only tie-breaks targets with exactly equal values.
+##   4. Targets tied on that multiplier (the common case — most attackers have
+##      no modifier at all against most target types, so this is where most
+##      real picks land) go to the target with the highest `armor` stat, i.e.
+##      the "tankiest" one (a squad's troop_def.armor / a building's
+##      BuildingStats.armor()) — with no directed order and no damage-modifier
+##      preference either way, default aggression goes after the hardest
+##      target rather than the softest. Distance only tie-breaks targets tied
+##      on both multiplier and armor.
 ##
 ## A directed `attack_target` order overrides all of the above when its target
 ## is still a valid, in-range enemy; otherwise it's cleared and auto applies.
@@ -107,18 +114,31 @@ static func _priority_multiplier(attacker_def: Dictionary, target: CombatTarget)
 
 ## Picks the best target from an already-tier-filtered candidate list: highest
 ## priority multiplier first (above the 1.0 neutral default is a bonus, below
-## it is a dampener and loses to the neutral default), nearest as the
-## tie-break among exactly equal multipliers.
+## it is a dampener and loses to the neutral default); among targets tied on
+## that multiplier, highest `armor` next (the default "go for the tanky one"
+## behavior — most attacker/target pairs have no modifier between them, so
+## this is the tiebreak that actually decides most auto-target picks);
+## nearest as the final tie-break among targets tied on both.
 static func _best_in_tier(attacker_hex: HexCoord, attacker_def: Dictionary, tier: Array[CombatTarget]) -> CombatTarget:
 	var best: CombatTarget = null
 	var best_mult := 0.0
+	var best_armor := 0.0
 	var best_dist := 1 << 30
 	for target in tier:
 		var mult := _priority_multiplier(attacker_def, target)
+		var armor := target.armor
 		var dist := target.distance_from(attacker_hex)
-		if best == null or mult > best_mult or (mult == best_mult and dist < best_dist):
+		var better := false
+		if best == null or mult != best_mult:
+			better = best == null or mult > best_mult
+		elif armor != best_armor:
+			better = armor > best_armor
+		else:
+			better = dist < best_dist
+		if better:
 			best = target
 			best_mult = mult
+			best_armor = armor
 			best_dist = dist
 	return best
 

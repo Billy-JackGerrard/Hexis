@@ -63,7 +63,14 @@ const MIN_RIVER_SOURCE_SPACING: int = 8
 const RIVER_STRAIGHTNESS: float = 0.65 ## chance of taking the most-outward-progress step vs. a random valid one
 const RIVER_MAX_STEPS_MULTIPLIER: int = 2 ## safety cap = map_radius * this
 const MAX_RIVER_SOURCE_ATTEMPTS_PER_RIVER: int = 20
-const RIVER_SOURCE_HILL_SEARCH_RADIUS: int = 3 ## how far a river source snaps to find a nearby Hills tile
+
+## Chance a map additionally rolls a "super river" — a single straight River
+## line running edge-to-edge through the map's center, on top of the normal
+## radial hill-to-coast rivers above.
+const SUPER_RIVER_CHANCE: float = 0.5
+## Per-hex chance, along the super river's line, that this section also
+## widens to 2 hexes (a consistent lateral neighbor added alongside it).
+const SUPER_RIVER_WIDE_SECTION_CHANCE: float = 0.5
 
 ## --- Base siting (sim/worldgen/base_site_selector.gd) ---
 
@@ -113,6 +120,29 @@ const MOAT_MIN_COVERAGE_FRACTION: float = 0.7
 ## further than this from an interior point given the river spacing tunables
 ## above.
 const MOAT_CHANNEL_MAX_LENGTH: int = 16
+
+## --- Barbarian outposts (sim/outposts/barbarian_outpost_placer.gd) ---
+
+## outpost_count = BARBARIAN_OUTPOST_BASE_COUNT + player_count * BARBARIAN_OUTPOST_COUNT_PER_PLAYER.
+const BARBARIAN_OUTPOST_BASE_COUNT: int = 2
+const BARBARIAN_OUTPOST_COUNT_PER_PLAYER: int = 1
+
+## Comfortably above GARRISON_RING_RADIUS + GARRISON_SEARCH_RADIUS (2 + 6 =
+## 8), so an outpost's own garrison search never wanders into a base's
+## territory (from-base spacing) or another outpost's garrison (from-outpost
+## spacing) — same margin reasoning as MIN_BASE_SPACING's own comment.
+const BARBARIAN_OUTPOST_MIN_SPACING_FROM_BASE: int = 10
+const BARBARIAN_OUTPOST_MIN_SPACING_FROM_OUTPOST: int = 8
+
+const BARBARIAN_OUTPOST_MAX_CANDIDATES_SCANNED: int = 500
+
+## Tier is distance-scaled (closest_capital_distance / map_radius), not
+## randomly rolled: farther from every player Capital means a tougher camp
+## and better loot, rewarding exploration into contested territory. Below
+## BARBARIAN_TIER_NEAR_FRACTION -> wood tier; below BARBARIAN_TIER_FAR_FRACTION
+## -> stone tier; at/above -> steel tier.
+const BARBARIAN_TIER_NEAR_FRACTION: float = 0.4
+const BARBARIAN_TIER_FAR_FRACTION: float = 0.7
 
 ## --- Map generation retry (sim/map_generator.gd) ---
 

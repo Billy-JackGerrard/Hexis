@@ -182,6 +182,12 @@ static func subtitle_label(text: String) -> Label:
 static func header_label(text: String) -> Label:
 	return _label(text, FONT_HEADER, ACCENT)
 
+## Muted group header one size down from header_label, for grouping rows
+## inside a section (e.g. BUILD's per-category groups: "RESOURCES",
+## "DEFENCE", ...) without competing visually with the section's own header.
+static func subheader_label(text: String) -> Label:
+	return _label(text, FONT_SMALL, TEXT_MUTED)
+
 static func body_label(text: String) -> Label:
 	return _label(text, FONT_BODY, TEXT)
 
