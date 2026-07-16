@@ -4,6 +4,7 @@
   "category": "Support",
   "populationCost": 1,
   "isFixed": true,
+  "foodUpkeep": 1,
 
   "detector": true,
 

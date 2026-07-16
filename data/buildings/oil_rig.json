@@ -8,6 +8,10 @@
 
   "notes": "Fuel-producing building with an identical build cost at every base — any production bonus or penalty for it comes from base-specific modifiers rather than the building itself.",
 
+  "placementRequirement": {
+    "siteTerrain": ["Plains", "Ocean"]
+  },
+
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 150,

@@ -387,22 +387,27 @@ func _test_place_standalone() -> void:
 ## range is gated by BuildingPlacement.hq_build_radius(base.hq_level) instead
 ## of Tuning.STANDALONE_BUILD_RANGE.
 func _test_place_standalone_hq() -> void:
-	var state := _new_state(_flat_grid(5))
+	# Read the radius from Tuning/BuildingPlacement instead of hardcoding a
+	# number, so this test stays correct if HQ_BUILD_RADIUS_BASE/PER_LEVEL
+	# ever change. A freshly seeded base always starts at hq_level 1
+	# (BaseInstance._init's default).
+	var radius := BuildingPlacement.hq_build_radius(1)
+	var state := _new_state(_flat_grid(radius + 3))
 	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
 	state.bases.append(base)
 	var hq := base.buildings_of_type("hq")[0]
 	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 500.0)
 	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 500.0)
 
-	# hq_build_radius(hq_level=1) == 1 + 1*1 == 2: (2,0) is in range (and free --
-	# seed_base's initial Farm/Quarry/Command Centre sit at (1,0)/(1,-1)/(0,-1)),
-	# (4,0) isn't.
-	var in_range_hex := HexCoord.new(2, 0)
+	# Walk the -q direction, away from seed_base's initial Farm/Quarry/Command
+	# Centre (which sit at (1,0)/(1,-1)/(0,-1)), so in_range_hex never
+	# collides with them regardless of how small radius is.
+	var in_range_hex := HexCoord.new(-radius, 0)
 	var ok := CommandProcessor.place_standalone_building(state, "", "tower", in_range_hex, "stone", "p1", hq.id)
 	_check(ok == BuildingPlacement.Result.OK, "the owner's own HQ can place standalone infrastructure")
 	_check(state.standalone_buildings.size() == 1, "the Tower was actually placed")
 
-	var far_hex := HexCoord.new(4, 0)
+	var far_hex := HexCoord.new(-(radius + 1), 0)
 	var too_far := CommandProcessor.place_standalone_building(state, "", "tower", far_hex, "stone", "p1", hq.id)
 	_check(too_far == BuildingPlacement.Result.OUT_OF_HQ_RANGE, "a target hex beyond the HQ's build radius is rejected")
 	_check(state.standalone_buildings.size() == 1, "the out-of-range HQ order built nothing")

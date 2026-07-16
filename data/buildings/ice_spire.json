@@ -4,6 +4,7 @@
   "category": "Support",
   "isFixed": true,
   "populationCost": 1,
+  "foodUpkeep": 1,
 
   "notes": "Permanent aura structure that slows nearby enemy troops. Not a production or defensive building — pure area denial. Never freshly built even after the base changes hands, though it can be restored from ruin if destroyed.",
 

@@ -4,6 +4,7 @@
   "category": "Defensive",
   "unlockHqLevel": 2,
   "populationCost": 0,
+  "foodUpkeep": 1,
 
   "materials": ["wood", "stone", "steel"],
 

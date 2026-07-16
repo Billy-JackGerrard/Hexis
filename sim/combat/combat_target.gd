@@ -30,7 +30,8 @@ var damage_received_modifiers: Dictionary = {}
 ## for a material/building with no armor entry.
 var armor: float = 0.0
 ## Received-damage multiplier from standing on this hex's terrain
-## (Terrain.defense_bonus(), e.g. Hills' defender bonus). Live-computed at
+## (Terrain.defense_bonus(), e.g. Hills' defender bonus) -- squad targets
+## only; a building never gets this; see for_building. Live-computed at
 ## construction time from `grid`, never a stored buff. 1.0 with no grid
 ## (e.g. a synthetic test target).
 var defense_multiplier: float = 1.0
@@ -100,7 +101,10 @@ static func for_building(p_building: BuildingInstance, building_def: Dictionary,
 		return t
 	t.hex = p_building.hex
 	if grid != null:
-		t.defense_multiplier = Terrain.defense_bonus(grid.get_terrain(p_building.hex))
+		# Unlike a squad, a building never gets Terrain.defense_bonus() --
+		# terrain combat bonuses/penalties (Hills' defender bonus, etc.) are a
+		# troop-standing-on-the-tile thing, not a structure-sitting-on-it
+		# thing, so defense_multiplier stays at its 1.0 default here.
 		t.is_hidden = BuildingStats.stealth(building_def, building_defs)
 		t.reveal_range = BuildingStats.reveal_range(building_def, building_defs)
 	return t

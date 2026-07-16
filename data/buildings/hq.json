@@ -10,7 +10,7 @@
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 500,
-      "populationCapacity": 4,
+      "populationCapacity": 6,
       "visionRange": 6
     },
     "statGrowth": {
@@ -18,15 +18,11 @@
       "populationCapacity": { "mode": "flat", "value": 2 },
       "visionRange": { "mode": "flat", "value": 0.5 }
     },
-    "baseCost": {
-      "stone": 300,
-      "steel": 200
-    },
     "upgradeBaseCost": {
-      "stone": 300,
-      "steel": 200
+      "stone": 180,
+      "steel": 120
     },
-    "upgradeCostGrowth": { "mode": "percent", "value": 50 },
+    "upgradeCostGrowth": { "mode": "percent", "value": 60 },
     "minPopulationPerLevel": 3
   }
 }

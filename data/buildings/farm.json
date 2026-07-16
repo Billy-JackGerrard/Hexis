@@ -10,7 +10,7 @@
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 150,
-      "foodOutput": 3
+      "foodOutput": 4
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 15 },

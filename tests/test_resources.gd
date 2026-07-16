@@ -253,3 +253,26 @@ func _test_building_upkeep_compute() -> void:
 	barracks.current_hp = 0.0
 	var upkeep_ruined := BuildingUpkeepSystem.compute_upkeep(bases, _building_defs)
 	_check(float(upkeep_ruined.get("p1", {}).get(ResourceType.Type.FOOD, 0.0)) == 0.0, "a ruined building's upkeep doesn't count")
+
+	# HQ (Core) and the standalone Infrastructure/Landmine buildings are the
+	# only other exemptions besides Farm/Harbour -- everything else (Defensive/
+	# Support included) now carries foodUpkeep. Turret variants don't restate
+	# their own value; they inherit Turret's via `extends`.
+	_check(float(_building_defs["hq"].get("foodUpkeep", 0.0)) == 0.0, "HQ carries no foodUpkeep")
+	for standalone_type in ["road", "bridge", "dock", "tower", "landmine"]:
+		_check(float(_building_defs[standalone_type].get("foodUpkeep", 0.0)) == 0.0, "%s (standalone) carries no own foodUpkeep field" % standalone_type)
+	for supported_type in ["wall", "house", "hangar", "healing_spire", "ice_spire", "radar_array", "missile_launcher", "water_turret"]:
+		_check(float(BuildingStats.food_upkeep(_building_defs[supported_type], _building_defs)) > 0.0, "%s carries foodUpkeep > 0" % supported_type)
+	_check(BuildingStats.food_upkeep(_building_defs["cold_turret"], _building_defs) == BuildingStats.food_upkeep(_building_defs["turret"], _building_defs), "cold_turret inherits Turret's foodUpkeep via extends rather than restating it")
+
+	# A base built up with a Wall and a Turret (both now upkeep-bearing) sums
+	# correctly alongside the exempt Farm.
+	var wall := BuildingInstance.new("w1", "b1", "wall", 1, "stone", HexCoord.new(7, 0))
+	wall.init_hp(_building_defs["wall"], _building_defs)
+	base.buildings.append(wall)
+	var cold_turret := BuildingInstance.new("ct1", "b1", "cold_turret", 1, "", HexCoord.new(8, 0))
+	cold_turret.init_hp(_building_defs["cold_turret"], _building_defs)
+	base.buildings.append(cold_turret)
+	var expected := float(_building_defs["wall"]["foodUpkeep"]) + BuildingStats.food_upkeep(_building_defs["cold_turret"], _building_defs)
+	var upkeep_extended := BuildingUpkeepSystem.compute_upkeep(bases, _building_defs)
+	_check(float(upkeep_extended.get("p1", {}).get(ResourceType.Type.FOOD, 0.0)) == expected, "Wall + inherited Cold Turret foodUpkeep sum correctly (%s), still excluding the ruined Barracks and exempt Farm" % expected)

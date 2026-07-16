@@ -41,13 +41,18 @@ separate, later idea, not designed yet).
 ## Consumption Rules
 - **Food**: consumption scales with base size (bigger base = more food required) and
   with troop count/creation.
-- **Building upkeep (Food only)**: most Production buildings and every Resource
-  building except the two that produce Food themselves (Farm, Harbour) draw a flat
-  per-tick Food upkeep, same idea as troop upkeep but with a different consequence —
-  see Deficit Consequences below (`data/buildings/schema.json`'s `foodUpkeep`,
-  sourced by `BuildingUpkeepSystem`). Defensive/Support/Infrastructure/Core buildings
-  (turrets, Hospital, Road/Bridge, HQ, ...) carry none — they don't produce or train
-  anything, so there'd be no consequence to gate. Buildings never draw Fuel upkeep.
+- **Building upkeep (Food only)**: every building draws a flat per-tick Food upkeep
+  EXCEPT HQ, Farm, and Harbour (the two Food producers — see Deficit Consequences
+  below for why they're exempt) and the standalone Infrastructure buildings (Road/
+  Bridge/Dock/Tower) plus Landmine, which carry their own ownerId directly rather
+  than living on a base and aren't walked by the upkeep system at all
+  (`data/buildings/schema.json`'s `foodUpkeep`, sourced by `BuildingUpkeepSystem`).
+  Same idea as troop upkeep, but the consequence differs by category — see Deficit
+  Consequences below. A Production building's queue pauses and a Resource
+  building's output stops; a Defensive/Support building (Turret, Wall, Hospital,
+  Hangar, House, ...) has nothing to pause or stop, so its upkeep is pure pressure
+  on the pool with no direct consequence of its own. Buildings never draw Fuel
+  upkeep.
 - **Fuel**: land vehicles only consume Fuel while **moving** — stationary land
   vehicles are free to maintain. Aircraft consume Fuel heavily while active, and
   **always do so while airborne** — there is no proximity-to-base fuel-free rule.

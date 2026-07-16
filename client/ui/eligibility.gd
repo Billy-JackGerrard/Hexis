@@ -55,6 +55,52 @@ static func upgrade_reason(state: MatchState, building_id: String, owner_id: Str
 		_:
 			return "Can't upgrade"
 
+## client/hud/upgrade_buildings_panel.gd's grouped-row helpers: `building_ids`
+## are same building_type + same level (interchangeable for display), but can
+## still differ in eligibility — e.g. two level-1 Farms at two different
+## bases whose HQs sit at different levels. The single "Upgrade" button only
+## needs ONE candidate to stay lit; first_upgradeable is its matching action
+## target, picked live at click time rather than cached, so it always agrees
+## with whatever this just returned.
+static func upgrade_any_reason(state: MatchState, building_ids: Array, owner_id: String) -> String:
+	var first_reason := ""
+	for id in building_ids:
+		var reason := upgrade_reason(state, id, owner_id)
+		if reason == "":
+			return ""
+		if first_reason == "":
+			first_reason = reason
+	return first_reason
+
+static func first_upgradeable(state: MatchState, building_ids: Array, owner_id: String) -> String:
+	for id in building_ids:
+		if upgrade_reason(state, id, owner_id) == "":
+			return id
+	return ""
+
+## "Upgrade All" is atomic — reason a grouped row's Upgrade All can't fire
+## right now, or "" if every member can be upgraded and the owner can afford
+## all of them at once. Any single member blocked for a non-resource reason
+## (HQ level, max level, population) blocks the whole batch, surfaced as
+## that member's own reason; otherwise checks the CUMULATIVE cost (unit cost
+## * count — same building_type + level means identical per-unit cost) against
+## the pool, since upgrade_reason alone only ever checks affording just one.
+static func upgrade_all_reason(state: MatchState, building_ids: Array, owner_id: String) -> String:
+	if building_ids.is_empty():
+		return "Can't upgrade"
+	for id in building_ids:
+		var reason := upgrade_reason(state, id, owner_id)
+		if reason != "":
+			return reason
+	var first: BuildingInstance = state.find_any_building(building_ids[0])["building"]
+	var def: Dictionary = state.building_defs.get(first.building_type, {})
+	var unit_cost := BuildingStats.upgrade_cost(def, first.level, first.material, state.building_defs)
+	var total_cost: Dictionary = {}
+	for key in unit_cost:
+		total_cost[key] = float(unit_cost[key]) * building_ids.size()
+	var missing := _first_unaffordable(state.pool_for(owner_id), total_cost)
+	return "Not enough %s" % missing if missing != "" else ""
+
 ## Reason `building_id` can't be demolished right now, or "" if it can. Thin
 ## mapping over CommandProcessor.can_demolish_building's Result.
 static func demolish_reason(state: MatchState, building_id: String, owner_id: String) -> String:

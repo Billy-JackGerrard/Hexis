@@ -8,6 +8,10 @@
 
   "notes": "Specialty defense with the highest single-hit damage and longest range of any turret, but the slowest firing rate, and its armor-piercing shots bypass a target's flat damage reduction entirely. No splash and no status effect — pure precision.",
 
+  "placementRequirement": {
+    "siteTerrain": ["Plains", "Hill"]
+  },
+
   "defensiveStats": {
     "damage": 35,
     "attackSpeed": 0.5,

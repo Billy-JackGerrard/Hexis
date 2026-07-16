@@ -95,18 +95,24 @@ func _refresh_if_needed() -> bool:
 ## the moment it's selected, without needing to also be actively placing
 ## something.
 func _refresh_radius_if_needed() -> bool:
-	var key := input_controller.selected_building_id
+	var selected_id := input_controller.selected_building_id
+	var found := state.find_base_building(selected_id) if selected_id != "" else {}
+	var building: BuildingInstance = found.get("building")
+	# Keyed on level too, not just the id: an HQ's build radius grows with
+	# hq_level (BuildingPlacement.hq_build_radius), so an in-place upgrade
+	# while the HQ stays selected must also invalidate this cache — a bare
+	# id-only key never changes on upgrade, which used to leave the border
+	# stuck at the old radius until the panel was closed and reopened.
+	var key := "%s|%d" % [selected_id, building.level if building != null else 0]
 	if key == _radius_cache_key:
 		return false
 	_radius_cache_key = key
 	_radius_hexes = []
 	_radius_hex_keys = {}
-	if key == "":
+	if selected_id == "":
 		return true
-	var found := state.find_base_building(key)
 	if found.is_empty():
 		return true
-	var building: BuildingInstance = found["building"]
 	if building.is_ruin or building.hex == null:
 		return true
 	if building.building_type == "hq":

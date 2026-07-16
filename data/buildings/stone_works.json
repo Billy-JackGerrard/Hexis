@@ -8,6 +8,10 @@
 
   "notes": "Stone-producing building unique to a particular base's economy, with a steep growth curve: weak at first, but scaling into a strong stone producer at high levels.",
 
+  "placementRequirement": {
+    "siteTerrain": ["Plains", "Hill"]
+  },
+
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 150,

@@ -4,8 +4,13 @@
   "category": "Defensive",
   "unlockHqLevel": 2,
   "populationCost": 1,
+  "foodUpkeep": 1,
 
-  "notes": "Generic default defense buildable at every base, and the base pattern several specialty defenses are built from.",
+  "notes": "Generic default defense buildable at every base, and the base pattern several specialty defenses are built from. Every Turret variant (Cold/EMP/Flame/Grenade/Sniper/Wind Spire/Wood) inherits this foodUpkeep via extends -- none of them override it.",
+
+  "placementRequirement": {
+    "siteTerrain": ["Plains", "Hill"]
+  },
 
   "defensiveStats": {
     "damage": 18,

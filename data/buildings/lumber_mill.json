@@ -7,7 +7,7 @@
   "foodUpkeep": 1,
 
   "placementRequirement": {
-    "siteTerrain": "Plains",
+    "siteTerrain": ["Plains", "Forest"],
     "adjacentTerrainRequired": "Forest"
   },
 

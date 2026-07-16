@@ -150,9 +150,8 @@ static func _pick_seed_hex(hq_hex: HexCoord, grid: HexGrid, claimed: Dictionary,
 static func _site_terrain_ok(hex: HexCoord, grid: HexGrid, building_type: String, base_def: Dictionary, building_defs: Dictionary) -> bool:
 	var building_def: Dictionary = building_defs.get(building_type, {})
 	var placement_requirement: Dictionary = building_def.get("placementRequirement", {})
-	var required := BuildingPlacement._site_terrain(placement_requirement.get("siteTerrain", "Plains"))
 	var hex_terrain := grid.get_terrain(hex)
-	if hex_terrain == required:
+	if BuildingPlacement._site_terrain_matches(placement_requirement, hex_terrain):
 		return true
 	var terrain_exception: String = base_def.get("terrainException", "")
 	return terrain_exception != "" and hex_terrain == BuildingPlacement._site_terrain(terrain_exception)

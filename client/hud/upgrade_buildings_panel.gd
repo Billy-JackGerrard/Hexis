@@ -1,18 +1,21 @@
 ## Modal overview opened from the HQ's BuildingPanel body ("Upgrade Buildings"
 ## button, HQ-only) — every building the local player owns across every base
-## plus their standalone buildings, grouped by category then building_type,
-## one row per building instance with its own Upgrade button. Exists because
-## BuildingPanel's own Level/Upgrade row only ever covers the one currently
-## selected building; this is the "upgrade everything from one place" view.
-## Centered overlay rather than docked like BuildingPanel/TroopInfoPanel/
-## SquadPanel, since it isn't tied to a map selection.
+## plus their standalone buildings, grouped by category, then building_type,
+## then level (same type + same level collapse into one "Nx Level L" row,
+## e.g. "4x Level 1 Farm" — Upgrade advances one of them, Upgrade All advances
+## every one of them, both one level). Exists because BuildingPanel's own
+## Level/Upgrade row only ever covers the one currently selected building;
+## this is the "upgrade everything from one place" view. Centered overlay
+## rather than docked like BuildingPanel/TroopInfoPanel/SquadPanel, since it
+## isn't tied to a map selection.
 ##
 ## The owning base's name is shown once, as a subtitle under the header, only
-## when every listed building belongs to that single base (the common case) —
-## repeating it on every row would be pure noise. A player with multiple bases
-## instead gets it back per-row, since it's the only thing telling those rows
-## apart. Either way a standalone building (Tower, ...) still says
-## "Standalone" on its own row — that's real information, not repetition.
+## when every listed building belongs to that single base (the common case).
+## A player with multiple bases just doesn't get a per-row base breakdown at
+## all — grouping already collapses across bases (a level-1 Farm is a
+## level-1 Farm regardless of which base it's at), so which specific base a
+## given group's members sit at stops being actionable information once
+## Upgrade/Upgrade All both operate on the whole group anyway.
 class_name UpgradeBuildingsPanel
 extends Control
 
@@ -20,7 +23,7 @@ var state: MatchState
 var owner_id: String
 var input_controller: InputController
 
-const WIDTH := 520.0
+const WIDTH := 560.0
 const MARGIN := 40.0
 const REFRESH_INTERVAL := 0.25
 
@@ -43,6 +46,12 @@ var _scroll: ScrollContainer
 var _reason_label: Label
 var _header_subtitle: Label
 var _option_updaters: Array = []
+## "" outside a match; otherwise every listed building's "id:level" joined —
+## polled each refresh tick so a level change (including one that lands late,
+## behind lockstep's INPUT_DELAY_TICKS in multiplayer — see command_submitter.
+## gd) triggers a full _rebuild() instead of the row silently going stale
+## until the player happens to close/reopen the panel.
+var _shown_signature: String = ""
 
 const SCROLL_STEP := 40
 
@@ -136,7 +145,24 @@ func _process(delta: float) -> void:
 	_refresh_accum += delta
 	if _refresh_accum >= REFRESH_INTERVAL:
 		_refresh_accum = 0.0
-		_refresh_eligibility()
+		var signature := _compute_signature()
+		if signature != _shown_signature:
+			_rebuild()
+		else:
+			_refresh_eligibility()
+
+## "id:level" per owned, non-ruined building (base-attached + standalone),
+## joined — see _shown_signature.
+func _compute_signature() -> String:
+	var parts: Array[String] = []
+	for base in state.bases_owned_by(owner_id):
+		for building in base.buildings:
+			if not building.is_ruin:
+				parts.append("%s:%d" % [building.id, building.level])
+	for building in state.standalone_buildings:
+		if building.owner_id == owner_id and not building.is_ruin:
+			parts.append("%s:%d" % [building.id, building.level])
+	return "|".join(parts)
 
 func _rebuild() -> void:
 	for child in _content.get_children():
@@ -146,29 +172,29 @@ func _rebuild() -> void:
 	_reason_label.text = ""
 	_refresh_accum = 0.0
 
-	# category -> building_type -> [{building, base}], base null for a
-	# standalone building.
+	# category -> building_type -> level -> Array[BuildingInstance]
 	var by_category: Dictionary = {}
 	var category_order: Array[String] = []
 	var seen_bases: Dictionary = {} ## base.id -> BaseInstance, only for bases that actually contributed a row
 
 	for base in state.bases_owned_by(owner_id):
 		for building in base.buildings:
-			_bucket(by_category, category_order, building, base, seen_bases)
+			if _bucket(by_category, category_order, building):
+				seen_bases[base.id] = base
 	for building in state.standalone_buildings:
-		if building.owner_id != owner_id:
-			continue
-		_bucket(by_category, category_order, building, null, seen_bases)
+		if building.owner_id == owner_id:
+			_bucket(by_category, category_order, building)
+
+	_shown_signature = _compute_signature()
 
 	if category_order.is_empty():
 		_header_subtitle.visible = false
 		_content.add_child(UITheme.muted_label("No buildings owned"))
 		return
 
-	# Repeating the base's name on every single row is only useful once
-	# there's more than one base to tell rows apart by — with just one (the
-	# common case), it's shown once up top instead and rows just say "Lvl N".
-	var show_location := seen_bases.size() > 1
+	# The base's name is only worth a header line when it's unambiguous —
+	# see the class doc comment on why a per-row breakdown isn't offered once
+	# there's more than one.
 	if seen_bases.size() == 1:
 		var only_base: BaseInstance = seen_bases.values()[0]
 		_header_subtitle.text = only_base.display_name if only_base.display_name != "" else only_base.base_def_id.capitalize()
@@ -185,17 +211,22 @@ func _rebuild() -> void:
 		for building_type in types:
 			var def: Dictionary = state.building_defs.get(building_type, {})
 			_content.add_child(UITheme.subheader_label(String(def.get("name", String(building_type).capitalize()))))
-			for entry in by_type[building_type]:
-				_add_building_row(entry["building"], entry["base"], def, show_location)
+			var by_level: Dictionary = by_type[building_type]
+			var levels: Array = by_level.keys()
+			levels.sort()
+			for level in levels:
+				_add_building_group_row(by_level[level], level, def)
 
 	_refresh_eligibility()
 
 ## Ruined buildings can't be upgraded (can_upgrade_building rejects them
 ## outright — they need Rebuild instead, from the building's own panel) so
-## this list — upgrade candidates only — just omits them entirely.
-func _bucket(by_category: Dictionary, category_order: Array[String], building: BuildingInstance, base: BaseInstance, seen_bases: Dictionary) -> void:
+## this list — upgrade candidates only — just omits them entirely. Returns
+## true if `building` was actually bucketed (false for a skipped ruin), so
+## the caller only counts a base into seen_bases when it contributed a row.
+func _bucket(by_category: Dictionary, category_order: Array[String], building: BuildingInstance) -> bool:
 	if building.is_ruin:
-		return
+		return false
 	var def: Dictionary = state.building_defs.get(building.building_type, {})
 	var category := String(def.get("category", ""))
 	if not by_category.has(category):
@@ -203,43 +234,63 @@ func _bucket(by_category: Dictionary, category_order: Array[String], building: B
 		category_order.append(category)
 	var by_type: Dictionary = by_category[category]
 	if not by_type.has(building.building_type):
-		by_type[building.building_type] = []
-	(by_type[building.building_type] as Array).append({"building": building, "base": base})
-	if base != null:
-		seen_bases[base.id] = base
+		by_type[building.building_type] = {}
+	var by_level: Dictionary = by_type[building.building_type]
+	if not by_level.has(building.level):
+		by_level[building.level] = []
+	(by_level[building.level] as Array).append(building)
+	return true
 
 static func _category_rank(category: String) -> int:
 	var idx := _CATEGORY_ORDER.find(category)
 	return idx if idx != -1 else _CATEGORY_ORDER.size()
 
-func _add_building_row(building: BuildingInstance, base: BaseInstance, def: Dictionary, show_location: bool) -> void:
+## One row per (building_type, level) group: "Nx Level L", an Upgrade button
+## that advances whichever single member of the group is currently eligible
+## (picked live at click time — see _first_upgradeable, not cached, since
+## different members can carry different eligibility, e.g. two same-level
+## Farms at two bases whose HQs are at different levels), and — only when the
+## group actually has more than one member — an Upgrade All button that
+## advances every eligible member at once.
+func _add_building_group_row(group: Array, level: int, def: Dictionary) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
 
-	var status := "Lvl %d" % building.level
-	var label_text: String
-	if base == null:
-		label_text = "Standalone  -  %s" % status
-	elif show_location:
-		var location := base.display_name if base.display_name != "" else base.base_def_id.capitalize()
-		label_text = "%s  -  %s" % [location, status]
-	else:
-		label_text = status
-	var label := UITheme.body_label(label_text)
+	var count: int = group.size()
+	var label := UITheme.body_label("%dx Level %d" % [count, level])
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
 
-	var building_id := building.id
-	var button := UITheme.action_button("Upgrade", UITheme.PRIMARY)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	button.custom_minimum_size = Vector2(160, 0)
-	var reason_fn := func(): return UIEligibility.upgrade_reason(state, building_id, owner_id)
-	var action := func(): input_controller.submitter.submit("upgrade_building", [building_id, owner_id], owner_id)
-	button.pressed.connect(func(): _handle_press(reason_fn, action))
-	row.add_child(button)
+	var building_ids: Array[String] = []
+	for b in group:
+		building_ids.append((b as BuildingInstance).id)
+
+	var upgrade_button := UITheme.action_button("Upgrade", UITheme.PRIMARY)
+	upgrade_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	upgrade_button.custom_minimum_size = Vector2(150, 0)
+	var single_reason_fn := func(): return UIEligibility.upgrade_any_reason(state, building_ids, owner_id)
+	var single_action := func():
+		var target_id := UIEligibility.first_upgradeable(state, building_ids, owner_id)
+		if target_id != "":
+			input_controller.submitter.submit("upgrade_building", [target_id, owner_id], owner_id)
+	upgrade_button.pressed.connect(func(): _handle_press(single_reason_fn, single_action))
+	row.add_child(upgrade_button)
+	_option_updaters.append({"button": upgrade_button, "variation": UITheme.PRIMARY, "reason_fn": single_reason_fn})
+
+	if count > 1:
+		var all_button := UITheme.action_button("Upgrade All", UITheme.PRIMARY)
+		all_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		all_button.custom_minimum_size = Vector2(150, 0)
+		var all_reason_fn := func(): return UIEligibility.upgrade_all_reason(state, building_ids, owner_id)
+		var all_action := func():
+			for id in building_ids:
+				input_controller.submitter.submit("upgrade_building", [id, owner_id], owner_id)
+		all_button.pressed.connect(func(): _handle_press(all_reason_fn, all_action))
+		row.add_child(all_button)
+		_option_updaters.append({"button": all_button, "variation": UITheme.PRIMARY, "reason_fn": all_reason_fn})
+
 	_content.add_child(row)
-	_option_updaters.append({"button": button, "variation": UITheme.PRIMARY, "reason_fn": reason_fn})
 
 func _handle_press(reason_fn: Callable, action: Callable) -> void:
 	var reason := String(reason_fn.call())

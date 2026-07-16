@@ -180,7 +180,7 @@ const MIN_ADJACENT_BUILDINGS_FOR_WALL: int = 1
 
 ## hq_build_radius(hq_level) = HQ_BUILD_RADIUS_BASE + hq_level * HQ_BUILD_RADIUS_PER_LEVEL.
 ## Design doc pins the scaling relationship but not the exact number.
-const HQ_BUILD_RADIUS_BASE: int = 2
+const HQ_BUILD_RADIUS_BASE: int = 3
 const HQ_BUILD_RADIUS_PER_LEVEL: int = 1
 
 ## --- Building regeneration (sim/bases/building_regen_system.gd) ---
@@ -207,7 +207,7 @@ const DEMOLISH_REFUND_FRACTION: float = 0.5
 ## Starting Resources section. Wood/Fuel start at zero deliberately, since a
 ## bare starting Capital has no Forest-adjacent Lumber Mill or built Oil Rig
 ## yet.
-const STARTING_FOOD: float = 50.0
+const STARTING_FOOD: float = 100.0
 const STARTING_STONE: float = 100.0
 const STARTING_STEEL: float = 50.0
 const STARTING_WOOD: float = 0.0

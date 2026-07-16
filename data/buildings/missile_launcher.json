@@ -4,8 +4,13 @@
   "category": "Defensive",
   "unlockHqLevel": 3,
   "populationCost": 1,
+  "foodUpkeep": 1,
 
   "notes": "Generic default defense available at every base, filling the anti-air role since the specialty ground defenses at various bases are already ground-focused.",
+
+  "placementRequirement": {
+    "siteTerrain": ["Plains", "Hill"]
+  },
 
   "defensiveStats": {
     "damage": 22,

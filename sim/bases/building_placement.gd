@@ -52,7 +52,28 @@ static func _site_terrain(name: String) -> Terrain.Type:
 		"Forest": return Terrain.Type.FOREST
 		"Hill": return Terrain.Type.HILLS
 		"River": return Terrain.Type.RIVER
+		"Ocean": return Terrain.Type.OCEAN
 		_: return Terrain.Type.PLAINS
+
+## A single siteTerrain name against a hex's terrain. "Water" is the same
+## unified River-or-Ocean alias adjacentTerrainRequired already uses (see
+## _matches_adjacent_terrain_required) — e.g. a building buildable on either.
+static func _single_site_terrain_matches(name: String, hex_terrain: Terrain.Type) -> bool:
+	if name == "Water":
+		return hex_terrain == Terrain.Type.RIVER or hex_terrain == Terrain.Type.OCEAN
+	return _site_terrain(name) == hex_terrain
+
+## siteTerrain accepts either a single terrain name or an Array of names
+## (e.g. Quarry/Stone Works: ["Plains", "Hill"]) — true if hex_terrain matches
+## any of them. Absent siteTerrain defaults to Plains-only, same as before.
+static func _site_terrain_matches(placement_requirement: Dictionary, hex_terrain: Terrain.Type) -> bool:
+	var value = placement_requirement.get("siteTerrain", "Plains")
+	if value is Array:
+		for name in value:
+			if _single_site_terrain_matches(name, hex_terrain):
+				return true
+		return false
+	return _single_site_terrain_matches(value, hex_terrain)
 
 static func _matches_adjacent_terrain_required(name: String, terrain: Terrain.Type) -> bool:
 	match name:
@@ -118,17 +139,21 @@ static func can_place(base: BaseInstance, base_def: Dictionary, building_type: S
 		return Result.HEX_OCCUPIED_BY_UNIT
 
 	var placement_requirement: Dictionary = building_def.get("placementRequirement", {})
-	var required_site_terrain := _site_terrain(placement_requirement.get("siteTerrain", "Plains"))
 	var hex_terrain := grid.get_terrain(hex)
-	var used_terrain_exception := false
-	if hex_terrain != required_site_terrain:
+	if not _site_terrain_matches(placement_requirement, hex_terrain):
 		var terrain_exception: String = base_def.get("terrainException", "")
 		if terrain_exception == "" or hex_terrain != _site_terrain(terrain_exception):
 			return Result.WRONG_SITE_TERRAIN
-		used_terrain_exception = true
 
+	## adjacentTerrainRequired (e.g. Lumber Mill/Harbour needing a nearby
+	## Forest/Water tile) only makes sense when the building itself sits on
+	## Plains -- once it's matched a non-Plains site terrain instead (a
+	## Treehouse's terrainException, or a building's own array listing e.g.
+	## Forest directly), standing ON that terrain already satisfies whatever
+	## the adjacency requirement was chasing, so it's skipped instead of
+	## double-counted.
 	var adjacent_terrain_required: String = placement_requirement.get("adjacentTerrainRequired", "")
-	if adjacent_terrain_required != "" and not used_terrain_exception:
+	if adjacent_terrain_required != "" and hex_terrain == Terrain.Type.PLAINS:
 		var satisfied := false
 		for neighbor in HexCoord.neighbors(hex):
 			if _matches_adjacent_terrain_required(adjacent_terrain_required, grid.get_terrain(neighbor)):
@@ -205,8 +230,7 @@ static func can_place_standalone(building_type: String, hex: HexCoord, grid: Hex
 
 	var placement_requirement: Dictionary = building_def.get("placementRequirement", {})
 	if placement_requirement.has("siteTerrain"):
-		var required_site_terrain := _site_terrain(placement_requirement["siteTerrain"])
-		if grid.get_terrain(hex) != required_site_terrain:
+		if not _site_terrain_matches(placement_requirement, grid.get_terrain(hex)):
 			return Result.WRONG_SITE_TERRAIN
 
 	var adjacent_terrain_required: String = placement_requirement.get("adjacentTerrainRequired", "")
