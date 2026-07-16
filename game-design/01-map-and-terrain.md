@@ -81,15 +81,25 @@ scattered single tiles, e.g. a proper forest region rather than one random fores
 - **Fuel**: ships use very little Fuel (negligible compared to aircraft).
 
 ## Public Infrastructure (Roads, Bridges, Docks)
-- Built only by the **Engineer** troop.
-- Buildable **anywhere**, including behind enemy lines (high risk/high reward play —
-  an unescorted Engineer is easy to kill).
+- Built by the **Engineer** troop anywhere within its build range, or ordered directly
+  from an owner's own **HQ** within its build radius (same radius normal base
+  construction uses) — either way the result is the same standalone, public structure;
+  only the authorization path differs. The Engineer can additionally build **anywhere**,
+  including behind enemy lines (high risk/high reward play — an unescorted Engineer is
+  easy to kill), which the HQ-radius path can't reach.
 - Once built, these are **public** — any player's troops can use a Road, Bridge, or Dock,
   not just the builder's. This creates natural contested chokepoints.
 - **Destroying** a Road/Bridge/Dock: any troop can do it, but only after all
   defenders on/near it have been cleared first.
 - **Dock**: standalone structure, allows ship landing only. Can be placed anywhere on
   coast/riverbank, not tied to a base.
+- **Bridge material vs. vehicle weight**: a Bridge is Wood or Stone (see
+  `06-building-stats-and-defenses.md`'s Wood Material Option section for cost/HP/Fire
+  tradeoffs and their separate HQ-level unlocks). A **Heavy** land vehicle (see
+  `08-troop-roster.md`'s Light/Heavy split) cannot cross a Wood Bridge at all — too
+  light to bear it — and needs a Stone one; Infantry and Light land vehicles cross
+  either freely. Naval is unaffected either way (a Bridge doesn't interact with Naval
+  at all).
 
 ## Fog of War
 - **Full fog** until scouted.

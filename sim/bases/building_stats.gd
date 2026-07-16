@@ -298,6 +298,19 @@ static func base_cost(def: Dictionary, material: String, building_defs: Dictiona
 
 	return _hp_model(resolved, material).get("baseCost", {})
 
+## HQ level required to build/order this def, optionally narrowed to one
+## material (Bridge: wood at 2, stone at 4 — see data/buildings/schema.json's
+## materialStats.unlockHqLevel note). `material` empty or not carrying its own
+## override falls back to the building-level unlockHqLevel (default 1), same
+## as every other building's single gate.
+static func unlock_level(def: Dictionary, material: String = "") -> int:
+	if material != "":
+		var material_stats: Dictionary = def.get("materialStats", {})
+		var entry: Dictionary = material_stats.get(material, {})
+		if entry.has("unlockHqLevel"):
+			return int(entry["unlockHqLevel"])
+	return int(def.get("unlockHqLevel", 1))
+
 ## This building's max level, or 0 for uncapped (bottlenecked only by the
 ## HQ ceiling elsewhere — see CommandProcessor.upgrade_building). Only
 ## Production-category buildings have a real cap, derived as

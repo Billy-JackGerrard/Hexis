@@ -2,7 +2,7 @@
   "id": "granite_crumbler",
   "name": "Granite Crumbler",
   "domain": "Land",
-  "tags": ["Vehicle", "Tank", "Siege"],
+  "tags": ["Vehicle", "Tank", "Siege", "Heavy"],
 
   "hp": 280,
   "damage": 40,

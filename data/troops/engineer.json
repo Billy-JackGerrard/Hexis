@@ -2,7 +2,7 @@
   "id": "engineer",
   "name": "Engineer",
   "domain": "Land",
-  "tags": ["Vehicle", "Support"],
+  "tags": ["Vehicle", "Support", "Light"],
 
   "hp": 60,
   "damage": 0,

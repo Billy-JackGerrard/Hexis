@@ -2,7 +2,7 @@
   "id": "ghost_tank",
   "name": "Ghost Tank",
   "domain": "Land",
-  "tags": ["Vehicle", "Tank", "Stealth"],
+  "tags": ["Vehicle", "Tank", "Stealth", "Light"],
 
   "hp": 160,
   "damage": 16,

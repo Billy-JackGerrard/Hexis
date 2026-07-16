@@ -2,7 +2,7 @@
   "id": "commander_reaver",
   "name": "Reaver",
   "domain": "Land",
-  "tags": ["Vehicle", "Commander"],
+  "tags": ["Vehicle", "Commander", "Light"],
 
   "hp": 210,
   "armor": 4,

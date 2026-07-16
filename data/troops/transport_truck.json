@@ -2,7 +2,7 @@
   "id": "transport_truck",
   "name": "Transport Truck",
   "domain": "Land",
-  "tags": ["Vehicle", "Support"],
+  "tags": ["Vehicle", "Support", "Light"],
 
   "hp": 150,
   "damage": 0,

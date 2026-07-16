@@ -96,13 +96,22 @@ static func is_passable(terrain: Type, domain: Domain) -> bool:
 ## `overrides` is a troop def's `terrainOverrides` dict (05-troop-stat-schema.md):
 ## `ignoresForestBlock`/`ignoresRiverBlock` clear the same blocks a Road/Bridge would,
 ## per-unit rather than per-hex. Never clears a Wall — that's a separate edge check.
-static func effective_cost(terrain: Type, domain: Domain, infrastructure: Infrastructure = Infrastructure.NONE, overrides: Dictionary = {}) -> float:
+##
+## `bridge_material` (the placed Bridge's own BuildingInstance.material, "wood" or
+## "stone" — see HexGrid.get_infrastructure_material) and `is_heavy_land` (true iff
+## a Land-domain mover's troop def carries the "Heavy" tag, per 05-troop-stat-schema.md
+## — see 08-troop-roster.md for the roster's Light/Heavy split) together gate a Wood
+## Bridge against Heavy vehicles: too light to bear them, per 01-map-and-terrain.md.
+## Infantry and a Stone Bridge are unaffected regardless of weight class.
+static func effective_cost(terrain: Type, domain: Domain, infrastructure: Infrastructure = Infrastructure.NONE, overrides: Dictionary = {}, bridge_material: String = "", is_heavy_land: bool = false) -> float:
 	var base := cost(terrain, domain)
 	if base != INF:
 		return base
 	if infrastructure == Infrastructure.ROAD and terrain == Type.FOREST and domain == Domain.LAND:
 		return 1.0
 	if infrastructure == Infrastructure.BRIDGE and terrain == Type.RIVER and (domain == Domain.INFANTRY or domain == Domain.LAND):
+		if domain == Domain.LAND and is_heavy_land and bridge_material == "wood":
+			return INF
 		return 1.0
 	if overrides.get("ignoresForestBlock", false) and terrain == Type.FOREST and domain == Domain.LAND:
 		return 1.0
@@ -110,8 +119,8 @@ static func effective_cost(terrain: Type, domain: Domain, infrastructure: Infras
 		return 1.0
 	return INF
 
-static func is_passable_with(terrain: Type, domain: Domain, infrastructure: Infrastructure = Infrastructure.NONE) -> bool:
-	return effective_cost(terrain, domain, infrastructure) != INF
+static func is_passable_with(terrain: Type, domain: Domain, infrastructure: Infrastructure = Infrastructure.NONE, bridge_material: String = "", is_heavy_land: bool = false) -> bool:
+	return effective_cost(terrain, domain, infrastructure, {}, bridge_material, is_heavy_land) != INF
 
 ## Multiplier applied to a unit/building's own base visionRange for standing
 ## on this terrain — Forest and Hills both halve it (elevation/foliage block

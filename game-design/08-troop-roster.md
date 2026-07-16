@@ -8,6 +8,18 @@ records design rationale, not the numbers themselves.
 - A long roster with real differentiation: some units are fast/fragile, some are
   strong against specific troop types but weak against others, some specialize
   against buildings/walls.
+- **Every Land-domain (vehicle) troop carries exactly one of the `Light`/`Heavy` tags**
+  (`data/troops/*.json`'s `tags` array — see `05-troop-stat-schema.md`), the same
+  free-form tag mechanism already used for damage-modifier matching, not a separate
+  schema field. It gates one thing so far: a `Heavy` vehicle cannot cross a Wood
+  Bridge, only Stone (see `01-map-and-terrain.md`'s Public Infrastructure section) —
+  Infantry and Air/Naval are unaffected, since weight only means anything for a
+  vehicle standing on a load-bearing crossing.
+  - `Light`: Ambulance, Amphibious Raider, Basekiller, Commander (all four —
+    Nightfall/Reaver/Vanguard/Warden), Engineer, Ghost Tank, Light Tank, Mule,
+    Quad-bike, Repair Truck, Tonk, Transport Truck.
+  - `Heavy`: Chonky, Disruptor, Earthshaker, Frost Tank, Granite Crumbler, Juggernaut,
+    Rocket Tank, Tank Obliterator, Volt Truck.
 - Wall material matters tactically: Wood walls (cheapest/weakest) are specifically
   vulnerable to flame-based troops.
 - Infantry's counter-role vs. heavy armor: rather than only expressing "bad vs.

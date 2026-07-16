@@ -2,7 +2,7 @@
   "id": "disruptor",
   "name": "Disruptor",
   "domain": "Land",
-  "tags": ["Vehicle", "Support"],
+  "tags": ["Vehicle", "Support", "Heavy"],
 
   "hp": 90,
   "damage": 0,

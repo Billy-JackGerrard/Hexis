@@ -149,8 +149,9 @@ static func hq_standalone_build_reason(state: MatchState, base: BaseInstance, bu
 	var missing := _first_unaffordable(state.pool_for(owner_id), named_cost)
 	if missing != "":
 		return "Not enough %s" % missing
-	if base.hq_level < int(def.get("unlockHqLevel", 1)):
-		return "Requires HQ level %d" % int(def.get("unlockHqLevel", 1))
+	var required_level := BuildingStats.unlock_level(def, material)
+	if base.hq_level < required_level:
+		return "Requires HQ level %d" % required_level
 	if not _any_valid_hq_standalone_hex(state, base, building, building_type):
 		return "No available tiles in range"
 	return ""

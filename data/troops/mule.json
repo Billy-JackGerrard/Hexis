@@ -2,7 +2,7 @@
   "id": "mule",
   "name": "Mule",
   "domain": "Land",
-  "tags": ["Vehicle", "Support"],
+  "tags": ["Vehicle", "Support", "Heavy"],
 
   "hp": 130,
   "damage": 0,

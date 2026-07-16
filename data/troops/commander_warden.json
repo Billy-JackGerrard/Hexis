@@ -2,7 +2,7 @@
   "id": "commander_warden",
   "name": "Warden",
   "domain": "Land",
-  "tags": ["Vehicle", "Commander", "Support"],
+  "tags": ["Vehicle", "Commander", "Support", "Light"],
 
   "hp": 260,
   "armor": 8,

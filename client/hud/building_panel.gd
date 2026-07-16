@@ -483,11 +483,10 @@ func _build_infrastructure_menu(base: BaseInstance, building: BuildingInstance) 
 		button.pressed.connect(func(): _toggle_infra_row(building_id, bt, reason_fn))
 		_content.add_child(button)
 		_option_updaters.append({"button": button, "variation": "", "reason_fn": reason_fn})
-	if not any_unlocked:
-		_content.add_child(UITheme.muted_label("Nothing to build here"))
-
 		if _expanded_infra_type == bt:
 			_build_infra_detail(base, building, bt, def, reason_fn)
+	if not any_unlocked:
+		_content.add_child(UITheme.muted_label("Nothing to build here"))
 
 ## Mirrors _toggle_build_row: expanding a no/single-material row enters
 ## placement immediately (if eligible); Bridge's materials list makes the
@@ -831,10 +830,11 @@ func _dock_launch_hex(building: BuildingInstance, squad: SquadInstance) -> HexCo
 	var def: Dictionary = state.troop_defs.get(squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
+	var is_heavy_land := domain == Terrain.Domain.LAND and (def.get("tags", []) as Array).has("Heavy")
 	for candidate in [building.hex] + HexCoord.neighbors(building.hex):
 		if candidate == null:
 			continue
-		if candidate.equals(building.hex) or state.grid.edge_cost(building.hex, candidate, domain, overrides) != Terrain.INF:
+		if candidate.equals(building.hex) or state.grid.edge_cost(building.hex, candidate, domain, overrides, {}, is_heavy_land) != Terrain.INF:
 			return candidate
 	return building.hex
 

@@ -16,6 +16,12 @@ var _walled_edges: Dictionary = {}
 ## Road/Bridge, keyed by the single hex they're built on (see
 ## Terrain.Infrastructure) — unlike walls, this is per-hex, not per-edge.
 var _infrastructure: Dictionary = {}
+## Bridge's own BuildingInstance.material ("wood"/"stone"), keyed the same way
+## as _infrastructure — unused for Road, which has no material choice. Kept
+## alongside rather than looked up from standalone_buildings each edge_cost
+## call so pathing doesn't need that array threaded through on top of
+## building_blocked_hexes.
+var _infrastructure_material: Dictionary = {}
 
 func set_terrain(coord: HexCoord, terrain: Terrain.Type) -> void:
 	_terrain[coord.to_key()] = terrain
@@ -41,14 +47,23 @@ func set_wall(a: HexCoord, b: HexCoord, walled: bool) -> void:
 func is_walled_edge(a: HexCoord, b: HexCoord) -> bool:
 	return _walled_edges.has(_edge_key(a, b))
 
-func set_infrastructure(coord: HexCoord, infrastructure: Terrain.Infrastructure) -> void:
+func set_infrastructure(coord: HexCoord, infrastructure: Terrain.Infrastructure, material: String = "") -> void:
+	var key := coord.to_key()
 	if infrastructure == Terrain.Infrastructure.NONE:
-		_infrastructure.erase(coord.to_key())
+		_infrastructure.erase(key)
+		_infrastructure_material.erase(key)
 	else:
-		_infrastructure[coord.to_key()] = infrastructure
+		_infrastructure[key] = infrastructure
+		_infrastructure_material[key] = material
 
 func get_infrastructure(coord: HexCoord) -> Terrain.Infrastructure:
 	return _infrastructure.get(coord.to_key(), Terrain.Infrastructure.NONE)
+
+## The Bridge BuildingInstance's own `material` ("wood"/"stone") at this hex,
+## or "" if there's no Bridge here (or it's a Road, which has none) — see
+## Terrain.effective_cost's Heavy-vehicle Wood Bridge gate.
+func get_infrastructure_material(coord: HexCoord) -> String:
+	return _infrastructure_material.get(coord.to_key(), "")
 
 ## Movement cost to cross from `from` into `to` for the given domain, or
 ## Terrain.INF if blocked by terrain/a wall/a standing building, after
@@ -61,19 +76,22 @@ func get_infrastructure(coord: HexCoord) -> Terrain.Infrastructure:
 ## BuildingPlacement.building_blocking_hexes) of hexes a standing building
 ## occupies — consulted for Land/Naval only; Infantry ignores standing
 ## buildings same as Air ignores walls/buildings (01-map-and-terrain.md).
-func edge_cost(from: HexCoord, to: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}, building_blocked_hexes: Dictionary = {}) -> float:
+## `is_heavy_land` (true iff the mover is a Land-domain troop carrying the
+## "Heavy" tag) forwards to Terrain.effective_cost, which gates Wood Bridges
+## against it — see that function's doc comment.
+func edge_cost(from: HexCoord, to: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}, building_blocked_hexes: Dictionary = {}, is_heavy_land: bool = false) -> float:
 	if not has_hex(to):
 		return Terrain.INF
 	if domain != Terrain.Domain.AIR and is_walled_edge(from, to):
 		return Terrain.INF
 	if domain != Terrain.Domain.AIR and domain != Terrain.Domain.INFANTRY and building_blocked_hexes.has(to.to_key()):
 		return Terrain.INF
-	return Terrain.effective_cost(get_terrain(to), domain, get_infrastructure(to), overrides)
+	return Terrain.effective_cost(get_terrain(to), domain, get_infrastructure(to), overrides, get_infrastructure_material(to), is_heavy_land)
 
-func passable_neighbors(coord: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}, building_blocked_hexes: Dictionary = {}) -> Array[HexCoord]:
+func passable_neighbors(coord: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}, building_blocked_hexes: Dictionary = {}, is_heavy_land: bool = false) -> Array[HexCoord]:
 	var result: Array[HexCoord] = []
 	for n in HexCoord.neighbors(coord):
-		if edge_cost(coord, n, domain, overrides, building_blocked_hexes) != Terrain.INF:
+		if edge_cost(coord, n, domain, overrides, building_blocked_hexes, is_heavy_land) != Terrain.INF:
 			result.append(n)
 	return result
 
@@ -126,7 +144,7 @@ func nearest_passable_hex(from: HexCoord, domain: Terrain.Domain, is_free: Calla
 ## Edge cost per `edge_cost`. Returns [] if no path exists.
 ## Path is computed once per order per the design (not re-planned every tick);
 ## callers own re-invoking this when blocked or re-ordered.
-func find_path(start: HexCoord, goal: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}, building_blocked_hexes: Dictionary = {}) -> Array[HexCoord]:
+func find_path(start: HexCoord, goal: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}, building_blocked_hexes: Dictionary = {}, is_heavy_land: bool = false) -> Array[HexCoord]:
 	if not has_hex(start) or not has_hex(goal):
 		return []
 	if start.equals(goal):
@@ -163,7 +181,7 @@ func find_path(start: HexCoord, goal: HexCoord, domain: Terrain.Domain, override
 			if closed.has(neighbor_key):
 				continue
 
-			var step_cost := edge_cost(current, neighbor, domain, overrides, building_blocked_hexes)
+			var step_cost := edge_cost(current, neighbor, domain, overrides, building_blocked_hexes, is_heavy_land)
 			if step_cost == Terrain.INF:
 				continue
 

@@ -2,7 +2,7 @@
   "id": "commander_vanguard",
   "name": "Vanguard",
   "domain": "Land",
-  "tags": ["Vehicle", "Commander"],
+  "tags": ["Vehicle", "Commander", "Light"],
 
   "hp": 220,
   "armor": 5,

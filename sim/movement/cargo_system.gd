@@ -152,7 +152,8 @@ static func unload(carrier_squad: SquadInstance, boarded_squad: SquadInstance, t
 		var boarded_def: Dictionary = troop_defs.get(boarded_squad.troop_type, {})
 		var domain := Terrain.domain_from_string(String(boarded_def.get("domain", "Infantry")))
 		var overrides: Dictionary = boarded_def.get("terrainOverrides", {})
-		if grid.edge_cost(carrier_squad.current_hex, target_hex, domain, overrides) == Terrain.INF:
+		var is_heavy_land := domain == Terrain.Domain.LAND and (boarded_def.get("tags", []) as Array).has("Heavy")
+		if grid.edge_cost(carrier_squad.current_hex, target_hex, domain, overrides, {}, is_heavy_land) == Terrain.INF:
 			return false
 
 		var carrier_domain := Terrain.domain_from_string(String(carrier_def.get("domain", "Infantry")))
@@ -245,7 +246,8 @@ static func undock(building: BuildingInstance, squad: SquadInstance, target_hex:
 		var squad_def: Dictionary = troop_defs.get(squad.troop_type, {})
 		var domain := Terrain.domain_from_string(String(squad_def.get("domain", "Infantry")))
 		var overrides: Dictionary = squad_def.get("terrainOverrides", {})
-		if grid.edge_cost(building.hex, target_hex, domain, overrides) == Terrain.INF:
+		var is_heavy_land := domain == Terrain.Domain.LAND and (squad_def.get("tags", []) as Array).has("Heavy")
+		if grid.edge_cost(building.hex, target_hex, domain, overrides, {}, is_heavy_land) == Terrain.INF:
 			return false
 
 	squad.docked_building_id = ""

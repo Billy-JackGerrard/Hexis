@@ -96,9 +96,10 @@ static func _path_toward(squad: SquadInstance, grid: HexGrid, goal: HexCoord, tr
 	var def: Dictionary = troop_defs.get(squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
+	var is_heavy_land := domain == Terrain.Domain.LAND and (def.get("tags", []) as Array).has("Heavy")
 	var building_blocked_hexes := BuildingPlacement.building_blocking_hexes(bases, standalone_buildings)
 
-	var full := grid.find_path(squad.current_hex, goal, domain, overrides, building_blocked_hexes)
+	var full := grid.find_path(squad.current_hex, goal, domain, overrides, building_blocked_hexes, is_heavy_land)
 	if full.size() <= 1:
 		squad.path = []
 		return false
@@ -172,8 +173,9 @@ static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop
 		return
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
+	var is_heavy_land := domain == Terrain.Domain.LAND and (def.get("tags", []) as Array).has("Heavy")
 
-	_advance_along_path(squad, dt, grid, domain, overrides, building_blocked_hexes, speed)
+	_advance_along_path(squad, dt, grid, domain, overrides, building_blocked_hexes, speed, is_heavy_land)
 
 ## Steps `unit` along its own `path` for up to `dt` seconds at `speed`
 ## hexes/sec (terrain-cost-adjusted per edge), replanning once if the next
@@ -182,14 +184,14 @@ static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop
 ## advance below — both do the exact same terrain-cost/time-conversion/replan
 ## dance, just for a different unit and a different (possibly regiment-capped)
 ## speed.
-static func _advance_along_path(unit: SquadInstance, dt: float, grid: HexGrid, domain: Terrain.Domain, overrides: Dictionary, building_blocked_hexes: Dictionary, speed: float) -> void:
+static func _advance_along_path(unit: SquadInstance, dt: float, grid: HexGrid, domain: Terrain.Domain, overrides: Dictionary, building_blocked_hexes: Dictionary, speed: float, is_heavy_land: bool = false) -> void:
 	var remaining_time := dt
 	var replanned_this_tick := false
 	while remaining_time > 0.0 and not unit.path.is_empty():
 		var next_hex: HexCoord = unit.path[0]
-		var cost := grid.edge_cost(unit.current_hex, next_hex, domain, overrides, building_blocked_hexes)
+		var cost := grid.edge_cost(unit.current_hex, next_hex, domain, overrides, building_blocked_hexes, is_heavy_land)
 		if cost == Terrain.INF:
-			if replanned_this_tick or not _replan(unit, grid, domain, overrides, building_blocked_hexes):
+			if replanned_this_tick or not _replan(unit, grid, domain, overrides, building_blocked_hexes, is_heavy_land):
 				break
 			replanned_this_tick = true
 			continue
@@ -210,7 +212,7 @@ static func _advance_along_path(unit: SquadInstance, dt: float, grid: HexGrid, d
 ## edge blocked — e.g. a wall raised mid-route. Clears path (halts in place)
 ## if no route exists. find_path never returns a blocked first edge, so the
 ## caller's post-replan retry cannot hit Terrain.INF again on the same edge.
-static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain, overrides: Dictionary, building_blocked_hexes: Dictionary = {}) -> bool:
+static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain, overrides: Dictionary, building_blocked_hexes: Dictionary = {}, is_heavy_land: bool = false) -> bool:
 	var goal: HexCoord
 	var order_type := String(squad.order.get("type", ""))
 	if order_type == "move" or order_type == "regiment_move":
@@ -218,7 +220,7 @@ static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain,
 	else:
 		goal = squad.path.back()
 
-	var new_path := grid.find_path(squad.current_hex, goal, domain, overrides, building_blocked_hexes)
+	var new_path := grid.find_path(squad.current_hex, goal, domain, overrides, building_blocked_hexes, is_heavy_land)
 	if new_path.size() <= 1:
 		squad.path = []
 		return false
@@ -233,9 +235,13 @@ static func _replan(squad: SquadInstance, grid: HexGrid, domain: Terrain.Domain,
 ## A regiment moves as one block on a single shared path computed from the
 ## Commander's hex, at a flat speed cap (the slowest member's speed stat) —
 ## not each squad re-deriving its own terrain cost, since every squad occupies
-## the identical hex at every step. The Commander's own domain/terrainOverrides
-## resolve the shared path's terrain cost (it's the anchor the path is computed
-## from); member squads simply mirror its current_hex/path/edge_progress each
+## the identical hex at every step. The Commander's own domain/terrainOverrides/
+## weight class (Terrain.effective_cost's Heavy-vehicle Wood Bridge gate) resolve
+## the shared path's terrain cost (it's the anchor the path is computed
+## from) — every Commander is Light (see data/troops/commander_*.json), so a
+## Heavy member squad in tow currently rides the regiment's Wood Bridge
+## crossing same as everyone else; member squads simply mirror its
+## current_hex/path/edge_progress each
 ## tick rather than pathing independently. A member given a temporary ad hoc
 ## order (`{type:"move"}`, issued by clicking that squad directly per
 ## 09-ui-and-controls.md) is left out of lock-step — advanced instead by the
@@ -252,9 +258,10 @@ static func issue_regiment_move(commander_squad: SquadInstance, member_squads: A
 	var def: Dictionary = troop_defs.get(commander_squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
+	var is_heavy_land := domain == Terrain.Domain.LAND and (def.get("tags", []) as Array).has("Heavy")
 	var building_blocked_hexes := BuildingPlacement.building_blocking_hexes(bases, standalone_buildings)
 
-	var full := grid.find_path(commander_squad.current_hex, goal, domain, overrides, building_blocked_hexes)
+	var full := grid.find_path(commander_squad.current_hex, goal, domain, overrides, building_blocked_hexes, is_heavy_land)
 	if full.size() <= 1:
 		commander_squad.path = []
 		return false
@@ -322,9 +329,10 @@ static func resolve_regiment_tick(dt: float, commander_squad: SquadInstance, mem
 	var commander_def: Dictionary = troop_defs.get(commander_squad.troop_type, {})
 	var domain := Terrain.domain_from_string(String(commander_def.get("domain", "Infantry")))
 	var overrides: Dictionary = commander_def.get("terrainOverrides", {})
+	var is_heavy_land := domain == Terrain.Domain.LAND and (commander_def.get("tags", []) as Array).has("Heavy")
 	var building_blocked_hexes := BuildingPlacement.building_blocking_hexes(bases, standalone_buildings)
 
-	_advance_along_path(commander_squad, dt, grid, domain, overrides, building_blocked_hexes, speed)
+	_advance_along_path(commander_squad, dt, grid, domain, overrides, building_blocked_hexes, speed, is_heavy_land)
 
 	for squad in lockstep:
 		if squad == commander_squad:

@@ -2,7 +2,7 @@
   "id": "repair_truck",
   "name": "Repair Truck",
   "domain": "Land",
-  "tags": ["Vehicle", "Support"],
+  "tags": ["Vehicle", "Support", "Light"],
 
   "hp": 150,
   "damage": 0,

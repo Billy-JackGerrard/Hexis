@@ -2,7 +2,7 @@
   "id": "frost_tank",
   "name": "Frost Tank",
   "domain": "Land",
-  "tags": ["Vehicle", "Tank", "Ice"],
+  "tags": ["Vehicle", "Tank", "Ice", "Heavy"],
 
   "hp": 260,
   "armor": 2,

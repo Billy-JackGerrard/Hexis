@@ -2,7 +2,7 @@
   "id": "basekiller",
   "name": "Basekiller",
   "domain": "Land",
-  "tags": ["Vehicle", "Siege"],
+  "tags": ["Vehicle", "Siege", "Light"],
 
   "hp": 200,
   "damage": 10,

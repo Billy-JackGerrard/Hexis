@@ -2,7 +2,7 @@
   "id": "rocket_tank",
   "name": "Rocket Tank",
   "domain": "Land",
-  "tags": ["Vehicle", "Tank", "Anti-Air"],
+  "tags": ["Vehicle", "Tank", "Anti-Air", "Heavy"],
 
   "hp": 260,
   "damage": 20,

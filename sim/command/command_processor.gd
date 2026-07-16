@@ -358,11 +358,12 @@ static func place_building(state: MatchState, base_id: String, building_type: St
 ##   must be within BuildingPlacement.hq_build_radius(base.hq_level) of the
 ##   HQ, the same radius normal base construction already uses.
 ##
-## `unlockHqLevel` (data/buildings schema, e.g. Road=2/Bridge=3) gates both
-## paths alike: standalone buildings aren't tied to a single base, so the
-## Engineer path checks the HIGHEST hq_level across every base owner_id owns
-## (any one HQ reaching that tier unlocks the ability network-wide) — the
-## HQ path just reads that one HQ's own base.hq_level directly.
+## `unlockHqLevel` (data/buildings schema, e.g. Road=2, Bridge wood=2/stone=4
+## via BuildingStats.unlock_level's per-material override) gates both paths
+## alike: standalone buildings aren't tied to a single base, so the Engineer
+## path checks the HIGHEST hq_level across every base owner_id owns (any one
+## HQ reaching that tier unlocks the ability network-wide) — the HQ path just
+## reads that one HQ's own base.hq_level directly.
 static func place_standalone_building(state: MatchState, squad_id: String, building_type: String, hex: HexCoord, material: String, owner_id: String, building_id: String = "") -> BuildingPlacement.Result:
 	var issuer_hq_level := 0
 	if squad_id != "":
@@ -389,7 +390,7 @@ static func place_standalone_building(state: MatchState, squad_id: String, build
 		issuer_hq_level = base.hq_level
 
 	var building_def: Dictionary = state.building_defs.get(building_type, {})
-	if issuer_hq_level < int(building_def.get("unlockHqLevel", 1)):
+	if issuer_hq_level < BuildingStats.unlock_level(building_def, material):
 		return BuildingPlacement.Result.NOT_UNLOCKED
 
 	var occupied_unit_hexes := BuildingPlacement.ground_unit_hexes(state.squads, state.troop_defs)

@@ -321,6 +321,11 @@ Docks and Bridges (in addition to Walls) can now be built in **either Stone or W
 - This extends Wood's identity — "cheap, fast, fire-vulnerable" — consistently across
   every structure type it touches, rather than introducing a use for it with a
   different profile.
+- Bridge's two materials unlock at different HQ levels rather than sharing one: Wood
+  at level 2, Stone at level 4 — a cheap early crossing, then a sturdier one later
+  that's also the only kind **Heavy** land vehicles can cross (see
+  `01-map-and-terrain.md`'s Public Infrastructure section and `08-troop-roster.md`'s
+  Light/Heavy split) — too light to bear them, on top of its HP/Fire tradeoffs.
 
 ## Resolved (previously Open) Items
 - Exact HP/damage/range/splash numbers for every defensive building are authored in

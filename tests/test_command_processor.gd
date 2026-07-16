@@ -413,10 +413,13 @@ func _test_place_standalone_hq() -> void:
 	var unknown_building := CommandProcessor.place_standalone_building(state, "", "tower", in_range_hex, "stone", "p1", "not_a_real_id")
 	_check(unknown_building == BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE, "an unknown building_id is rejected")
 
-## Road (unlockHqLevel 2) and Bridge (unlockHqLevel 3) per data/buildings/
-## road.json, bridge.json -- both hexes sit at distance 2 from the HQ so the
-## HQ's own build radius (hq_build_radius(1) == 2) never becomes the limiting
-## factor, isolating the unlock check from the range check.
+## Road's unlockHqLevel and Bridge's per-material wood/stone unlockHqLevel
+## (data/buildings/road.json, bridge.json's materialStats -- see
+## BuildingStats.unlock_level), read from the loaded defs rather than
+## hardcoded so a future balance tweak doesn't silently desync this test. All
+## hexes sit at distance 2 from the HQ so the HQ's own build radius
+## (hq_build_radius(1) == 2) never becomes the limiting factor, isolating the
+## unlock check from the range check.
 func _test_place_standalone_unlock_gate() -> void:
 	var state := _new_state(_flat_grid(6))
 	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
@@ -428,19 +431,32 @@ func _test_place_standalone_unlock_gate() -> void:
 
 	var road_hex := HexCoord.new(0, 2)
 	state.grid.set_terrain(road_hex, Terrain.Type.FOREST)
-	var bridge_hex := HexCoord.new(0, -2)
-	state.grid.set_terrain(bridge_hex, Terrain.Type.RIVER)
+	var wood_bridge_hex := HexCoord.new(0, -2)
+	state.grid.set_terrain(wood_bridge_hex, Terrain.Type.RIVER)
+	var stone_bridge_hex := HexCoord.new(-2, 0)
+	state.grid.set_terrain(stone_bridge_hex, Terrain.Type.RIVER)
+
+	var road_level := int(_building_defs["road"]["unlockHqLevel"])
+	var wood_level := int(_building_defs["bridge"]["materialStats"]["wood"]["unlockHqLevel"])
+	var stone_level := int(_building_defs["bridge"]["materialStats"]["stone"]["unlockHqLevel"])
+	_check(stone_level > wood_level, "fixture assumption: Stone Bridge unlocks later than Wood")
 
 	_check(base.hq_level == 1, "fixture assumption: base's HQ starts at level 1")
-	_check(CommandProcessor.place_standalone_building(state, "", "road", road_hex, "", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Road is locked at HQ level 1")
-	_check(CommandProcessor.place_standalone_building(state, "", "bridge", bridge_hex, "stone", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Bridge is locked at HQ level 1")
+	base.hq_level = road_level - 1
+	_check(CommandProcessor.place_standalone_building(state, "", "road", road_hex, "", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Road is locked one level below its own unlockHqLevel")
+	base.hq_level = wood_level - 1
+	_check(CommandProcessor.place_standalone_building(state, "", "bridge", wood_bridge_hex, "wood", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Wood Bridge is locked one level below its own unlockHqLevel")
+	_check(CommandProcessor.place_standalone_building(state, "", "bridge", stone_bridge_hex, "stone", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Stone Bridge is locked below its own (higher) unlockHqLevel")
 
-	base.hq_level = 2
-	_check(CommandProcessor.place_standalone_building(state, "", "road", road_hex, "", "p1", hq.id) == BuildingPlacement.Result.OK, "Road unlocks at HQ level 2")
-	_check(CommandProcessor.place_standalone_building(state, "", "bridge", bridge_hex, "stone", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Bridge is still locked at HQ level 2")
+	base.hq_level = road_level
+	_check(CommandProcessor.place_standalone_building(state, "", "road", road_hex, "", "p1", hq.id) == BuildingPlacement.Result.OK, "Road unlocks at its own unlockHqLevel")
 
-	base.hq_level = 3
-	_check(CommandProcessor.place_standalone_building(state, "", "bridge", bridge_hex, "stone", "p1", hq.id) == BuildingPlacement.Result.OK, "Bridge unlocks at HQ level 3")
+	base.hq_level = wood_level
+	_check(CommandProcessor.place_standalone_building(state, "", "bridge", wood_bridge_hex, "wood", "p1", hq.id) == BuildingPlacement.Result.OK, "Wood Bridge unlocks at its own (lower) unlockHqLevel")
+	_check(CommandProcessor.place_standalone_building(state, "", "bridge", stone_bridge_hex, "stone", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Stone Bridge is still locked at Wood's unlock level")
+
+	base.hq_level = stone_level
+	_check(CommandProcessor.place_standalone_building(state, "", "bridge", stone_bridge_hex, "stone", "p1", hq.id) == BuildingPlacement.Result.OK, "Stone Bridge unlocks at its own (higher) unlockHqLevel")
 
 func _test_place_wall() -> void:
 	var state := _new_state(_flat_grid(5))

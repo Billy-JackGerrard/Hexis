@@ -2,7 +2,7 @@
   "id": "volt_truck",
   "name": "Volt Truck",
   "domain": "Land",
-  "tags": ["Vehicle", "Support"],
+  "tags": ["Vehicle", "Support", "Light"],
 
   "hp": 140,
   "damage": 0,

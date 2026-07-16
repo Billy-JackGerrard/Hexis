@@ -128,7 +128,7 @@ const MOAT_CHANNEL_MAX_LENGTH: int = 16
 ## --- Barbarian outposts (sim/outposts/barbarian_outpost_placer.gd) ---
 
 ## outpost_count = BARBARIAN_OUTPOST_BASE_COUNT + player_count * BARBARIAN_OUTPOST_COUNT_PER_PLAYER.
-const BARBARIAN_OUTPOST_BASE_COUNT: int = 1
+const BARBARIAN_OUTPOST_BASE_COUNT: int = 2
 const BARBARIAN_OUTPOST_COUNT_PER_PLAYER: int = 3
 
 ## Comfortably above GARRISON_RING_RADIUS + GARRISON_SEARCH_RADIUS (2 + 6 =

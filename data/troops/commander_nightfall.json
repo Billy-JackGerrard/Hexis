@@ -2,7 +2,7 @@
   "id": "commander_nightfall",
   "name": "Nightfall",
   "domain": "Land",
-  "tags": ["Vehicle", "Commander", "Stealth"],
+  "tags": ["Vehicle", "Commander", "Stealth", "Light"],
 
   "hp": 190,
   "armor": 5,

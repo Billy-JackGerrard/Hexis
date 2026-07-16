@@ -363,5 +363,5 @@ static func place_standalone_building(bases: Array[BaseInstance], standalone_bui
 	if building_type == "road":
 		grid.set_infrastructure(hex, Terrain.Infrastructure.ROAD)
 	elif building_type == "bridge":
-		grid.set_infrastructure(hex, Terrain.Infrastructure.BRIDGE)
+		grid.set_infrastructure(hex, Terrain.Infrastructure.BRIDGE, material)
 	return Result.OK

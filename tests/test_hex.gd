@@ -130,6 +130,13 @@ func _test_infrastructure() -> void:
 	# Naval was already fully passable on River regardless of infrastructure.
 	_check(Terrain.effective_cost(Terrain.Type.RIVER, Terrain.Domain.NAVAL, Terrain.Infrastructure.NONE) == 1.0, "Naval unaffected by infrastructure on River (already passable)")
 
+	# Heavy land vehicles are too heavy for a Wood Bridge -- Stone is fine, and
+	# neither Infantry nor a Light vehicle cares about the material.
+	_check(not Terrain.is_passable_with(Terrain.Type.RIVER, Terrain.Domain.LAND, Terrain.Infrastructure.BRIDGE, "wood", true), "Heavy Land vehicle cannot cross a Wood Bridge")
+	_check(Terrain.is_passable_with(Terrain.Type.RIVER, Terrain.Domain.LAND, Terrain.Infrastructure.BRIDGE, "stone", true), "Heavy Land vehicle can cross a Stone Bridge")
+	_check(Terrain.is_passable_with(Terrain.Type.RIVER, Terrain.Domain.LAND, Terrain.Infrastructure.BRIDGE, "wood", false), "Light Land vehicle can cross a Wood Bridge")
+	_check(Terrain.is_passable_with(Terrain.Type.RIVER, Terrain.Domain.INFANTRY, Terrain.Infrastructure.BRIDGE, "wood", true), "Infantry ignores the Heavy-vehicle Wood Bridge gate entirely (not a Land vehicle)")
+
 	# HexGrid wiring: a Road on a specific Forest hex opens a path through it
 	# for Land, without affecting a different, un-Road'd Forest hex.
 	var grid := HexGrid.new()
@@ -149,3 +156,20 @@ func _test_infrastructure() -> void:
 
 	grid.set_infrastructure(forest_hex, Terrain.Infrastructure.NONE)
 	_check(grid.edge_cost(HexCoord.new(0, 0), forest_hex, Terrain.Domain.LAND) == Terrain.INF, "removing the Road re-blocks the hex for Land")
+
+	# HexGrid wiring: a Wood Bridge's own material blocks a Heavy Land vehicle's
+	# edge_cost but not a Stone Bridge's, and get_infrastructure_material tracks
+	# it alongside the Infrastructure enum, clearing together on demolish.
+	var river_hex := HexCoord.new(1, 0)
+	grid.set_terrain(river_hex, Terrain.Type.RIVER)
+	_check(grid.get_infrastructure_material(river_hex) == "", "no infrastructure material by default")
+	grid.set_infrastructure(river_hex, Terrain.Infrastructure.BRIDGE, "wood")
+	_check(grid.get_infrastructure_material(river_hex) == "wood", "get_infrastructure_material reflects the Wood Bridge just set")
+	_check(grid.edge_cost(HexCoord.new(0, 0), river_hex, Terrain.Domain.LAND, {}, {}, true) == Terrain.INF, "Heavy Land vehicle blocked crossing the Wood Bridge")
+	_check(grid.edge_cost(HexCoord.new(0, 0), river_hex, Terrain.Domain.LAND, {}, {}, false) != Terrain.INF, "Light Land vehicle crosses the Wood Bridge fine")
+
+	grid.set_infrastructure(river_hex, Terrain.Infrastructure.BRIDGE, "stone")
+	_check(grid.edge_cost(HexCoord.new(0, 0), river_hex, Terrain.Domain.LAND, {}, {}, true) != Terrain.INF, "Heavy Land vehicle crosses a Stone Bridge fine")
+
+	grid.set_infrastructure(river_hex, Terrain.Infrastructure.NONE)
+	_check(grid.get_infrastructure_material(river_hex) == "", "demolishing the Bridge clears its material alongside the Infrastructure enum")

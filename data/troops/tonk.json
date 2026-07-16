@@ -2,7 +2,7 @@
   "id": "tonk",
   "name": "Tonk",
   "domain": "Land",
-  "tags": ["Vehicle", "Tank"],
+  "tags": ["Vehicle", "Tank", "Light"],
 
   "hp": 220,
   "damage": 20,
