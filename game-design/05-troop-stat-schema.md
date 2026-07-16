@@ -285,6 +285,14 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
     no tuning knob. If sources from more than one owner reach the same building, only
     the closest wins the redirect (no split, no double-counting from two of the same
     owner's units both sitting in range).
+  - `heal_over_time` / `heal_out_of_combat` — a signed percent of the HEALED
+    troop's own max HP, applied per second (not a flat hp/s amount) — so the same
+    magnitude heals a Chonky and a Sniper the same fraction per second rather than
+    the same flat amount. E.g. Ambulance → `{radius: 3, target: friendly_troops,
+    filter: "Infantry", effect: heal_over_time, magnitude: 6}` heals 6% of max HP/s.
+    `heal_out_of_combat` is the same percent-of-max-HP shape but only ticks once a
+    squad has gone `Tuning.AURA_OUT_OF_COMBAT_HEAL_DELAY_SECONDS` without taking
+    damage (Commander Warden's regiment-wide sustain aura).
   - `upkeep_reduction` — a flat (not percent) reduction applied to **both**
     `foodUpkeep` and `fuelUpkeep` simultaneously, floored at 0 per troop. E.g. Camp
     Cozy's Mule → `{radius: 3, target: friendly_troops, effect: upkeep_reduction,

@@ -17,7 +17,7 @@
   "canTarget": [],
 
   "auras": [
-    { "radius": 3, "target": "friendly_troops", "filter": "Land", "effect": "heal_over_time", "magnitude": 4 }
+    { "radius": 3, "target": "friendly_troops", "filter": "Land", "effect": "heal_over_time", "magnitude": 2 }
   ],
 
   "cost": { "food": 10, "steel": 25 },

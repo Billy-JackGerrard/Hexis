@@ -74,13 +74,13 @@
 
     "costModifiers": {
       "type": "array",
-      "description": "Structured build/upgrade COST multipliers for this base type — same shape as resourceModifiers, but discounts what a building costs to build/upgrade here rather than what it produces. Entries stack multiplicatively, building-scoped first, then base-scoped. E.g. Camp Cosy -> [{scope: \"building\", buildingType: \"hospital\", multiplier: 0.75}], meaning Hospital's build cost and every upgrade cost is 25% cheaper at Camp Cosy than elsewhere. Applies to both baseCost and every level's costGrowth-derived upgrade cost on the affected building's def (data/buildings/schema.json). Omitted/empty if none.",
+      "description": "Structured build/upgrade COST multipliers for this base type — same shape as resourceModifiers, but discounts what a building costs to build/upgrade here rather than what it produces. Entries stack multiplicatively, building-scoped first, then base-scoped. E.g. Camp Cosy -> [{scope: \"building\", buildingType: \"healing_spire\", multiplier: 0.75}], meaning Healing Spire's build cost and every upgrade cost is 25% cheaper at Camp Cosy than elsewhere. Applies to both baseCost and every level's costGrowth-derived upgrade cost on the affected building's def (data/buildings/schema.json). Omitted/empty if none.",
       "items": {
         "type": "object",
         "required": ["scope", "multiplier"],
         "properties": {
           "scope": { "type": "string", "enum": ["base", "building"], "description": "\"base\" applies to all of this base's build/upgrade costs; \"building\" applies only to one building type (requires buildingType)." },
-          "buildingType": { "type": "string", "description": "Required when scope is \"building\" — the building id this multiplier applies to, e.g. \"hospital\"." },
+          "buildingType": { "type": "string", "description": "Required when scope is \"building\" — the building id this multiplier applies to, e.g. \"healing_spire\"." },
           "multiplier": { "type": "number", "description": "e.g. 0.75 for -25% cost, 1.25 for +25% cost." }
         }
       }

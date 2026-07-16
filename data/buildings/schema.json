@@ -122,7 +122,7 @@
           },
           "filter": { "type": "string" },
           "effect": { "type": "string" },
-          "magnitude": { "type": "number", "description": "Always a plain number — never a unit-suffixed string like \"6/s\" or \"+25%\" — so the engine never has to parse it. Unit is implicit from effect: heal_over_time and upkeep_reduction are flat amounts (hp/s, and food+fuel upkeep each respectively), slow/production_boost/damage_reduction/speed_boost/attack_speed_boost are signed percent (e.g. -20 = -20%, 25 = +25%)." }
+          "magnitude": { "type": "number", "description": "Always a plain number — never a unit-suffixed string like \"6/s\" or \"+25%\" — so the engine never has to parse it. Unit is implicit from effect: upkeep_reduction is a flat amount (food+fuel upkeep each); heal_over_time/heal_out_of_combat/slow/production_boost/damage_reduction/speed_boost/attack_speed_boost/damage_boost are all signed percent (e.g. -20 = -20%, 25 = +25%) — heal_over_time and heal_out_of_combat specifically are percent of the HEALED troop's own max HP per second, not a flat hp/s amount." }
         }
       }
     },

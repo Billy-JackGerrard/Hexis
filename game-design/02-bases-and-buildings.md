@@ -136,7 +136,7 @@ eliminated on the spot and all their remaining troops/squads disappear from the 
   |---|---|
   | 1 | Barracks, Farm, House, Lumber Mill, Mine, Quarry |
   | 2 | Harbour, Turret, Wood Turret, Flame Turret, Grenade Turret, Water Turret, Oil Rig, Stone Works, Wall, Port |
-  | 3 | Missile Launcher, Cold Turret, EMP Turret, Wind Spire, Factory, Ford Yard, Forest Yard, Wind Sanctuary, Hangar, Hospital, Supply Depot, Sniper Turret |
+  | 3 | Missile Launcher, Cold Turret, EMP Turret, Wind Spire, Factory, Ford Yard, Forest Yard, Wind Sanctuary, Hangar, Healing Spire, Supply Depot, Sniper Turret |
   | 4 | Frostworks, Blazeworks, Covert Works, Covert Airfield, Demolition Plant, Iron Aviary, Salvage Works, Shipyard, Tank Plant |
 - **Building construction is instant** (no build timers). **Buildings can be
   upgraded** (see `06-building-stats-and-defenses.md`) — **troops cannot be
@@ -169,7 +169,7 @@ being destroyed in combat:
 The "Buildable at" column below is a *rule* (all bases, a terrain/adjacency
 requirement, or one specific Unique base) where the rule is short and stable. For
 buildings available at a hand-picked subset of bases with no single unifying rule
-(Barracks, Hangar, Hospital), don't trust a hard-coded list here — it drifts as new
+(Barracks, Hangar, Healing Spire), don't trust a hard-coded list here — it drifts as new
 bases gain access (e.g. Hangar has since spread to more bases than originally
 authored). Check that base's `buildableBuildings` array in `data/bases/*.json`,
 which is the sole source of truth for building-vs-base eligibility (see
@@ -204,7 +204,7 @@ which is the sole source of truth for building-vs-base eligibility (see
 | Covert Airfield | Repair Drone, Cargocopter, Kleptocopter (support aircraft, all non-combat), Shadowcopter (stealth long-range harasser) | Cloudreach only |
 | Hangar | Support — fuel-free aircraft landing/storage, hides docked squads from enemy vision/detection; also the required landing-hex for Cargocopter to board/unload Infantry cargo (see `04-combat.md`'s Cargo section and `05-troop-stat-schema.md`) | See `data/bases/*.json` — a hand-picked, growing subset of bases, no unifying rule |
 | Command Centre | Commander | Capital only |
-| Hospital | Support — heals nearby friendly troops slowly (passive aura, no production) | See `data/bases/*.json` — a hand-picked subset of bases, discounted at Camp Cosy (see Camp Cosy below) |
+| Healing Spire | Support — heals nearby friendly troops slowly (passive aura, no production) | See `data/bases/*.json` — a hand-picked subset of bases, discounted at Camp Cosy (see Camp Cosy below) |
 | Supply Depot | Engineer, Ambulance, Transport Truck, Repair Truck, Mule, Volt Truck (support vehicles, all non-combat) | Camp Cosy only |
 | Shipyard (renamed from Harbour) | Full navy incl. Aircraft Carrier; base carries a +50% Harbour production bonus | Kraken Point only |
 | Dock | Ship landing point (no production) | Anywhere adjacent to Ocean or River (sits on the adjoining Plains hex, not on the water tile itself — same siteTerrain/adjacency shape as Port), Engineer-built, not tied to a base. Buildable in Stone or Wood (Wood cheaper, weaker, fire-vulnerable) |
@@ -281,8 +281,8 @@ Centre's level unlocks a whole tier at once, not one Commander at a time:
 - **Level 2**: unlocks every `rare`-tier Commander, in addition to `common`.
 - **Level 3**: unlocks every `epic`-tier Commander, in addition to `common`/`rare` — the
   full roster is now trainable at this Command Centre.
-- Implemented: the Commander roster (`commander_vanguard` (`common`), `commander_nightfall`
-  (`rare`), `commander_warden` (`epic`)) carries `commanderTier`/`Commander` tag per
+- Implemented: the Commander roster (`commander_vanguard` (`common`), `commander_warden`
+  (`rare`), `commander_nightfall` (`epic`)) carries `commanderTier`/`Commander` tag per
   `05-troop-stat-schema.md`, and `CommandProcessor.enqueue_production` rejects
   (`Result.NOT_UNLOCKED`) queuing a Commander whose tier isn't yet unlocked at the
   Command Centre's current level (`CommanderProgression.tier_unlocked`) — same
@@ -391,7 +391,7 @@ rather than fighting or producing resources. Supply Depot's entire roster is
 non-combat, so Barracks is included specifically so the base isn't a total pushover
 garrison-wise; deliberately no Missile Launcher, keeping its fixed defenses lighter
 than other Unique bases. No specialty defense building and no output bonus — its
-identity is entirely the Hospital/Wall cost discounts plus Supply Depot's roster.
+identity is entirely the Healing Spire/Wall cost discounts plus Supply Depot's roster.
 
 ### Cloudreach
 Air-logistics/covert-resupply specialist — the aerial mirror of Camp Cosy. Covert
@@ -435,7 +435,7 @@ player input to function or just runs on its own once built:
 | **Production** | Barracks, Factory, Port, Tank Plant, Frostworks, Blazeworks, Wind Sanctuary, Forest Yard, Shipyard, Iron Aviary, Command Centre, Covert Works, Ford Yard, Supply Depot | **Yes** — the player must pick a troop from the building's roster to queue; nothing is produced until a choice is made |
 | **Resource** | Farm, Quarry, Mine, Oil Rig, Lumber Mill, Harbour, Stone Works | No — ticks automatically every resource tick (see `07-data-architecture.md`) |
 | **Defensive** | Turret, Missile Launcher, Grenade Turret, Flame Turret, Cold Turret, River Battery, Wind Spire, EMP Turret, Walls, Tower | No — auto-fires on any enemy troop that enters range, same as troops (see `04-combat.md`) |
-| **Support** | Hospital, Ice Spire, House, Radar Array, Hangar | No — passively applies its effect (healing / aura / population capacity / vision) with no queue or target selection involved |
+| **Support** | Healing Spire, Ice Spire, House, Radar Array, Hangar | No — passively applies its effect (healing / aura / population capacity / vision) with no queue or target selection involved |
 | **Infrastructure** | Road, Bridge, Dock | No — passive, but must be placed by an Engineer rather than built from a base's menu |
 
 - This is why Production buildings are the only ones with a visible **queue** in the

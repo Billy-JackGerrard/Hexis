@@ -513,21 +513,21 @@ func _test_rebuild() -> void:
 	# by capturing a Unique base, then ruined) can't be rebuilt until the HQ
 	# catches up — same gate as a fresh build, per 02-bases-and-buildings.md's
 	# Building Unlock Levels section.
-	var hospital := BuildingInstance.new("hospital1", base.id, "hospital", 1, "", HexCoord.new(1, 0))
-	hospital.init_hp(_building_defs["hospital"], _building_defs)
-	hospital.init_cost(_building_defs["hospital"], _building_defs)
-	hospital.is_ruin = true
-	hospital.current_hp = 0.0
-	base.buildings.append(hospital)
+	var healing_spire := BuildingInstance.new("healing_spire1", base.id, "healing_spire", 1, "", HexCoord.new(1, 0))
+	healing_spire.init_hp(_building_defs["healing_spire"], _building_defs)
+	healing_spire.init_cost(_building_defs["healing_spire"], _building_defs)
+	healing_spire.is_ruin = true
+	healing_spire.current_hp = 0.0
+	base.buildings.append(healing_spire)
 	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 1000.0)
 	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 1000.0)
 	_check(base.hq_level == 1, "fixture assumption: base's HQ is still level 1")
-	_check(CommandProcessor.rebuild_building(state, hospital.id, "p1") == CommandProcessor.Result.NOT_UNLOCKED,
+	_check(CommandProcessor.rebuild_building(state, healing_spire.id, "p1") == CommandProcessor.Result.NOT_UNLOCKED,
 		"rebuilding a ruin whose type needs a higher HQ level than the base currently has is rejected")
-	_check(hospital.is_ruin, "the rejected rebuild leaves the ruin untouched")
+	_check(healing_spire.is_ruin, "the rejected rebuild leaves the ruin untouched")
 
 	base.hq_level = 3
-	_check(CommandProcessor.rebuild_building(state, hospital.id, "p1") == CommandProcessor.Result.OK,
+	_check(CommandProcessor.rebuild_building(state, healing_spire.id, "p1") == CommandProcessor.Result.OK,
 		"once the HQ reaches the required level, the same ruin can be rebuilt")
 
 func _test_upgrade() -> void:
@@ -679,15 +679,15 @@ func _test_enqueue_production() -> void:
 	state.pool_for("p1").set_amount(ResourceType.Type.FUEL, 1000.0)
 
 	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_vanguard", "p1") == CommandProcessor.Result.OK, "a level-1 Command Centre can train a common-tier Commander")
-	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_nightfall", "p1") == CommandProcessor.Result.NOT_UNLOCKED, "a level-1 Command Centre cannot train a rare-tier Commander")
-	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_warden", "p1") == CommandProcessor.Result.NOT_UNLOCKED, "a level-1 Command Centre cannot train an epic-tier Commander")
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_warden", "p1") == CommandProcessor.Result.NOT_UNLOCKED, "a level-1 Command Centre cannot train a rare-tier Commander")
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_nightfall", "p1") == CommandProcessor.Result.NOT_UNLOCKED, "a level-1 Command Centre cannot train an epic-tier Commander")
 
 	cc.level = 2
-	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_nightfall", "p1") == CommandProcessor.Result.OK, "a level-2 Command Centre can train a rare-tier Commander")
-	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_warden", "p1") == CommandProcessor.Result.NOT_UNLOCKED, "a level-2 Command Centre still cannot train an epic-tier Commander")
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_warden", "p1") == CommandProcessor.Result.OK, "a level-2 Command Centre can train a rare-tier Commander")
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_nightfall", "p1") == CommandProcessor.Result.NOT_UNLOCKED, "a level-2 Command Centre still cannot train an epic-tier Commander")
 
 	cc.level = 3
-	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_warden", "p1") == CommandProcessor.Result.OK, "a level-3 Command Centre can train an epic-tier Commander")
+	_check(CommandProcessor.enqueue_production(state, cc.id, "commander_nightfall", "p1") == CommandProcessor.Result.OK, "a level-3 Command Centre can train an epic-tier Commander")
 
 ## Squad/Commander cap must reject enqueue outright (no resources spent) when
 ## a brand-new squad would be needed and the owner's already at capacity --

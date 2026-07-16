@@ -16,7 +16,7 @@
 
   "maxSquadSize": 1,
   "maxSquadsLed": 4,
-  "commanderTier": "rare",
+  "commanderTier": "epic",
 
   "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
 
@@ -33,10 +33,10 @@
     }
   ],
 
-  "cost": { "food": 80, "steel": 100, "fuel": 30 },
-  "foodUpkeep": 3,
-  "fuelUpkeep": 5,
-  "productionTime": 60,
+  "cost": { "food": 100, "steel": 130 },
+  "foodUpkeep": 4,
+  "fuelUpkeep": 6,
+  "productionTime": 75,
 
-  "notes": "Rare command unit that extends its own cloak to every squad serving under it, letting a whole formation approach unseen. Each squad only breaks its own cloak when it attacks, not the group's. Fragile like other commanders and a high-value kill if caught."
+  "notes": "Epic command unit that extends its own cloak to every squad serving under it, letting a whole formation approach unseen. Each squad only breaks its own cloak when it attacks, not the group's. Fragile like other commanders and a high-value kill if caught."
 }

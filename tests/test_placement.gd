@@ -220,7 +220,7 @@ func _test_hq_level_unlock() -> void:
 		"Barracks (unlockHqLevel 1) is buildable at HQ level 1")
 	_check(BuildingPlacement.can_place(level1, capital_def, "turret", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
 		"Turret (unlockHqLevel 2) is rejected at HQ level 1")
-	_check(BuildingPlacement.can_place(level1, capital_def, "hospital", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
+	_check(BuildingPlacement.can_place(level1, capital_def, "healing_spire", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
 		"Hospital (unlockHqLevel 3) is rejected at HQ level 1")
 	_check(BuildingPlacement.can_place_wall(level1, capital_def, HexCoord.new(0, 0), HexCoord.new(1, 0), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
 		"Wall (unlockHqLevel 2) is rejected at HQ level 1")
@@ -230,11 +230,11 @@ func _test_hq_level_unlock() -> void:
 		"Turret becomes buildable once HQ reaches level 2")
 	_check(BuildingPlacement.can_place_wall(level2, capital_def, HexCoord.new(0, 0), HexCoord.new(1, 0), grid, _building_defs) == BuildingPlacement.Result.OK,
 		"Wall becomes buildable once HQ reaches level 2")
-	_check(BuildingPlacement.can_place(level2, capital_def, "hospital", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
+	_check(BuildingPlacement.can_place(level2, capital_def, "healing_spire", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.NOT_UNLOCKED,
 		"Hospital (unlockHqLevel 3) is still rejected at HQ level 2")
 
 	var level3 := _fresh_seeded_base("hq3", grid, 3)
-	_check(BuildingPlacement.can_place(level3, capital_def, "hospital", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
+	_check(BuildingPlacement.can_place(level3, capital_def, "healing_spire", HexCoord.new(0, 1), grid, _building_defs) == BuildingPlacement.Result.OK,
 		"Hospital becomes buildable once HQ reaches level 3")
 
 func _test_hex_occupancy() -> void:

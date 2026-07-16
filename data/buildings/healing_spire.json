@@ -1,6 +1,6 @@
 {
-  "id": "hospital",
-  "name": "Hospital",
+  "id": "healing_spire",
+  "name": "Healing Spire",
   "category": "Support",
   "unlockHqLevel": 3,
   "populationCost": 1,
@@ -8,13 +8,13 @@
   "notes": "Passive structure that slowly heals every friendly troop within its radius, with no queue or targeting of its own. Only buildable at a handful of bases, not universal.",
 
   "auras": [
-    { "radius": 8, "target": "friendly_troops", "effect": "heal_over_time", "magnitude": 6 }
+    { "radius": 8, "target": "friendly_troops", "effect": "heal_over_time", "magnitude": 3 }
   ],
 
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 120,
-      "healMagnitude": 6
+      "healMagnitude": 3
     },
     "statGrowth": {
       "hp": { "mode": "percent", "value": 10 },

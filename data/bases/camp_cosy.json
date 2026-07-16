@@ -14,7 +14,7 @@
     "harbour",
     "supply_depot",
     "port",
-    "hospital",
+    "healing_spire",
     "hangar",
     "barracks",
     "turret",
@@ -22,7 +22,7 @@
   ],
 
   "costModifiers": [
-    { "scope": "building", "buildingType": "hospital", "multiplier": 0.75 },
+    { "scope": "building", "buildingType": "healing_spire", "multiplier": 0.75 },
     { "scope": "building", "buildingType": "wall", "multiplier": 0.5 }
   ],
 

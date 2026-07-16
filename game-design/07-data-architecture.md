@@ -365,7 +365,7 @@ below), `initialGarrison` (the authored garrison-troop template), `resourceModif
 (structured production multipliers — see below; replaces an earlier free-text
 `resourceBonus` string), and `costModifiers` (structured build/upgrade-cost
 multipliers, same shape as `resourceModifiers` but discounting/inflating what a
-building costs rather than what it produces — e.g. Camp Cosy discounts Hospital and
+building costs rather than what it produces — e.g. Camp Cosy discounts Healing Spire and
 Wall cost, see `02-bases-and-buildings.md`'s Camp Cosy section and
 `data/bases/schema.json`).
 - **`buildableBuildings`** is the explicit, complete list of every building id a base

@@ -16,7 +16,7 @@
 
   "maxSquadSize": 1,
   "maxSquadsLed": 4,
-  "commanderTier": "epic",
+  "commanderTier": "rare",
 
   "canTarget": ["Infantry", "Land", "Air", "Naval", "Structure", "Defensive"],
 
@@ -26,14 +26,14 @@
       "target": "friendly_troops",
       "filter": "own_regiment_and_self",
       "effect": "heal_out_of_combat",
-      "magnitude": 10
+      "magnitude": 4
     }
   ],
 
-  "cost": { "food": 100, "steel": 130, "fuel": 40 },
-  "foodUpkeep": 4,
-  "fuelUpkeep": 6,
-  "productionTime": 75,
+  "cost": { "food": 80, "steel": 100 },
+  "foodUpkeep": 3,
+  "fuelUpkeep": 5,
+  "productionTime": 60,
 
-  "notes": "Epic command unit that slowly restores health to itself and every squad serving under it once they've gone a while without taking damage. A between-fights sustain tool rather than something that helps mid-engagement."
+  "notes": "Rare command unit that slowly restores health to itself and every squad serving under it once they've gone a while without taking damage. A between-fights sustain tool rather than something that helps mid-engagement."
 }

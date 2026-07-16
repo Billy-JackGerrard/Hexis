@@ -23,6 +23,8 @@ func _init() -> void:
 
 	print("Vanguard speed_boost (own_regiment)")
 	_test_vanguard_speed_boost()
+	print("Reaver damage_boost (own_regiment)")
+	_test_reaver_damage_boost()
 	print("Nightfall grant_stealth (own_regiment)")
 	_test_nightfall_grant_stealth()
 	print("Warden heal_out_of_combat (own_regiment_and_self)")
@@ -67,6 +69,24 @@ func _test_vanguard_speed_boost() -> void:
 	_check(AuraSystem.speed_mult(auras, outsider.id) == 1.0, "a same-owner squad NOT in the regiment is untouched")
 	_check(AuraSystem.speed_mult(auras, enemy.id) == 1.0, "an enemy squad never receives a friendly Commander's buff")
 	_check(AuraSystem.speed_mult(auras, commander.id) == 1.0, "own_regiment (not own_regiment_and_self) excludes the Commander's own squad")
+
+func _test_reaver_damage_boost() -> void:
+	var troops: Dictionary = {}
+	var commander := _make_squad("p1", "commander_reaver", HexCoord.new(0, 0), troops)
+	var escort := _make_squad("p1", "rifleman", HexCoord.new(50, 50), troops)
+	var outsider := _make_squad("p1", "rifleman", HexCoord.new(0, 1), troops)
+	var enemy := _make_squad("p2", "rifleman", HexCoord.new(0, 0), troops)
+
+	var regiment := RegimentInstance.new("reg1", commander.id)
+	regiment.assign_squad(escort.id, 4)
+	var regiments: Array[RegimentInstance] = [regiment]
+	var squads: Array[SquadInstance] = [commander, escort, outsider, enemy]
+
+	var auras := AuraSystem.resolve_tick(squads, [], _troop_defs, {}, regiments)
+	_check(AuraSystem.damage_mult(auras, escort.id) > 1.0, "the escort's damage is boosted regardless of distance from its Commander")
+	_check(AuraSystem.damage_mult(auras, outsider.id) == 1.0, "a same-owner squad NOT in the regiment is untouched")
+	_check(AuraSystem.damage_mult(auras, enemy.id) == 1.0, "an enemy squad never receives a friendly Commander's buff")
+	_check(AuraSystem.damage_mult(auras, commander.id) == 1.0, "own_regiment (not own_regiment_and_self) excludes the Commander's own squad")
 
 func _test_nightfall_grant_stealth() -> void:
 	var troops: Dictionary = {}

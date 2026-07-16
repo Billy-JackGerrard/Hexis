@@ -91,18 +91,18 @@ These use the same combat-facing fields as troops:
   — it is a Defensive building that doubles as a detector, unlike every other
   Defensive building.
 
-## Support Buildings (Hospital, Ice Spire, House, Hangar)
+## Support Buildings (Healing Spire, Ice Spire, House, Hangar)
 Support buildings reuse the troop schema's **auras** field (`05-troop-stat-schema.md`)
 rather than a combat-facing stat block — most don't attack, don't produce, they just
 project a passive effect:
 
 | Field | Type | Notes |
 |---|---|---|
-| auras | list of `{radius, target, filter, effect, magnitude}` | e.g. Hospital → `{radius: 3, target: friendly_troops, effect: heal_over_time, magnitude: X hp/tick}` |
+| auras | list of `{radius, target, filter, effect, magnitude}` | e.g. Healing Spire → `{radius: 3, target: friendly_troops, effect: heal_over_time, magnitude: X}` — `heal_over_time`/`heal_out_of_combat` magnitude is percent of the healed troop's own max HP per second, not a flat hp/tick amount (see `05-troop-stat-schema.md`'s Support Units section) |
 
-- **Hospital**: heals nearby friendly troops slowly over time (passive, no targeting/
+- **Healing Spire**: heals nearby friendly troops slowly over time (passive, no targeting/
   queue involved). Buildable at **any** base. Its main use is defensive — garrisoning
-  troops near a Hospital lets them recover between skirmishes instead of sitting at
+  troops near a Healing Spire lets them recover between skirmishes instead of sitting at
   reduced HP, which matters most when positioning a standing defense force at a base
   rather than actively pushing.
 - **Ice Spire** (Winter Forge only): carries *two* auras simultaneously — a
@@ -127,7 +127,7 @@ project a passive effect:
   rotary troops. Wired into Capital's and several Unique bases' `buildableBuildings`
   (see `data/bases/*.json`); Cloudreach's Covert Airfield + Hangar is what closed the
   original "nothing can dock yet" gap.
-- Like other non-production buildings, Hospital/Ice Spire/House/Hangar have no inherent
+- Like other non-production buildings, Healing Spire/Ice Spire/House/Hangar have no inherent
   level cap — upgrades scale magnitude/radius/population-capacity/cargo-capacity,
   bottlenecked only by the HQ ceiling, using the same formula-based growth model as
   other uncapped buildings.

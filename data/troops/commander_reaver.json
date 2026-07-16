@@ -1,18 +1,18 @@
 {
-  "id": "commander_vanguard",
-  "name": "Vanguard",
+  "id": "commander_reaver",
+  "name": "Reaver",
   "domain": "Land",
   "tags": ["Vehicle", "Commander"],
 
-  "hp": 220,
-  "armor": 5,
-  "damage": 18,
+  "hp": 210,
+  "armor": 4,
+  "damage": 20,
   "attackSpeed": 1.0,
   "range": 4,
   "splashRadius": 0,
   "projectileSpeed": 16,
   "visionRange": 9,
-  "speed": 3.2,
+  "speed": 2.8,
 
   "maxSquadSize": 1,
   "maxSquadsLed": 4,
@@ -27,8 +27,8 @@
       "radius": 999,
       "target": "friendly_troops",
       "filter": "own_regiment",
-      "effect": "speed_boost",
-      "magnitude": 40
+      "effect": "damage_boost",
+      "magnitude": 25
     }
   ],
 
@@ -37,5 +37,5 @@
   "fuelUpkeep": 4,
   "productionTime": 45,
 
-  "notes": "Common command unit whose aura gives a modest speed boost to every squad serving under it, anywhere on the map — good for a fast rush or a rapid repositioning. The boost depends on formal command assignment rather than standing nearby."
+  "notes": "Common command unit whose aura raises the damage output of every squad serving under it, anywhere on the map, mirroring Vanguard's speed_boost but for offense instead of mobility. The boost depends on formal command assignment rather than standing nearby."
 }

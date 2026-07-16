@@ -26,7 +26,7 @@ records design rationale, not the numbers themselves.
 | Barracks | **Flamethrower** | Bonus damage vs. `Wood`-tagged targets (walls, docks, bridges, Wood Tower) |
 | Barracks | **Sniper** | Stealth unit; also a `detector` (spots other stealthed units at full vision range); `damage_types: [Piercing]` — bypasses target armor (not damage-received modifiers, which still apply normally); `can_target` omits `Structure` (**cannot target buildings/walls**), a deliberate exception to the usual default (see `05-troop-stat-schema.md`) |
 | Barracks | **Shielder** | Pure tank/meatshield: `canTarget: [Infantry]` only, and its own `damage` is a token 4 — high HP plus a flat `armor` stat (damage reduction per hit, distinct from the multiplier-based damage-received modifiers) is the real point, slow-moving |
-| Factory | **Ambulance** | Light support vehicle — mobile heal aura, Infantry-only (same effect family as Hospital's passive heal); a vehicle rather than infantry so it can keep pace with the army it's healing. Repair Truck (Camp Cosy's Supply Depot) is its Land-vehicle counterpart |
+| Factory | **Ambulance** | Light support vehicle — mobile heal aura, Infantry-only (same effect family as Healing Spire's passive heal); a vehicle rather than infantry so it can keep pace with the army it's healing. Repair Truck (Camp Cosy's Supply Depot) is its Land-vehicle counterpart |
 | Factory | **Transport Truck** | Light vehicle, little/no attack — carries an infantry squad aboard for fast repositioning, letting cheap Food-upkeep infantry keep up with Fuel-upkeep armies. Can deploy its cargo **mid-battle**, not just while idle. `cargoCapacity: 1` = one squad (any size), not troop headcount |
 | Factory | **Light Tank** | Generic all-round light vehicle — no damage modifiers vs. anything; the baseline other tank types (Heavy Tank roster, etc.) get balanced against, same role Rifleman plays for infantry |
 | Factory | **Tonk** | Heavier/longer-range sibling to Light Tank — slower attack speed, higher per-hit damage, longer range; slight damage bonus vs. Air and vs. Structure (buildings+walls) |
@@ -116,7 +116,7 @@ records design rationale, not the numbers themselves.
 | Supply Depot | **Engineer**, **Ambulance**, **Transport Truck**, **Repair Truck**, **Mule**, **Volt Truck** | All non-combat (`can_target: []`) — a support-vehicle-only roster, distinct from Factory's combat vehicles. Engineer/Ambulance/Transport Truck are shared with Factory (see Capital Base above). Repair Truck heals Land vehicles (Ambulance's counterpart, which now heals Infantry only); Mule reduces nearby troops' Food/Fuel upkeep; Volt Truck boosts speed + attack speed for Land/Air/Naval. Stats implemented, see `data/troops/repair_truck.json`, `data/troops/mule.json`, `data/troops/volt_truck.json` |
 
 **Resolved: healing has a deliberate rarity progression by Domain.** Infantry healing
-(Hospital's passive aura, Ambulance's mobile aura) is available to every base via
+(Healing Spire's passive aura, Ambulance's mobile aura) is available to every base via
 Factory/Capital. Land-vehicle healing (Repair Truck) is gated behind Camp Cosy's
 Supply Depot and Scrapyard's Salvage Works — two specific Unique bases, not
 universally available. Air healing (Repair Drone) is the rarest tier, gated behind Cloudreach's Covert Airfield

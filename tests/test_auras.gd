@@ -87,17 +87,17 @@ func _make_squad(owner: String, troop_type: String, hex: HexCoord, count: int, t
 ## --- BuildingStats.auras ----------------------------------------------------
 
 func _test_building_stats_auras() -> void:
-	var hospital: Dictionary = _building_defs["hospital"]
-	var hospital_heal_l1: float = float(hospital["auras"][0]["magnitude"])
-	var hospital_radius: int = int(hospital["auras"][0]["radius"])
-	var level1 := BuildingStats.auras(hospital, 1, _building_defs)
-	_check(level1.size() == 1, "Hospital has one aura entry")
-	_check(_approx(float(level1[0]["magnitude"]), hospital_heal_l1), "Hospital's heal_over_time magnitude at level 1 matches its authored base magnitude (%s)" % hospital_heal_l1)
-	_check(int(level1[0]["radius"]) == hospital_radius, "Hospital's radius at level 1 matches its authored radius (%s)" % hospital_radius)
+	var healing_spire: Dictionary = _building_defs["healing_spire"]
+	var healing_spire_heal_l1: float = float(healing_spire["auras"][0]["magnitude"])
+	var healing_spire_radius: int = int(healing_spire["auras"][0]["radius"])
+	var level1 := BuildingStats.auras(healing_spire, 1, _building_defs)
+	_check(level1.size() == 1, "Healing Spire has one aura entry")
+	_check(_approx(float(level1[0]["magnitude"]), healing_spire_heal_l1), "Healing Spire's heal_over_time magnitude at level 1 matches its authored base magnitude (%s)" % healing_spire_heal_l1)
+	_check(int(level1[0]["radius"]) == healing_spire_radius, "Healing Spire's radius at level 1 matches its authored radius (%s)" % healing_spire_radius)
 
-	var level3 := BuildingStats.auras(hospital, 3, _building_defs)
-	_check(float(level3[0]["magnitude"]) > float(level1[0]["magnitude"]), "Hospital's heal magnitude grows with level (healMagnitude statGrowth)")
-	_check(int(level3[0]["radius"]) == int(level1[0]["radius"]), "Hospital's radius stays flat per level while magnitude scales")
+	var level3 := BuildingStats.auras(healing_spire, 3, _building_defs)
+	_check(float(level3[0]["magnitude"]) > float(level1[0]["magnitude"]), "Healing Spire's heal magnitude grows with level (healMagnitude statGrowth)")
+	_check(int(level3[0]["radius"]) == int(level1[0]["radius"]), "Healing Spire's radius stays flat per level while magnitude scales")
 
 	var ice_spire: Dictionary = _building_defs["ice_spire"]
 	var ice_slow_magnitude: float = float(ice_spire["auras"][0]["magnitude"])
@@ -160,48 +160,49 @@ func _test_building_auras() -> void:
 	var troops := {}
 
 	var base := BaseInstance.new("b1", "capital", "p1", 1, HexCoord.new(0, 0))
-	var hospital_def: Dictionary = _building_defs["hospital"]
-	var hospital_heal: float = float(hospital_def["auras"][0]["magnitude"])
-	var hospital := BuildingInstance.new("hosp1", "b1", "hospital", 1, "", HexCoord.new(0, 0))
-	hospital.init_hp(hospital_def, _building_defs)
-	base.buildings.append(hospital)
+	var healing_spire_def: Dictionary = _building_defs["healing_spire"]
+	var healing_spire_heal: float = float(healing_spire_def["auras"][0]["magnitude"])
+	var healing_spire := BuildingInstance.new("spire1", "b1", "healing_spire", 1, "", HexCoord.new(0, 0))
+	healing_spire.init_hp(healing_spire_def, _building_defs)
+	base.buildings.append(healing_spire)
 	var bases: Array[BaseInstance] = [base]
 
-	# A friendly, damaged squad within Hospital's radius 8 heals over time.
+	# A friendly, damaged squad within Healing Spire's radius 8 heals over time.
 	var patient := _make_squad("p1", "rifleman", HexCoord.new(3, 0), 1, troops)
 	squads.append(patient)
 	var patient_troop: TroopInstance = troops[patient.member_ids[0]]
 	patient_troop.current_hp = 50.0
+	var rifleman_hp: float = float(_troop_defs["rifleman"].get("hp", 0.0))
 
 	var auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.squad_mods_heal(auras, patient.id), hospital_heal), "Hospital's heal_over_time (%s/s at level 1) reaches an in-range squad" % hospital_heal)
+	_check(_approx(AuraSystem.squad_mods_heal(auras, patient.id), healing_spire_heal), "Healing Spire's heal_over_time (%s%%/s at level 1) reaches an in-range squad" % healing_spire_heal)
 
 	AuraSystem.apply_heals(1.0, auras, squads, troops, _troop_defs)
-	_check(_approx(patient_troop.current_hp, 50.0 + hospital_heal), "apply_heals adds heal_per_second * dt to a damaged member's HP")
+	var expected_heal_amount: float = healing_spire_heal / 100.0 * rifleman_hp
+	_check(_approx(patient_troop.current_hp, 50.0 + expected_heal_amount), "apply_heals adds heal_percent_per_second * max_hp/100 * dt to a damaged member's HP")
 
 	AuraSystem.apply_heals(100.0, auras, squads, troops, _troop_defs)
-	var rifleman_hp: float = float(_troop_defs["rifleman"].get("hp", 0.0))
 	_check(_approx(patient_troop.current_hp, rifleman_hp), "apply_heals caps healing at the troop's authored max HP (%s)" % rifleman_hp)
 
-	# Three Hospitals in range of the same squad must not triple its heal --
-	# same source type (hospital) dedupes to a single max contribution.
-	var hosp2 := BuildingInstance.new("hosp2", "b1", "hospital", 1, "", HexCoord.new(1, 0))
-	hosp2.init_hp(hospital_def, _building_defs)
-	base.buildings.append(hosp2)
-	var hosp3 := BuildingInstance.new("hosp3", "b1", "hospital", 1, "", HexCoord.new(2, 0))
-	hosp3.init_hp(hospital_def, _building_defs)
-	base.buildings.append(hosp3)
+	# Three Healing Spires in range of the same squad must not triple its heal
+	# -- same source type (healing_spire) dedupes to a single max contribution.
+	var spire2 := BuildingInstance.new("spire2", "b1", "healing_spire", 1, "", HexCoord.new(1, 0))
+	spire2.init_hp(healing_spire_def, _building_defs)
+	base.buildings.append(spire2)
+	var spire3 := BuildingInstance.new("spire3", "b1", "healing_spire", 1, "", HexCoord.new(2, 0))
+	spire3.init_hp(healing_spire_def, _building_defs)
+	base.buildings.append(spire3)
 	var stacked_auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
-	_check(_approx(AuraSystem.squad_mods_heal(stacked_auras, patient.id), hospital_heal), "three overlapping Hospitals still contribute only %s/s, not %s/s" % [hospital_heal, hospital_heal * 3.0])
+	_check(_approx(AuraSystem.squad_mods_heal(stacked_auras, patient.id), healing_spire_heal), "three overlapping Healing Spires still contribute only %s%%/s, not %s%%/s" % [healing_spire_heal, healing_spire_heal * 3.0])
 
 	# A different support type (Ambulance) reaching the same squad still adds
-	# on top of Hospital's heal, since it's a different source type.
+	# on top of Healing Spire's heal, since it's a different source type.
 	var ambulance := _make_squad("p1", "ambulance", HexCoord.new(3, 0), 1, troops)
 	squads.append(ambulance)
 	var mixed_auras := AuraSystem.resolve_tick(squads, bases, _troop_defs, _building_defs)
 	var ambulance_heal: float = float(_troop_defs["ambulance"]["auras"][0]["magnitude"])
-	var expected_mixed: float = hospital_heal + ambulance_heal
-	_check(_approx(AuraSystem.squad_mods_heal(mixed_auras, patient.id), expected_mixed), "Hospital (%s/s) and Ambulance (%s/s) are different source types, so their heals still add together" % [hospital_heal, ambulance_heal])
+	var expected_mixed: float = healing_spire_heal + ambulance_heal
+	_check(_approx(AuraSystem.squad_mods_heal(mixed_auras, patient.id), expected_mixed), "Healing Spire (%s%%/s) and Ambulance (%s%%/s) are different source types, so their heals still add together" % [healing_spire_heal, ambulance_heal])
 
 	# Ice Spire's slow reaches an enemy squad in range, not a friendly one.
 	var ice_base := BaseInstance.new("b2", "winter_forge", "p1", 1, HexCoord.new(20, 0))

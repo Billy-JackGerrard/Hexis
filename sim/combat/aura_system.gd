@@ -10,9 +10,10 @@
 ## (troop_type/building_type) reaching a squad — three Hospitals (or three
 ## Ice Spires, or three Volt Trucks) next to each other contribute one
 ## Hospital's (Ice Spire's, Volt Truck's) worth, not triple. Distinct source
-## types then combine on top of each other: flat effects (heal_over_time,
-## heal_out_of_combat, upkeep_reduction) SUM their per-type strongest values;
-## percent effects (speed_boost, attack_speed_boost, slow, damage_reduction)
+## types then combine on top of each other: flat-summing effects (heal_over_time,
+## heal_out_of_combat — both percent-of-max-HP/second, not a flat HP amount;
+## upkeep_reduction stays a flat resource amount) SUM their per-type strongest values;
+## percent effects (speed_boost, attack_speed_boost, damage_boost, slow, damage_reduction)
 ## combine MULTIPLICATIVELY, the same "every distinct modifier applies" rule
 ## CombatMath already uses for damage modifiers (slow is just a negative
 ## speed_boost sharing the same speed_mult accumulator — magnitude's sign
@@ -37,8 +38,9 @@ class_name AuraSystem
 extends RefCounted
 
 ## Fresh per-tick aura view: {"squads": {squad_id: {speed_mult, attack_speed_mult,
-## damage_reduction_mult, heal_per_second, heal_out_of_combat_per_second,
-## upkeep_reduction, granted_stealth, granted_stealth_reveal_range}},
+## damage_mult, damage_reduction_mult, heal_percent_per_second,
+## heal_out_of_combat_percent_per_second, upkeep_reduction, granted_stealth,
+## granted_stealth_reveal_range}},
 ## "buildings": {building_id: {suppressed, siphoned_by, siphon_distance}}} —
 ## siphoned_by/siphon_distance track resource_siphon's closest-source-wins
 ## redirect (see _apply_effect_to_building) — every squad/building present in
@@ -80,9 +82,10 @@ static func _default_squad_mods() -> Dictionary:
 	return {
 		"speed_mult": 1.0,
 		"attack_speed_mult": 1.0,
+		"damage_mult": 1.0,
 		"damage_reduction_mult": 1.0,
-		"heal_per_second": 0.0,
-		"heal_out_of_combat_per_second": 0.0,
+		"heal_percent_per_second": 0.0,
+		"heal_out_of_combat_percent_per_second": 0.0,
 		"upkeep_reduction": 0.0,
 		"granted_stealth": false,
 		"granted_stealth_reveal_range": 0.0,
@@ -182,8 +185,8 @@ static func _building_matches_filter(building: BuildingInstance, filter: String,
 
 ## Maps a SUM-across-source-types effect to its squad_mods field.
 const FLAT_EFFECT_FIELDS := {
-	"heal_over_time": "heal_per_second",
-	"heal_out_of_combat": "heal_out_of_combat_per_second",
+	"heal_over_time": "heal_percent_per_second",
+	"heal_out_of_combat": "heal_out_of_combat_percent_per_second",
 	"upkeep_reduction": "upkeep_reduction",
 }
 
@@ -192,6 +195,7 @@ const PERCENT_EFFECT_FIELDS := {
 	"speed_boost": "speed_mult",
 	"slow": "speed_mult",
 	"attack_speed_boost": "attack_speed_mult",
+	"damage_boost": "damage_mult",
 	"damage_reduction": "damage_reduction_mult",
 }
 
@@ -260,6 +264,9 @@ static func speed_mult(auras: Dictionary, squad_id: String) -> float:
 static func attack_speed_mult(auras: Dictionary, squad_id: String) -> float:
 	return auras.get("squads", {}).get(squad_id, _default_squad_mods()).get("attack_speed_mult", 1.0)
 
+static func damage_mult(auras: Dictionary, squad_id: String) -> float:
+	return auras.get("squads", {}).get(squad_id, _default_squad_mods()).get("damage_mult", 1.0)
+
 static func damage_reduction_mult(auras: Dictionary, squad_id: String) -> float:
 	return auras.get("squads", {}).get(squad_id, _default_squad_mods()).get("damage_reduction_mult", 1.0)
 
@@ -282,29 +289,37 @@ static func granted_stealth_reveal_range(auras: Dictionary, squad_id: String) ->
 
 ## Applies every squad's aggregated heal_over_time (Ambulance/Repair Truck/
 ## Hospital — always-on) plus heal_out_of_combat (Warden — gated on
-## time_since_damage clearing the delay above) as flat HP regen to living
-## members, capped at the troop's authored max HP. Increments every live
-## squad's time_since_damage by dt first (mirrors BuildingRegenSystem's
+## time_since_damage clearing the delay above) as percent-of-max-HP/second
+## regen to living members, capped at the troop's authored max HP. The
+## percent is resolved against the healed troop's OWN max HP (via
+## troop_defs[squad.troop_type].hp — every member of a squad shares one
+## troop_type, so this is inherently per-troop even though it's fetched once
+## per squad) rather than a flat hp/s figure, so a Hospital heals a Chonky's
+## fraction of a percent per second the same as a Sniper's. Increments every
+## live squad's time_since_damage by dt first (mirrors BuildingRegenSystem's
 ## accumulator-over-dt shape) so the gate is accurate even for a squad with no
 ## heal aura reaching it this tick.
 static func apply_heals(dt: float, auras: Dictionary, squads: Array[SquadInstance], troops_by_id: Dictionary, troop_defs: Dictionary) -> void:
 	for squad in squads:
 		squad.time_since_damage += dt
-		var heal := squad_mods_heal(auras, squad.id)
+		var heal_percent := squad_mods_heal(auras, squad.id)
 		if squad.time_since_damage >= Tuning.AURA_OUT_OF_COMBAT_HEAL_DELAY_SECONDS:
-			heal += squad_mods_heal_out_of_combat(auras, squad.id)
-		if heal <= 0.0:
+			heal_percent += squad_mods_heal_out_of_combat(auras, squad.id)
+		if heal_percent <= 0.0:
 			continue
 		var max_hp := float(troop_defs.get(squad.troop_type, {}).get("hp", 0.0))
+		var heal_amount := heal_percent / 100.0 * max_hp
+		if heal_amount <= 0.0:
+			continue
 		for member_id in squad.member_ids:
 			var troop: TroopInstance = troops_by_id.get(member_id)
 			if troop == null or troop.current_hp <= 0.0:
 				continue
-			var healed: float = troop.current_hp + heal * dt
+			var healed: float = troop.current_hp + heal_amount * dt
 			troop.current_hp = min(max_hp, healed) if max_hp > 0.0 else healed
 
 static func squad_mods_heal(auras: Dictionary, squad_id: String) -> float:
-	return auras.get("squads", {}).get(squad_id, _default_squad_mods()).get("heal_per_second", 0.0)
+	return auras.get("squads", {}).get(squad_id, _default_squad_mods()).get("heal_percent_per_second", 0.0)
 
 static func squad_mods_heal_out_of_combat(auras: Dictionary, squad_id: String) -> float:
-	return auras.get("squads", {}).get(squad_id, _default_squad_mods()).get("heal_out_of_combat_per_second", 0.0)
+	return auras.get("squads", {}).get(squad_id, _default_squad_mods()).get("heal_out_of_combat_percent_per_second", 0.0)

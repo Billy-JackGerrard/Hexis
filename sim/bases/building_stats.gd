@@ -253,7 +253,7 @@ static func can_launch_cargo_mid_combat(def: Dictionary, building_defs: Dictiona
 ## as-authored; only `magnitude` can scale with level, and only when the def's
 ## nonProductionUpgrade carries a matching baseStats key (currently just
 ## Hospital's healMagnitude — its aura radius stays flat per level while the
-## heal amount grows, see data/buildings/hospital.json's notes). Ice Spire's
+## heal amount grows, see data/buildings/healing_spire.json's notes). Ice Spire's
 ## slow magnitude has no such growth entry, so it's used unleveled.
 static func auras(def: Dictionary, level: int, building_defs: Dictionary) -> Array:
 	var resolved := resolve_def(def, building_defs)

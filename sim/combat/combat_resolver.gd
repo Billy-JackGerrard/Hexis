@@ -59,11 +59,14 @@
 ## in it, not just the aimed-at unit).
 ##
 ## Auras (AuraSystem): a suppress_targeting-covered Defensive building skips
-## its turn entirely (no attack_progress banked); attack_speed_mult multiplies
-## in alongside the stun tail; damage_reduction reaches CombatMath via each
+## its turn entirely (no attack_progress banked); attack_speed_mult and
+## damage_mult multiply in on the attacking troop squad's own side (attack
+## speed alongside the stun tail, damage_mult straight into base_damage
+## before CombatMath); damage_reduction reaches CombatMath via each
 ## CombatTarget's aura_damage_reduction_mult (set at build_targets time, same
-## as defense_multiplier); heal_over_time/heal_out_of_combat apply as flat HP
-## regen via AuraSystem.apply_heals() once per tick, before targeting/damage.
+## as defense_multiplier) — a defender-side multiplier, unlike damage_mult;
+## heal_over_time/heal_out_of_combat apply as percent-of-max-HP regen via
+## AuraSystem.apply_heals() once per tick, before targeting/damage.
 ##
 ## Out-of-combat building regen (BuildingRegenSystem): runs after this tick's
 ## damage/prune step, per 06-building-stats-and-defenses.md's global
@@ -198,7 +201,7 @@ static func _advance_squad(squad: SquadInstance, dt: float, targets: Array[Comba
 		squad.attack_progress = min(squad.attack_progress, 1.0)
 		return
 
-	var base_damage := float(def.get("damage", 0.0))
+	var base_damage := float(def.get("damage", 0.0)) * AuraSystem.damage_mult(auras, squad.id)
 	var splash := int(def.get("splashRadius", 0))
 	while squad.attack_progress >= 1.0:
 		var target := CombatTargeting.select_target(squad, def, targets, detections, grid)
