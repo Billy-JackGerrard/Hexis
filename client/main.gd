@@ -64,6 +64,7 @@ func _ready() -> void:
 	add_child(net_manager)
 	net_manager.match_starting.connect(_on_match_starting)
 	net_manager.desync_detected.connect(_on_desync_detected)
+	net_manager.desync_dump_received.connect(_on_desync_dump_received)
 	net_manager.connection_failed.connect(_on_mid_match_connection_failed)
 
 	start_screen = StartScreen.new()
@@ -206,8 +207,11 @@ func _on_desync_detected(tick: int, sections: Array) -> void:
 ## Names the diverging section(s) in the on-screen message (see
 ## MatchState.section_checksums()) and dumps this peer's snapshot of the
 ## diverged sections *at the desync tick itself*, plus the full command log up
-## to that tick, to disk — compare the dump from each machine (they'll have
-## different suffixes, one per local_owner_id). The state diff says *what*
+## to that tick, to disk — then ships it to the host (NetManager.
+## send_desync_dump(), a no-op if this peer IS the host) so every peer's file
+## (different suffixes, one per local_owner_id) ends up saved on one machine
+## to diff, instead of needing a manual copy off the other player's PC. The
+## state diff says *what*
 ## differs; the command log diff says *why* — a command missing/reordered/
 ## different-args on one peer's log versus the other's is the direct cause,
 ## versus a value divergence off an otherwise-identical command stream (a
@@ -233,13 +237,28 @@ func _dump_state_for_debug(tick: int, sections: Array) -> void:
 		"command_log": lockstep_driver.command_log_snapshot(tick),
 	}
 	var owner_tag := net_manager.local_owner_id if net_manager != null else "unknown"
+	var dump_text := var_to_str(dump)
+	_save_desync_dump(tick, owner_tag, dump_text)
+	if net_manager != null:
+		net_manager.send_desync_dump(tick, owner_tag, dump_text)
+
+## Writes a desync dump (this peer's own, or one relayed from another peer —
+## see NetManager.send_desync_dump()) to disk under its owner tag. On the
+## host, both eventually land here: its own dump directly from
+## _dump_state_for_debug, the non-host peer's via _on_desync_dump_received —
+## so a single machine ends up with both files to diff, no manual copy off
+## the other player's PC needed.
+func _save_desync_dump(tick: int, owner_tag: String, dump_text: String) -> void:
 	var path := "user://desync_tick%d_%s.txt" % [tick, owner_tag]
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return
-	f.store_string(var_to_str(dump))
+	f.store_string(dump_text)
 	f.close()
-	print("Desync at tick %d — diverged sections + command log dump written to %s" % [tick, ProjectSettings.globalize_path(path)])
+	print("Desync dump for tick %d (%s) written to %s" % [tick, owner_tag, ProjectSettings.globalize_path(path)])
+
+func _on_desync_dump_received(tick: int, owner_id: String, dump_text: String) -> void:
+	_save_desync_dump(tick, owner_id, dump_text)
 
 func _build_demo_state() -> MatchState:
 	var demo_state := MatchState.new()

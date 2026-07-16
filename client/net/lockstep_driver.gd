@@ -32,9 +32,15 @@ const DESYNC_CHECK_INTERVAL_TICKS := 20
 ## fires — 8 * DESYNC_CHECK_INTERVAL_TICKS ticks of slack covers the round
 ## trip comfortably while staying a handful of dicts in memory.
 const SNAPSHOT_HISTORY := 8
+## Whichever peer's accumulator crosses the tick boundary first is normal —
+## not a real stall, just this peer being first in line. Only surface the
+## banner once zero-progress persists across this many real seconds, so a
+## faster/lower-latency machine (routinely first to the gate) doesn't flicker
+## "Waiting for players…" on every single frame.
+const WAITING_DISPLAY_THRESHOLD_SECONDS := 0.15
 
-## True whenever advance() is stalled on a missing peer input frame — main.gd
-## surfaces this as a "Waiting for players…" banner.
+## True once zero-progress has persisted for WAITING_DISPLAY_THRESHOLD_SECONDS
+## — main.gd surfaces this as a "Waiting for players…" banner.
 var is_waiting: bool = false
 
 var state: MatchState
@@ -44,6 +50,7 @@ var _local_seq: int = 0
 var _pending_local_commands: Array = [] ## [{"verb", "args", "seq"}], flushed every tick
 var _received_ticks: Dictionary = {} ## exec_tick -> {owner_id: true}
 var _expected_owner_ids: Array[String] = []
+var _stall_time: float = 0.0 ## real seconds since advance() last made progress
 ## tick -> MatchState.sections() taken at that tick's checksum send, kept for
 ## the on-desync dump so both peers can write the *same* diverged tick rather
 ## than whatever tick they happen to have advanced to by the time the desync
@@ -92,15 +99,15 @@ func issue(verb: String, args: Array, owner_id: String) -> void:
 func advance(delta: float) -> void:
 	_accumulator += delta
 	var steps := 0
+	var blocked := false
 	while _accumulator >= Tuning.SIM_TICK_SECONDS and steps < Tuning.MAX_STEPS_PER_ADVANCE:
 		var exec_tick := state.tick + 1 + INPUT_DELAY_TICKS
 		_net.send_input_frame(exec_tick, _pending_local_commands, _net.local_owner_id)
 		_pending_local_commands = []
 
 		if not _has_all_input_for(state.tick + 1):
-			is_waiting = true
+			blocked = true
 			break
-		is_waiting = false
 
 		SimOrchestrator.resolve_tick(state, Tuning.SIM_TICK_SECONDS)
 		_received_ticks.erase(state.tick)
@@ -110,6 +117,16 @@ func advance(delta: float) -> void:
 		if state.tick % DESYNC_CHECK_INTERVAL_TICKS == 0:
 			_net.send_checksum(state.tick, state.section_checksums())
 			_snapshot_sections(state.tick)
+
+	# steps == 0 with blocked means this call made no progress at all — only
+	# that case counts toward the stall clock (a call that advanced several
+	# ticks before running out of buffered input isn't "waiting", it caught
+	# up fine and just hit the current live edge).
+	if blocked and steps == 0:
+		_stall_time += delta
+	else:
+		_stall_time = 0.0
+	is_waiting = _stall_time >= WAITING_DISPLAY_THRESHOLD_SECONDS
 
 ## Stashes this tick's full section values (the same view section_checksums()
 ## hashed) plus a copy of the command log up to this tick, so the on-desync

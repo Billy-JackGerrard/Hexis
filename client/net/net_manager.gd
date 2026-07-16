@@ -28,6 +28,10 @@ signal input_frame_received(exec_tick: int, commands: Array, owner_id: String)
 ## match across peers (see MatchState.section_checksums()) — narrows a
 ## desync down to "which piece of state", not just "state diverged".
 signal desync_detected(tick: int, sections: Array)
+## Host-only: a non-host peer's on-desync dump (main.gd's var_to_str'd
+## {diverged_sections, command_log}) arrived for saving alongside the host's
+## own local dump — see send_desync_dump().
+signal desync_dump_received(tick: int, owner_id: String, dump_text: String)
 signal connection_failed(reason: String)
 
 const DEFAULT_PORT := 24545
@@ -135,6 +139,15 @@ func send_checksum(tick: int, sections: Dictionary) -> void:
 		_report_checksum(tick, sections, 1)
 	else:
 		_report_checksum.rpc_id(1, tick, sections)
+
+## Ships this peer's on-desync dump text to the host so both sides' files
+## land on one machine instead of needing a manual copy off the other
+## player's PC. No-op on the host itself — it already wrote its own dump
+## locally (see main.gd's _dump_state_for_debug).
+func send_desync_dump(tick: int, owner_id: String, dump_text: String) -> void:
+	if is_host:
+		return
+	_receive_desync_dump.rpc_id(1, tick, owner_id, dump_text)
 
 func player_count() -> int:
 	return roster.size()
@@ -277,6 +290,13 @@ func _report_checksum(tick: int, sections: Dictionary, _sender_override: int = -
 @rpc("authority", "call_local", "reliable")
 func _desync_detected(tick: int, sections: Array) -> void:
 	desync_detected.emit(tick, sections)
+
+## Client -> host only, in response to a desync — see send_desync_dump().
+@rpc("any_peer", "call_remote", "reliable")
+func _receive_desync_dump(tick: int, owner_id: String, dump_text: String) -> void:
+	if not is_host:
+		return
+	desync_dump_received.emit(tick, owner_id, dump_text)
 
 ## --- wire encoding -----------------------------------------------------------
 
