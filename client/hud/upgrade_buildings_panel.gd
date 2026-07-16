@@ -23,7 +23,7 @@ var state: MatchState
 var owner_id: String
 var input_controller: InputController
 
-const WIDTH := 560.0
+const WIDTH := 640.0
 const MARGIN := 40.0
 const REFRESH_INTERVAL := 0.25
 
@@ -268,7 +268,7 @@ func _add_building_group_row(group: Array, level: int, def: Dictionary) -> void:
 
 	var upgrade_button := UITheme.action_button("Upgrade", UITheme.PRIMARY)
 	upgrade_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	upgrade_button.custom_minimum_size = Vector2(150, 0)
+	upgrade_button.custom_minimum_size = Vector2(130, 0)
 	var single_reason_fn := func(): return UIEligibility.upgrade_any_reason(state, building_ids, owner_id)
 	var single_action := func():
 		var target_id := UIEligibility.first_upgradeable(state, building_ids, owner_id)
@@ -281,7 +281,7 @@ func _add_building_group_row(group: Array, level: int, def: Dictionary) -> void:
 	if count > 1:
 		var all_button := UITheme.action_button("Upgrade All", UITheme.PRIMARY)
 		all_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		all_button.custom_minimum_size = Vector2(150, 0)
+		all_button.custom_minimum_size = Vector2(190, 0)
 		var all_reason_fn := func(): return UIEligibility.upgrade_all_reason(state, building_ids, owner_id)
 		var all_action := func():
 			for id in building_ids:

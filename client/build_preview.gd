@@ -118,13 +118,17 @@ func _refresh_radius_if_needed() -> bool:
 	if building.building_type == "hq":
 		var base: BaseInstance = found["base"]
 		var radius := BuildingPlacement.hq_build_radius(base.hq_level)
-		_radius_hexes = HexCoord.range_within(building.hex, radius)
+		for hex in HexCoord.range_within(building.hex, radius):
+			if state.grid.has_hex(hex):
+				_radius_hexes.append(hex)
 	else:
 		var def: Dictionary = state.building_defs.get(building.building_type, {})
 		var auras: Array = def.get("auras", [])
 		for aura in auras:
 			var aura_radius := int(aura.get("radius", 0))
 			for hex in HexCoord.range_within(building.hex, aura_radius):
+				if not state.grid.has_hex(hex):
+					continue
 				var hex_key := hex.to_key()
 				if not _radius_hex_keys.has(hex_key):
 					_radius_hex_keys[hex_key] = true
