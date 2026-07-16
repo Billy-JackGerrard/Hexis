@@ -39,6 +39,10 @@ func _init() -> void:
 	_test_place_building()
 	print("place_standalone_building (Engineer enforcement)")
 	_test_place_standalone()
+	print("place_standalone_building (HQ as a second authorized builder)")
+	_test_place_standalone_hq()
+	print("place_standalone_building (Road/Bridge unlockHqLevel gate)")
+	_test_place_standalone_unlock_gate()
 	print("place_wall")
 	_test_place_wall()
 	print("demolish_building")
@@ -323,6 +327,10 @@ func _test_place_building() -> void:
 
 func _test_place_standalone() -> void:
 	var state := _new_state(_flat_grid(5))
+	# unlockHqLevel gating (Tower defaults to 1) reads the HIGHEST hq_level
+	# across the owner's own bases -- an Engineer's owner always owns at least
+	# one base in a real match, so the fixture needs one too.
+	state.bases.append(BaseInstance.new("b1", "capital", "p1", 1, HexCoord.new(-5, 0)))
 	var rifleman_squad := _make_squad(state, "p1", "rifleman", HexCoord.new(2, 0))
 	var engineer_squad := _make_squad(state, "p1", "engineer", HexCoord.new(2, 0))
 
@@ -335,9 +343,11 @@ func _test_place_standalone() -> void:
 	_check(rejected == BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE, "a non-Engineer squad can't place standalone infrastructure")
 	_check(state.standalone_buildings.is_empty(), "the rejected placement built nothing")
 
-	# A Stone Tower (150 stone + 100 steel) costs more than the default
-	# starting pool (100 stone, 50 steel) -- an eligible Engineer still gets
-	# turned away for insufficient resources, and nothing is deducted or built.
+	# A Stone Tower (150 stone + 100 steel) costs more than an empty pool --
+	# an eligible Engineer still gets turned away for insufficient resources,
+	# and nothing is deducted or built.
+	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 0.0)
+	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 0.0)
 	var stone_before := state.pool_for("p1").get_amount(ResourceType.Type.STONE)
 	var poor := CommandProcessor.place_standalone_building(state, engineer_squad.id, "tower", target_hex, "stone", "p1")
 	_check(poor == BuildingPlacement.Result.INSUFFICIENT_RESOURCES, "an Engineer squad without enough resources is still rejected")
@@ -364,6 +374,68 @@ func _test_place_standalone() -> void:
 	var too_far := CommandProcessor.place_standalone_building(state, engineer_squad.id, "tower", far_hex, "stone", "p1")
 	_check(too_far == BuildingPlacement.Result.OUT_OF_ENGINEER_RANGE, "a target hex out of the Engineer's build range is rejected")
 	_check(state.standalone_buildings.size() == 1, "the out-of-range order built nothing")
+
+## An HQ is a second valid issuer of standalone infrastructure orders, per
+## 02-bases-and-buildings.md — Road/Bridge stay public/standalone either way,
+## only the authorization path gains an alternative to the Engineer. Called
+## with squad_id == "" and building_id == the HQ's own BuildingInstance.id;
+## range is gated by BuildingPlacement.hq_build_radius(base.hq_level) instead
+## of Tuning.STANDALONE_BUILD_RANGE.
+func _test_place_standalone_hq() -> void:
+	var state := _new_state(_flat_grid(5))
+	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
+	state.bases.append(base)
+	var hq := base.buildings_of_type("hq")[0]
+	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 500.0)
+	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 500.0)
+
+	# hq_build_radius(hq_level=1) == 1 + 1*1 == 2: (2,0) is in range (and free --
+	# seed_base's initial Farm/Quarry/Command Centre sit at (1,0)/(1,-1)/(0,-1)),
+	# (4,0) isn't.
+	var in_range_hex := HexCoord.new(2, 0)
+	var ok := CommandProcessor.place_standalone_building(state, "", "tower", in_range_hex, "stone", "p1", hq.id)
+	_check(ok == BuildingPlacement.Result.OK, "the owner's own HQ can place standalone infrastructure")
+	_check(state.standalone_buildings.size() == 1, "the Tower was actually placed")
+
+	var far_hex := HexCoord.new(4, 0)
+	var too_far := CommandProcessor.place_standalone_building(state, "", "tower", far_hex, "stone", "p1", hq.id)
+	_check(too_far == BuildingPlacement.Result.OUT_OF_HQ_RANGE, "a target hex beyond the HQ's build radius is rejected")
+	_check(state.standalone_buildings.size() == 1, "the out-of-range HQ order built nothing")
+
+	var wrong_owner := CommandProcessor.place_standalone_building(state, "", "tower", HexCoord.new(-1, 0), "stone", "p2", hq.id)
+	_check(wrong_owner == BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE, "issuing through someone else's HQ is rejected")
+
+	var unknown_building := CommandProcessor.place_standalone_building(state, "", "tower", in_range_hex, "stone", "p1", "not_a_real_id")
+	_check(unknown_building == BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE, "an unknown building_id is rejected")
+
+## Road (unlockHqLevel 2) and Bridge (unlockHqLevel 3) per data/buildings/
+## road.json, bridge.json -- both hexes sit at distance 2 from the HQ so the
+## HQ's own build radius (hq_build_radius(1) == 2) never becomes the limiting
+## factor, isolating the unlock check from the range check.
+func _test_place_standalone_unlock_gate() -> void:
+	var state := _new_state(_flat_grid(6))
+	var base := BaseFactory.seed_base("base1", _base_defs["capital"], "p1", HexCoord.new(0, 0), state.grid, _building_defs)
+	state.bases.append(base)
+	var hq := base.buildings_of_type("hq")[0]
+	state.pool_for("p1").set_amount(ResourceType.Type.STONE, 1000.0)
+	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 1000.0)
+	state.pool_for("p1").set_amount(ResourceType.Type.WOOD, 1000.0)
+
+	var road_hex := HexCoord.new(0, 2)
+	state.grid.set_terrain(road_hex, Terrain.Type.FOREST)
+	var bridge_hex := HexCoord.new(0, -2)
+	state.grid.set_terrain(bridge_hex, Terrain.Type.RIVER)
+
+	_check(base.hq_level == 1, "fixture assumption: base's HQ starts at level 1")
+	_check(CommandProcessor.place_standalone_building(state, "", "road", road_hex, "", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Road is locked at HQ level 1")
+	_check(CommandProcessor.place_standalone_building(state, "", "bridge", bridge_hex, "stone", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Bridge is locked at HQ level 1")
+
+	base.hq_level = 2
+	_check(CommandProcessor.place_standalone_building(state, "", "road", road_hex, "", "p1", hq.id) == BuildingPlacement.Result.OK, "Road unlocks at HQ level 2")
+	_check(CommandProcessor.place_standalone_building(state, "", "bridge", bridge_hex, "stone", "p1", hq.id) == BuildingPlacement.Result.NOT_UNLOCKED, "Bridge is still locked at HQ level 2")
+
+	base.hq_level = 3
+	_check(CommandProcessor.place_standalone_building(state, "", "bridge", bridge_hex, "stone", "p1", hq.id) == BuildingPlacement.Result.OK, "Bridge unlocks at HQ level 3")
 
 func _test_place_wall() -> void:
 	var state := _new_state(_flat_grid(5))

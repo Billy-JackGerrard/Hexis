@@ -194,7 +194,7 @@ const GARRISON_SEARCH_RADIUS: int = 6
 
 ## Range within which a freshly-produced troop can join an existing
 ## same-type squad instead of forming a new one.
-const PRODUCTION_JOIN_RANGE_RADIUS: int = 1
+const PRODUCTION_JOIN_RANGE_RADIUS: int = 2
 
 ## maxSquads = sum(hqLevel across every owned base) * SQUAD_CAP_PER_HQ_LEVEL + SQUAD_CAP_BASE.
 const SQUAD_CAP_BASE: int = 2

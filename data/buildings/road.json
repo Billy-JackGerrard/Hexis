@@ -3,6 +3,7 @@
   "name": "Road",
   "category": "Infrastructure",
   "isStandalone": true,
+  "unlockHqLevel": 2,
 
   "placementRequirement": {
     "siteTerrain": "Forest"

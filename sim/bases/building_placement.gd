@@ -38,6 +38,7 @@ enum Result {
 	CANNOT_BUILD_INFRASTRUCTURE, ## no valid owned squad with canBuildInfrastructure
 	INSUFFICIENT_RESOURCES, ## owner's pool can't cover the build cost
 	OUT_OF_ENGINEER_RANGE, ## target hex is further than Tuning.STANDALONE_BUILD_RANGE from the building Engineer
+	OUT_OF_HQ_RANGE, ## target hex is further than hq_build_radius() from the ordering HQ
 }
 
 ## Build-radius formula: a base may only build within this many hexes of its

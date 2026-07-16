@@ -58,6 +58,7 @@ static func seed_base(id: String, base_def: Dictionary, owner_id: String, hq_hex
 	var hq_building := BuildingInstance.new("%s_seed_%d" % [id, building_index], id, "hq", 1, "", hq_hex)
 	if building_defs.has("hq"):
 		hq_building.init_hp(building_defs["hq"], building_defs)
+		hq_building.init_cost(building_defs["hq"], building_defs)
 	base.buildings.append(hq_building)
 	building_index += 1
 
@@ -90,6 +91,7 @@ static func seed_base(id: String, base_def: Dictionary, owner_id: String, hq_hex
 		var building := BuildingInstance.new("%s_seed_%d" % [id, building_index], id, building_type, 1, entry["material"], hex)
 		if building_defs.has(building_type):
 			building.init_hp(building_defs[building_type], building_defs)
+			building.init_cost(building_defs[building_type], building_defs)
 			if SEEDED_AS_RUIN.has(building_type):
 				building.current_hp = 0.0
 				building.is_ruin = true
@@ -204,6 +206,7 @@ static func _seed_walls(base: BaseInstance, id: String, building_index: int, cou
 			wall.hex_b = neighbor
 			if building_defs.has("wall"):
 				wall.init_hp(wall_def, building_defs)
+				wall.init_cost(wall_def, building_defs)
 			base.buildings.append(wall)
 			grid.set_wall(hex, neighbor, true)
 			building_index += 1

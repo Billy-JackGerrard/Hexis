@@ -24,6 +24,8 @@ func _init() -> void:
 	_test_squad_manager()
 	print("ProductionQueue / ProductionManager")
 	_test_production_queue()
+	print("ProductionManager Land spawn relocation")
+	_test_land_spawn_relocation()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -265,3 +267,33 @@ func _test_production_queue() -> void:
 	_check(not commander_queue.paused, "re-pumping after a Command Centre is built clears the commander_cap pause")
 	_check(commander_queue.is_empty(), "held Commander deploys once the commander cap has room")
 	_check(no_squads.size() == 1, "the deployed Commander formed its own squad")
+
+## A Land vehicle's own producing building blocks Land movement just like any
+## other standing building, so it can't be deployed onto that hex -- pump()
+## must relocate it to an adjacent, unblocked hex instead (mirrors the
+## pre-existing Naval-domain relocation, but off a building-blocked hex rather
+## than to a water hex).
+func _test_land_spawn_relocation() -> void:
+	var troop_defs := DataLoader.load_dir("res://data/troops")
+	var building_defs := DataLoader.load_dir("res://data/buildings")
+	var barracks_hex := HexCoord.new(0, 0)
+	var grid := HexGrid.new()
+	grid.set_terrain(barracks_hex, Terrain.Type.PLAINS)
+	for d in range(6):
+		grid.set_terrain(HexCoord.neighbor(barracks_hex, d), Terrain.Type.PLAINS)
+
+	var base1 := BaseInstance.new("b1", "capital", "p1", 1, barracks_hex)
+	base1.buildings.append(BuildingInstance.new("bld1", "b1", "barracks", 1, "", barracks_hex))
+	var blocked := BuildingPlacement.building_blocking_hexes([base1], [])
+
+	var queue := ProductionQueue.new("bld1")
+	ProductionManager.enqueue(queue, "basekiller", troop_defs)
+	ProductionManager.advance(queue, float(troop_defs["basekiller"]["productionTime"]))
+	var squads: Array[SquadInstance] = []
+	var troops: Dictionary = {}
+	ProductionManager.pump(queue, "p1", barracks_hex, "barracks", squads, troops, [base1], building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"), grid, null, blocked)
+
+	_check(squads.size() == 1, "Land vehicle deploys into a new squad")
+	if squads.size() == 1:
+		_check(not squads[0].current_hex.equals(barracks_hex), "Land vehicle does not spawn on the producing building's own (blocked) hex")
+		_check(HexCoord.distance(squads[0].current_hex, barracks_hex) == 1, "Land vehicle spawns on an adjacent hex instead")

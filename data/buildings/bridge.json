@@ -3,6 +3,7 @@
   "name": "Bridge",
   "category": "Infrastructure",
   "isStandalone": true,
+  "unlockHqLevel": 3,
 
   "materials": ["stone", "wood"],
 
@@ -10,7 +11,7 @@
     "siteTerrain": "River"
   },
 
-  "notes": "Standalone crossing built directly onto a river tile, opening it up to foot soldiers and land vehicles that would otherwise be blocked by the water. Public once built — usable by anyone's troops, not just its builder's. Not tied to a base, so it doesn't need population capacity or any progression to unlock. Choice of a cheaper, weaker, fire-vulnerable material or a pricier, sturdier one.",
+  "notes": "Standalone crossing built directly onto a river tile, opening it up to foot soldiers and land vehicles that would otherwise be blocked by the water. Public once built — usable by anyone's troops, not just its builder's. Not tied to a base, so it doesn't need population capacity, but does require unlockHqLevel 3 (Road, Bridge's counterpart, unlocks at 2). Choice of a cheaper, weaker, fire-vulnerable material or a pricier, sturdier one.",
 
   "materialStats": {
     "stone": {

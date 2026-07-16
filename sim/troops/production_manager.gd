@@ -145,6 +145,7 @@ static func pump(
 	next_squad_id: Callable,
 	grid: HexGrid = null,
 	pool: ResourcePool = null,
+	building_blocked_hexes: Dictionary = {},
 ) -> void:
 	while queue.front_complete():
 		var entry: Dictionary = queue.front()
@@ -187,7 +188,7 @@ static func pump(
 				queue.pause_reason = "squad_cap"
 				return
 
-		var deploy_hex := _domain_spawn_hex(spawn_hex, troop_def, grid, squads)
+		var deploy_hex := _domain_spawn_hex(spawn_hex, troop_def, grid, squads, building_blocked_hexes)
 		var new_squad := SquadInstance.new(next_squad_id.call(), owner_id, troop_type, deploy_hex)
 		var new_troop := TroopInstance.new(next_troop_id.call(), troop_type, owner_id, new_squad.id, float(troop_def.get("hp", 0.0)))
 		troops_by_id[new_troop.id] = new_troop
@@ -197,17 +198,28 @@ static func pump(
 		queue.paused = false
 		queue.pause_reason = ""
 
-## `spawn_hex` unchanged unless `troop_def` is Naval-domain and `grid` is
-## supplied, in which case this searches outward (HexGrid.
-## nearest_passable_hex) for the nearest water hex not already sitting under
-## another squad — see pump()'s doc comment above for why (a Naval building
-## sits on land adjacent to water, not on water itself).
-static func _domain_spawn_hex(spawn_hex: HexCoord, troop_def: Dictionary, grid: HexGrid, squads: Array[SquadInstance]) -> HexCoord:
+## `spawn_hex` unchanged unless `grid` is supplied and `troop_def`'s domain
+## needs relocating:
+## - Naval: searches outward (HexGrid.nearest_passable_hex) for the nearest
+##   water hex not already sitting under another squad — see pump()'s doc
+##   comment above for why (a Naval building sits on land adjacent to water,
+##   not on water itself).
+## - Land: a Land vehicle's own building blocks Land movement just like any
+##   other standing building (BuildingPlacement.building_blocking_hexes, fed
+##   in here as `building_blocked_hexes`), so spawning right on it would drop
+##   the vehicle on a hex it could never leave under its own power. Searches
+##   outward the same way, excluding both squad-occupied AND building-blocked
+##   hexes (its own producing building included — that hex is in
+##   `building_blocked_hexes` too, which is what pushes the search off it).
+static func _domain_spawn_hex(spawn_hex: HexCoord, troop_def: Dictionary, grid: HexGrid, squads: Array[SquadInstance], building_blocked_hexes: Dictionary = {}) -> HexCoord:
 	if grid == null:
 		return spawn_hex
-	if Terrain.domain_from_string(String(troop_def.get("domain", "Infantry"))) != Terrain.Domain.NAVAL:
-		return spawn_hex
-	return grid.nearest_passable_hex(spawn_hex, Terrain.Domain.NAVAL, func(h): return not _hex_has_squad(h, squads))
+	var domain := Terrain.domain_from_string(String(troop_def.get("domain", "Infantry")))
+	if domain == Terrain.Domain.NAVAL:
+		return grid.nearest_passable_hex(spawn_hex, Terrain.Domain.NAVAL, func(h): return not _hex_has_squad(h, squads))
+	if domain == Terrain.Domain.LAND:
+		return grid.nearest_passable_hex(spawn_hex, Terrain.Domain.LAND, func(h): return not _hex_has_squad(h, squads) and not building_blocked_hexes.has(h.to_key()))
+	return spawn_hex
 
 static func _hex_has_squad(hex: HexCoord, squads: Array[SquadInstance]) -> bool:
 	for squad in squads:

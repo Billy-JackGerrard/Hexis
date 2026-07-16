@@ -346,28 +346,57 @@ static func place_building(state: MatchState, base_id: String, building_type: St
 		_spend(pool, cost)
 	return result
 
-## Standalone (Road/Bridge/Dock/Tower/Landmine) placement is Engineer-issued
-## only — `squad_id` must be the owner's own squad and its troop def must
-## carry `canBuildInfrastructure: true` (data/troops/schema.json), the
-## enforcement gap every standalone-placement note in
-## 10-tech-stack-and-build-order.md flagged as blocked on this exact layer.
-## The Engineer must also be within Tuning.STANDALONE_BUILD_RANGE
-## of `hex` — it can't drop infrastructure anywhere on the map sight unseen.
-static func place_standalone_building(state: MatchState, squad_id: String, building_type: String, hex: HexCoord, material: String, owner_id: String) -> BuildingPlacement.Result:
-	var squad := state.find_squad(squad_id)
-	if squad == null or squad.owner_id != owner_id:
-		return BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE
-	if not bool(state.troop_defs.get(squad.troop_type, {}).get("canBuildInfrastructure", false)):
-		return BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE
-	if HexCoord.distance(squad.current_hex, hex) > Tuning.STANDALONE_BUILD_RANGE:
-		return BuildingPlacement.Result.OUT_OF_ENGINEER_RANGE
+## Standalone (Road/Bridge/Dock/Tower/Landmine) placement is issued either by
+## an Engineer squad or by an owner's own HQ (as part of the base, per
+## 02-bases-and-buildings.md — Road/Bridge stay standalone/public even when
+## HQ-ordered, only the *authorization* path gains a second option):
+## - `squad_id` set: the owner's own squad, troop def must carry
+##   `canBuildInfrastructure: true` (data/troops/schema.json) and be within
+##   Tuning.STANDALONE_BUILD_RANGE of `hex` — it can't drop infrastructure
+##   anywhere on the map sight unseen.
+## - `squad_id` empty, `building_id` set: an owner-owned "hq" building; `hex`
+##   must be within BuildingPlacement.hq_build_radius(base.hq_level) of the
+##   HQ, the same radius normal base construction already uses.
+##
+## `unlockHqLevel` (data/buildings schema, e.g. Road=2/Bridge=3) gates both
+## paths alike: standalone buildings aren't tied to a single base, so the
+## Engineer path checks the HIGHEST hq_level across every base owner_id owns
+## (any one HQ reaching that tier unlocks the ability network-wide) — the
+## HQ path just reads that one HQ's own base.hq_level directly.
+static func place_standalone_building(state: MatchState, squad_id: String, building_type: String, hex: HexCoord, material: String, owner_id: String, building_id: String = "") -> BuildingPlacement.Result:
+	var issuer_hq_level := 0
+	if squad_id != "":
+		var squad := state.find_squad(squad_id)
+		if squad == null or squad.owner_id != owner_id:
+			return BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE
+		if not bool(state.troop_defs.get(squad.troop_type, {}).get("canBuildInfrastructure", false)):
+			return BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE
+		if HexCoord.distance(squad.current_hex, hex) > Tuning.STANDALONE_BUILD_RANGE:
+			return BuildingPlacement.Result.OUT_OF_ENGINEER_RANGE
+		for owned_base in state.bases:
+			if owned_base.owner_id == owner_id:
+				issuer_hq_level = max(issuer_hq_level, owned_base.hq_level)
+	else:
+		var found := state.find_base_building(building_id)
+		if found.is_empty():
+			return BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE
+		var base: BaseInstance = found["base"]
+		var building: BuildingInstance = found["building"]
+		if building.building_type != "hq" or base.owner_id != owner_id:
+			return BuildingPlacement.Result.CANNOT_BUILD_INFRASTRUCTURE
+		if HexCoord.distance(building.hex, hex) > BuildingPlacement.hq_build_radius(base.hq_level):
+			return BuildingPlacement.Result.OUT_OF_HQ_RANGE
+		issuer_hq_level = base.hq_level
+
+	var building_def: Dictionary = state.building_defs.get(building_type, {})
+	if issuer_hq_level < int(building_def.get("unlockHqLevel", 1)):
+		return BuildingPlacement.Result.NOT_UNLOCKED
 
 	var occupied_unit_hexes := BuildingPlacement.ground_unit_hexes(state.squads, state.troop_defs)
 	var occupied := BuildingPlacement.standalone_occupied_hexes(state.bases, state.standalone_buildings)
 	var can_result := BuildingPlacement.can_place_standalone(building_type, hex, state.grid, state.building_defs, occupied, occupied_unit_hexes)
 	if can_result != BuildingPlacement.Result.OK:
 		return can_result
-	var building_def: Dictionary = state.building_defs.get(building_type, {})
 	var cost := ResourceType.dict_from_named(BuildingStats.base_cost(building_def, material, state.building_defs))
 	var pool := state.pool_for(owner_id)
 	if not _can_afford(pool, cost):

@@ -35,13 +35,13 @@ func _init() -> void:
 
 func _test_pool() -> void:
 	var pool := ResourcePool.new()
-	_check(pool.get_amount(ResourceType.Type.FOOD) == 100.0, "starting Food is 100")
-	_check(pool.get_amount(ResourceType.Type.STONE) == 100.0, "starting Stone is 100")
-	_check(pool.get_amount(ResourceType.Type.STEEL) == 50.0, "starting Steel is 50")
-	_check(pool.get_amount(ResourceType.Type.WOOD) == 0.0, "starting Wood is 0")
-	_check(pool.get_amount(ResourceType.Type.FUEL) == 0.0, "starting Fuel is 0")
+	_check(pool.get_amount(ResourceType.Type.FOOD) == Tuning.STARTING_FOOD, "starting Food matches Tuning.STARTING_FOOD")
+	_check(pool.get_amount(ResourceType.Type.STONE) == Tuning.STARTING_STONE, "starting Stone matches Tuning.STARTING_STONE")
+	_check(pool.get_amount(ResourceType.Type.STEEL) == Tuning.STARTING_STEEL, "starting Steel matches Tuning.STARTING_STEEL")
+	_check(pool.get_amount(ResourceType.Type.WOOD) == Tuning.STARTING_WOOD, "starting Wood matches Tuning.STARTING_WOOD")
+	_check(pool.get_amount(ResourceType.Type.FUEL) == Tuning.STARTING_FUEL, "starting Fuel matches Tuning.STARTING_FUEL")
 
-	pool.add(ResourceType.Type.FOOD, -150.0)
+	pool.add(ResourceType.Type.FOOD, -(Tuning.STARTING_FOOD + 50.0))
 	_check(pool.get_amount(ResourceType.Type.FOOD) == -50.0, "add() can drive a resource negative")
 	_check(pool.is_deficit(ResourceType.Type.FOOD), "negative Food reports as deficit")
 
@@ -52,19 +52,20 @@ func _test_tick() -> void:
 	# Normal tick: production covers upkeep, no deficit.
 	var pool := ResourcePool.new()
 	var deficits := ResourceTick.apply(pool, {ResourceType.Type.FOOD: 20.0}, {ResourceType.Type.FOOD: 5.0})
-	_check(pool.get_amount(ResourceType.Type.FOOD) == 115.0, "production minus upkeep applied to pool")
+	_check(pool.get_amount(ResourceType.Type.FOOD) == Tuning.STARTING_FOOD + 15.0, "production minus upkeep applied to pool")
 	_check(deficits.is_empty(), "no deficit reported when net delta is positive")
 
-	# Fuel upkeep with zero production drives Fuel negative and is reported.
+	# Fuel upkeep that outstrips both starting Fuel and production drives Fuel
+	# negative and is reported.
 	pool = ResourcePool.new()
-	deficits = ResourceTick.apply(pool, {}, {ResourceType.Type.FUEL: 8.0})
+	deficits = ResourceTick.apply(pool, {}, {ResourceType.Type.FUEL: Tuning.STARTING_FUEL + 8.0})
 	_check(pool.get_amount(ResourceType.Type.FUEL) == -8.0, "unmet Fuel upkeep goes negative")
 	_check(deficits.has(ResourceType.Type.FUEL), "Fuel deficit reported")
 	_check(deficits.size() == 1, "only the deficient resource is reported")
 
 	# Stone/Steel/Wood never trigger the per-squad-drain deficit list, even negative.
 	pool = ResourcePool.new()
-	deficits = ResourceTick.apply(pool, {}, {ResourceType.Type.STEEL: 999.0})
+	deficits = ResourceTick.apply(pool, {}, {ResourceType.Type.STEEL: Tuning.STARTING_STEEL + 999.0})
 	_check(pool.get_amount(ResourceType.Type.STEEL) < 0.0, "Steel can still go negative")
 	_check(deficits.is_empty(), "Steel deficit never reported (not a deficit-drain resource)")
 

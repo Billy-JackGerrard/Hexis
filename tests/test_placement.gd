@@ -373,7 +373,7 @@ func _test_hq_radius() -> void:
 	far_base.buildings.append(BuildingInstance.new("far2", "b7", "turret", 1, "", HexCoord.new(11, 0)))
 	var capital_def: Dictionary = _base_defs["capital"]
 
-	_check(BuildingPlacement.hq_build_radius(1) == 4, "hq_build_radius placeholder formula: level*2+2")
+	_check(BuildingPlacement.hq_build_radius(1) == Tuning.HQ_BUILD_RADIUS_BASE + Tuning.HQ_BUILD_RADIUS_PER_LEVEL, "hq_build_radius formula: BASE + level * PER_LEVEL")
 	_check(BuildingPlacement.can_place(far_base, capital_def, "turret", HexCoord.new(10, 1), grid, _building_defs) == BuildingPlacement.Result.OUTSIDE_HQ_RADIUS,
 		"hex has 2 adjacent buildings but is far outside HQ's build radius")
 
