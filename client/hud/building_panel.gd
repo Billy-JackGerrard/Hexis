@@ -22,6 +22,7 @@ var owner_id: String
 var input_controller: InputController
 var troop_info_panel: TroopInfoPanel
 var camera_controller: CameraController
+var resource_bar: ResourceBar
 
 const WIDTH := 420.0
 const MARGIN := 12.0
@@ -52,6 +53,10 @@ var _shown_is_ruin: bool = false
 ## Reset whenever the selected building changes, but survives a same-building
 ## _rebuild() (toggling expansion re-enters _rebuild() itself).
 var _expanded_build_type: String = ""
+## Which INFRASTRUCTURE-menu (Road/Bridge, HQ-ordered) building_type is
+## currently expanded — same lifecycle as _expanded_build_type, but kept
+## separate since both sections can exist on the same HQ panel at once.
+var _expanded_infra_type: String = ""
 ## Which TRAIN-menu troop_type has its info shown in troop_info_panel — "" when
 ## none. Reset whenever the selected building changes (same lifecycle as
 ## _expanded_build_type); survives a same-building _rebuild() so a queue
@@ -70,12 +75,13 @@ var _refresh_accum := 0.0
 ## rebuild instead of going stale until some unrelated change forces one.
 var _shown_queue_key: String = ""
 
-func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_troop_info_panel: TroopInfoPanel, p_camera_controller: CameraController) -> void:
+func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_troop_info_panel: TroopInfoPanel, p_camera_controller: CameraController, p_resource_bar: ResourceBar) -> void:
 	state = p_state
 	owner_id = p_owner_id
 	input_controller = p_input_controller
 	troop_info_panel = p_troop_info_panel
 	camera_controller = p_camera_controller
+	resource_bar = p_resource_bar
 
 	# Top-right band under the resource bar, stopping short of the minimap's
 	# bottom-right footprint (same layout contract build_menu.gd held). Flips
@@ -191,6 +197,7 @@ func _process(delta: float) -> void:
 			needs_rebuild = _queue_structure_key(target_id) != _shown_queue_key
 	if building_changed:
 		_expanded_build_type = ""
+		_expanded_infra_type = ""
 		_selected_troop_type = ""
 		if troop_info_panel != null:
 			troop_info_panel.hide_panel()
@@ -201,6 +208,10 @@ func _process(delta: float) -> void:
 			UIJuice.pop_in(self)
 	if not visible:
 		return
+	# Tracks the bar's live bottom edge (not the fixed collapsed HEIGHT) so an
+	# expanded resource bar pushes this panel's top down instead of the bar's
+	# extra rows drawing underneath it.
+	offset_top = resource_bar.current_bottom() + MARGIN
 	_update_side()
 	for updater in _live_updaters:
 		updater.call()
@@ -256,6 +267,8 @@ func _rebuild() -> void:
 		if building.building_type == "hq":
 			_content.add_child(HSeparator.new())
 			_build_build_menu(base, base_def)
+			_content.add_child(HSeparator.new())
+			_build_infrastructure_menu(base, building)
 		elif String(def.get("category", "")) == "Production":
 			_content.add_child(HSeparator.new())
 			_build_troop_menu(building)
@@ -433,6 +446,96 @@ func _build_build_detail(base: BaseInstance, building_type: String, def: Diction
 			var mat_reason_fn := func(): return UIEligibility.build_reason(state, base, building_type, owner_id, has_valid_hex, mat)
 			_build_material_row(box, String(mat).capitalize(), cost, mat_reason_fn,
 				func(): input_controller.start_placement(base_id, building_type, mat))
+
+	_content.add_child(box)
+
+# --- Infrastructure menu (HQ-ordered Road/Bridge) ---------------------------
+
+## Standalone buildings an HQ can order directly (see CommandProcessor.
+## place_standalone_building's `building_id` path), a subset of squad_panel.
+## gd's Engineer-side STANDALONE_BUILDINGS — Dock/Tower/Landmine stay
+## Engineer-only since they're placed far from any base, close to the front.
+const HQ_STANDALONE_BUILDINGS := ["road", "bridge"]
+
+## Mirrors _build_build_menu/_add_build_row's expand-to-detail pattern, but
+## against UIEligibility.hq_standalone_build_reason/BuildingPlacement.
+## hq_build_radius (this HQ's own radius, per client/build_preview.gd's
+## selected-building overlay) instead of base_def.buildableBuildings/
+## can_place — Road/Bridge are standalone (never in buildableBuildings, see
+## data/bases/schema.json), so they need their own section rather than a
+## BUILD-menu category.
+func _build_infrastructure_menu(base: BaseInstance, building: BuildingInstance) -> void:
+	_content.add_child(UITheme.header_label("INFRASTRUCTURE"))
+	for building_type in HQ_STANDALONE_BUILDINGS:
+		var def: Dictionary = state.building_defs.get(building_type, {})
+		if def.is_empty():
+			continue
+		var bt := String(building_type)
+		var display_name := String(def.get("name", bt.capitalize()))
+		var reason_fn := func(): return UIEligibility.hq_standalone_build_reason(state, base, building, bt, owner_id)
+
+		var button := UITheme.action_button(display_name, "")
+		var building_id := building.id
+		button.pressed.connect(func(): _toggle_infra_row(building_id, bt, reason_fn))
+		_content.add_child(button)
+		_option_updaters.append({"button": button, "variation": "", "reason_fn": reason_fn})
+
+		if _expanded_infra_type == bt:
+			_build_infra_detail(base, building, bt, def, reason_fn)
+
+## Mirrors _toggle_build_row: expanding a no/single-material row enters
+## placement immediately (if eligible); Bridge's materials list makes the
+## player pick one first, same as Wall in the BUILD menu.
+func _toggle_infra_row(building_id: String, bt: String, reason_fn: Callable) -> void:
+	var def: Dictionary = state.building_defs.get(bt, {})
+	var reason := ""
+	if _expanded_infra_type == bt:
+		_expanded_infra_type = ""
+		input_controller.cancel_placement()
+	else:
+		_expanded_infra_type = bt
+		if def.get("materials", []).is_empty():
+			reason = String(reason_fn.call())
+			if reason == "":
+				input_controller.start_hq_standalone_placement(building_id, bt, "")
+			else:
+				input_controller.cancel_placement()
+		else:
+			input_controller.cancel_placement()
+	# _rebuild() clears _reason_label as part of tearing down the old content —
+	# set it only after, or it'd be wiped immediately.
+	_rebuild()
+	if reason != "":
+		_reason_label.text = reason
+		_reason_label.visible = true
+
+func _build_infra_detail(base: BaseInstance, building: BuildingInstance, building_type: String, def: Dictionary, reason_fn: Callable) -> void:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var notes := String(def.get("notes", ""))
+	if notes != "":
+		var notes_label := UITheme.muted_label(notes)
+		notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(notes_label)
+
+	var materials: Array = BuildingDetailView.ordered_materials(def)
+	var building_id := building.id
+	if materials.is_empty():
+		for line in BuildingDetailView.stat_lines(def):
+			box.add_child(UITheme.body_label(line))
+		var cost := BuildingStats.base_cost(def, "", state.building_defs)
+		box.add_child(UITheme.cost_chips(cost))
+	else:
+		for material in materials:
+			var mat := String(material)
+			for line in BuildingDetailView.stat_lines_for_material(def, mat):
+				box.add_child(UITheme.body_label(line))
+			var cost := BuildingStats.base_cost(def, mat, state.building_defs)
+			var mat_reason_fn := func(): return UIEligibility.hq_standalone_build_reason(state, base, building, building_type, owner_id, mat)
+			_build_material_row(box, mat.capitalize(), cost, mat_reason_fn,
+				func(): input_controller.start_hq_standalone_placement(building_id, building_type, mat))
 
 	_content.add_child(box)
 
@@ -693,11 +796,18 @@ func _build_hangar_section(base: BaseInstance, building: BuildingInstance) -> vo
 		var name := String(ddef.get("name", docked.troop_type.capitalize()))
 		var squad_id := docked_id
 		var building_id := building.id
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
 		var button := UITheme.action_button("Launch %s" % name, "")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(func():
 			var target := _dock_launch_hex(building, docked)
 			input_controller.submitter.submit("undock_squad", [squad_id, building_id, target, owner_id], owner_id))
-		_content.add_child(button)
+		row.add_child(button)
+		var info_button := UITheme.action_button("Info", "")
+		info_button.pressed.connect(func(): input_controller.select_squad(squad_id))
+		row.add_child(info_button)
+		_content.add_child(row)
 
 func _dockable_squads(base: BaseInstance, building: BuildingInstance) -> Array[SquadInstance]:
 	var result: Array[SquadInstance] = []
@@ -760,9 +870,16 @@ func _build_naval_dock_section(building: BuildingInstance) -> void:
 		var boarded_id := cargo_id
 		var ship_id := ship.id
 		var dock_hex := building.hex
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
 		var button := UITheme.action_button("Unload %s" % name, "")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(func(): input_controller.submitter.submit("unload_cargo", [ship_id, boarded_id, dock_hex, owner_id], owner_id))
-		_content.add_child(button)
+		row.add_child(button)
+		var info_button := UITheme.action_button("Info", "")
+		info_button.pressed.connect(func(): input_controller.select_squad(boarded_id))
+		row.add_child(info_button)
+		_content.add_child(row)
 
 ## First friendly Naval transport (cargoCapacity > 0) on or adjacent to the dock
 ## building's hex, or null.

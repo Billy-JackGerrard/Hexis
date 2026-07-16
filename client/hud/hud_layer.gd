@@ -43,12 +43,12 @@ func setup(state: MatchState, owner_id: String, input_controller: InputControlle
 	building_panel = BuildingPanel.new()
 	building_panel.theme = theme
 	add_child(building_panel)
-	building_panel.setup(state, owner_id, input_controller, troop_info_panel, camera_controller)
+	building_panel.setup(state, owner_id, input_controller, troop_info_panel, camera_controller, resource_bar)
 
 	squad_panel = SquadPanel.new()
 	squad_panel.theme = theme
 	add_child(squad_panel)
-	squad_panel.setup(state, owner_id, input_controller, input_controller.squad_view, camera_controller)
+	squad_panel.setup(state, owner_id, input_controller, input_controller.squad_view, camera_controller, resource_bar)
 
 	toast_panel = ToastPanel.new()
 	toast_panel.theme = theme

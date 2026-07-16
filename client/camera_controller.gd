@@ -18,6 +18,13 @@ var _bounds_min := Vector2.ZERO
 var _bounds_max := Vector2.ZERO
 var _has_bounds := false
 
+## Set by main.gd once PauseMenu exists. While it's open, pan/zoom input is
+## ignored — relying solely on PauseMenu's full-rect Control to swallow the
+## event via mouse_filter STOP wasn't enough (scroll wheel still reached this
+## Node2D's _unhandled_input even with the mouse off the popup), so this
+## polls the flag directly instead.
+var pause_menu: PauseMenu
+
 func is_panning() -> bool:
 	return _panning
 
@@ -34,6 +41,8 @@ func _ready() -> void:
 	make_current()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if pause_menu != null and pause_menu.is_open:
+		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			_panning = event.pressed

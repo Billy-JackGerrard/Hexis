@@ -16,6 +16,10 @@ class_name PauseMenu
 extends CanvasLayer
 
 signal exit_requested
+## Fired every time the menu opens (not on refresh) — main.gd uses this to
+## close whatever else was open (building/squad selection, resource_bar's
+## expanded view) so nothing is left interactable behind the overlay.
+signal opened
 
 const REFRESH_INTERVAL := 0.25
 
@@ -66,14 +70,14 @@ func setup(state: MatchState, local_owner_id: String, owner_names: Dictionary) -
 	center.add_child(_card)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 28)
-	margin.add_theme_constant_override("margin_right", 28)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_left", 36)
+	margin.add_theme_constant_override("margin_right", 36)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_bottom", 30)
 	_card.add_child(margin)
 
 	var vbox := VBoxContainer.new()
-	vbox.custom_minimum_size = Vector2(360.0, 0.0)
+	vbox.custom_minimum_size = Vector2(480.0, 0.0)
 	vbox.add_theme_constant_override("separation", 16)
 	margin.add_child(vbox)
 
@@ -91,7 +95,7 @@ func setup(state: MatchState, local_owner_id: String, owner_names: Dictionary) -
 	# long (same reasoning as squad_panel.gd's own ScrollContainer).
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0.0, 280.0)
+	scroll.custom_minimum_size = Vector2(0.0, 420.0)
 	vbox.add_child(scroll)
 
 	var stats_box := VBoxContainer.new()
@@ -157,6 +161,7 @@ func open() -> void:
 	_refresh_accum = 0.0
 	_refresh_stats()
 	UIJuice.pop_in(_card)
+	opened.emit()
 
 func close() -> void:
 	is_open = false

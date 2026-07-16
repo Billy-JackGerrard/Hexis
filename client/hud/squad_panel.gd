@@ -27,6 +27,7 @@ var owner_id: String
 var input_controller: InputController
 var squad_view: SquadView
 var camera_controller: CameraController
+var resource_bar: ResourceBar
 
 const WIDTH := BuildingPanel.WIDTH
 const MARGIN := 12.0
@@ -68,12 +69,13 @@ var _option_updaters: Array = []
 var _live_updaters: Array[Callable] = []
 var _refresh_accum := 0.0
 
-func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_squad_view: SquadView, p_camera_controller: CameraController) -> void:
+func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_squad_view: SquadView, p_camera_controller: CameraController, p_resource_bar: ResourceBar) -> void:
 	state = p_state
 	owner_id = p_owner_id
 	input_controller = p_input_controller
 	squad_view = p_squad_view
 	camera_controller = p_camera_controller
+	resource_bar = p_resource_bar
 
 	# Same right/left-flipping band as BuildingPanel (the two never show at
 	# once) — vertical anchors set here, left/right via _apply_side/
@@ -193,6 +195,7 @@ func _process(delta: float) -> void:
 			UIJuice.pop_in(self)
 	if not visible:
 		return
+	offset_top = resource_bar.current_bottom() + MARGIN
 	_update_side()
 	for updater in _live_updaters:
 		updater.call()
@@ -441,11 +444,18 @@ func _build_cargo_menu(squad: SquadInstance, _def: Dictionary) -> void:
 		var bdef: Dictionary = state.troop_defs.get(boarded.troop_type, {})
 		var name := String(bdef.get("name", boarded.troop_type.capitalize()))
 		var boarded_id := cargo_id
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
 		var button := UITheme.action_button("Unload %s" % name, "")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(func():
 			var target := _unload_target(squad)
 			input_controller.submitter.submit("unload_cargo", [squad.id, boarded_id, target, owner_id], owner_id))
-		_content.add_child(button)
+		row.add_child(button)
+		var info_button := UITheme.action_button("Info", "")
+		info_button.pressed.connect(func(): input_controller.select_squad(boarded_id))
+		row.add_child(info_button)
+		_content.add_child(row)
 
 ## Friendly squads this carrier can board right now (CargoSystem.can_board holds
 ## every rule — adjacency, capacity, allowed tags, and the naval/building-dock

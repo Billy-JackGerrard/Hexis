@@ -27,8 +27,13 @@ const EDGE_WIDTH := 4.0
 
 ## Faint fill for the selected HQ's build radius (client/hud/building_panel.gd
 ## selection, not a pending placement) — the same hex-distance disc around the
-## HQ's own hex that BuildingPlacement.hq_build_radius/can_place enforce.
+## HQ's own hex that BuildingPlacement.hq_build_radius/can_place enforce. Also
+## used for a selected aura building (Hospital/Ice Spire/Radar Array/etc), in
+## which case the disc is the union of its building_defs auras[].radius discs
+## instead of the HQ build radius.
 const RADIUS_COLOR := Color(0.5, 0.8, 1.0, 0.10)
+const RADIUS_BORDER_COLOR := Color(0.5, 0.8, 1.0, 0.9)
+const RADIUS_BORDER_WIDTH := 3.0
 
 var _cache_key: String = ""
 var _valid_hexes: Array[HexCoord] = []
@@ -36,6 +41,7 @@ var _valid_edges: Array = [] ## Array of [HexCoord, HexCoord] pairs
 
 var _radius_cache_key: String = ""
 var _radius_hexes: Array[HexCoord] = []
+var _radius_hex_keys: Dictionary = {} ## hex.to_key() -> true, for boundary-edge lookup
 
 func setup(p_state: MatchState, p_input_controller: InputController) -> void:
 	state = p_state
@@ -52,7 +58,7 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 func _refresh_if_needed() -> bool:
-	var key := "%s|%s|%s" % [input_controller.pending_base_id, input_controller.pending_building_type, input_controller.pending_engineer_squad_id]
+	var key := "%s|%s|%s|%s" % [input_controller.pending_base_id, input_controller.pending_building_type, input_controller.pending_engineer_squad_id, input_controller.pending_hq_building_id]
 	if key == _cache_key:
 		return false
 	_cache_key = key
@@ -62,6 +68,9 @@ func _refresh_if_needed() -> bool:
 		return true
 	if input_controller.pending_engineer_squad_id != "":
 		_refresh_standalone_valid_hexes(input_controller.pending_engineer_squad_id, input_controller.pending_building_type)
+		return true
+	if input_controller.pending_hq_building_id != "":
+		_refresh_hq_standalone_valid_hexes(input_controller.pending_hq_building_id, input_controller.pending_building_type)
 		return true
 	var base := state.find_base(input_controller.pending_base_id)
 	if base == null:
@@ -81,25 +90,41 @@ func _refresh_if_needed() -> bool:
 
 ## Recomputed only when the selected building changes (client/hud/
 ## building_panel.gd's InputController.selected_building_id) — shows the max
-## build distance from an HQ the moment it's selected, without needing to
-## also be actively placing something.
+## build distance from an HQ, or the effect radius of an aura building
+## (Hospital/Ice Spire/Radar Array/etc, per building_defs auras[].radius),
+## the moment it's selected, without needing to also be actively placing
+## something.
 func _refresh_radius_if_needed() -> bool:
 	var key := input_controller.selected_building_id
 	if key == _radius_cache_key:
 		return false
 	_radius_cache_key = key
 	_radius_hexes = []
+	_radius_hex_keys = {}
 	if key == "":
 		return true
 	var found := state.find_base_building(key)
 	if found.is_empty():
 		return true
 	var building: BuildingInstance = found["building"]
-	if building.building_type != "hq" or building.is_ruin or building.hex == null:
+	if building.is_ruin or building.hex == null:
 		return true
-	var base: BaseInstance = found["base"]
-	var radius := BuildingPlacement.hq_build_radius(base.hq_level)
-	_radius_hexes = HexCoord.range_within(building.hex, radius)
+	if building.building_type == "hq":
+		var base: BaseInstance = found["base"]
+		var radius := BuildingPlacement.hq_build_radius(base.hq_level)
+		_radius_hexes = HexCoord.range_within(building.hex, radius)
+	else:
+		var def: Dictionary = state.building_defs.get(building.building_type, {})
+		var auras: Array = def.get("auras", [])
+		for aura in auras:
+			var aura_radius := int(aura.get("radius", 0))
+			for hex in HexCoord.range_within(building.hex, aura_radius):
+				var hex_key := hex.to_key()
+				if not _radius_hex_keys.has(hex_key):
+					_radius_hex_keys[hex_key] = true
+					_radius_hexes.append(hex)
+	for hex in _radius_hexes:
+		_radius_hex_keys[hex.to_key()] = true
 	return true
 
 ## Engineer/standalone placement's counterpart to the base-placement loop
@@ -112,6 +137,28 @@ func _refresh_standalone_valid_hexes(squad_id: String, building_type: String) ->
 	if squad == null or squad.current_hex == null:
 		return
 	var candidates := HexCoord.range_within(squad.current_hex, Tuning.STANDALONE_BUILD_RANGE)
+	var occupied := BuildingPlacement.standalone_occupied_hexes(state.bases, state.standalone_buildings)
+	var occupied_unit_hexes := BuildingPlacement.ground_unit_hexes(state.squads, state.troop_defs)
+	for hex in candidates:
+		var result := BuildingPlacement.can_place_standalone(building_type, hex, state.grid, state.building_defs, occupied, occupied_unit_hexes)
+		if result == BuildingPlacement.Result.OK:
+			_valid_hexes.append(hex)
+
+## HQ counterpart to _refresh_standalone_valid_hexes — client/hud/
+## building_panel.gd's INFRASTRUCTURE section (Road/Bridge ordered from an
+## HQ instead of an Engineer squad), so the candidate disc is
+## BuildingPlacement.hq_build_radius(base.hq_level) around the HQ's own hex
+## rather than Tuning.STANDALONE_BUILD_RANGE around a squad.
+func _refresh_hq_standalone_valid_hexes(building_id: String, building_type: String) -> void:
+	var found := state.find_base_building(building_id)
+	if found.is_empty():
+		return
+	var base: BaseInstance = found["base"]
+	var building: BuildingInstance = found["building"]
+	if building.hex == null:
+		return
+	var radius := BuildingPlacement.hq_build_radius(base.hq_level)
+	var candidates := HexCoord.range_within(building.hex, radius)
 	var occupied := BuildingPlacement.standalone_occupied_hexes(state.bases, state.standalone_buildings)
 	var occupied_unit_hexes := BuildingPlacement.ground_unit_hexes(state.squads, state.troop_defs)
 	for hex in candidates:
@@ -141,6 +188,12 @@ func _draw() -> void:
 		for corner in corners:
 			points.append(center + corner)
 		draw_colored_polygon(points, RADIUS_COLOR)
+	for hex in _radius_hexes:
+		for direction in range(6):
+			var neighbor := HexCoord.neighbor(hex, direction)
+			if not _radius_hex_keys.has(neighbor.to_key()):
+				var segment := HexView.edge_segment(hex, neighbor)
+				draw_line(segment[0], segment[1], RADIUS_BORDER_COLOR, RADIUS_BORDER_WIDTH)
 
 	if input_controller.pending_building_type == "":
 		return

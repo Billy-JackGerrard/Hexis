@@ -9,10 +9,10 @@
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 220, "unlocks": "engineer", "cost": { "stone": 200, "steel": 80 } },
-    { "level": 2, "hp": 300, "unlocks": "light_tank", "cost": { "stone": 250, "steel": 160 } },
-    { "level": 3, "hp": 400, "unlocks": "ambulance", "cost": { "stone": 380, "steel": 220 } },
-    { "level": 4, "hp": 570, "unlocks": "tonk", "cost": { "stone": 520, "steel": 350 } },
-    { "level": 5, "hp": 800, "unlocks": "transport_truck", "cost": { "stone": 700, "steel": 500 } },
-    { "level": 6, "hp": 1100, "unlocks": "basekiller", "cost": { "stone": 950, "steel": 700 } }
+    { "level": 2, "hp": 300, "unlocks": "ambulance", "cost": { "stone": 100, "steel": 60 } },
+    { "level": 5, "hp": 800, "unlocks": "transport_truck", "cost": { "stone": 200, "steel": 40 } },
+    { "level": 3, "hp": 400, "unlocks": "light_tank", "cost": { "stone": 220, "steel": 100 } },
+    { "level": 4, "hp": 570, "unlocks": "tonk", "cost": { "stone": 240, "steel": 160 } },
+    { "level": 6, "hp": 1100, "unlocks": "basekiller", "cost": { "stone": 340, "steel": 200 } }
   ]
 }

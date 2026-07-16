@@ -9,9 +9,9 @@
 
   "productionUpgradeLevels": [
     { "level": 1, "hp": 200, "unlocks": "rifleman", "cost": { "stone": 80, "steel": 20 } },
-    { "level": 2, "hp": 230, "unlocks": "grenadier", "cost": { "stone": 120, "steel": 30 } },
-    { "level": 3, "hp": 265, "unlocks": "flamethrower", "cost": { "stone": 180, "steel": 50 } },
-    { "level": 4, "hp": 305, "unlocks": "shielder", "cost": { "stone": 260, "steel": 75 } },
-    { "level": 5, "hp": 351, "unlocks": "sniper", "cost": { "stone": 380, "steel": 100 } }
+    { "level": 2, "hp": 230, "unlocks": "grenadier", "cost": { "stone": 80, "steel": 40 } },
+    { "level": 3, "hp": 265, "unlocks": "shielder", "cost": { "stone": 100, "steel": 40 } },
+    { "level": 4, "hp": 305, "unlocks": "flamethrower", "cost": { "stone": 120, "steel": 40 } },
+    { "level": 5, "hp": 351, "unlocks": "sniper", "cost": { "stone": 200, "steel": 50 } }
   ]
 }

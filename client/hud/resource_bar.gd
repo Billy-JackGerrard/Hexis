@@ -146,14 +146,24 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# IGNORE like every other row child (default is STOP) — otherwise this
+	# spacer, which covers the empty middle stretch of the bar between Wood
+	# and the caps, eats clicks that should fall through to the root
+	# Control's click-to-expand handler.
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(spacer)
 
 	_squads_label = UITheme.body_label("")
 	_squads_label.add_theme_font_size_override("font_size", UITheme.FONT_BAR)
+	# SHRINK_BEGIN like the resource columns — otherwise HBoxContainer's
+	# default FILL stretches/recenters this label as the row grows taller on
+	# expand, so it visibly drops instead of staying pinned to the top.
+	_squads_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_child(_squads_label)
 
 	_commanders_label = UITheme.body_label("")
 	_commanders_label.add_theme_font_size_override("font_size", UITheme.FONT_BAR)
+	_commanders_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_child(_commanders_label)
 
 	# Match-status banner (waiting for players / desync halt). Overlaid centered
@@ -199,6 +209,11 @@ func _gui_input(event: InputEvent) -> void:
 		# swallows it here), so it can't double-count against map_click_count
 		# — no need to bump _last_map_click_count.
 		accept_event()
+
+## PauseMenu's opened signal (main.gd) calls this so the expanded breakdown
+## isn't left open (and clickable) behind the darkened overlay.
+func collapse() -> void:
+	_set_expanded(false)
 
 func _set_expanded(value: bool) -> void:
 	_expanded = value
@@ -365,6 +380,13 @@ func _compute_producer_groups(owned_bases: Array[BaseInstance]) -> Dictionary:
 		groups.sort_custom(func(a, b): return a["level"] < b["level"])
 		per_type[type] = groups
 	return per_type
+
+## Current bottom edge in local (offset) pixels — HEIGHT when collapsed,
+## taller while expanded. building_panel.gd/squad_panel.gd poll this each
+## frame to keep their own top edge below whatever the bar is currently
+## showing, instead of assuming the fixed collapsed HEIGHT.
+func current_bottom() -> float:
+	return offset_bottom
 
 func _owned_squad_count() -> int:
 	var count := 0

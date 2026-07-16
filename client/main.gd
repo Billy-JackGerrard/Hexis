@@ -163,6 +163,11 @@ func _start_game() -> void:
 	pause_menu.setup(state, _local_owner_id, owner_names)
 	input_controller.escape_pressed.connect(pause_menu.toggle)
 	pause_menu.exit_requested.connect(_on_pause_exit_requested)
+	pause_menu.opened.connect(_on_pause_opened)
+	# Polled directly rather than relying solely on PauseMenu's overlay Control
+	# to swallow input (see camera_controller.gd's pause_menu field doc).
+	camera_controller.pause_menu = pause_menu
+	input_controller.pause_menu = pause_menu
 
 	camera_controller.set_bounds(bounds[0], bounds[1])
 	camera_controller.center_on(HexView.axial_to_pixel(_local_capital_hex))
@@ -205,6 +210,13 @@ func _on_pause_exit_requested() -> void:
 	if lockstep_driver != null:
 		net_manager.leave()
 	get_tree().quit()
+
+## Nothing selectable/interactable should be left open behind the darkened
+## overlay — closes building/squad selection and collapses resource_bar's
+## expanded view, same as a right-click-to-deselect would.
+func _on_pause_opened() -> void:
+	input_controller.close_all_selection()
+	hud_layer.resource_bar.collapse()
 
 ## start_screen.gd also listens to this signal for the pre-match lobby case;
 ## this one only matters once a match is actually running (lockstep_driver !=

@@ -40,6 +40,10 @@ var owner_id: String
 var squad_view: SquadView
 var camera_controller: CameraController
 var submitter: CommandSubmitter
+## Set by main.gd once PauseMenu exists — see camera_controller.gd's own
+## pause_menu field doc for why this is a polled flag rather than relying on
+## PauseMenu's overlay Control to swallow the input.
+var pause_menu: PauseMenu
 
 ## Set when a left-click lands on one of the local player's own base
 ## buildings (see precedence case 3 above); "" when nothing is selected.
@@ -77,6 +81,15 @@ var pending_material: String = ""
 ## a click while it's set commits CommandProcessor.place_standalone_building at
 ## the clicked hex instead of place_building. See start_standalone_placement.
 var pending_engineer_squad_id: String = ""
+## Set instead of pending_base_id/pending_engineer_squad_id when the pending
+## placement is a Road/Bridge ordered directly from an HQ's own build menu
+## (client/hud/building_panel.gd's INFRASTRUCTURE section) rather than an
+## Engineer squad — carries the HQ's own building id, validated against
+## BuildingPlacement.hq_build_radius(base.hq_level) instead of an Engineer's
+## STANDALONE_BUILD_RANGE. Still commits CommandProcessor.place_standalone_building
+## (the `building_id` param, squad_id left ""), same standalone data/lifecycle
+## as an Engineer-built one. See start_hq_standalone_placement.
+var pending_hq_building_id: String = ""
 
 ## Bumped on every world (map) click, left or right — polled by
 ## client/hud/resource_bar.gd to collapse its expanded view on any map click,
@@ -135,6 +148,8 @@ func setup(p_state: MatchState, p_owner_id: String, p_squad_view: SquadView, p_c
 	submitter = p_submitter
 
 func _process(delta: float) -> void:
+	if pause_menu != null and pause_menu.is_open:
+		return
 	# Also skipped while camera-panning (right-drag): the world-space mouse
 	# position sweeps across many hexes per frame during a pan, and each
 	# crossing triggered _update_hover -> _target_at_pixel's full
@@ -156,6 +171,14 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 func _unhandled_input(event: InputEvent) -> void:
+	# While paused, only Escape (to close the menu again) gets through —
+	# pending_building_type is guaranteed "" here already (escape_pressed only
+	# ever fires when it was already empty, see below), so no placement-cancel
+	# branch is needed on this path.
+	if pause_menu != null and pause_menu.is_open:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+			escape_pressed.emit()
+		return
 	# Right-click: press always cancels any in-progress build-menu placement
 	# and closes whatever building panel is open, per 09-ui-and-controls.md's
 	# build-menu cancel affordance — same as before, unconditional on press
@@ -212,6 +235,7 @@ func start_placement(base_id: String, building_type: String, material: String = 
 	pending_building_type = building_type
 	pending_material = material
 	pending_engineer_squad_id = ""
+	pending_hq_building_id = ""
 
 ## Engineer counterpart to start_placement, called by client/hud/squad_panel.gd
 ## when the player picks a standalone building (Road/Bridge/Dock/Tower/Landmine)
@@ -219,6 +243,19 @@ func start_placement(base_id: String, building_type: String, material: String = 
 ## squad instead of a base, so the click commits place_standalone_building.
 func start_standalone_placement(squad_id: String, building_type: String, material: String = "") -> void:
 	pending_engineer_squad_id = squad_id
+	pending_base_id = ""
+	pending_hq_building_id = ""
+	pending_building_type = building_type
+	pending_material = material
+
+## HQ counterpart to start_standalone_placement, called by client/hud/
+## building_panel.gd's INFRASTRUCTURE section (Road/Bridge, HQ-selected) —
+## enters placement mode against the HQ's own building id instead of an
+## Engineer squad, so the click commits place_standalone_building with
+## `building_id` set and `squad_id` left "".
+func start_hq_standalone_placement(building_id: String, building_type: String, material: String = "") -> void:
+	pending_hq_building_id = building_id
+	pending_engineer_squad_id = ""
 	pending_base_id = ""
 	pending_building_type = building_type
 	pending_material = material
@@ -231,6 +268,7 @@ func cancel_placement() -> void:
 	pending_base_id = ""
 	pending_material = ""
 	pending_engineer_squad_id = ""
+	pending_hq_building_id = ""
 
 func _on_left_release(event: InputEventMouseButton) -> void:
 	_drag_active = false
@@ -263,6 +301,22 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 			pending_building_type = ""
 			pending_engineer_squad_id = ""
 			pending_material = ""
+		else:
+			_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
+		return
+	# HQ-ordered standalone placement (Road/Bridge from building_panel.gd's
+	# INFRASTRUCTURE section): same place_standalone_building call as the
+	# Engineer case above, but with squad_id left "" and building_id set to
+	# the HQ's own id instead — see CommandProcessor.place_standalone_building's
+	# two-path doc comment.
+	if pending_hq_building_id != "":
+		var hex := HexView.pixel_to_axial(release_pos)
+		var result: BuildingPlacement.Result = submitter.submit("place_standalone_building", ["", pending_building_type, hex, pending_material, owner_id, pending_hq_building_id], owner_id, BuildingPlacement.Result.OK)
+		if result == BuildingPlacement.Result.OK:
+			pending_building_type = ""
+			pending_hq_building_id = ""
+			pending_material = ""
+			_clear_building_selection()
 		else:
 			_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
 		return
@@ -389,6 +443,26 @@ func _clear_building_selection() -> void:
 	selected_base_id = ""
 	selected_building_id = ""
 	selected_production_building_id = ""
+
+## PauseMenu's opened signal (main.gd) calls this so nothing selectable is
+## left showing behind the darkened overlay — same clears as a right-click,
+## plus canceling any in-progress build placement (can't normally coincide
+## with pause_menu opening, since Escape only pauses when nothing's pending,
+## but harmless/correct if some other path ever opens it while placing).
+func close_all_selection() -> void:
+	cancel_placement()
+	_clear_building_selection()
+
+## Selects `squad_id` alone and clears any building selection — BuildingPanel/
+## SquadPanel call this to open a docked or boarded squad's own SquadPanel
+## (its live HP/cargo, not just the static def TroopInfoPanel shows). Needed
+## because is_docked() squads (cargo aboard a carrier, or landed in a Hangar)
+## never render on the map — see SquadView._is_renderable — so they can never
+## be clicked there directly; this is the only other way to select one.
+func select_squad(squad_id: String) -> void:
+	squad_view.select_only(squad_id)
+	_clear_building_selection()
+	squad_view.clear_selection()
 
 ## The live enemy CombatTarget (troop/squad, building, or Wall edge) at
 ## `pos`, or null. Rebuilds the full target list fresh — acceptable on a

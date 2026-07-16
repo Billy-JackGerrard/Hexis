@@ -10,11 +10,11 @@
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 160,
-      "steelOutput": 3
+      "steelOutput": 2
     },
     "statGrowth": {
-      "hp": { "mode": "percent", "value": 12 },
-      "steelOutput": { "mode": "percent", "value": 12 }
+      "hp": { "mode": "percent", "value": 20 },
+      "steelOutput": { "mode": "percent", "value": 30 }
     },
     "baseCost": {
       "stone": 60
@@ -22,6 +22,6 @@
     "upgradeBaseCost": {
       "stone": 20
     },
-    "upgradeCostGrowth": { "mode": "percent", "value": 25 }
+    "upgradeCostGrowth": { "mode": "percent", "value": 35 }
   }
 }

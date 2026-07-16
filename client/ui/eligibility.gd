@@ -136,6 +136,34 @@ static func _any_valid_standalone_hex(state: MatchState, squad: SquadInstance, b
 			return true
 	return false
 
+## HQ counterpart to standalone_build_reason — same two-part shape (afford,
+## then "no available tiles"), but scanned over
+## BuildingPlacement.hq_build_radius(base.hq_level) from the HQ's own hex
+## instead of an Engineer's STANDALONE_BUILD_RANGE, matching the range check
+## CommandProcessor.place_standalone_building's HQ path (`building_id` set)
+## enforces. `base` must be the HQ's own base (its hq_level), not just any
+## owner_id-owned base.
+static func hq_standalone_build_reason(state: MatchState, base: BaseInstance, building: BuildingInstance, building_type: String, owner_id: String, material: String = "") -> String:
+	var def: Dictionary = state.building_defs.get(building_type, {})
+	var named_cost := BuildingStats.base_cost(def, material if material != "" else _first_material(def), state.building_defs)
+	var missing := _first_unaffordable(state.pool_for(owner_id), named_cost)
+	if missing != "":
+		return "Not enough %s" % missing
+	if base.hq_level < int(def.get("unlockHqLevel", 1)):
+		return "Requires HQ level %d" % int(def.get("unlockHqLevel", 1))
+	if not _any_valid_hq_standalone_hex(state, base, building, building_type):
+		return "No available tiles in range"
+	return ""
+
+static func _any_valid_hq_standalone_hex(state: MatchState, base: BaseInstance, building: BuildingInstance, building_type: String) -> bool:
+	var occupied_unit := BuildingPlacement.ground_unit_hexes(state.squads, state.troop_defs)
+	var occupied := BuildingPlacement.standalone_occupied_hexes(state.bases, state.standalone_buildings)
+	var radius := BuildingPlacement.hq_build_radius(base.hq_level)
+	for hex in HexCoord.range_within(building.hex, radius):
+		if BuildingPlacement.can_place_standalone(building_type, hex, state.grid, state.building_defs, occupied, occupied_unit) == BuildingPlacement.Result.OK:
+			return true
+	return false
+
 ## Every OTHER friendly squad `commander` (a Commander, maxSquadsLed > 0)
 ## could be assigned to lead — not itself, not already in this Commander's
 ## regiment, not docked/boarded, and not itself a Commander (no nested
