@@ -4,6 +4,7 @@
   "category": "Resource",
   "unlockHqLevel": 1,
   "populationCost": 1,
+  "foodUpkeep": 1,
 
   "placementRequirement": {
     "siteTerrain": "Plains",

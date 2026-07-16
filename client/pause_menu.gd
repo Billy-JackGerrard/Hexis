@@ -206,12 +206,19 @@ func _refresh_stats() -> void:
 		_bases_box.add_child(UITheme.body_label("%s: %d" % [label_name, counts_by_owner[owner_id]]))
 	_bases_box.add_child(UITheme.body_label("Neutral: %d" % int(counts_by_owner.get("neutral", 0))))
 
+	# squads_used only counts against the general pool (excludes Commander/
+	# Support-tagged squads, each gated by their own separate cap instead —
+	# matches CommandProcessor.can_enqueue_production); squads_by_type still
+	# lists every owned squad, general pool or not, since it's a plain
+	# roster breakdown rather than a cap comparison.
 	var squads_used := 0
 	var squads_by_type: Dictionary = {} ## troop_type -> {"squads": int, "troops": int}
 	for squad in _state.squads:
 		if squad.owner_id != _local_owner_id:
 			continue
-		squads_used += 1
+		var def: Dictionary = _state.troop_defs.get(squad.troop_type, {})
+		if not (SquadCap.is_commander(def) or SquadCap.is_support(def)):
+			squads_used += 1
 		var entry: Dictionary = squads_by_type.get(squad.troop_type, {"squads": 0, "troops": 0})
 		entry["squads"] = int(entry["squads"]) + 1
 		entry["troops"] = int(entry["troops"]) + squad.member_ids.size()

@@ -2,7 +2,7 @@
   "id": "earthshaker",
   "name": "Earthshaker",
   "domain": "Land",
-  "tags": ["Vehicle", "Tank", "Heavy", "Siege"],
+  "tags": ["Vehicle", "Tank", "Heavy"],
 
   "hp": 340,
   "armor": 3,
@@ -26,5 +26,5 @@
   "fuelUpkeep": 2.5,
   "productionTime": 85,
 
-  "notes": "Heavy siege vehicle with the hardest-hitting splash attack in the roster, balanced by slow firing and slow movement. Cannot fire at point-blank range or hit aircraft, and its small squads are especially vulnerable to infantry that close the gap."
+  "notes": "Heavy tank with the hardest-hitting splash attack in the roster, balanced by slow firing and slow movement. Cannot fire at point-blank range or hit aircraft, and its small squads are especially vulnerable to infantry that close the gap."
 }

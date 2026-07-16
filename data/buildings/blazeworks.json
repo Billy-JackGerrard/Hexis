@@ -4,6 +4,7 @@
   "category": "Production",
   "unlockHqLevel": 4,
   "populationCost": 1,
+  "foodUpkeep": 1,
 
   "notes": "Specialist production building for the incendiary/gunship line of aircraft.",
 

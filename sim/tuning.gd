@@ -234,6 +234,15 @@ const PRODUCTION_JOIN_RANGE_RADIUS: int = 2
 const SQUAD_CAP_BASE: int = 2
 const SQUAD_CAP_PER_HQ_LEVEL: int = 1
 
+## Separate parallel cap for Support-tagged troops (Engineer, Mule, Ambulance,
+## ...) — same formula shape as SQUAD_CAP_* but its own independent pool, so a
+## Support squad never competes with combat squads for a slot (the point of
+## exempting them from SQUAD_CAP_* in the first place) while still bounding
+## how many a player can field. See CommandProcessor.can_enqueue_production's
+## Support branch / SquadCap.max_support_squads.
+const SUPPORT_SQUAD_CAP_BASE: int = 2
+const SUPPORT_SQUAD_CAP_PER_HQ_LEVEL: int = 1
+
 ## --- Combat (sim/combat/) ---
 
 ## Stun's fixed trailing debuff: -30% move AND attack speed while

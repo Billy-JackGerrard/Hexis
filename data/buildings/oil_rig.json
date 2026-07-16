@@ -4,6 +4,7 @@
   "category": "Resource",
   "unlockHqLevel": 2,
   "populationCost": 1,
+  "foodUpkeep": 1,
 
   "notes": "Fuel-producing building with an identical build cost at every base — any production bonus or penalty for it comes from base-specific modifiers rather than the building itself.",
 

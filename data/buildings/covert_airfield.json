@@ -4,6 +4,7 @@
   "category": "Production",
   "unlockHqLevel": 4,
   "populationCost": 1,
+  "foodUpkeep": 1,
 
   "notes": "Specialist production building for support-focused aircraft — mostly non-combat troops geared toward logistics and covert utility rather than a pure-combat roster, plus a long-range stealth harasser capable of fighting.",
 

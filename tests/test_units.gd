@@ -28,6 +28,8 @@ func _init() -> void:
 	_test_land_spawn_relocation()
 	print("ProductionManager Infantry spawn relocation")
 	_test_infantry_spawn_relocation()
+	print("BuildingPlacement spawn_blocking_hexes vs building_blocking_hexes (ruins)")
+	_test_spawn_blocking_hexes_includes_ruins()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -270,6 +272,42 @@ func _test_production_queue() -> void:
 	_check(commander_queue.is_empty(), "held Commander deploys once the commander cap has room")
 	_check(no_squads.size() == 1, "the deployed Commander formed its own squad")
 
+	# pause at food_deficit: Barracks carries a real foodUpkeep (data/buildings/
+	# barracks.json) -- a completed entry holds undeployed while the owner's
+	# Food pool is negative, mirroring the fuel_deficit shape but keyed off the
+	# PRODUCING BUILDING's own upkeep rather than the trained troop's.
+	_check(float(building_defs["barracks"].get("foodUpkeep", 0.0)) > 0.0, "sanity check: barracks.json carries foodUpkeep > 0")
+	var starved_pool := ResourcePool.new()
+	starved_pool.set_amount(ResourceType.Type.FOOD, -1.0)
+	var starved_squads: Array[SquadInstance] = []
+	var starved_queue := ProductionQueue.new("barracks1")
+	ProductionManager.enqueue(starved_queue, "rifleman", troop_defs)
+	ProductionManager.advance(starved_queue, rifleman_production_time)
+	ProductionManager.pump(starved_queue, "p1", spawn_hex, "barracks", starved_squads, troops, [], building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"), null, starved_pool)
+	_check(starved_queue.paused, "queue pauses when the producing building's own Food upkeep can't be paid")
+	_check(starved_queue.pause_reason == "food_deficit", "pause_reason is food_deficit")
+	_check(not starved_queue.is_empty(), "paused entry is held, not dropped")
+	_check(starved_squads.is_empty(), "starved building deploys nothing")
+
+	# auto-resume: Food recovers, re-pumping deploys the held troop
+	starved_pool.set_amount(ResourceType.Type.FOOD, 0.0)
+	ProductionManager.pump(starved_queue, "p1", spawn_hex, "barracks", starved_squads, troops, [], building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"), null, starved_pool)
+	_check(not starved_queue.paused, "re-pumping once Food is no longer in deficit clears the food_deficit pause")
+	_check(starved_queue.is_empty(), "held entry deploys once the building is no longer starved")
+
+	# a building with no authored foodUpkeep (Farm) is never gated, regardless
+	# of pool state -- this is what keeps a Food deficit from deadlocking.
+	var farm_pool := ResourcePool.new()
+	farm_pool.set_amount(ResourceType.Type.FOOD, -1.0)
+	_check(float(building_defs["farm"].get("foodUpkeep", 0.0)) == 0.0, "sanity check: farm.json carries no foodUpkeep")
+	var farm_squads: Array[SquadInstance] = []
+	var farm_queue := ProductionQueue.new("barracks1")
+	ProductionManager.enqueue(farm_queue, "rifleman", troop_defs)
+	ProductionManager.advance(farm_queue, rifleman_production_time)
+	ProductionManager.pump(farm_queue, "p1", spawn_hex, "farm", farm_squads, troops, [], building_defs, troop_defs, 0, _id_generator("t"), _id_generator("s"), null, farm_pool)
+	_check(not farm_queue.paused, "a building with no foodUpkeep is never food-deficit-gated")
+	_check(farm_queue.is_empty(), "its completed entry deploys normally despite the Food deficit")
+
 ## A Land vehicle's own producing building blocks Land movement just like any
 ## other standing building, so it can't be deployed onto that hex -- pump()
 ## must relocate it to an adjacent, unblocked hex instead (mirrors the
@@ -328,3 +366,20 @@ func _test_infantry_spawn_relocation() -> void:
 	if squads.size() == 1:
 		_check(not squads[0].current_hex.equals(barracks_hex), "Infantry does not spawn on the producing building's own hex")
 		_check(HexCoord.distance(squads[0].current_hex, barracks_hex) == 1, "Infantry spawns on an adjacent hex instead")
+
+## building_blocking_hexes deliberately excludes ruins (units can walk over
+## rubble), but spawn_blocking_hexes must still treat a ruin as occupied so
+## ProductionManager never deploys a fresh squad on top of one.
+func _test_spawn_blocking_hexes_includes_ruins() -> void:
+	var base_hex := HexCoord.new(0, 0)
+	var ruin_hex := HexCoord.new(1, 0)
+	var base1 := BaseInstance.new("b1", "capital", "p1", 1, base_hex)
+	var ruin := BuildingInstance.new("bld_ruin", "b1", "barracks", 1, "", ruin_hex)
+	ruin.is_ruin = true
+	base1.buildings.append(ruin)
+
+	var movement_blocked := BuildingPlacement.building_blocking_hexes([base1], [])
+	var spawn_blocked := BuildingPlacement.spawn_blocking_hexes([base1], [])
+
+	_check(not movement_blocked.has(ruin_hex.to_key()), "building_blocking_hexes leaves a ruin hex walkable")
+	_check(spawn_blocked.has(ruin_hex.to_key()), "spawn_blocking_hexes still marks a ruin hex as spawn-blocked")

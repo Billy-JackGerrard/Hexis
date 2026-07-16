@@ -191,7 +191,7 @@ func _advance_production(state: MatchState, dt: float) -> void:
 			Callable(state, "next_squad_id"),
 			state.grid,
 			state.pool_for(base.owner_id),
-			BuildingPlacement.building_blocking_hexes(state.bases, state.standalone_buildings),
+			BuildingPlacement.spawn_blocking_hexes(state.bases, state.standalone_buildings),
 		)
 
 ## Late-game 6-player scenario: a big frontline clash (armies packed within

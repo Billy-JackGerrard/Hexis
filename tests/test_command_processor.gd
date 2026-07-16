@@ -57,7 +57,7 @@ func _init() -> void:
 	_test_upgrade_hq()
 	print("enqueue_production")
 	_test_enqueue_production()
-	print("enqueue_production (squad/Commander cap gate)")
+	print("enqueue_production (squad/Commander/Support cap gate)")
 	_test_enqueue_production_cap_gate()
 	print("dequeue_production / enqueue_production_after (queue -1/+1)")
 	_test_queue_adjust()
@@ -749,6 +749,31 @@ func _test_enqueue_production_cap_gate() -> void:
 	var commander_capped := CommandProcessor.enqueue_production(state, cc.id, "commander_vanguard", "p1")
 	_check(commander_capped == CommandProcessor.Result.COMMANDER_CAP_REACHED, "queuing a Commander is rejected once the owner is at the Commander cap")
 	_check(not state.production_queues.has(cc.id), "the Commander-cap-rejected order enqueued nothing")
+
+	# Support cap: Engineer (Support-tagged, non-Commander) has its own
+	# separate pool -- unaffected by the general squad cap `state` is already
+	# sitting at (max_squads grenadier fillers above), but still bounded on
+	# its own.
+	var depot := BuildingInstance.new("depot1", base.id, "supply_depot", 1, "", HexCoord.new(-1, 1))
+	depot.init_hp(_building_defs["supply_depot"], _building_defs)
+	base.buildings.append(depot)
+	state.pool_for("p1").set_amount(ResourceType.Type.STEEL, 1000.0)
+
+	var joined_at_squad_cap := CommandProcessor.enqueue_production(state, depot.id, "engineer", "p1")
+	_check(joined_at_squad_cap == CommandProcessor.Result.OK, "Engineer training succeeds despite the owner already sitting at the general squad cap")
+
+	var max_support := SquadCap.max_support_squads(state.bases_owned_by("p1"))
+	for i in range(max_support):
+		var filler := SquadInstance.new("engineer_filler%d" % i, "p1", "engineer", depot.hex)
+		# maxSquadSize 1 -- give it a member so it reads as full, or
+		# needs_new_squad would see room to join it instead of ever reaching
+		# the Support-cap check at all.
+		filler.add_member("engineer_filler_troop%d" % i)
+		state.squads.append(filler)
+	var queue_size_before := (state.production_queues[depot.id] as ProductionQueue).entries.size()
+	var support_capped := CommandProcessor.enqueue_production(state, depot.id, "engineer", "p1")
+	_check(support_capped == CommandProcessor.Result.SUPPORT_CAP_REACHED, "a further Engineer is rejected once the owner is at the separate Support cap")
+	_check((state.production_queues[depot.id] as ProductionQueue).entries.size() == queue_size_before, "the Support-cap-rejected order enqueued nothing")
 
 func _test_queue_adjust() -> void:
 	var state := _new_state(_flat_grid(5))

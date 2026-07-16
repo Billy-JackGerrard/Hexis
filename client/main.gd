@@ -195,7 +195,7 @@ func _process(delta: float) -> void:
 		return
 	if lockstep_driver != null:
 		lockstep_driver.advance(delta)
-		hud_layer.resource_bar.set_status("Waiting for players…" if lockstep_driver.is_waiting else "")
+		hud_layer.toast_panel.set_connection_status("Waiting for players…" if lockstep_driver.is_waiting else "")
 	elif not pause_menu.is_open:
 		sim_clock.advance(state, delta)
 	# Once per rendered frame, after every tick this frame has already run
@@ -229,11 +229,11 @@ func _on_mid_match_connection_failed(reason: String) -> void:
 	if lockstep_driver == null:
 		return
 	_match_halted = true
-	hud_layer.resource_bar.set_status("Connection lost (%s) — match halted." % reason, true)
+	hud_layer.toast_panel.set_connection_status("Connection lost (%s) — match halted." % reason, true)
 
 func _on_desync_detected(tick: int, sections: Array) -> void:
 	_match_halted = true
-	hud_layer.resource_bar.set_status("Desync at tick %d (%s) — match halted." % [tick, ", ".join(sections)], true)
+	hud_layer.toast_panel.set_connection_status("Desync at tick %d (%s) — match halted." % [tick, ", ".join(sections)], true)
 	_dump_state_for_debug(tick, sections)
 
 ## Names the diverging section(s) in the on-screen message (see

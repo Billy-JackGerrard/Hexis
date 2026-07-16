@@ -83,6 +83,7 @@ const RESOURCE_LABEL := {
 const PRIMARY := "PrimaryButton" ## emerald fill — main call to action
 const MUTED := "MutedButton"     ## greyed, still clickable (ineligible options)
 const INFO_BUTTON := "InfoButton" ## saturated blue — small +/- style controls, clickable state
+const DANGER_BUTTON := "DangerButton" ## cherry red — destructive actions (Demolish)
 
 # --- Theme construction -----------------------------------------------------
 
@@ -113,6 +114,8 @@ static func create_theme() -> Theme:
 	# Hover/pressed match normal so a muted button reads as inert even though it
 	# still fires pressed (so we can surface a red reason on click).
 	_apply_button(t, MUTED, MUTED_BG, MUTED_BG, MUTED_BG, TEXT_MUTED, MUTED_BORDER)
+	t.set_type_variation(DANGER_BUTTON, "Button")
+	_apply_button(t, DANGER_BUTTON, DANGER, DANGER.lightened(0.15), DANGER.darkened(0.15), INFO_TEXT, PANEL_BORDER)
 
 	var line_edit := _flat(SLATE, PANEL_BORDER, 12, 3)
 	line_edit.set_content_margin_all(8.0)

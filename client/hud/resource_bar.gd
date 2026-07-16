@@ -55,7 +55,7 @@ var _usage_labels: Dictionary = {} ## ResourceType.Type -> Label, total troop up
 var _usage_boxes: Dictionary = {} ## ResourceType.Type -> VBoxContainer, one Label per consuming troop type
 var _squads_label: Label
 var _commanders_label: Label
-var _status_label: Label ## centered overlay for match-status banners (waiting/desync)
+var _support_label: Label
 
 var _prev_amount: Dictionary = {} ## ResourceType.Type -> int, last displayed value (for count-up)
 var _prev_deficit: Dictionary = {} ## ResourceType.Type -> bool, last deficit state (for the pop-on-entry flash)
@@ -166,39 +166,10 @@ func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputCon
 	_commanders_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	row.add_child(_commanders_label)
 
-	# Match-status banner (waiting for players / desync halt). Overlaid centered
-	# on top of the bar's own panel so it always has the opaque panel background
-	# behind it — the old free-floating label sat over the world/fog and its
-	# text was unreadable against the black unexplored area (set_status below is
-	# what main.gd drives instead of a separate CanvasLayer). Added last so it
-	# draws over the resource row; IGNORE mouse so the click-to-expand still
-	# works through it.
-	var status_center := CenterContainer.new()
-	status_center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	status_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(status_center)
-
-	var status_box := UITheme.panel()
-	status_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	status_box.visible = false
-	status_center.add_child(status_box)
-
-	_status_label = UITheme.body_label("")
-	_status_label.add_theme_font_size_override("font_size", UITheme.FONT_BAR)
-	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status_box.add_child(_status_label)
-
-## Shows (or hides, on empty text) the centered status banner. `danger` recolors
-## it DANGER for a halting condition (desync) versus normal text for a transient
-## one (waiting for players). main.gd calls this instead of maintaining its own
-## screen-space labels, so the message inherits the bar's opaque background and
-## stays legible over any part of the map.
-func set_status(text: String, danger: bool = false) -> void:
-	if _status_label == null:
-		return
-	_status_label.text = text
-	_status_label.add_theme_color_override("font_color", UITheme.DANGER if danger else UITheme.TEXT)
-	_status_label.get_parent().visible = not text.is_empty()
+	_support_label = UITheme.body_label("")
+	_support_label.add_theme_font_size_override("font_size", UITheme.FONT_BAR)
+	_support_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(_support_label)
 
 ## Left click toggles the expanded rows; STOP (see class doc) means this is
 ## the only thing on the strip that ever sees mouse input.
@@ -273,6 +244,11 @@ func _process(delta: float) -> void:
 	_commanders_label.text = "Cmdrs %d/%d" % [commanders_used, commanders_max]
 	_commanders_label.add_theme_color_override("font_color", UITheme.WARNING if commanders_used >= commanders_max and commanders_max > 0 else UITheme.TEXT)
 
+	var support_used := _owned_support_count()
+	var support_max := SquadCap.max_support_squads(owned_bases)
+	_support_label.text = "Support %d/%d" % [support_used, support_max]
+	_support_label.add_theme_color_override("font_color", UITheme.WARNING if support_used >= support_max else UITheme.TEXT)
+
 	if _expanded:
 		_refresh_accum += delta
 		if _refresh_accum >= REFRESH_INTERVAL:
@@ -291,6 +267,7 @@ func _refresh_breakdown(owned_bases: Array[BaseInstance]) -> void:
 	var groups_by_type := _compute_producer_groups(owned_bases)
 	var auras: Dictionary = summary["auras"]
 	var upkeep_by_type: Dictionary = UpkeepSystem.compute_upkeep_by_troop_type(state.squads, state.troop_defs, auras).get(owner_id, {})
+	var building_upkeep: Dictionary = BuildingUpkeepSystem.compute_upkeep(owned_bases, state.building_defs).get(owner_id, {})
 	var max_lines := 1
 	var max_usage_lines := 1
 	for entry in DISPLAY_ORDER:
@@ -302,22 +279,27 @@ func _refresh_breakdown(owned_bases: Array[BaseInstance]) -> void:
 		_rebuild_building_lines(_building_boxes[type], lines)
 
 		var by_troop: Dictionary = upkeep_by_type.get(type, {})
-		var usage_total := 0.0
+		var building_amount := float(building_upkeep.get(type, 0.0))
+		var usage_total := building_amount
 		for troop_amount in by_troop.values():
 			usage_total += float(troop_amount)
 		_usage_labels[type].text = "-%.1f / tick used" % usage_total
-		var usage_lines := _usage_lines(by_troop)
+		var usage_lines := _usage_lines(by_troop, building_amount)
 		max_usage_lines = max(max_usage_lines, usage_lines.size())
 		_rebuild_building_lines(_usage_boxes[type], usage_lines)
 	if _expanded:
 		offset_bottom = HEIGHT + 2.0 * EXPANDED_BASE_HEIGHT + float(max_lines + max_usage_lines) * EXPANDED_LINE_HEIGHT + EXPANDED_BOTTOM_PADDING
 
 ## One line per troop type drawing this resource, e.g. "Rifleman: -3.0/tick"
-## (sorted by usage descending, biggest draw first), or a single "No usage"
-## line once nothing owned consumes this resource — mirrors _group_lines'
-## fallback for the production side.
-func _usage_lines(by_troop: Dictionary) -> Array[String]:
-	if by_troop.is_empty():
+## (sorted by usage descending, biggest draw first), plus one aggregate
+## "Buildings: -N.N/tick" line when `building_amount` > 0 — combined across
+## every owned building (BuildingUpkeepSystem.compute_upkeep), not broken out
+## per building the way troops are per type, since a base's building upkeep
+## isn't a per-instance decision the way squad composition is. Falls back to
+## a single "No usage" line only when NEITHER troops nor buildings draw
+## anything — mirrors _group_lines' fallback for the production side.
+func _usage_lines(by_troop: Dictionary, building_amount: float = 0.0) -> Array[String]:
+	if by_troop.is_empty() and building_amount <= 0.0:
 		return ["No usage"]
 	var entries: Array = by_troop.keys()
 	entries.sort_custom(func(a, b): return float(by_troop[a]) > float(by_troop[b]))
@@ -325,6 +307,8 @@ func _usage_lines(by_troop: Dictionary) -> Array[String]:
 	for troop_type in entries:
 		var name := String(state.troop_defs.get(troop_type, {}).get("name", String(troop_type).capitalize()))
 		lines.append("%s: -%.1f/tick" % [name, float(by_troop[troop_type])])
+	if building_amount > 0.0:
+		lines.append("Buildings: -%.1f/tick" % building_amount)
 	return lines
 
 ## One line per group, e.g. "2x Lv1 Mine" / "3x Lv2 Mine" (levels ascending),
@@ -388,9 +372,23 @@ func _compute_producer_groups(owned_bases: Array[BaseInstance]) -> Dictionary:
 func current_bottom() -> float:
 	return offset_bottom
 
+## Matches CommandProcessor.can_enqueue_production's general-pool count:
+## Commander and Support-tagged squads are excluded, since both are gated by
+## their own separate cap instead (see _commanders_label/_support_label).
 func _owned_squad_count() -> int:
 	var count := 0
 	for squad in state.squads:
-		if squad.owner_id == owner_id:
+		if squad.owner_id != owner_id:
+			continue
+		var def: Dictionary = state.troop_defs.get(squad.troop_type, {})
+		if SquadCap.is_commander(def) or SquadCap.is_support(def):
+			continue
+		count += 1
+	return count
+
+func _owned_support_count() -> int:
+	var count := 0
+	for squad in state.squads:
+		if squad.owner_id == owner_id and SquadCap.is_support(state.troop_defs.get(squad.troop_type, {})):
 			count += 1
 	return count

@@ -4,7 +4,7 @@
 
 | Resource | Source(s) | Used for |
 |---|---|---|
-| Food | Farms, Harbour (Farm-equivalent, requires a Water-adjacent tile — see `02-bases-and-buildings.md`) | Troop creation + troop/base maintenance |
+| Food | Farms, Harbour (Farm-equivalent, requires a Water-adjacent tile — see `02-bases-and-buildings.md`) | Troop creation + troop/building maintenance |
 | Steel | Mines | Vehicle creation, vehicle maintenance, **Quarry** construction/upgrade, and (alongside Stone) general building construction |
 | Fuel | Oil Rigs (all bases; Capital has -50% production penalty) | Vehicle & aircraft maintenance (ships use very little) |
 | Stone | Quarry | Building construction, walls, bridges, roads, **Mine** construction/upgrade, and (alongside Steel) general building construction |
@@ -41,6 +41,13 @@ separate, later idea, not designed yet).
 ## Consumption Rules
 - **Food**: consumption scales with base size (bigger base = more food required) and
   with troop count/creation.
+- **Building upkeep (Food only)**: most Production buildings and every Resource
+  building except the two that produce Food themselves (Farm, Harbour) draw a flat
+  per-tick Food upkeep, same idea as troop upkeep but with a different consequence —
+  see Deficit Consequences below (`data/buildings/schema.json`'s `foodUpkeep`,
+  sourced by `BuildingUpkeepSystem`). Defensive/Support/Infrastructure/Core buildings
+  (turrets, Hospital, Road/Bridge, HQ, ...) carry none — they don't produce or train
+  anything, so there'd be no consequence to gate. Buildings never draw Fuel upkeep.
 - **Fuel**: land vehicles only consume Fuel while **moving** — stationary land
   vehicles are free to maintain. Aircraft consume Fuel heavily while active, and
   **always do so while airborne** — there is no proximity-to-base fuel-free rule.
@@ -84,6 +91,14 @@ separate, later idea, not designed yet).
   zero — that's intended, not a bug to patch around: a deficit is meant to be
   self-limiting pressure (bleed troops until affordable again), not a death spiral,
   though the player still feels the cost via losing units either way.
+- **Buildings never die from a Food deficit** — deliberately a softer consequence
+  than the troop-death-drain above. A building with `foodUpkeep > 0` just stops
+  functioning for as long as the deficit lasts: a Resource building contributes
+  zero output that tick (`ProductionOutputSystem.compute_production`), a Production
+  building's queue holds paused (`pause_reason` `food_deficit`,
+  `ProductionManager.pump`) rather than deploying finished troops. Farm/Harbour are
+  never authored with `foodUpkeep` specifically so this can't deadlock: the two
+  buildings that could recover a Food deficit are immune to being stopped by one.
 
 ## Oil Rig Notes
 - Buildable at **all** bases (Capital and Unique).

@@ -25,6 +25,7 @@ var troop_info_panel: TroopInfoPanel
 var squad_panel: SquadPanel
 var toast_panel: ToastPanel
 var minimap: Minimap
+var upgrade_buildings_panel: UpgradeBuildingsPanel
 
 func setup(state: MatchState, owner_id: String, input_controller: InputController, camera_controller: CameraController, owner_colors: Dictionary, hexes: Array[HexCoord], bounds_min: Vector2, bounds_max: Vector2) -> void:
 	theme = UITheme.create_theme()
@@ -40,10 +41,16 @@ func setup(state: MatchState, owner_id: String, input_controller: InputControlle
 	add_child(troop_info_panel)
 	troop_info_panel.setup(state)
 
+	# Created before building_panel so building_panel's HQ body can open it.
+	upgrade_buildings_panel = UpgradeBuildingsPanel.new()
+	upgrade_buildings_panel.theme = theme
+	add_child(upgrade_buildings_panel)
+	upgrade_buildings_panel.setup(state, owner_id, input_controller)
+
 	building_panel = BuildingPanel.new()
 	building_panel.theme = theme
 	add_child(building_panel)
-	building_panel.setup(state, owner_id, input_controller, troop_info_panel, camera_controller, resource_bar)
+	building_panel.setup(state, owner_id, input_controller, troop_info_panel, camera_controller, resource_bar, upgrade_buildings_panel)
 
 	squad_panel = SquadPanel.new()
 	squad_panel.theme = theme

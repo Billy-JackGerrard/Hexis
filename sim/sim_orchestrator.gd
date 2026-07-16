@@ -1,7 +1,8 @@
 ## The top-level tick orchestrator: ties every previously-standalone-tested
 ## resolver (MovementResolver, CombatResolver, VisionSystem, DetectionSystem,
 ## AuraSystem, BuildingRegenSystem, StatusEffectSystem, ProductionManager,
-## UpkeepSystem, ResourceTick, ProductionOutputSystem, ProjectileSystem) into
+## UpkeepSystem, BuildingUpkeepSystem, ResourceTick, ProductionOutputSystem,
+## ProjectileSystem) into
 ## the two tick rates
 ## 07-data-architecture.md section 7/"Simulation Tick Rates" specifies:
 ## movement/combat every call (nominally 100ms/10-per-second, but — same
@@ -105,7 +106,7 @@ static func _advance_production(state: MatchState, dt: float) -> void:
 			Callable(state, "next_squad_id"),
 			state.grid,
 			state.pool_for(base.owner_id),
-			BuildingPlacement.building_blocking_hexes(state.bases, state.standalone_buildings),
+			BuildingPlacement.spawn_blocking_hexes(state.bases, state.standalone_buildings),
 		)
 
 ## Resources/upkeep/deficits — the 5-second cadence from
@@ -123,8 +124,13 @@ static func _advance_production(state: MatchState, dt: float) -> void:
 ## food-negative garrison with nothing but its own single seeded Farm to live
 ## on; skipping the tick outright avoids relying on that balance holding.
 static func _resolve_economy_tick(state: MatchState, auras: Dictionary) -> void:
-	var production := ProductionOutputSystem.compute_production(state.bases, state.base_defs, state.building_defs, auras)
+	var production := ProductionOutputSystem.compute_production(state.bases, state.base_defs, state.building_defs, auras, Callable(state, "pool_for"))
 	var upkeep := UpkeepSystem.compute_upkeep(state.squads, state.troop_defs, auras)
+	var building_upkeep := BuildingUpkeepSystem.compute_upkeep(state.bases, state.building_defs)
+	for owner_id in building_upkeep:
+		var totals: Dictionary = upkeep.get(owner_id, {})
+		totals[ResourceType.Type.FOOD] = float(totals.get(ResourceType.Type.FOOD, 0.0)) + float(building_upkeep[owner_id][ResourceType.Type.FOOD])
+		upkeep[owner_id] = totals
 
 	var owner_ids: Dictionary = {}
 	for base in state.bases:

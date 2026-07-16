@@ -36,6 +36,8 @@ func _init() -> void:
 	_test_baseline()
 	print("ProductionOutputSystem.compute_production: resource_siphon redirect")
 	_test_siphon_redirect()
+	print("ProductionOutputSystem.compute_production: food-deficit upkeep gate")
+	_test_food_deficit_gate()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -98,6 +100,40 @@ func _test_siphon_redirect() -> void:
 	var farm_output := _farm_food_output(1)
 	_check(_approx(float(production.get("p2", {}).get(ResourceType.Type.FOOD, 0.0)), farm_output), "the sieged Farm's entire Food output moves to the siphoning owner (p2)")
 	_check(_approx(float(production.get("p1", {}).get(ResourceType.Type.FOOD, 0.0)), farm_output), "p1 still gets the un-sieged second Farm's output, not zero")
+
+## A Resource building with an authored foodUpkeep (Quarry) contributes
+## nothing while its owner's Food pool is in deficit; Farm, never authored
+## with foodUpkeep specifically so a Food deficit can never deadlock itself,
+## keeps producing regardless -- see data/buildings/schema.json's foodUpkeep
+## note and 03-resources.md's Deficit Consequences.
+func _test_food_deficit_gate() -> void:
+	var base := BaseInstance.new("b1", "capital", "p1", 1, HexCoord.new(5, 0))
+	var farm := BuildingInstance.new("f1", "b1", "farm", 1, "", HexCoord.new(5, 0))
+	farm.init_hp(_building_defs["farm"], _building_defs)
+	base.buildings.append(farm)
+	var quarry := BuildingInstance.new("q1", "b1", "quarry", 1, "", HexCoord.new(6, 0))
+	quarry.init_hp(_building_defs["quarry"], _building_defs)
+	base.buildings.append(quarry)
+	var bases: Array[BaseInstance] = [base]
+
+	_check(float(_building_defs["quarry"].get("foodUpkeep", 0.0)) > 0.0, "sanity check: quarry.json carries foodUpkeep > 0")
+	_check(float(_building_defs["farm"].get("foodUpkeep", 0.0)) == 0.0, "sanity check: farm.json carries no foodUpkeep")
+
+	var starved_pool := ResourcePool.new()
+	starved_pool.set_amount(ResourceType.Type.FOOD, -1.0)
+	var pools := {"p1": starved_pool}
+	var pool_for: Callable = func(owner_id: String) -> ResourcePool: return pools.get(owner_id, null)
+
+	var production := ProductionOutputSystem.compute_production(bases, _base_defs, _building_defs, {}, pool_for)
+	var farm_output := _farm_food_output(1)
+	var quarry_output: float = BuildingStats.resource_output(_building_defs["quarry"], 1, _building_defs).get(ResourceType.Type.STONE, 0.0)
+	_check(_approx(float(production.get("p1", {}).get(ResourceType.Type.FOOD, 0.0)), farm_output), "Farm keeps producing Food through a Food deficit (%s)" % farm_output)
+	_check(float(production.get("p1", {}).get(ResourceType.Type.STONE, 0.0)) == 0.0, "starved Quarry (%s Stone unleveled) contributes nothing this tick" % quarry_output)
+
+	# recovery: once Food is no longer in deficit, the Quarry produces again
+	starved_pool.set_amount(ResourceType.Type.FOOD, 0.0)
+	var recovered := ProductionOutputSystem.compute_production(bases, _base_defs, _building_defs, {}, pool_for)
+	_check(_approx(float(recovered.get("p1", {}).get(ResourceType.Type.STONE, 0.0)), quarry_output), "Quarry resumes producing once Food is no longer in deficit")
 
 func _approx(a: float, b: float) -> bool:
 	return abs(a - b) < 0.001

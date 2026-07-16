@@ -39,6 +39,8 @@
 
     "populationCost": { "type": "number", "default": 1, "description": "Population slots this building consumes when placed. 0 for House and Walls." },
 
+    "foodUpkeep": { "type": "number", "default": 0, "description": "Flat per-tick Food upkeep this building draws while standing (not ruined) — the building-level counterpart to troop.schema.json's foodUpkeep. Never scales with level. Absent/0 means no upkeep (every Defensive/Support/Infrastructure/Core building, plus Farm/Harbour: the two Food-producing Resource buildings are deliberately never authored with this field, so a Food deficit can never stop the one thing that would recover it). While the owner's Food pool is in deficit, a building with foodUpkeep > 0 stops contributing this tick if it's a Resource building (ProductionOutputSystem.compute_production) or holds its queue paused (pause_reason \"food_deficit\") if it's a Production building (ProductionManager.pump) — for as long as the deficit lasts. Unlike a troop's foodUpkeep, this never damages the building or kills anything; see game-design/03-resources.md." },
+
     "placementRequirement": {
       "type": "object",
       "description": "Where this building is allowed to be placed, beyond the base's HQ-radius and two-adjacent-buildings rules. Two independent constraints, since a building's own hex terrain and an adjacency requirement to a *different* terrain are separate concerns (e.g. Port sits on Plains but needs an adjacent Water tile).",

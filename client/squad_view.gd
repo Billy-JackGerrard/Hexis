@@ -84,11 +84,35 @@ func squad_pixel_position(squad: SquadInstance) -> Vector2:
 	var to := HexView.axial_to_pixel(squad.path[0])
 	return from.lerp(to, squad.edge_progress)
 
-func squad_at_pixel(point: Vector2) -> SquadInstance:
+## Every friendly (`for_owner_id`-owned) squad within click radius of `point`,
+## in stable squads-array order — the stacked-hex candidate list select_next
+## cycles through, since several same-hex squads all render on top of each
+## other and a plain "first match" query would always return the same
+## array-order-first one.
+func owned_squads_at_pixel(point: Vector2, for_owner_id: String) -> Array[SquadInstance]:
+	var result: Array[SquadInstance] = []
 	for squad in squads:
-		if squad_pixel_position(squad).distance_to(point) <= RADIUS:
-			return squad
-	return null
+		if squad.owner_id == for_owner_id and squad_pixel_position(squad).distance_to(point) <= RADIUS:
+			result.append(squad)
+	return result
+
+## Selects the candidate right after whichever one is currently the sole
+## selection (wrapping past the end back to candidates[0]) — re-clicking a
+## hex with several stacked squads steps through them one at a time. Falls
+## back to candidates[0] when there's no single current selection among
+## `candidates` (nothing selected yet, multiple selected, or the current
+## selection isn't one of this hex's squads).
+func select_next(candidates: Array[SquadInstance]) -> void:
+	if candidates.is_empty():
+		return
+	var next := candidates[0]
+	if selected_squad_ids.size() == 1:
+		var current_id: String = selected_squad_ids.keys()[0]
+		for i in range(candidates.size()):
+			if candidates[i].id == current_id:
+				next = candidates[(i + 1) % candidates.size()]
+				break
+	select_only(next.id)
 
 ## Every squad whose current rendered position falls inside `rect` — the
 ## drag-select query. Rect is in the same world space as squad_pixel_position.

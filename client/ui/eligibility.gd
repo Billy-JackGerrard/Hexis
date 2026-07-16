@@ -55,6 +55,17 @@ static func upgrade_reason(state: MatchState, building_id: String, owner_id: Str
 		_:
 			return "Can't upgrade"
 
+## Reason `building_id` can't be demolished right now, or "" if it can. Thin
+## mapping over CommandProcessor.can_demolish_building's Result.
+static func demolish_reason(state: MatchState, building_id: String, owner_id: String) -> String:
+	match CommandProcessor.can_demolish_building(state, building_id, owner_id):
+		CommandProcessor.Result.OK:
+			return ""
+		CommandProcessor.Result.IS_FIXED:
+			return "Can't demolish this building"
+		_:
+			return "Can't demolish"
+
 ## Reason a troop can't be trained here, or "" if it can. can_enqueue_production
 ## itself blocks at the squad/Commander cap (unless an existing same-type squad
 ## still has room to join), so this is a thin mapping over its Result.
@@ -71,6 +82,8 @@ static func troop_reason(state: MatchState, building_id: String, troop_type: Str
 			return "Squad cap reached"
 		CommandProcessor.Result.COMMANDER_CAP_REACHED:
 			return "Commander cap reached"
+		CommandProcessor.Result.SUPPORT_CAP_REACHED:
+			return "Support cap reached"
 		_:
 			return "Can't train"
 
@@ -167,10 +180,13 @@ static func _any_valid_hq_standalone_hex(state: MatchState, base: BaseInstance, 
 
 ## Every OTHER friendly squad `commander` (a Commander, maxSquadsLed > 0)
 ## could be assigned to lead — not itself, not already in this Commander's
-## regiment, not docked/boarded, and not itself a Commander (no nested
-## regiments). Doesn't pre-filter on regiment-full; assign_reason surfaces
-## that separately so a full regiment still shows its member list to remove
-## from, just with Assign buttons greyed.
+## regiment, not docked/boarded, not itself a Commander (no nested regiments),
+## not Naval (a regiment moves lock-step on one shared land path — see
+## can_assign_to_commander), and within one hex of the Commander (adjacent or
+## same hex) — the picker only ever shows squads actually near enough to fall
+## in. Doesn't pre-filter on regiment-full; assign_reason surfaces that
+## separately so a full regiment still shows its member list to remove from,
+## just with Assign buttons greyed.
 static func assignable_squads(state: MatchState, commander: SquadInstance) -> Array[SquadInstance]:
 	var result: Array[SquadInstance] = []
 	for other in state.squads:
@@ -181,6 +197,10 @@ static func assignable_squads(state: MatchState, commander: SquadInstance) -> Ar
 		if other.is_docked():
 			continue
 		if int(state.troop_defs.get(other.troop_type, {}).get("maxSquadsLed", 0)) > 0:
+			continue
+		if String(state.troop_defs.get(other.troop_type, {}).get("domain", "")) == "Naval":
+			continue
+		if other.current_hex == null or commander.current_hex == null or HexCoord.distance(other.current_hex, commander.current_hex) > 1:
 			continue
 		result.append(other)
 	return result
@@ -193,6 +213,8 @@ static func assign_to_commander_reason(state: MatchState, commander: SquadInstan
 			return ""
 		CommandProcessor.Result.REGIMENT_FULL:
 			return "Regiment full"
+		CommandProcessor.Result.NOT_ADJACENT:
+			return "Must be adjacent"
 		_:
 			return "Can't assign"
 

@@ -4,6 +4,7 @@
   "category": "Production",
   "isFixed": true,
   "populationCost": 1,
+  "foodUpkeep": 1,
 
   "notes": "Trains command units. Permanent once established — never freshly built, and cannot be torn down, only restored from ruin if destroyed.",
 

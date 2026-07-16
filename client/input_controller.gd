@@ -348,13 +348,15 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 			squad_view.clear_selection()
 		return
 
-	var clicked_squad := squad_view.squad_at_pixel(release_pos)
-	if clicked_squad != null and clicked_squad.owner_id == owner_id:
+	var clicked_candidates := squad_view.owned_squads_at_pixel(release_pos, owner_id)
+	if not clicked_candidates.is_empty():
 		_clear_building_selection()
 		if shift:
-			squad_view.toggle_selection(clicked_squad.id)
+			squad_view.toggle_selection(clicked_candidates[0].id)
 		else:
-			squad_view.select_only(clicked_squad.id)
+			# Re-clicking the same hex cycles to the next stacked squad there
+			# instead of re-selecting whichever one always sorts first.
+			squad_view.select_next(clicked_candidates)
 		return
 
 	# Case 2: an enemy target under the cursor with squads selected issues a
@@ -362,9 +364,10 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	if _try_attack_order(release_pos):
 		return
 
-	# Case 3: one of the local player's own base buildings under the cursor
-	# selects that base (build menu/population panel); if the specific
-	# building clicked is a Production-category one, also selects it for
+	# Case 3: one of the local player's own base buildings, or a standalone one
+	# (Tower/Landmine/Road/Bridge — Dock excepted, see _own_building_at), under
+	# the cursor selects it for building_panel.gd. If the specific building
+	# clicked is a Production-category one, also selects it for
 	# client/hud/production_panel.gd (its queue, its unlocked-troop buttons).
 	# Re-clicking the already-selected building instead toggles it closed.
 	# Clicking anywhere else clears both (click-away-to-close, same as case 4
@@ -376,7 +379,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 		if building.id == selected_building_id:
 			_clear_building_selection()
 			return
-		selected_base_id = base.id
+		selected_base_id = base.id if base != null else ""
 		selected_building_id = building.id
 		var def: Dictionary = state.building_defs.get(building.building_type, {})
 		selected_production_building_id = building.id if def.get("category", "") == "Production" else ""
@@ -507,9 +510,15 @@ func _edge_at_pixel(pos: Vector2) -> Array:
 		return []
 	return [hex, best_neighbor]
 
-## {"base": BaseInstance, "building": BuildingInstance} for the local
-## player's own base building (any type) occupying `hex`, or {} if none.
-## Standalone buildings/Walls have no owning base and never match.
+## {"base": BaseInstance|null, "building": BuildingInstance} for the local
+## player's own building (any type) occupying `hex`, or {} if none — a
+## base-attached building first, else one of their standalone buildings
+## (Tower/Landmine/Road/Bridge), with "base" left null for the latter so
+## building_panel.gd knows there's no BaseInstance to show population/BUILD
+## menu context for. The coastal standalone Dock is deliberately excluded —
+## it's served from the adjacent ship's own squad panel instead (see
+## building_panel.gd's NAVAL_DOCK_BUILDINGS doc comment) — and Walls never
+## match either way (hex_a/hex_b, no single hex of their own).
 func _own_building_at(hex: HexCoord) -> Dictionary:
 	for base in state.bases:
 		if base.owner_id != owner_id:
@@ -517,6 +526,11 @@ func _own_building_at(hex: HexCoord) -> Dictionary:
 		for building in base.buildings:
 			if building.hex != null and building.hex.equals(hex):
 				return {"base": base, "building": building}
+	for building in state.standalone_buildings:
+		if building.owner_id != owner_id or building.building_type == "dock":
+			continue
+		if building.hex != null and building.hex.equals(hex):
+			return {"base": null, "building": building}
 	return {}
 
 ## Recomputes _hover_kind only when the mouse has crossed into a different

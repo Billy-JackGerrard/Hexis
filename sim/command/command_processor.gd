@@ -41,6 +41,7 @@ enum Result {
 	NEED_MORE_POPULATION, ## HQ upgrade gated on minPopulationPerLevel
 	SQUAD_CAP_REACHED,     ## enqueue_production: would need a new squad, owner at global squad cap
 	COMMANDER_CAP_REACHED, ## enqueue_production: Command Centre training, owner at Commander cap
+	SUPPORT_CAP_REACHED,   ## enqueue_production: Support-tagged troop, owner at the separate Support cap
 }
 
 ## --- Movement --------------------------------------------------------------
@@ -193,6 +194,14 @@ static func can_assign_to_commander(state: MatchState, squad_id: String, command
 	var max_squads_led := int(state.troop_defs.get(commander_squad.troop_type, {}).get("maxSquadsLed", 0))
 	if max_squads_led <= 0:
 		return Result.INVALID
+
+	# Every Commander is Land-domain and a regiment moves lock-step on one
+	# shared land path (04-combat.md) — a Naval squad can't follow that path,
+	# so it can never join a regiment regardless of position.
+	if String(state.troop_defs.get(squad.troop_type, {}).get("domain", "")) == "Naval":
+		return Result.INVALID
+	if squad.current_hex == null or commander_squad.current_hex == null or HexCoord.distance(squad.current_hex, commander_squad.current_hex) > 1:
+		return Result.NOT_ADJACENT
 
 	for regiment in state.regiments:
 		if regiment.commander_id == commander_squad_id:
@@ -432,14 +441,11 @@ static func place_wall(state: MatchState, base_id: String, hex_a: HexCoord, hex_
 
 ## --- Demolish / rebuild (02-bases-and-buildings.md, 07-data-architecture.md 3a) --
 
-## Voluntarily removes `building_id`, refunding a flat 50% of its
-## total_resources_spent. Blocked for `isFixed` buildings (HQ, Ice Spire,
-## Radar Array). Applies uniformly to base-attached buildings, Walls, and
-## standalone buildings — all three already delete outright, this just
-## triggers that deletion voluntarily plus the refund. Also clears any
-## ProductionQueue keyed to this building, since a dangling queue pointing at
-## a deleted BuildingInstance would break the next production tick.
-static func demolish_building(state: MatchState, building_id: String, owner_id: String) -> Result:
+## Pure predicate behind demolish_building — ownership + isFixed only, no
+## resources involved. Extracted so the UI (client/ui/eligibility.gd) can
+## grey out an ineligible Demolish button without duplicating this rule set,
+## same split as can_upgrade_building/can_assign_to_commander.
+static func can_demolish_building(state: MatchState, building_id: String, owner_id: String) -> Result:
 	var found := state.find_any_building(building_id)
 	if found.is_empty():
 		return Result.NOT_FOUND
@@ -448,11 +454,26 @@ static func demolish_building(state: MatchState, building_id: String, owner_id: 
 	var current_owner := base.owner_id if base != null else building.owner_id
 	if current_owner != owner_id:
 		return Result.NOT_OWNER
-
 	var def: Dictionary = state.building_defs.get(building.building_type, {})
 	if bool(BuildingStats.resolve_def(def, state.building_defs).get("isFixed", false)):
 		return Result.IS_FIXED
+	return Result.OK
 
+## Voluntarily removes `building_id`, refunding a flat 50% of its
+## total_resources_spent. Blocked for `isFixed` buildings (HQ, Ice Spire,
+## Radar Array). Applies uniformly to base-attached buildings, Walls, and
+## standalone buildings — all three already delete outright, this just
+## triggers that deletion voluntarily plus the refund. Also clears any
+## ProductionQueue keyed to this building, since a dangling queue pointing at
+## a deleted BuildingInstance would break the next production tick.
+static func demolish_building(state: MatchState, building_id: String, owner_id: String) -> Result:
+	var check := can_demolish_building(state, building_id, owner_id)
+	if check != Result.OK:
+		return check
+
+	var found := state.find_any_building(building_id)
+	var base: BaseInstance = found.get("base")
+	var building: BuildingInstance = found["building"]
 	var pool := state.pool_for(owner_id)
 	for type in building.total_resources_spent:
 		pool.add(type, float(building.total_resources_spent[type]) * Tuning.DEMOLISH_REFUND_FRACTION)
@@ -673,11 +694,33 @@ static func can_enqueue_production(state: MatchState, building_id: String, troop
 			var max_commanders := SquadCap.max_commanders(state.bases_owned_by(owner_id), state.building_defs)
 			if state.commander_count(owner_id) >= max_commanders:
 				return Result.COMMANDER_CAP_REACHED
+		elif SquadCap.is_support(troop_def):
+			# Support-tagged troops (Engineer, Mule, Ambulance, ...) never
+			# compete with combat squads for a max_squads slot — they have
+			# their own separate, smaller pool instead (see Tuning.
+			# SUPPORT_SQUAD_CAP_*), so a capped player can still, say, build
+			# the Engineer needed to bridge a river.
+			var owner_support_count := 0
+			for s in state.squads:
+				if s.owner_id == owner_id and SquadCap.is_support(state.troop_defs.get(s.troop_type, {})):
+					owner_support_count += 1
+			var max_support := SquadCap.max_support_squads(state.bases_owned_by(owner_id))
+			if owner_support_count >= max_support:
+				return Result.SUPPORT_CAP_REACHED
 		else:
+			# Commanders are gated purely by max_commanders above, and any
+			# Support-tagged troop purely by max_support_squads — neither
+			# consumes a slot in this general pool, excluded here too, or an
+			# already-trained one would silently eat into the cap every other
+			# (combat) troop type competes for.
 			var owner_squad_count := 0
 			for s in state.squads:
-				if s.owner_id == owner_id:
-					owner_squad_count += 1
+				if s.owner_id != owner_id:
+					continue
+				var sdef: Dictionary = state.troop_defs.get(s.troop_type, {})
+				if SquadCap.is_commander(sdef) or SquadCap.is_support(sdef):
+					continue
+				owner_squad_count += 1
 			var max_squads := SquadCap.max_squads(state.bases_owned_by(owner_id))
 			if owner_squad_count >= max_squads:
 				return Result.SQUAD_CAP_REACHED

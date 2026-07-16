@@ -48,10 +48,6 @@ this'll encourage more infantry production.
 
 
 
-add letters to buildings
-
-buildings should use food/fuel
-
 
 idea: bridges dont last forever
 
@@ -61,5 +57,5 @@ in addition, resource buildings and stuff can be built as standalone if its next
 this would mean in the future we can add better, rare terrain/natural resources on the map, to encourage exploration.
 
 if a quarry is on/next to a hill, bonus?
-
-shortcut to upgrade multiple/app buildings?
+terrain bonuses?
+oil fields?

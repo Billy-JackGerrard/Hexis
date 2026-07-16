@@ -327,6 +327,27 @@ static func _blocks_movement(building: BuildingInstance) -> bool:
 		return false
 	return true
 
+## {hex_key: true} for every hex a Land/Naval troop should not spawn onto:
+## every building_blocking_hexes() hex PLUS ruins (is_ruin or destroyed),
+## which building_blocking_hexes deliberately excludes so units can walk
+## over rubble — walkable is fine for movement, but a freshly produced squad
+## materializing on top of a ruin looks wrong, so ProductionManager.pump
+## uses this instead of building_blocking_hexes for spawn placement.
+static func spawn_blocking_hexes(bases: Array[BaseInstance], standalone_buildings: Array[BuildingInstance]) -> Dictionary:
+	var result := building_blocking_hexes(bases, standalone_buildings)
+	for base in bases:
+		var occupied := base.occupied_hexes()
+		for key in occupied:
+			if _is_ruined(occupied[key]):
+				result[key] = true
+	for building in standalone_buildings:
+		if building.hex != null and _is_ruined(building):
+			result[building.hex.to_key()] = true
+	return result
+
+static func _is_ruined(building: BuildingInstance) -> bool:
+	return building.is_ruin or (building.max_hp > 0.0 and building.current_hp <= 0.0)
+
 ## Building types a Naval carrier may disembark land cargo onto (or pick
 ## boarding cargo up from) per 01-map-and-terrain.md's Naval/Coastline Rules
 ## ("Naval troops can only disembark onto land at a Dock, a Port/Shipyard, or

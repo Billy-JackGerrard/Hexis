@@ -324,11 +324,11 @@ RegimentInstance {
 
 ### 4c. Global Squad Cap
 A player's maximum simultaneous squad count is **not a flat number** — it's derived:
-`maxSquads = sum(hqLevel across every base the player owns) * 2 + 2` — every base
+`maxSquads = sum(hqLevel across every base the player owns) * 1 + 2` — every base
 (Capital *and* Unique) has its own HQ and its own `hqLevel` (see Base Seeding in
 `02-bases-and-buildings.md`), so this scales with both how many bases and how
 developed each one is. A fresh player with one level-1 Capital starts at `maxSquads =
-4` (`1 * 2 + 2`). Producing a troop that would need a new squad (no existing
+3` (`1 * 1 + 2`). Producing a troop that would need a new squad (no existing
 same-type squad has room) is blocked/paused once the player is at their squad cap (see
 `3b`'s production-queue-pause rule) — upgrading any owned base's HQ, or capturing an
 additional base, raises the cap again.
@@ -336,6 +336,9 @@ additional base, raises the cap again.
   base lowers `sum(hqLevel)`), nothing is forcibly disbanded — every existing squad
   keeps operating normally. The player is simply blocked from forming any *new* squad
   until their count drops back under the (now-lower) cap on its own (through losses).
+- **Commander and Support-tagged squads are excluded from this pool entirely** —
+  see `4d` and `4e` below. Both are gated by their own separate cap instead, so
+  neither competes with combat squads (Rifleman, Tonk, ...) for a `maxSquads` slot.
 
 ## 4d. Commander Cap
 A **separate** player-wide cap, independent of `maxSquads` above, though a Commander
@@ -355,6 +358,20 @@ two level-1 Command Centres together allow 2 simultaneous Commanders. As with
 current live Commander count without killing any existing Commander** — they keep
 fighting; only *new* Commander production is blocked (paused, per `3b`) until the
 count is back under the lower cap.
+
+## 4e. Support Squad Cap
+A **third, separate** player-wide cap for non-Commander troops carrying the
+`"Support"` trait tag (Engineer, Mule, Ambulance, Repair Drone/Truck, Transport
+Truck, Volt Truck, Kleptocopter, ...) — utility units with little or no combat
+presence, whose value is being *available* (e.g. an Engineer to bridge a river
+or wall off a choke point) rather than adding to the fight. Exempting them from
+`4c`'s `maxSquads` means a player already at their combat squad cap can still
+train the Engineer they need; this separate cap exists so that exemption isn't
+*unbounded* — same formula shape as `4c`, its own independent pool:
+`maxSupportSquads = sum(hqLevel across every base the player owns) * 1 + 2`.
+A troop tagged `"Support"` that's also Commander-tagged (`maxSquadsLed > 0` —
+e.g. Warden, who carries both) is gated by `4d`'s Commander cap only; the
+Commander check always takes precedence over the Support tag.
 
 ## 5. Base & Ownership
 **Resolved: `BaseDef` (static, per base type — `data/bases/schema.json`) and
@@ -486,9 +503,10 @@ Tile {
      contributes its output to the siphoning player's pool instead of its own
      owner's — resolved per building, not per base, so an un-sieged building on the
      same base still credits its owner normally.
-  2. Subtract upkeep (Food for all troops/bases; Fuel for moving vehicles and for
-     aircraft not currently idle at one of the owner's own bases, per the fuel rules
-     in `03-resources.md`).
+  2. Subtract upkeep (Food for all troops, plus Food for any building with an
+     authored `foodUpkeep` — see `03-resources.md`'s Building upkeep note; Fuel for
+     moving vehicles and for aircraft not currently idle at one of the owner's own
+     bases, per the fuel rules in `03-resources.md`).
   3. Apply the net delta to the player's resource pool.
   4. If a resource is in deficit, apply that resource's per-squad drain (one troop
      death per affected squad, per resource tick — see `03-resources.md`).

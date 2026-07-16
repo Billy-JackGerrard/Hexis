@@ -6,6 +6,8 @@
 ## a single hex) render as a thick line along their shared edge instead of
 ## a rect. Ruins darken their tint. Stealthed buildings (e.g. Landmine)
 ## only render for the local player or a detector that currently sees them.
+## Every shape also gets a 1-2 letter tag from BUILDING_LABELS so same-color
+## squares are distinguishable without art (Wall excepted — no room on a line).
 ##
 ## Also draws a lightweight hover-only text overlay using ThemeDB's fallback
 ## font since this is a Node2D (world space), not a Control — Godot's
@@ -54,6 +56,36 @@ const TOOLTIP_COLOR := UITheme.TEXT
 ## like "Missile Launcher" ran past 140px and got cut off.
 const TOOLTIP_WIDTH := 220.0
 const TOOLTIP_LEVEL_COLOR := UITheme.TEXT_MUTED
+## 1-2 letter tag drawn centered on each building's shape so same-color
+## squares/diamonds (no art yet) are visually distinguishable at a glance.
+## First letter alone where a building_type's initial is unique; expanded
+## (not always to its literal 2nd letter — picked for readability, e.g.
+## "Fa"/"Fm" for Factory/Farm) wherever two-plus types collide on the same
+## first letter. Wall has no entry — it renders as an edge line, not a
+## shape with room for a label. Keep sorted to match data/buildings/*.json.
+const BUILDING_LABELS := {
+	"barracks": "Ba", "blazeworks": "Bl", "bridge": "Br",
+	"cold_turret": "Co", "command_centre": "Cm", "covert_airfield": "CA", "covert_works": "CW",
+	"demolition_plant": "De", "dock": "Do",
+	"emp_turret": "EM",
+	"factory": "Fa", "farm": "Fm", "flame_turret": "Fl", "ford_yard": "Fd", "forest_yard": "Fs", "frostworks": "Fw",
+	"grenade_turret": "Gr",
+	"hangar": "Ha", "harbour": "Hr", "healing_spire": "He", "house": "Ho", "hq": "HQ",
+	"ice_spire": "Ic", "iron_aviary": "Ir",
+	"landmine": "La", "lumber_mill": "Lu",
+	"mine": "Mi", "missile_launcher": "ML",
+	"oil_rig": "Oi",
+	"port": "Po",
+	"quarry": "Qu",
+	"radar_array": "Ra", "road": "Rd",
+	"salvage_works": "Sa", "shipyard": "Sh", "sniper_turret": "Sn", "stone_works": "St", "supply_depot": "Su",
+	"tank_plant": "Ta", "tower": "To", "turret": "Tu",
+	"water_turret": "Wa", "wind_sanctuary": "Ws", "wind_spire": "Wi", "wood_turret": "Wo",
+}
+const LABEL_FONT_SIZE := 12
+const LABEL_COLOR := Color.WHITE
+const LABEL_OUTLINE := Color(0.0, 0.0, 0.0, 0.9)
+const LABEL_OUTLINE_SIZE := 2
 ## Kept close to the building itself rather than clearing squad_view.gd's own
 ## hover/selected INFO_LABEL zone (anchored RADIUS+22 above a squad, roughly
 ## -48..-28px) — these used to sit up at -70/-50 specifically to dodge that,
@@ -180,6 +212,20 @@ func _draw_building(building: BuildingInstance, owner_id: String, color: Color, 
 		var rect := Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size))
 		draw_rect(rect, color, true)
 		draw_rect(rect, Color.BLACK, false, 1.0)
+	_draw_building_label(center, building.building_type)
+
+func _draw_building_label(center: Vector2, building_type: String) -> void:
+	var label: String = BUILDING_LABELS.get(building_type, "")
+	if label.is_empty():
+		return
+	var font := ThemeDB.fallback_font
+	# draw_string's y is the text baseline, not its top, so nudging down by
+	# ~35% of the font size roughly centers the glyphs vertically on `center`.
+	var pos := center + Vector2(0.0, LABEL_FONT_SIZE * 0.35)
+	var width := BUILDING_SIZE * 2.0
+	pos.x -= width * 0.5
+	draw_string_outline(font, pos, label, HORIZONTAL_ALIGNMENT_CENTER, width, LABEL_FONT_SIZE, LABEL_OUTLINE_SIZE, LABEL_OUTLINE)
+	draw_string(font, pos, label, HORIZONTAL_ALIGNMENT_CENTER, width, LABEL_FONT_SIZE, LABEL_COLOR)
 
 func _draw_diamond(center: Vector2, size: float, color: Color) -> void:
 	var half := size * 0.5

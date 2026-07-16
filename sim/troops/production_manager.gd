@@ -17,6 +17,11 @@
 ## pool is in deficit (ResourcePool.is_deficit, amount < 0), same as
 ## 03-resources.md's Deficit Consequences already bleeds troops for. A troop
 ## type with no fuel upkeep (e.g. Infantry) is unaffected and keeps deploying.
+##
+## The food-deficit pause rule is the building-upkeep counterpart, but shaped
+## differently: it's keyed off the PRODUCING BUILDING's own foodUpkeep (data/
+## buildings/schema.json), not the queued troop's, so it gates the whole
+## queue rather than a per-entry check — see pump()'s building_starved.
 class_name ProductionManager
 extends RefCounted
 
@@ -150,7 +155,20 @@ static func pump(
 	pool: ResourcePool = null,
 	building_blocked_hexes: Dictionary = {},
 ) -> void:
+	# The building-upkeep counterpart to the per-entry fuel-deficit check
+	# below: this one is about the PRODUCING BUILDING's own foodUpkeep (data/
+	# buildings/schema.json), not any queued troop's — so it's building-wide,
+	# checked once, not per entry. A building with no authored foodUpkeep
+	# (most Production buildings today are still 0 — see the field's note)
+	# is never gated regardless of pool state.
+	var building_def: Dictionary = building_defs.get(building_type, {})
+	var building_starved := pool != null and BuildingStats.food_upkeep(building_def, building_defs) > 0.0 and pool.is_deficit(ResourceType.Type.FOOD)
+
 	while queue.front_complete():
+		if building_starved:
+			queue.paused = true
+			queue.pause_reason = "food_deficit"
+			return
 		var entry: Dictionary = queue.front()
 		var troop_type: String = entry.get("troop_type", "")
 		var troop_def: Dictionary = troop_defs.get(troop_type, {})
@@ -208,12 +226,15 @@ static func pump(
 ##   comment above for why (a Naval building sits on land adjacent to water,
 ##   not on water itself).
 ## - Land: a Land vehicle's own building blocks Land movement just like any
-##   other standing building (BuildingPlacement.building_blocking_hexes, fed
-##   in here as `building_blocked_hexes`), so spawning right on it would drop
-##   the vehicle on a hex it could never leave under its own power. Searches
-##   outward the same way, excluding both squad-occupied AND building-blocked
-##   hexes (its own producing building included — that hex is in
-##   `building_blocked_hexes` too, which is what pushes the search off it).
+##   other standing building (BuildingPlacement.spawn_blocking_hexes, fed
+##   in here as `building_blocked_hexes` — unlike building_blocking_hexes,
+##   this also covers ruins, so a fresh squad never spawns on rubble even
+##   though ruins stay walkable afterward), so spawning right on it would
+##   drop the vehicle on a hex it could never leave under its own power.
+##   Searches outward the same way, excluding both squad-occupied AND
+##   building-blocked hexes (its own producing building included — that hex
+##   is in `building_blocked_hexes` too, which is what pushes the search off
+##   it).
 ## - Infantry: spawns on the barracks hex itself just like Land does its own
 ##   producing building — same outward search, excluding squad-occupied AND
 ##   building-blocked hexes, so a fresh squad lands beside the barracks

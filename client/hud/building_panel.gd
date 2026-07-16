@@ -23,6 +23,7 @@ var input_controller: InputController
 var troop_info_panel: TroopInfoPanel
 var camera_controller: CameraController
 var resource_bar: ResourceBar
+var upgrade_buildings_panel: UpgradeBuildingsPanel
 
 const WIDTH := 420.0
 const MARGIN := 12.0
@@ -75,13 +76,14 @@ var _refresh_accum := 0.0
 ## rebuild instead of going stale until some unrelated change forces one.
 var _shown_queue_key: String = ""
 
-func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_troop_info_panel: TroopInfoPanel, p_camera_controller: CameraController, p_resource_bar: ResourceBar) -> void:
+func setup(p_state: MatchState, p_owner_id: String, p_input_controller: InputController, p_troop_info_panel: TroopInfoPanel, p_camera_controller: CameraController, p_resource_bar: ResourceBar, p_upgrade_buildings_panel: UpgradeBuildingsPanel) -> void:
 	state = p_state
 	owner_id = p_owner_id
 	input_controller = p_input_controller
 	troop_info_panel = p_troop_info_panel
 	camera_controller = p_camera_controller
 	resource_bar = p_resource_bar
+	upgrade_buildings_panel = p_upgrade_buildings_panel
 
 	# Top-right band under the resource bar, stopping short of the minimap's
 	# bottom-right footprint (same layout contract build_menu.gd held). Flips
@@ -169,13 +171,13 @@ func _apply_side(on_left: bool) -> void:
 ## screen-space position, with hysteresis (FLIP_TO_LEFT_RATIO /
 ## FLIP_TO_RIGHT_RATIO) so it doesn't flip back and forth as the camera pans.
 func _update_side() -> void:
-	var found := state.find_base_building(_shown_for_building_id) if _shown_for_building_id != "" else {}
+	var found := state.find_any_building(_shown_for_building_id) if _shown_for_building_id != "" else {}
 	if found.is_empty():
 		return
-	var base: BaseInstance = found["base"]
-	if base.hex_coord == null:
+	var building: BuildingInstance = found["building"]
+	if building.hex == null:
 		return
-	var world_pos := HexView.axial_to_pixel(base.hex_coord)
+	var world_pos := HexView.axial_to_pixel(building.hex)
 	var viewport_size := get_viewport().get_visible_rect().size
 	var screen_x := viewport_size.x * 0.5 + (world_pos.x - camera_controller.position.x) * camera_controller.zoom.x
 	var ratio := screen_x / viewport_size.x
@@ -229,7 +231,7 @@ func _rebuild() -> void:
 	_reason_label.text = ""
 	_refresh_accum = 0.0
 
-	var found := state.find_base_building(_shown_for_building_id) if _shown_for_building_id != "" else {}
+	var found := state.find_any_building(_shown_for_building_id) if _shown_for_building_id != "" else {}
 	if found.is_empty():
 		visible = false
 		_shown_level = -1
@@ -245,13 +247,16 @@ func _rebuild() -> void:
 	_shown_is_ruin = building.is_ruin
 	_shown_queue_key = _queue_structure_key(_shown_for_building_id)
 	var def: Dictionary = state.building_defs.get(building.building_type, {})
-	var base_def: Dictionary = state.base_defs.get(base.base_def_id, {})
+	var base_def: Dictionary = state.base_defs.get(base.base_def_id, {}) if base != null else {}
 
 	_content.add_child(UITheme.title_label(String(def.get("name", building.building_type.capitalize()))))
-	var used := Population.population_used(base, state.building_defs)
-	var cap := Population.population_cap(base, state.building_defs)
-	var base_label := base.display_name if base.display_name != "" else base.base_def_id.capitalize()
-	_content.add_child(UITheme.subtitle_label("%s  -  Pop %d/%d" % [base_label, used, cap]))
+	if base != null:
+		var used := Population.population_used(base, state.building_defs)
+		var cap := Population.population_cap(base, state.building_defs)
+		var base_label := base.display_name if base.display_name != "" else base.base_def_id.capitalize()
+		_content.add_child(UITheme.subtitle_label("%s  -  Pop %d/%d" % [base_label, used, cap]))
+	else:
+		_content.add_child(UITheme.subtitle_label("Standalone"))
 
 	var notes := String(def.get("notes", ""))
 	if notes != "":
@@ -261,10 +266,14 @@ func _rebuild() -> void:
 
 	_content.add_child(HSeparator.new())
 
-	_build_level_section(building, def, base.hq_level)
+	_build_level_section(building, def, base.hq_level if base != null else 0)
 
 	if not building.is_ruin:
 		if building.building_type == "hq":
+			_content.add_child(HSeparator.new())
+			var upgrade_all_button := UITheme.action_button("Upgrade Buildings", "")
+			upgrade_all_button.pressed.connect(func(): upgrade_buildings_panel.open())
+			_content.add_child(upgrade_all_button)
 			_content.add_child(HSeparator.new())
 			_build_build_menu(base, base_def)
 			_content.add_child(HSeparator.new())
@@ -284,6 +293,10 @@ func _rebuild() -> void:
 		elif building.building_type in NAVAL_DOCK_BUILDINGS:
 			_content.add_child(HSeparator.new())
 			_build_naval_dock_section(building)
+
+	if not bool(BuildingStats.resolve_def(def, state.building_defs).get("isFixed", false)):
+		_content.add_child(HSeparator.new())
+		_add_demolish_button()
 
 	_refresh_eligibility()
 
@@ -311,6 +324,19 @@ func _build_level_section(building: BuildingInstance, def: Dictionary, hq_level:
 	_add_action_row("Upgrade", cost, -1.0, UITheme.PRIMARY,
 		func(): return UIEligibility.upgrade_reason(state, _shown_for_building_id, owner_id),
 		func(): input_controller.submitter.submit("upgrade_building", [_shown_for_building_id, owner_id], owner_id))
+
+## Bottom-of-panel red Demolish button, shown for every non-isFixed building
+## (ruined or not — scrapping a ruin for its refund is a valid alternative to
+## rebuilding it). isFixed buildings (HQ, Ice Spire, Radar Array) never get
+## one — see _rebuild's caller.
+func _add_demolish_button() -> void:
+	var building_id := _shown_for_building_id
+	var button := UITheme.action_button("Demolish", UITheme.DANGER_BUTTON)
+	var reason_fn := func(): return UIEligibility.demolish_reason(state, building_id, owner_id)
+	var action := func(): input_controller.submitter.submit("demolish_building", [building_id, owner_id], owner_id)
+	button.pressed.connect(func(): _handle_press(reason_fn, action))
+	_content.add_child(button)
+	_option_updaters.append({"button": button, "variation": UITheme.DANGER_BUTTON, "reason_fn": reason_fn})
 
 # --- Build menu (HQ) --------------------------------------------------------
 

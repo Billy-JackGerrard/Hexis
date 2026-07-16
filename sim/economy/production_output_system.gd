@@ -17,7 +17,17 @@ extends RefCounted
 ## resource_siphon-sieged building's entire output to the siphoning owner
 ## instead of its own base's owner — see AuraSystem.siphoned_by — so totals
 ## are accumulated per building's own recipient, not once per base.
-static func compute_production(bases: Array[BaseInstance], base_defs: Dictionary, building_defs: Dictionary, auras: Dictionary = {}) -> Dictionary:
+##
+## `pool_for` (owner_id -> ResourcePool, e.g. Callable(state, "pool_for"))
+## gates a building with an authored foodUpkeep (BuildingStats.food_upkeep)
+## to zero output for this tick while its OWN owner's Food pool (base.owner_id,
+## not the siphon recipient — starvation is about who's running the building,
+## not who it's currently feeding) is in deficit, per data/buildings/
+## schema.json's foodUpkeep note. Invalid/omitted Callable (the default)
+## skips the check entirely — every existing caller that doesn't care about
+## the deficit-pause consequence (tests, EconomySummary-adjacent call sites
+## that predate it) keeps working unchanged.
+static func compute_production(bases: Array[BaseInstance], base_defs: Dictionary, building_defs: Dictionary, auras: Dictionary = {}, pool_for: Callable = Callable()) -> Dictionary:
 	var production: Dictionary = {}
 	for base in bases:
 		var base_def: Dictionary = base_defs.get(base.base_def_id, {})
@@ -27,6 +37,10 @@ static func compute_production(bases: Array[BaseInstance], base_defs: Dictionary
 			if building.max_hp > 0.0 and building.current_hp <= 0.0:
 				continue
 			var def: Dictionary = building_defs.get(building.building_type, {})
+			if pool_for.is_valid() and BuildingStats.food_upkeep(def, building_defs) > 0.0:
+				var owner_pool: ResourcePool = pool_for.call(base.owner_id)
+				if owner_pool != null and owner_pool.is_deficit(ResourceType.Type.FOOD):
+					continue
 			var output := BuildingStats.resource_output(def, building.level, building_defs)
 			if output.is_empty():
 				continue

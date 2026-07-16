@@ -4,6 +4,7 @@
   "category": "Production",
   "unlockHqLevel": 4,
   "populationCost": 1,
+  "foodUpkeep": 1,
 
   "notes": "Dedicated heavy-artillery production building fielding a focused roster of hard-hitting siege vehicles found nowhere else. At the base where it's built, it stands in for a full production chain rather than complementing one.",
 

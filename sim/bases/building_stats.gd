@@ -375,6 +375,15 @@ static func upgrade_cost(def: Dictionary, level: int, material: String, building
 static func rebuild_cost_percent(def: Dictionary, building_defs: Dictionary) -> float:
 	return float(resolve_def(def, building_defs).get("rebuildCost", 50))
 
+## Flat per-tick Food upkeep this building owes while stood up (0.0 if none
+## authored) — data/buildings/schema.json's foodUpkeep, the building-level
+## counterpart to troop.schema.json's foodUpkeep. Never scales with level, so
+## unlike max_hp/vision_range/etc. this doesn't need `level` — just resolve_def
+## for extends (Turret variants could inherit it from "turret" if ever authored
+## there, though today only Production/non-Food-Resource buildings carry it).
+static func food_upkeep(def: Dictionary, building_defs: Dictionary) -> float:
+	return float(resolve_def(def, building_defs).get("foodUpkeep", 0.0))
+
 ## data/buildings/*.json output-field name -> ResourceType.Type, for every
 ## Resource-category building (Farm/Harbour/Quarry/Mine/StoneWorks/Oil Rig/
 ## Lumber Mill) — none of which are multi-material, so these always live under

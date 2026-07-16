@@ -4,6 +4,7 @@ extends SceneTree
 
 var _failures: int = 0
 var _troop_defs: Dictionary
+var _building_defs: Dictionary
 var _next_id: int = 0
 
 func _check(condition: bool, label: String) -> void:
@@ -15,6 +16,7 @@ func _check(condition: bool, label: String) -> void:
 
 func _init() -> void:
 	_troop_defs = DataLoader.load_dir("res://data/troops")
+	_building_defs = DataLoader.load_dir("res://data/buildings")
 
 	print("ResourcePool")
 	_test_pool()
@@ -26,6 +28,8 @@ func _init() -> void:
 	_test_upkeep_compute()
 	print("UpkeepSystem.apply_deficit_deaths")
 	_test_upkeep_deficit_deaths()
+	print("BuildingUpkeepSystem.compute_upkeep")
+	_test_building_upkeep_compute()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -225,3 +229,27 @@ func _test_upkeep_deficit_deaths() -> void:
 	squads = [untouched]
 	killed = UpkeepSystem.apply_deficit_deaths("p1", [], squads, troops, _troop_defs)
 	_check(killed.is_empty(), "empty deficits list kills nothing")
+
+func _test_building_upkeep_compute() -> void:
+	var base := BaseInstance.new("b1", "capital", "p1", 1, HexCoord.new(5, 0))
+	var farm := BuildingInstance.new("f1", "b1", "farm", 1, "", HexCoord.new(5, 0))
+	farm.init_hp(_building_defs["farm"], _building_defs)
+	base.buildings.append(farm)
+	var barracks := BuildingInstance.new("br1", "b1", "barracks", 1, "", HexCoord.new(6, 0))
+	barracks.init_hp(_building_defs["barracks"], _building_defs)
+	base.buildings.append(barracks)
+	var bases: Array[BaseInstance] = [base]
+
+	var barracks_food := float(_building_defs["barracks"].get("foodUpkeep", 0.0))
+	_check(barracks_food > 0.0, "sanity check: barracks.json carries foodUpkeep > 0")
+	_check(float(_building_defs["farm"].get("foodUpkeep", 0.0)) == 0.0, "sanity check: farm.json carries no foodUpkeep")
+
+	var upkeep := BuildingUpkeepSystem.compute_upkeep(bases, _building_defs)
+	_check(float(upkeep.get("p1", {}).get(ResourceType.Type.FOOD, 0.0)) == barracks_food, "only Barracks' foodUpkeep (%s) is counted -- Farm contributes nothing" % barracks_food)
+	_check(not upkeep.has("p2"), "no other owner appears without any of their own buildings")
+
+	# a ruined building owes nothing -- same current_hp <= 0.0 gate as
+	# ProductionOutputSystem/VisionSystem/AuraSystem.
+	barracks.current_hp = 0.0
+	var upkeep_ruined := BuildingUpkeepSystem.compute_upkeep(bases, _building_defs)
+	_check(float(upkeep_ruined.get("p1", {}).get(ResourceType.Type.FOOD, 0.0)) == 0.0, "a ruined building's upkeep doesn't count")
