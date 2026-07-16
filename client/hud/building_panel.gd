@@ -242,12 +242,11 @@ func _rebuild() -> void:
 	var base_label := base.display_name if base.display_name != "" else base.base_def_id.capitalize()
 	_content.add_child(UITheme.subtitle_label("%s  -  Pop %d/%d" % [base_label, used, cap]))
 
-	if building.building_type == "hq":
-		var hq_notes := String(def.get("notes", ""))
-		if hq_notes != "":
-			var hq_notes_label := UITheme.muted_label(hq_notes)
-			hq_notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			_content.add_child(hq_notes_label)
+	var notes := String(def.get("notes", ""))
+	if notes != "":
+		var notes_label := UITheme.muted_label(notes)
+		notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_content.add_child(notes_label)
 
 	_content.add_child(HSeparator.new())
 
