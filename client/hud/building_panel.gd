@@ -309,7 +309,7 @@ func _build_level_section(building: BuildingInstance, def: Dictionary, hq_level:
 ## A category not in this map (shouldn't happen for anything actually
 ## reachable via buildableBuildings today) still gets a header, just its raw
 ## name upper-cased, so a future category doesn't silently vanish.
-const _BUILD_CATEGORY_ORDER := ["Resource", "Defensive", "Production", "Support"]
+const _BUILD_CATEGORY_ORDER := ["Resource", "Support", "Defensive", "Production"]
 const _BUILD_CATEGORY_LABELS := {
 	"Resource": "RESOURCES",
 	"Defensive": "DEFENCE",
@@ -418,7 +418,7 @@ func _build_build_detail(base: BaseInstance, building_type: String, def: Diction
 		notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(notes_label)
 
-	var materials: Array = def.get("materials", [])
+	var materials: Array = BuildingDetailView.ordered_materials(def)
 	var base_id := base.id
 	if materials.is_empty():
 		for line in BuildingDetailView.stat_lines(def):

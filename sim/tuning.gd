@@ -23,8 +23,8 @@ extends RefCounted
 ## Sized so CAPITAL_MIN_SPACING comfortably fits every
 ## player's Capital spread near the outer ring, with room left for Unique
 ## bases plus biomes/rivers.
-const MAP_RADIUS_BASE: int = 30
-const MAP_RADIUS_PER_PLAYER: int = 12
+const MAP_RADIUS_BASE: int = 36
+const MAP_RADIUS_PER_PLAYER: int = 6
 
 ## Ring of Ocean beyond the coastline. Narrow, but strategically real — Ocean
 ## is already fully Naval-passable, so ships can actually sail the fringe and
@@ -55,11 +55,15 @@ const MIN_BIOME_SEED_SPACING: int = 3
 const MAX_BIOME_SEED_ATTEMPTS: int = 200
 
 ## num_rivers(player_count) = RIVER_BASE_COUNT + (player_count - 2) / 2 (int
-## division): 2p->2, 4p->3, 6p->4.
-const RIVER_BASE_COUNT: int = 4
+## division): 2p->6, 4p->7, 6p->8. Bumped from 4 — at 4, rivers were sparse
+## enough that a game could go by barely crossing one.
+const RIVER_BASE_COUNT: int = 6
 
 const RIVER_MIN_LENGTH: int = 8 ## hexes; also the source's min inset from the coastline
-const MIN_RIVER_SOURCE_SPACING: int = 8
+## Lowered from 8 alongside RIVER_BASE_COUNT's bump — the higher river count
+## needs tighter source spacing to actually fit without MAX_RIVER_SOURCE_
+## ATTEMPTS_PER_RIVER starving out the later rivers.
+const MIN_RIVER_SOURCE_SPACING: int = 6
 const RIVER_STRAIGHTNESS: float = 0.65 ## chance of taking the most-outward-progress step vs. a random valid one
 const RIVER_MAX_STEPS_MULTIPLIER: int = 2 ## safety cap = map_radius * this
 const MAX_RIVER_SOURCE_ATTEMPTS_PER_RIVER: int = 20
@@ -124,8 +128,8 @@ const MOAT_CHANNEL_MAX_LENGTH: int = 16
 ## --- Barbarian outposts (sim/outposts/barbarian_outpost_placer.gd) ---
 
 ## outpost_count = BARBARIAN_OUTPOST_BASE_COUNT + player_count * BARBARIAN_OUTPOST_COUNT_PER_PLAYER.
-const BARBARIAN_OUTPOST_BASE_COUNT: int = 2
-const BARBARIAN_OUTPOST_COUNT_PER_PLAYER: int = 1
+const BARBARIAN_OUTPOST_BASE_COUNT: int = 1
+const BARBARIAN_OUTPOST_COUNT_PER_PLAYER: int = 3
 
 ## Comfortably above GARRISON_RING_RADIUS + GARRISON_SEARCH_RADIUS (2 + 6 =
 ## 8), so an outpost's own garrison search never wanders into a base's
@@ -176,7 +180,7 @@ const MIN_ADJACENT_BUILDINGS_FOR_WALL: int = 1
 
 ## hq_build_radius(hq_level) = HQ_BUILD_RADIUS_BASE + hq_level * HQ_BUILD_RADIUS_PER_LEVEL.
 ## Design doc pins the scaling relationship but not the exact number.
-const HQ_BUILD_RADIUS_BASE: int = 1
+const HQ_BUILD_RADIUS_BASE: int = 2
 const HQ_BUILD_RADIUS_PER_LEVEL: int = 1
 
 ## --- Building regeneration (sim/bases/building_regen_system.gd) ---
@@ -203,11 +207,11 @@ const DEMOLISH_REFUND_FRACTION: float = 0.5
 ## Starting Resources section. Wood/Fuel start at zero deliberately, since a
 ## bare starting Capital has no Forest-adjacent Lumber Mill or built Oil Rig
 ## yet.
-const STARTING_FOOD: float = 10000.0
-const STARTING_STONE: float = 100000.0
-const STARTING_STEEL: float = 50000.0
-const STARTING_WOOD: float = 5000.0
-const STARTING_FUEL: float = 10000.0
+const STARTING_FOOD: float = 50.0
+const STARTING_STONE: float = 100.0
+const STARTING_STEEL: float = 50.0
+const STARTING_WOOD: float = 0.0
+const STARTING_FUEL: float = 0.0
 
 ## --- Troops (sim/troops/) ---
 

@@ -91,7 +91,8 @@ func _compute_alerts() -> Array[Dictionary]:
 		for building in base.buildings:
 			var queue: ProductionQueue = state.production_queues.get(building.id)
 			if queue != null and queue.paused:
-				alerts.append({"key": "%s|paused" % base.id, "label": "%s production paused" % base.base_def_id.capitalize(), "color": PAUSED_COLOR, "hex": base.hex_coord})
+				var reason_suffix := " (%s)" % String(queue.pause_reason).replace("_", " ") if queue.pause_reason != "" else ""
+				alerts.append({"key": "%s|paused" % base.id, "label": "%s production paused%s" % [base.base_def_id.capitalize(), reason_suffix], "color": PAUSED_COLOR, "hex": base.hex_coord})
 				break
 	if not owned_bases.is_empty():
 		var pool := state.pool_for(owner_id)

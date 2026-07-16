@@ -79,10 +79,12 @@ func _test_terrain_vision_multiplier() -> void:
 ## --- BuildingStats.vision_range / global_vision_bonus ----------------------
 
 func _test_building_stats_vision() -> void:
-	# Turret: flat defensiveStats.visionRange, no growth with level.
-	var turret_vision: float = float(_building_defs["turret"]["defensiveStats"]["visionRange"])
-	_check(BuildingStats.vision_range(_building_defs["turret"], 1, "", _building_defs) == turret_vision, "Turret visionRange is %s at level 1" % turret_vision)
-	_check(BuildingStats.vision_range(_building_defs["turret"], 5, "", _building_defs) == turret_vision, "Turret visionRange doesn't grow with level (no growth entry, matches CombatResolver's existing un-leveled defensiveStats reads)")
+	# Turret: nonProductionUpgrade.baseStats.visionRange, grows flat/level
+	# (added alongside its range buff — see buildings-have-longer-range change).
+	var turret_vision_base: float = float(_building_defs["turret"]["nonProductionUpgrade"]["baseStats"]["visionRange"])
+	var turret_vision_growth: float = float(_building_defs["turret"]["nonProductionUpgrade"]["statGrowth"]["visionRange"].get("value", 0.0))
+	_check(BuildingStats.vision_range(_building_defs["turret"], 1, "", _building_defs) == turret_vision_base, "Turret visionRange is %s at level 1" % turret_vision_base)
+	_check(BuildingStats.vision_range(_building_defs["turret"], 5, "", _building_defs) == turret_vision_base + turret_vision_growth * 4, "Turret visionRange grows to %s at level 5 (+%s flat/level)" % [turret_vision_base + turret_vision_growth * 4, turret_vision_growth])
 
 	# Tower: per-material, materialStats.baseStats.visionRange (each material
 	# authors its own value/growth independently).

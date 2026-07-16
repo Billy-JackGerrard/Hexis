@@ -86,6 +86,11 @@ var map_click_count: int = 0
 var _drag_active := false
 var _drag_start := Vector2.ZERO
 var _drag_current := Vector2.ZERO
+
+## Right-button press position, used only to tell a right-click (issue an
+## order) apart from a right-drag (CameraController pan) on release — see
+## _unhandled_input's right-button handling.
+var _right_press_pos := Vector2.ZERO
 ## Control groups: group number (1-9) -> Array of squad ids, same convention
 ## as most RTS games. Squads that no longer exist are dropped lazily on
 ## recall rather than eagerly on death — this node never listens for squad
@@ -151,14 +156,27 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Right-click never issues an order here (CameraController owns the right
-	# button for panning) — it's purely a cancel: drop any in-progress
-	# build-menu placement and close whatever building panel is open, per
-	# 09-ui-and-controls.md's build-menu cancel affordance.
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		map_click_count += 1
-		cancel_placement()
-		_clear_building_selection()
+	# Right-click: press always cancels any in-progress build-menu placement
+	# and closes whatever building panel is open, per 09-ui-and-controls.md's
+	# build-menu cancel affordance — same as before, unconditional on press
+	# since CameraController's right-drag pan also starts on press. Release
+	# additionally issues an attack/move order for the current selection
+	# straight to whatever's under the cursor (bypassing the friendly-squad-
+	# select and own-building-select precedence left-click uses), so a
+	# hex occupied by another unit/building can still be ordered to without
+	# the click re-selecting it — but only if the button didn't actually
+	# drag (i.e. this wasn't a camera pan).
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		if event.pressed:
+			map_click_count += 1
+			_right_press_pos = get_global_mouse_position()
+			cancel_placement()
+			_clear_building_selection()
+		else:
+			var release_pos := get_global_mouse_position()
+			if _right_press_pos.distance_to(release_pos) <= DRAG_THRESHOLD and not squad_view.selected_squad_ids.is_empty():
+				if not _try_attack_order(release_pos):
+					_issue_move_orders(HexView.pixel_to_axial(release_pos))
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -287,13 +305,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 
 	# Case 2: an enemy target under the cursor with squads selected issues a
 	# directed attack order instead of a move, per 09-ui-and-controls.md.
-	var enemy_target := _target_at_pixel(release_pos)
-	if enemy_target != null and not squad_view.selected_squad_ids.is_empty():
-		var target_id := enemy_target.target_id()
-		for squad_id in squad_view.selected_squad_ids.keys():
-			var result: CommandProcessor.Result = submitter.submit("attack_target", [squad_id, target_id, owner_id], owner_id)
-			if result != CommandProcessor.Result.OK:
-				_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
+	if _try_attack_order(release_pos):
 		return
 
 	# Case 3: one of the local player's own base buildings under the cursor
@@ -319,8 +331,29 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 
 	if squad_view.selected_squad_ids.is_empty():
 		return
-	var target_hex := HexView.pixel_to_axial(release_pos)
+	_issue_move_orders(HexView.pixel_to_axial(release_pos))
 
+## Case 2's attack order, factored out so right-click can issue it too
+## (bypassing the friendly-squad-select/own-building-select precedence a
+## left-click uses first) — an enemy target under the cursor with squads
+## selected issues a directed attack instead of a move, per
+## 09-ui-and-controls.md. Returns true if it applied (attack attempted,
+## regardless of whether the order itself succeeded).
+func _try_attack_order(release_pos: Vector2) -> bool:
+	var enemy_target := _target_at_pixel(release_pos)
+	if enemy_target == null or squad_view.selected_squad_ids.is_empty():
+		return false
+	var target_id := enemy_target.target_id()
+	for squad_id in squad_view.selected_squad_ids.keys():
+		var result: CommandProcessor.Result = submitter.submit("attack_target", [squad_id, target_id, owner_id], owner_id)
+		if result != CommandProcessor.Result.OK:
+			_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
+	return true
+
+## Case 4 (move)'s order-issuing, factored out so right-click can issue it
+## too straight at the clicked hex, occupied or not — see _try_attack_order's
+## doc comment for why right-click needs its own entry point into these.
+func _issue_move_orders(target_hex: HexCoord) -> void:
 	## Escorts of a commander that's also selected are skipped: the
 	## commander's move_squad call already lock-steps the whole regiment
 	## (see CommandProcessor.move_squad), so issuing them an individual

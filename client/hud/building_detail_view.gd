@@ -27,6 +27,27 @@ static func stat_lines(def: Dictionary) -> Array[String]:
 			lines.append("%s: %s" % [key.capitalize(), str(stats[key])])
 	return lines
 
+## Display order for a multi-material building's per-material rows (Wall,
+## Tower, Dock, Bridge, Water Turret, ...). data/buildings/*.json's own
+## `materials` array order is inconsistent between files (some list "stone"
+## first) since nothing there enforces one — this pins the row order players
+## actually see to a fixed cheapest-to-priciest progression regardless of
+## authoring order. Any material not in this list (shouldn't happen for
+## anything authored today) is still kept, just appended after the three
+## known ones in its original relative order.
+const _MATERIAL_ORDER := ["wood", "stone", "steel"]
+
+static func ordered_materials(def: Dictionary) -> Array:
+	var materials: Array = def.get("materials", [])
+	var ordered: Array = []
+	for known in _MATERIAL_ORDER:
+		if materials.has(known):
+			ordered.append(known)
+	for material in materials:
+		if not _MATERIAL_ORDER.has(String(material)):
+			ordered.append(material)
+	return ordered
+
 ## Same headline stats as stat_lines(), but for one specific material of a
 ## Wall-style building — used per material row in the BUILD pop-down instead
 ## of the single first-material preview stat_lines() falls back to.

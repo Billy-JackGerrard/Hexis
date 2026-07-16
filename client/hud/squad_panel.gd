@@ -373,7 +373,7 @@ func _build_standalone_detail(squad: SquadInstance, building_type: String, def: 
 		notes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(notes_label)
 
-	var materials: Array = def.get("materials", [])
+	var materials: Array = BuildingDetailView.ordered_materials(def)
 	var squad_id := squad.id
 	if materials.is_empty():
 		for line in BuildingDetailView.stat_lines(def):

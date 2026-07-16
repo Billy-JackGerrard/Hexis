@@ -1,6 +1,7 @@
 ## In-match pause overlay: darkens the game behind it and shows a "Paused"
 ## card with a live stats readout (match time, local resources + production/
-## upkeep rates, base counts by owner) plus Resume/Exit Game buttons.
+## upkeep rates, base counts by owner, squad counts by troop type) plus
+## Resume/Exit Game buttons.
 ##
 ## Unlike start_screen.gd (built once, freed after use), this is instantiated
 ## once per match (client/main.gd) and toggles visibility repeatedly via
@@ -31,6 +32,8 @@ var _refresh_accum := 0.0
 var _time_label: Label
 var _resource_labels: Dictionary = {} ## ResourceType.Type -> Label
 var _bases_box: VBoxContainer
+var _squads_cap_label: Label
+var _squads_box: VBoxContainer
 
 func setup(state: MatchState, local_owner_id: String, owner_names: Dictionary) -> void:
 	_state = state
@@ -81,9 +84,18 @@ func setup(state: MatchState, local_owner_id: String, owner_names: Dictionary) -
 	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(_time_label)
 
+	# Scrolls rather than growing the card unboundedly — the squads section
+	# below has one row per troop type the local player fields, which can run
+	# long (same reasoning as squad_panel.gd's own ScrollContainer).
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0.0, 280.0)
+	vbox.add_child(scroll)
+
 	var stats_box := VBoxContainer.new()
 	stats_box.add_theme_constant_override("separation", 4)
-	vbox.add_child(stats_box)
+	stats_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(stats_box)
 
 	var resources_header := UITheme.header_label("Resources")
 	stats_box.add_child(resources_header)
@@ -97,6 +109,14 @@ func setup(state: MatchState, local_owner_id: String, owner_names: Dictionary) -
 	_bases_box = VBoxContainer.new()
 	_bases_box.add_theme_constant_override("separation", 2)
 	stats_box.add_child(_bases_box)
+
+	var squads_header := UITheme.header_label("Squads")
+	stats_box.add_child(squads_header)
+	_squads_cap_label = UITheme.body_label("")
+	stats_box.add_child(_squads_cap_label)
+	_squads_box = VBoxContainer.new()
+	_squads_box.add_theme_constant_override("separation", 2)
+	stats_box.add_child(_squads_box)
 
 	var button_row := HBoxContainer.new()
 	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -165,3 +185,28 @@ func _refresh_stats() -> void:
 		var label_name: String = _owner_names.get(owner_id, owner_id)
 		_bases_box.add_child(UITheme.body_label("%s: %d" % [label_name, counts_by_owner[owner_id]]))
 	_bases_box.add_child(UITheme.body_label("Neutral: %d" % int(counts_by_owner.get("neutral", 0))))
+
+	var squads_used := 0
+	var squads_by_type: Dictionary = {} ## troop_type -> {"squads": int, "troops": int}
+	for squad in _state.squads:
+		if squad.owner_id != _local_owner_id:
+			continue
+		squads_used += 1
+		var entry: Dictionary = squads_by_type.get(squad.troop_type, {"squads": 0, "troops": 0})
+		entry["squads"] = int(entry["squads"]) + 1
+		entry["troops"] = int(entry["troops"]) + squad.member_ids.size()
+		squads_by_type[squad.troop_type] = entry
+	var squads_max := SquadCap.max_squads(owned_bases)
+	_squads_cap_label.text = "Total: %d/%d" % [squads_used, squads_max]
+
+	for row in _squads_box.get_children():
+		row.queue_free()
+	var troop_types := squads_by_type.keys()
+	troop_types.sort_custom(func(a, b): return _troop_display_name(a) < _troop_display_name(b))
+	for troop_type in troop_types:
+		var entry: Dictionary = squads_by_type[troop_type]
+		_squads_box.add_child(UITheme.body_label("%s: %d squads (%d troops)" % [_troop_display_name(troop_type), entry["squads"], entry["troops"]]))
+
+func _troop_display_name(troop_type: String) -> String:
+	var def: Dictionary = _state.troop_defs.get(troop_type, {})
+	return String(def.get("name", troop_type))

@@ -44,7 +44,10 @@ const BUILDING_SIZE := 20.0
 const HQ_SIZE := 26.0
 const WALL_WIDTH := 4.0
 const RUIN_DARKEN := 0.6
-const TITLE_WIDTH := 140.0
+## Widened from 140 — same draw_string clipping TOOLTIP_WIDTH's comment
+## below describes, cutting off both a longer custom base name and
+## "Unnamed Base" itself.
+const TITLE_WIDTH := 200.0
 const TITLE_COLOR := UITheme.TEXT
 const TOOLTIP_COLOR := UITheme.TEXT
 ## Wider than TITLE_WIDTH — draw_string clips text past its width, and names

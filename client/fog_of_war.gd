@@ -32,6 +32,11 @@ var _cam_redraw_cooldown: float = 0.0
 
 const CAM_REDRAW_COOLDOWN_SECONDS := 0.1
 const MARGIN_HEXES := 2.0
+## Matches project.godot's rendering/environment/defaults/default_clear_color
+## so panning past the edge of the generated hex list (demo_hexes, main.gd —
+## no fog polygon exists out there since there's no hex to draw one for)
+## shows the same flat black as an unexplored hex instead of revealing
+## exactly where the map bounds are. Keep both in sync if this changes.
 const UNEXPLORED_COLOR := Color(0.0, 0.0, 0.0, 1.0)
 const EXPLORED_COLOR := Color(0.0, 0.0, 0.0, 0.55)
 
