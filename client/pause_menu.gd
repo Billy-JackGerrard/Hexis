@@ -31,6 +31,8 @@ var _refresh_accum := 0.0
 
 var _time_label: Label
 var _resource_labels: Dictionary = {} ## ResourceType.Type -> Label
+var _production_labels: Dictionary = {} ## ResourceType.Type -> Label, "+N.N / tick"
+var _usage_labels: Dictionary = {} ## ResourceType.Type -> Label, "-N.N / tick used"
 var _bases_box: VBoxContainer
 var _squads_cap_label: Label
 var _squads_box: VBoxContainer
@@ -104,6 +106,18 @@ func setup(state: MatchState, local_owner_id: String, owner_names: Dictionary) -
 		stats_box.add_child(row)
 		_resource_labels[type] = row
 
+		# Same "+N.N / tick" produced / "-N.N / tick used" split resource_bar.gd's
+		# expanded view shows, indented under the amount row.
+		var detail_row := HBoxContainer.new()
+		detail_row.add_theme_constant_override("separation", 12)
+		stats_box.add_child(detail_row)
+		var production_label := UITheme.muted_label("")
+		detail_row.add_child(production_label)
+		_production_labels[type] = production_label
+		var usage_label := UITheme.muted_label("")
+		detail_row.add_child(usage_label)
+		_usage_labels[type] = usage_label
+
 	var bases_header := UITheme.header_label("Bases")
 	stats_box.add_child(bases_header)
 	_bases_box = VBoxContainer.new()
@@ -161,16 +175,17 @@ func _refresh_stats() -> void:
 	_time_label.text = "Match time: %02d:%02d" % [total_seconds / 60, total_seconds % 60]
 
 	var owned_bases := _state.bases_owned_by(_local_owner_id)
-	var production: Dictionary = ProductionOutputSystem.compute_production(owned_bases, _state.base_defs, _state.building_defs).get(_local_owner_id, {})
-	var auras := AuraSystem.resolve_tick(_state.squads, _state.bases, _state.troop_defs, _state.building_defs, _state.regiments)
-	var upkeep: Dictionary = UpkeepSystem.compute_upkeep(_state.squads, _state.troop_defs, auras).get(_local_owner_id, {})
+	var summary := EconomySummary.compute(_state, _local_owner_id, owned_bases)
+	var production: Dictionary = summary["production"]
+	var upkeep: Dictionary = summary["upkeep"]
 	var pool := _state.pool_for(_local_owner_id)
 	for type in ResourceType.ALL:
 		var amount := int(round(pool.get_amount(type)))
-		var net := float(production.get(type, 0.0)) - float(upkeep.get(type, 0.0))
 		var label: Label = _resource_labels[type]
-		label.text = "%s: %d (%+.1f / tick)" % [UITheme.RESOURCE_LABEL[type], amount, net]
+		label.text = "%s: %d" % [UITheme.RESOURCE_LABEL[type], amount]
 		label.add_theme_color_override("font_color", UITheme.DANGER if pool.is_deficit(type) else UITheme.RESOURCE_COLOR[type])
+		_production_labels[type].text = "%+.1f / tick" % float(production.get(type, 0.0))
+		_usage_labels[type].text = "-%.1f / tick used" % float(upkeep.get(type, 0.0))
 
 	for row in _bases_box.get_children():
 		row.queue_free()

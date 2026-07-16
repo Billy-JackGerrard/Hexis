@@ -271,9 +271,10 @@ func _process(delta: float) -> void:
 ## a count of producing buildings grouped by (type, level). Also resizes the
 ## bar to fit however many lines the tallest column needs.
 func _refresh_breakdown(owned_bases: Array[BaseInstance]) -> void:
-	var totals: Dictionary = ProductionOutputSystem.compute_production(owned_bases, state.base_defs, state.building_defs).get(owner_id, {})
+	var summary := EconomySummary.compute(state, owner_id, owned_bases)
+	var totals: Dictionary = summary["production"]
 	var groups_by_type := _compute_producer_groups(owned_bases)
-	var auras := AuraSystem.resolve_tick(state.squads, state.bases, state.troop_defs, state.building_defs, state.regiments)
+	var auras: Dictionary = summary["auras"]
 	var upkeep_by_type: Dictionary = UpkeepSystem.compute_upkeep_by_troop_type(state.squads, state.troop_defs, auras).get(owner_id, {})
 	var max_lines := 1
 	var max_usage_lines := 1

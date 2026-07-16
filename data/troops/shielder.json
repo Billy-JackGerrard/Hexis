@@ -11,10 +11,10 @@
   "range": 2,
   "splashRadius": 0,
   "projectileSpeed": 14,
-  "visionRange": 8,
+  "visionRange": 6,
   "speed": 0.9,
 
-  "maxSquadSize": 8,
+  "maxSquadSize": 12,
 
   "canTarget": ["Infantry"],
 

@@ -7,13 +7,13 @@
 ## never also triggers a world click-to-move.
 ##
 ## The always-on chrome — resource_bar (top), toast_panel (top-center,
-## fire-once event toasts — see sim/events/match_event.gd), alerts_panel
-## (bottom-left, persistent per-condition rows), minimap (bottom-right) —
-## plus the one selection-driven building_panel (right)
-## that replaced the old base_panel/build_menu/building_info_panel/
-## production_panel quartet. Every panel shares one UITheme.create_theme(): a
-## CanvasLayer isn't a Control so its theme doesn't cascade, so it's assigned
-## per top-level panel (each panel's own children inherit from there).
+## persistent per-condition alert rows plus fire-once event toasts — see
+## sim/events/match_event.gd), minimap (bottom-right) — plus the one
+## selection-driven building_panel (right) that replaced the old
+## base_panel/build_menu/building_info_panel/production_panel quartet. Every
+## panel shares one UITheme.create_theme(): a CanvasLayer isn't a Control so
+## its theme doesn't cascade, so it's assigned per top-level panel (each
+## panel's own children inherit from there).
 class_name HUDLayer
 extends CanvasLayer
 
@@ -23,7 +23,6 @@ var resource_bar: ResourceBar
 var building_panel: BuildingPanel
 var troop_info_panel: TroopInfoPanel
 var squad_panel: SquadPanel
-var alerts_panel: AlertsPanel
 var toast_panel: ToastPanel
 var minimap: Minimap
 
@@ -50,11 +49,6 @@ func setup(state: MatchState, owner_id: String, input_controller: InputControlle
 	squad_panel.theme = theme
 	add_child(squad_panel)
 	squad_panel.setup(state, owner_id, input_controller, input_controller.squad_view, camera_controller)
-
-	alerts_panel = AlertsPanel.new()
-	alerts_panel.theme = theme
-	add_child(alerts_panel)
-	alerts_panel.setup(state, owner_id, camera_controller)
 
 	toast_panel = ToastPanel.new()
 	toast_panel.theme = theme

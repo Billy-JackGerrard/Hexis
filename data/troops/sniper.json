@@ -10,8 +10,8 @@
   "range": 8,
   "splashRadius": 0,
   "projectileSpeed": 22,
-  "visionRange": 10,
-  "speed": 1.0,
+  "visionRange": 8,
+  "speed": 0.9,
 
   "maxSquadSize": 1,
 

@@ -13,7 +13,7 @@
 ## The valid set is only recomputed when the pending building/base changes,
 ## not every frame — can_place loops over every existing building for its
 ## adjacency check, the same per-frame-cost concern input_controller.gd's
-## hover throttling and alerts_panel.gd's polling interval both already flag
+## hover throttling and toast_panel.gd's alert-polling interval both already flag
 ## for on-demand sim queries.
 class_name BuildPreview
 extends Node2D

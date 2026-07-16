@@ -156,7 +156,7 @@ writing real UI code does, and it also needs actual game state to bind to.
      + paused banner, unlocked-troop buttons
      (`CommandProcessor.enqueue_production`) — display-only for
      pause/resume, which is fully automatic per `07-data-architecture.md`.
-   - [x] `client/hud/alerts_panel.gd` — under-attack
+   - [x] `client/hud/toast_panel.gd` (alerts section) — under-attack
      (`CombatStateSystem.is_hex_in_combat`), production-paused
      (`ProductionQueue.paused`), and resource-deficit rows, one per base per
      type, clicking recenters the camera.

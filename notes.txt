@@ -42,4 +42,6 @@ could have a box to put seed in?
 commander centre could contribute to squad cap
 
 
-possibly add some kind of neutral/barbarian standalone towers/outposts?
+infantry could have its own cap, separate to squad cap?
+actually nah, but do increase number of troops in a squad.
+this'll encourage more infantry production.

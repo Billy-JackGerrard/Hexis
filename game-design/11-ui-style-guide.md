@@ -80,7 +80,7 @@ passed in. Costs nothing while idle (a `Tween` only runs while animating).
 - `pop_in(control)` — bouncy scale-in (`TRANS_BACK`/`EASE_OUT` overshoot). Call
   when a panel is (re)shown after a selection change — see `building_panel.gd`/
   `squad_panel.gd`'s `_process` (only on the id actually changing, not on every
-  rebuild) and `alerts_panel.gd`'s `_refresh`.
+  rebuild) and `toast_panel.gd`'s `_refresh_alerts`.
 - `pop(control)` — a quick scale punch, for drawing the eye to a value change
   (`resource_bar.gd` flashes this when a resource enters deficit).
 - `hover_grow(control)` — grows a Control slightly on mouse-hover. Wired

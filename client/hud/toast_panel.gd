@@ -1,16 +1,30 @@
-## Stacked, auto-expiring toast notifications for fire-once gameplay events
-## (squad lost, base captured/lost, building destroyed, deficit death,
-## barbarian outpost loot) — see sim/events/match_event.gd. Deliberately
-## separate from alerts_panel.gd (a persistent row per currently-true
-## CONDITION — under attack/paused/deficit — that clears itself once the
-## condition clears, never one row per event, per that file's own header
-## comment) and from resource_bar.gd's set_status() (a single last-write-wins
-## banner reserved for connection/match-halt state, not gameplay events).
-##
 ## Docked top-center, directly under the resource bar — the one screen region
 ## not already claimed by building_panel/squad_panel/troop_info_panel
-## (left/right flip on selection), alerts_panel (bottom-left), or minimap
-## (bottom-right).
+## (left/right flip on selection) or minimap (bottom-right). Two stacked
+## sections in one panel:
+##
+## - Alerts (top section): one persistent row per base per alert type — under
+##   attack (CombatStateSystem.is_hex_in_combat), production paused
+##   (ProductionQueue.paused, same field production_panel.gd already reads),
+##   resource deficit (ResourcePool.is_deficit) — clearing automatically once
+##   the underlying condition clears, never spamming one row per event.
+##   Resource deficit doesn't key to a specific base (03-resources.md/
+##   sim/economy/resource_pool.gd make the resource pool a single player-wide
+##   total, not per-base), so it renders as one row per deficient resource
+##   type, clicking it recenters on the player's first base (arbitrary but
+##   stable) rather than a base it doesn't actually belong to. Re-checked
+##   every ALERT_POLL_SECONDS, not every frame — is_hex_in_combat rebuilds the
+##   full CombatResolver target list per call, the same per-call cost
+##   input_controller.gd's hover throttling and combat_state_system.gd's own
+##   header comment both already flag as too expensive unthrottled.
+##
+## - Toasts (bottom section): stacked, auto-expiring fire-once event
+##   notifications (squad lost, base captured/lost, building destroyed,
+##   deficit death, barbarian outpost loot) — see sim/events/match_event.gd.
+##   Deliberately distinct lifecycle from the alerts section above (one row
+##   per event, always expires) and from resource_bar.gd's set_status() (a
+##   single last-write-wins banner reserved for connection/match-halt state,
+##   not gameplay events).
 ##
 ## drain() must be called exactly once per RENDERED FRAME, not once per sim
 ## tick — see its own doc comment.
@@ -25,9 +39,20 @@ const WIDTH := 380.0
 const ROW_HEIGHT := 40.0
 const MARGIN := 12.0
 const TOAST_DURATION := 5.0
-const MAX_VISIBLE := 5
+const MAX_VISIBLE_TOASTS := 5
+const ALERT_POLL_SECONDS := 0.5
+const UNDER_ATTACK_COLOR := UITheme.DANGER
+const PAUSED_COLOR := UITheme.WARNING
+const DEFICIT_COLOR := UITheme.WARNING
+## Generous cap on simultaneous persistent alert rows, used only to size this
+## panel's fixed dead-space extent (see setup) — not an enforced limit on how
+## many alerts can actually show at once.
+const MAX_ALERT_ROWS := 6
 
-var _list: VBoxContainer
+var _alerts_list: VBoxContainer
+var _toasts_list: VBoxContainer
+var _shown_alert_keys: Array = []
+var _poll_accumulator: float = 0.0
 ## [{control: Control, remaining: float}], oldest first (append order == VBox
 ## display order, so the oldest toast is always both index 0 and visually the
 ## topmost row).
@@ -45,17 +70,93 @@ func setup(p_state: MatchState, p_owner_id: String, p_camera_controller: CameraC
 	offset_left = -WIDTH * 0.5
 	offset_right = WIDTH * 0.5
 	offset_top = ResourceBar.HEIGHT + MARGIN
-	# Generous fixed height for up to MAX_VISIBLE rows — the empty space below
-	# however many rows are actually showing stays IGNORE, so it never blocks
-	# a world click-to-move underneath it (same contract every other HUD
-	# panel's dead space follows).
-	offset_bottom = offset_top + MAX_VISIBLE * (ROW_HEIGHT + 6.0) + MARGIN
+	# Generous fixed height for up to MAX_ALERT_ROWS alert rows plus
+	# MAX_VISIBLE_TOASTS toast rows — the empty space below however many rows
+	# are actually showing stays IGNORE, so it never blocks a world
+	# click-to-move underneath it (same contract every other HUD panel's dead
+	# space follows).
+	offset_bottom = offset_top + (MAX_ALERT_ROWS + MAX_VISIBLE_TOASTS) * (ROW_HEIGHT + 6.0) + MARGIN
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	_list = VBoxContainer.new()
-	_list.add_theme_constant_override("separation", 6)
-	_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_list)
+	var root_vbox := VBoxContainer.new()
+	root_vbox.add_theme_constant_override("separation", 6)
+	root_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(root_vbox)
+
+	_alerts_list = VBoxContainer.new()
+	_alerts_list.add_theme_constant_override("separation", 4)
+	_alerts_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_vbox.add_child(_alerts_list)
+
+	_toasts_list = VBoxContainer.new()
+	_toasts_list.add_theme_constant_override("separation", 6)
+	_toasts_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_vbox.add_child(_toasts_list)
+
+func _process(delta: float) -> void:
+	_poll_accumulator += delta
+	if _poll_accumulator >= ALERT_POLL_SECONDS:
+		_poll_accumulator = 0.0
+		_refresh_alerts()
+
+	for i in range(_active.size() - 1, -1, -1):
+		_active[i]["remaining"] -= delta
+		if _active[i]["remaining"] <= 0.0:
+			(_active[i]["control"] as Control).queue_free()
+			_active.remove_at(i)
+
+# --- Alerts (persistent per-condition rows) ---------------------------------
+
+## {key: "<base_id>|<kind>", label, color, target_hex} for every currently-
+## active alert, in a stable order (bases in state.bases order, then
+## attack/paused/deficit) so the row list doesn't reshuffle between polls.
+func _compute_alerts() -> Array[Dictionary]:
+	var alerts: Array[Dictionary] = []
+	var owned_bases := state.bases_owned_by(owner_id)
+	for base in owned_bases:
+		if CombatStateSystem.is_hex_in_combat(base.hex_coord, owner_id, state.squads, state.bases, state.troop_defs, state.building_defs):
+			alerts.append({"key": "%s|attack" % base.id, "label": "%s under attack" % base.base_def_id.capitalize(), "color": UNDER_ATTACK_COLOR, "hex": base.hex_coord})
+		for building in base.buildings:
+			var queue: ProductionQueue = state.production_queues.get(building.id)
+			if queue != null and queue.paused:
+				var reason_suffix := " (%s)" % String(queue.pause_reason).replace("_", " ") if queue.pause_reason != "" else ""
+				alerts.append({"key": "%s|paused" % base.id, "label": "%s production paused%s" % [base.base_def_id.capitalize(), reason_suffix], "color": PAUSED_COLOR, "hex": base.hex_coord})
+				break
+	if not owned_bases.is_empty():
+		var pool := state.pool_for(owner_id)
+		for type in [ResourceType.Type.FOOD, ResourceType.Type.FUEL]:
+			if pool.is_deficit(type):
+				var label := "Food" if type == ResourceType.Type.FOOD else "Fuel"
+				alerts.append({"key": "deficit|%d" % type, "label": "%s deficit" % label, "color": DEFICIT_COLOR, "hex": owned_bases[0].hex_coord})
+	return alerts
+
+func _refresh_alerts() -> void:
+	var alerts := _compute_alerts()
+	var keys: Array = []
+	for alert in alerts:
+		keys.append(alert["key"])
+	if keys == _shown_alert_keys:
+		return
+	_shown_alert_keys = keys
+	for child in _alerts_list.get_children():
+		child.queue_free()
+	for alert in alerts:
+		var button := UITheme.action_button(alert["label"])
+		# action_button() already clips (no overrun marker); a long label like
+		# "Kraken Point production paused" was getting hard-cut mid-word at
+		# this panel's width, unreadable. Ellipsis reads as "yes it's cut,
+		# here's an indicator" instead of just cutting silently.
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		button.add_theme_color_override("font_color", alert["color"])
+		button.add_theme_color_override("font_hover_color", alert["color"])
+		button.add_theme_color_override("font_pressed_color", alert["color"])
+		var hex: HexCoord = alert["hex"]
+		button.pressed.connect(func(): camera_controller.center_on(HexView.axial_to_pixel(hex)))
+		_alerts_list.add_child(button)
+	if not alerts.is_empty():
+		UIJuice.pop_in(_alerts_list)
+
+# --- Toasts (fire-once expiring rows) ----------------------------------------
 
 ## Reads every event from this tick's-worth-of-ticks batch relevant to this
 ## player, pushes a toast row for each, then clears state.events outright —
@@ -104,22 +205,15 @@ func _push(event: MatchEvent) -> void:
 	else:
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	_list.add_child(row)
+	_toasts_list.add_child(row)
 	UIJuice.pop_in(row)
 	_active.append({"control": row, "remaining": TOAST_DURATION})
 
 	# Cap simultaneous rows so a big battle can't grow this panel unbounded —
 	# expire the oldest early rather than letting the list keep stacking.
-	while _active.size() > MAX_VISIBLE:
+	while _active.size() > MAX_VISIBLE_TOASTS:
 		var oldest: Dictionary = _active.pop_front()
 		(oldest["control"] as Control).queue_free()
-
-func _process(delta: float) -> void:
-	for i in range(_active.size() - 1, -1, -1):
-		_active[i]["remaining"] -= delta
-		if _active[i]["remaining"] <= 0.0:
-			(_active[i]["control"] as Control).queue_free()
-			_active.remove_at(i)
 
 ## {text, color, hex} for one event — hex is null (no click-to-center) for
 ## events with no single relevant map location (deficit death, outpost loot).
