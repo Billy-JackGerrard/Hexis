@@ -87,6 +87,16 @@ scheme, adapted for real-time (not turn-based) play.
 - **Clicking an alert recenters the camera on that base** — the fastest way to jump
   across a large, multi-front map without hunting for the minimap location.
 
+## Pause Menu
+- **Escape opens a darken-and-card overlay** (`client/pause_menu.gd`) showing match
+  time, the local player's resources with live production/upkeep rates, base counts
+  by owner, and squad counts by troop type, plus Resume/Exit Game buttons.
+- **Singleplayer-only pause; multiplayer stays a local overlay.** Escape actually
+  halts the sim only when there's no `LockstepDriver` (`main.gd`'s `_process` gates
+  `sim_clock.advance` on `not pause_menu.is_open`). In multiplayer the menu still
+  opens, but every other peer keeps playing underneath it — the pause card itself
+  is deliberately agnostic to which mode it's in.
+
 ## Build Menu (Unique Bases)
 - **Resolved: a Unique base's build menu only lists the buildings that base type can
   actually build** — it does not show every game building grayed out with a "not

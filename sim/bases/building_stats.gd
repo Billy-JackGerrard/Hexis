@@ -36,7 +36,7 @@ static func resolve_def(def: Dictionary, building_defs: Dictionary) -> Dictionar
 ## machines could round a ULP apart and silently disagree on something like
 ## upgrade affordability, applying the same command on one peer but not the
 ## other — a real desync this project hit (HQ upgrades, cross-machine LAN).
-static func _apply_growth(base: float, growth: Dictionary, level: int) -> float:
+static func apply_growth(base: float, growth: Dictionary, level: int) -> float:
 	var value: float = float(growth.get("value", 0.0))
 	if growth.get("mode", "flat") == "percent":
 		return base * _int_pow(1.0 + value / 100.0, level - 1)
@@ -77,7 +77,7 @@ static func max_hp(def: Dictionary, level: int, material: String, building_defs:
 		return 0.0
 	var base_hp: float = float(upgrade_model.get("baseStats", {}).get("hp", 0.0))
 	var growth: Dictionary = upgrade_model.get("statGrowth", {}).get("hp", {})
-	return _apply_growth(base_hp, growth, level)
+	return apply_growth(base_hp, growth, level)
 
 ## The nonProductionUpgrade-shaped block that carries baseStats/statGrowth for
 ## HP — materialStats[material] for multi-material buildings, else the plain
@@ -109,7 +109,7 @@ static func defensive_stats(def: Dictionary, level: int, material: String, build
 		var growth: Dictionary = block.get("statGrowth", {})
 		for key in ["damage", "attackSpeed", "range"]:
 			if base.has(key):
-				stats[key] = _apply_growth(float(base[key]), growth.get(key, {}), level)
+				stats[key] = apply_growth(float(base[key]), growth.get(key, {}), level)
 		for key in ["canTarget", "damageTypes", "splashRadius"]:
 			if block.has(key):
 				stats[key] = block[key]
@@ -146,7 +146,7 @@ static func vision_range(def: Dictionary, level: int, material: String, building
 	if not upgrade_model.is_empty() and upgrade_model.get("baseStats", {}).has("visionRange"):
 		var base_vision: float = float(upgrade_model.get("baseStats", {}).get("visionRange", 0.0))
 		var growth: Dictionary = upgrade_model.get("statGrowth", {}).get("visionRange", {})
-		return _apply_growth(base_vision, growth, level)
+		return apply_growth(base_vision, growth, level)
 
 	return float(resolved.get("defensiveStats", {}).get("visionRange", 0.0))
 
@@ -163,7 +163,7 @@ static func cargo_capacity(def: Dictionary, level: int, material: String, buildi
 		return 0.0
 	var base_capacity: float = float(upgrade_model.get("baseStats", {}).get("cargoCapacity", 0.0))
 	var growth: Dictionary = upgrade_model.get("statGrowth", {}).get("cargoCapacity", {})
-	return _apply_growth(base_capacity, growth, level)
+	return apply_growth(base_capacity, growth, level)
 
 ## Flat, map-wide vision-range bonus this building grants its owner (only
 ## Radar Array uses this today — 02-bases-and-buildings.md), applied on top of
@@ -176,7 +176,7 @@ static func global_vision_bonus(def: Dictionary, level: int, building_defs: Dict
 		return 0.0
 	var base_bonus: float = float(upgrade.get("baseStats", {}).get("globalVisionRangeBonus", 0.0))
 	var growth: Dictionary = upgrade.get("statGrowth", {}).get("globalVisionRangeBonus", {})
-	return _apply_growth(base_bonus, growth, level)
+	return apply_growth(base_bonus, growth, level)
 
 ## Flat per-hit damage reduction this building/material grants at `level`
 ## (0.0 if the resolved block carries no armor entry) — data/buildings/
@@ -192,7 +192,7 @@ static func armor(def: Dictionary, level: int, material: String, building_defs: 
 		return 0.0
 	var base_armor: float = float(upgrade_model.get("baseStats", {}).get("armor", 0.0))
 	var growth: Dictionary = upgrade_model.get("statGrowth", {}).get("armor", {})
-	return _apply_growth(base_armor, growth, level)
+	return apply_growth(base_armor, growth, level)
 
 ## The damageReceivedModifiers that apply to this building instance — per
 ## material for multi-material buildings (e.g. Wood Wall's {Fire: 2.0}), else
@@ -265,7 +265,7 @@ static func auras(def: Dictionary, level: int, building_defs: Dictionary) -> Arr
 		var magnitude_key := _aura_magnitude_key(String(entry.get("effect", "")))
 		if magnitude_key != "" and base_stats.has(magnitude_key):
 			var growth: Dictionary = upgrade.get("statGrowth", {}).get(magnitude_key, {})
-			entry["magnitude"] = _apply_growth(float(base_stats[magnitude_key]), growth, level)
+			entry["magnitude"] = apply_growth(float(base_stats[magnitude_key]), growth, level)
 		result.append(entry)
 	return result
 
@@ -320,7 +320,7 @@ static func max_level(def: Dictionary, building_defs: Dictionary) -> int:
 ## (explicit tierLevels rows for 1-3, then postTierGrowth.costGrowth
 ## compounding off the last explicit row for level 4+), else the generic
 ## upgradeBaseCost * (1+upgradeCostGrowth)^(level-1) formula every other
-## building uses (same shape as _apply_growth's stat growth, since
+## building uses (same shape as apply_growth's stat growth, since
 ## upgradeCostGrowth is itself a growthRate block) — upgradeBaseCost is its
 ## own field, independent of baseCost (the build/rebuild cost).
 static func upgrade_cost(def: Dictionary, level: int, material: String, building_defs: Dictionary) -> Dictionary:
@@ -342,7 +342,7 @@ static func upgrade_cost(def: Dictionary, level: int, material: String, building
 		var growth: Dictionary = commander_progression.get("postTierGrowth", {}).get("costGrowth", {})
 		var cost: Dictionary = {}
 		for key in last_row.get("cost", {}):
-			cost[key] = _apply_growth(float(last_row["cost"][key]), growth, target_level - last_level + 1)
+			cost[key] = apply_growth(float(last_row["cost"][key]), growth, target_level - last_level + 1)
 		return cost
 
 	var upgrade_model := _hp_model(resolved, material)
@@ -350,7 +350,7 @@ static func upgrade_cost(def: Dictionary, level: int, material: String, building
 	var growth: Dictionary = upgrade_model.get("upgradeCostGrowth", {})
 	var cost: Dictionary = {}
 	for key in upgrade_base_cost:
-		cost[key] = _apply_growth(float(upgrade_base_cost[key]), growth, target_level)
+		cost[key] = apply_growth(float(upgrade_base_cost[key]), growth, target_level)
 	return cost
 
 ## Percent of base_cost() a ruined (non-HQ, non-Wall, non-standalone) building
@@ -388,5 +388,5 @@ static func resource_output(def: Dictionary, level: int, building_defs: Dictiona
 	for key in _OUTPUT_KEYS:
 		if base_stats.has(key):
 			var growth: Dictionary = upgrade.get("statGrowth", {}).get(key, {})
-			result[_OUTPUT_KEYS[key]] = _apply_growth(float(base_stats[key]), growth, level)
+			result[_OUTPUT_KEYS[key]] = apply_growth(float(base_stats[key]), growth, level)
 	return result

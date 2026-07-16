@@ -134,12 +134,8 @@ occupies a hex, and moves hex-to-hex:
   normal terrain). A unit on cost-2 terrain covers ground at half its normal `speed`. On
   reaching 1.0, `currentHex` becomes the next hex in `path`, `path` shifts, and
   `edgeProgress` resets to 0.
-  - **Resolved bug fix**: this doc previously read `speed * terrainCostMultiplier *
-    tickDuration`, which (a) multiplied cost *up* into speed instead of dividing it
-    down, making harder terrain move units faster, and (b) if `speed` were also
-    "hexes per tick" rather than "hexes per second," the extra `* tickDuration` would
-    double-count and make every unit move 10x too slowly. Fixed by pinning `speed` to
-    hexes/second and inverting the terrain-cost term.
+  (Divide by cost, not multiply — multiplying would make harder terrain move units
+  *faster*, the opposite of the intent.)
 - **Stacking**: any number of squads/troops may occupy the same hex — there's no
   per-hex unit cap or collision to resolve. Combat and positioning play out at the
   squad/front level, consistent with the "positioning over micromanagement" pillar,

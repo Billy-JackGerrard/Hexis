@@ -132,9 +132,10 @@
 #### Commander Tiers & the Commander Cap
 **Resolved**: the Command Centre doesn't unlock Commanders one-per-level like a normal
 production building. Commanders are split into three tiers (`common` / `rare` / `epic`,
-a field on each Commander's troop definition). Note: `data/buildings/command_centre.json`
-implements this progression, but no Commander troop is yet defined in `data/troops/` —
-the roster itself doesn't exist in data yet.
+a field on each Commander's troop definition), implemented by
+`data/buildings/command_centre.json`'s progression. Full named roster: **Vanguard**
+(`common`), **Nightfall** (`rare`), **Warden** (`epic`) — see `08-troop-roster.md` for
+each one's unique aura.
 - **Command Centre level 1** unlocks **every** `common`-tier Commander at once (not just
   one), and contributes 1 slot to the player's **Commander cap**.
 - **Level 2** additionally unlocks every `rare`-tier Commander.
@@ -246,55 +247,13 @@ drops back under the (lower) cap. Full details and the data shape: see
   defenders garrisoned on/near the structure have been cleared first — this creates a
   natural "escort the Engineer" and "garrison the chokepoint" dynamic.
 
-## Open / Unresolved Items
-- Full unit stat design (health, damage, speed, splash radius, rock-paper-scissors
-  matchups) — see `08-troop-roster.md`.
-- Named Commander roster and each one's specific buff/ability — still TBD.
-
-## Resolved Decisions
-- **Commander dies mid-battle → squad disbands** (see Commanders section above).
-- **Mixed-squad speed = slowest member's speed.**
-- **Aircraft Carrier and Transport Truck can both launch/deploy their cargo
-  mid-battle** — not purely storage/transport-while-idle. See `05-troop-stat-schema.md`'s
-  Transport/Cargo fields (`can_launch_cargo_mid_combat`).
-- **Boarding is an explicit order, cargo counts against squad cap, and cargo dies with
-  its carrier** — see Cargo section above.
-- **Aircraft fuel always drains while airborne; docking (carrier or Hangar) is the
-  only way to stop it, and also hides the docked squad from targeting/vision** —
-  reverses the earlier "fuel-free near an owned base" rule. See Cargo section above
-  and `03-resources.md`.
-- **Global squad cap formula**: `(sum of hqLevel across owned bases) * 2 + 2` (starts
-  at 3) — see Squads section above.
-- **Commander cap is tiered and Command-Centre-count-based**, separate from the squad
-  cap — see Commander Tiers & the Commander Cap above.
-- **Line attacks (`lineAttack`) are a second AoE shape alongside splash radius**: a
-  straight, 1-hex-wide beam from the attacker's hex through the target and onward to
-  `range` hexes total, piercing every enemy troop it crosses but hard-blocked by the
-  first building (any owner) anywhere on its path. **Minimum range (`minRange`)** is
-  the mirror of `range` — a dead zone some indirect-fire units can't engage into. Both
-  are troop-schema fields; see `05-troop-stat-schema.md` for the full mechanic and
-  `08-troop-roster.md` for their first users (Tank Obliterator, Earthshaker).
-- **A standing building anywhere on the straight line between attacker and target
-  blocks an ordinary (non-`lineAttack`) attack, same as a Wall** — troops never block
-  each other this way, only buildings do. See `01-map-and-terrain.md`'s Movement &
-  Positioning section for the full rule. Air attackers and any attacker with
-  `minRange > 0` (indirect fire — Earthshaker) ignore it, same exemptions as every
-  other LOS rule.
-- **Every weapon has ballistic travel time (`projectileSpeed`), making shots
-  positionally dodgeable** — a shot aims at the target's hex *at the moment of
-  firing* (a fixed hex, not the target itself) and only deals its damage once
-  `distance / projectileSpeed` seconds later, against whoever's actually
-  standing there then. A target that repositions off the aimed hex before the shot
-  lands takes zero damage; splash still checks the aimed hex's surroundings, so a
-  target can also partially dodge by stepping just outside blast radius rather than
-  fully out of range. Fast small-arms fire (rifles, autocannons, machine guns) uses
-  a high `projectileSpeed` so the travel delay is negligible at their short engagement
-  ranges, while slow-firing splash/siege weapons (Earthshaker, Granite Crumbler) use a
-  low one so "reposition to dodge the next shell" is a real, readable moment. The sole
-  exception is a `lineAttack` beam with no `projectileSpeed` set (Tank Obliterator) —
-  an instantaneous rail-gun-style beam has no obvious travel time to model, so it
-  always resolves instantly; a `lineAttack` that DOES carry `projectileSpeed` (Wind
-  Spire) instead sweeps down its beam hex-by-hex over time, so a target can dodge by
-  moving off its own hex before the gust physically reaches it. See
-  `05-troop-stat-schema.md` for the field and `10-tech-stack-and-build-order.md` for
-  where it's implemented.
+## Status
+Every mechanic above is implemented — full unit stats (`08-troop-roster.md`), the
+named Commander roster (Vanguard/Nightfall/Warden), line attacks/`minRange`, and
+ballistic `projectileSpeed` travel time. Two mechanics not detailed inline above:
+ballistic shots aim at a fixed hex at the moment of firing, not a tracked target — a
+repositioned target dodges the shot entirely, splash included, unless it only steps
+just outside blast radius. A `lineAttack` with no `projectileSpeed` (Tank Obliterator)
+resolves instantly, having no obvious travel time to model; one that also carries
+`projectileSpeed` (Wind Spire) sweeps its beam hex-by-hex over time instead. See
+`05-troop-stat-schema.md` for both fields.

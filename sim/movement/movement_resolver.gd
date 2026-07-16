@@ -173,26 +173,36 @@ static func _advance_squad(squad: SquadInstance, dt: float, grid: HexGrid, troop
 	var domain := Terrain.domain_from_string(String(def.get("domain", "Infantry")))
 	var overrides: Dictionary = def.get("terrainOverrides", {})
 
+	_advance_along_path(squad, dt, grid, domain, overrides, building_blocked_hexes, speed)
+
+## Steps `unit` along its own `path` for up to `dt` seconds at `speed`
+## hexes/sec (terrain-cost-adjusted per edge), replanning once if the next
+## stored edge is blocked and halting in place if no route remains. Shared by
+## the ordinary per-squad advance above and the regiment lock-step Commander
+## advance below — both do the exact same terrain-cost/time-conversion/replan
+## dance, just for a different unit and a different (possibly regiment-capped)
+## speed.
+static func _advance_along_path(unit: SquadInstance, dt: float, grid: HexGrid, domain: Terrain.Domain, overrides: Dictionary, building_blocked_hexes: Dictionary, speed: float) -> void:
 	var remaining_time := dt
 	var replanned_this_tick := false
-	while remaining_time > 0.0 and not squad.path.is_empty():
-		var next_hex: HexCoord = squad.path[0]
-		var cost := grid.edge_cost(squad.current_hex, next_hex, domain, overrides, building_blocked_hexes)
+	while remaining_time > 0.0 and not unit.path.is_empty():
+		var next_hex: HexCoord = unit.path[0]
+		var cost := grid.edge_cost(unit.current_hex, next_hex, domain, overrides, building_blocked_hexes)
 		if cost == Terrain.INF:
-			if replanned_this_tick or not _replan(squad, grid, domain, overrides, building_blocked_hexes):
+			if replanned_this_tick or not _replan(unit, grid, domain, overrides, building_blocked_hexes):
 				break
 			replanned_this_tick = true
 			continue
 
 		var speed_eff := speed / cost
-		var time_to_edge := (1.0 - squad.edge_progress) / speed_eff
+		var time_to_edge := (1.0 - unit.edge_progress) / speed_eff
 		if time_to_edge <= remaining_time:
 			remaining_time -= time_to_edge
-			squad.current_hex = next_hex
-			squad.path.remove_at(0)
-			squad.edge_progress = 0.0
+			unit.current_hex = next_hex
+			unit.path.remove_at(0)
+			unit.edge_progress = 0.0
 		else:
-			squad.edge_progress += speed_eff * remaining_time
+			unit.edge_progress += speed_eff * remaining_time
 			remaining_time = 0.0
 
 ## Re-paths toward the squad's move-order goal (or the last hex of its
@@ -314,27 +324,7 @@ static func resolve_regiment_tick(dt: float, commander_squad: SquadInstance, mem
 	var overrides: Dictionary = commander_def.get("terrainOverrides", {})
 	var building_blocked_hexes := BuildingPlacement.building_blocking_hexes(bases, standalone_buildings)
 
-	var remaining_time := dt
-	var replanned_this_tick := false
-	while remaining_time > 0.0 and not commander_squad.path.is_empty():
-		var next_hex: HexCoord = commander_squad.path[0]
-		var cost := grid.edge_cost(commander_squad.current_hex, next_hex, domain, overrides, building_blocked_hexes)
-		if cost == Terrain.INF:
-			if replanned_this_tick or not _replan(commander_squad, grid, domain, overrides, building_blocked_hexes):
-				break
-			replanned_this_tick = true
-			continue
-
-		var speed_eff := speed / cost
-		var time_to_edge := (1.0 - commander_squad.edge_progress) / speed_eff
-		if time_to_edge <= remaining_time:
-			remaining_time -= time_to_edge
-			commander_squad.current_hex = next_hex
-			commander_squad.path.remove_at(0)
-			commander_squad.edge_progress = 0.0
-		else:
-			commander_squad.edge_progress += speed_eff * remaining_time
-			remaining_time = 0.0
+	_advance_along_path(commander_squad, dt, grid, domain, overrides, building_blocked_hexes, speed)
 
 	for squad in lockstep:
 		if squad == commander_squad:

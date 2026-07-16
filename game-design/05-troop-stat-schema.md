@@ -420,9 +420,10 @@ for future additions (Shield Tank, Stealth unit, etc.) without a redesign.
   produce the unit.
 - **Food upkeep** — ongoing Food consumption while the unit exists.
 - **Fuel upkeep** — ongoing Fuel consumption; rules differ by Domain (land
-  vehicles: only while moving; aircraft: constant unless idle and on/adjacent to one
-  of the *owner's own* bases (never an enemy's or neutral one); ships: minimal
-  regardless of state — see `03-resources.md`).
+  vehicles: only while moving; aircraft: constant while airborne, regardless of
+  proximity to a friendly base — only actually docking (Hangar or a carrier
+  squad) stops the drain; ships: minimal regardless of state — see
+  `03-resources.md`).
 - **Production time** — troop training is **not instant** (unlike building
   construction). This is why a base can build multiple copies of the same production
   building (e.g. two Barracks = double infantry output) — each building has its own
@@ -439,8 +440,8 @@ For real, implemented example units, see `08-troop-roster.md` (design rationale 
 troop) and `data/troops/*.json` (exact stats) — every unit that would have been
 listed here (Engineer, Hot Air Balloon, Glider, Quad-bike, Transport Truck, Aircraft
 Carrier, Ghost Tank/Submarine/Sniper) is now fully implemented and documented there.
-The one still-genuine placeholder:
-
-**Shield Tank** (future/planned, not yet implemented)
-- Domain: Land · Tags: `[Vehicle, Tank, Support]`
-- aura: `{radius: 3, effect: damage_reduction, magnitude: 20%}`
+No placeholder units remain: the roster's originally-planned "Shield Tank" (a Land
+Vehicle/Tank/Support unit granting a nearby `damage_reduction` aura) was superseded
+by **Chonky** (`data/troops/chonky.json`) — high HP plus flat armor to soak hits at
+close range covers the same "tanky damage-reduction vehicle" niche without a second,
+largely-overlapping unit.

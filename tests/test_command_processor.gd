@@ -268,7 +268,8 @@ func _test_merge_squads() -> void:
 	var another_carrier := _make_squad(state, "p1", "transport_truck", HexCoord.new(1, 0))
 	_check(CommandProcessor.merge_squads(state, another_carrier.id, loaded_carrier.id, "p1") == CommandProcessor.Result.INVALID, "a donor squad still carrying cargo can't be merged away")
 
-	var full_target := _make_squad(state, "p1", "rifleman", HexCoord.new(1, 0), 8)
+	var rifleman_max_squad_size: int = int(_troop_defs["rifleman"].get("maxSquadSize", 0))
+	var full_target := _make_squad(state, "p1", "rifleman", HexCoord.new(1, 0), rifleman_max_squad_size)
 	_check(CommandProcessor.merge_squads(state, full_target.id, mine.id, "p1") == CommandProcessor.Result.SQUAD_FULL, "merging into an already-full squad is rejected")
 
 	# Full-drain merge, including regiment cleanup for a donor that was
@@ -286,13 +287,17 @@ func _test_merge_squads() -> void:
 	_check(not regiment.squad_ids.has(donor.id), "the drained donor was removed from its regiment")
 
 	# Partial merge: the target fills up before the donor fully drains, so the
-	# donor survives with its leftover members.
-	var target2 := _make_squad(state, "p1", "rifleman", HexCoord.new(3, 0), 7)
-	var donor2 := _make_squad(state, "p1", "rifleman", HexCoord.new(3, 0), 3)
+	# donor survives with its leftover members. Sized off rifleman_max_squad_size
+	# (target2_room short of full, donor2 bigger than that room) rather than
+	# hardcoded counts, so this doesn't silently stop testing the partial-merge
+	# path the next time maxSquadSize is rebalanced.
+	var target2_room := 2
+	var donor2_size := target2_room + 3
+	var target2 := _make_squad(state, "p1", "rifleman", HexCoord.new(3, 0), rifleman_max_squad_size - target2_room)
+	var donor2 := _make_squad(state, "p1", "rifleman", HexCoord.new(3, 0), donor2_size)
 
 	result = CommandProcessor.merge_squads(state, target2.id, donor2.id, "p1")
-	var rifleman_max_squad_size: int = int(_troop_defs["rifleman"].get("maxSquadSize", 0))
-	var donor2_leftover: int = 3 - (rifleman_max_squad_size - 7)
+	var donor2_leftover: int = donor2_size - target2_room
 	_check(result == CommandProcessor.Result.OK, "merging a donor larger than the target's remaining room still succeeds")
 	_check(target2.member_ids.size() == rifleman_max_squad_size, "the target filled up to maxSquadSize (%d)" % rifleman_max_squad_size)
 	_check(donor2.member_ids.size() == donor2_leftover, "the donor kept its leftover members once the target filled")

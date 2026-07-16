@@ -455,9 +455,9 @@ Every player's `Player.resources` initializes to: **Food 100, Stone 100, Steel 5
 Wood 0, Fuel 0** — enough to fund a base's first Farm/Quarry-adjacent builds without
 needing Wood (no Forest-adjacent Lumber Mill yet) or Fuel (no Oil Rig built yet) on
 turn one. This lives on the per-match `Player` record shown above, **not** on any
-account-level/meta-progression record — `ideas.txt`'s account-perks idea is an
-explicitly later, separate system layered on top of match outcomes, not part of a
-match's starting economy.
+account-level/meta-progression record — an account-perks system is an explicitly
+later, separate idea layered on top of match outcomes, not designed yet and not part
+of a match's starting economy.
 
 ## 6. Map & Terrain Storage
 ```
@@ -498,30 +498,20 @@ Tile {
 - A 5-second tick over a 40-minute match is 480 ticks total — frequent enough to feel
   responsive, coarse enough to keep the simulation/sync simple.
 
-## 8. Simulation vs. Rendering (Multiplayer-Ready, Built Single-Player First)
-- The game ships **single-player/local only** for now. Multiplayer is a real future
-  goal, but networking code is **not** being built yet — instead, the architecture is
-  kept clean enough that adding it later is an integration, not a rewrite.
-- **Simulation and rendering are separate modules.** The simulation owns all game
-  state (Player, BaseInstance, BuildingInstance, TroopInstance, SquadInstance,
+## 8. Simulation vs. Rendering (Multiplayer Implemented, Deterministic Lockstep)
+- **Simulation and rendering are separate modules.** The simulation (`sim/`) owns all
+  game state (Player, BaseInstance, BuildingInstance, TroopInstance, SquadInstance,
   RegimentInstance, Wall, Tile, resource ticks, combat resolution, movement) and
   advances it by consuming a stream of **player actions** (move squad, place building,
   queue troop, focus-fire/attack-target order, board/unload cargo, demolish building,
-  etc.) — it has no knowledge of the
-  renderer, camera, or input devices. The rendering layer reads simulation state to
-  draw it, and translates player input into that same action stream; it never mutates
-  simulation state directly.
-- **Local play today is a client and a "local server" running in the same process,
-  talking through the same action-stream interface a real network connection would
-  use later.** Swapping in real multiplayer means routing that action stream over a
-  network (e.g. WebSocket) to a server running the same simulation module — the
-  simulation logic itself shouldn't need to change.
+  etc.) — it has no knowledge of the renderer, camera, input devices, or `multiplayer`/
+  RPC. The rendering layer (`client/`) reads simulation state to draw it, and
+  translates player input into that same action stream; it never mutates simulation
+  state directly. `client/net/` is the one place that touches Godot's networking API —
+  see `10-tech-stack-and-build-order.md`.
 - **Players are modeled as a list from the start** (`Player[]`), never a hardcoded
-  singleton "the player" — trivial to enforce now, expensive to retrofit once game
-  logic has singleton assumptions baked into it.
-- This is an ongoing architectural discipline, not a scheduled milestone — there's no
-  separate "multiplayer build" being deferred, just a boundary (simulation vs.
-  rendering/input) that's cheap to maintain now and costly to introduce after the fact.
+  singleton "the player" — this is what made multiplayer an integration rather than a
+  rewrite once it was actually built.
 
 ### Simulation Tick Rates
 Two independent tick rates drive the simulation:
@@ -531,31 +521,49 @@ Two independent tick rates drive the simulation:
   squad movement (`edgeProgress` advancement), auto-attack resolution, aura
   application, HP regen, and status-effect duration countdowns (freeze, deficit-drain,
   etc.) — fine enough to feel responsive for real-time positioning and combat, coarse
-  enough to stay cheap to compute and (later) to network. Any smoother motion the
-  player sees between ticks is rendering-layer interpolation only, same principle as
-  the resource tick's "counting up" being visual-only (see section 7).
+  enough to stay cheap to compute and to network. Any smoother motion the player sees
+  between ticks is rendering-layer interpolation only, same principle as the resource
+  tick's "counting up" being visual-only (see section 7).
 
-### Networking Model: Authoritative Server, Not Lockstep
-**Recommendation: build toward an authoritative-server model, not deterministic
-lockstep.** Reasoning:
-- Lockstep requires every client to compute **bit-identical** state from the same
-  inputs — any float drift, iteration-order difference, or timing edge case causes a
-  silent desync that's notoriously hard to debug, and the whole simulation has to stay
-  perfectly deterministic forever to keep working.
-- Going hex-based for movement (section 4 above) removes the worst source of that
-  drift (no continuous float positions to diverge), but full bit-exact determinism
-  across independent clients is still a much stronger constraint than this game
-  actually needs.
-- An authoritative server is simply "the same local server this game already runs
-  in-process" (see above), given a real network boundary: it owns the one true state,
-  clients send actions and receive periodic state snapshots, and a client that falls
-  behind or glitches can just resync from a snapshot instead of desyncing permanently.
-- Hexis's scale (12-18 bases, squad-based unit counts, not the thousands-of-units
-  scale where lockstep's bandwidth savings actually start to matter) means snapshot
-  bandwidth is a non-issue — the case for lockstep is weakest exactly where this game
-  sits.
-- This changes nothing about the action-stream design above; it just means the future
-  "server" is authoritative over state rather than merely relaying inputs.
+### Networking Model: Deterministic Lockstep (Peer-to-Peer, Host Is Just Another Peer)
+**Implemented** (`client/net/`), not an authoritative server — every peer computes its
+own copy of the same simulation from the same command stream, rather than one node
+owning "the" state and broadcasting snapshots:
+- **Every peer runs the identical simulation.** A command a player issues is buffered
+  (`LockstepDriver.issue`) and broadcast for a future tick (`exec_tick = current + 3`,
+  giving the network time to deliver it to everyone), not applied immediately — see
+  `LockstepDriver`'s `INPUT_DELAY_TICKS`. A tick only resolves once every peer has
+  confirmed what it did (or explicitly did nothing) on that tick; a quiet player still
+  sends an empty input frame every tick, or the gate would stall waiting on them
+  forever.
+- **Same-tick commands from different peers apply in a fixed order** — sorted by
+  `(owner_id, seq)`, not network arrival order (`CommandQueue.drain_due`) — so two
+  peers that received the same tick's commands in a different wire order still produce
+  identical results.
+- **Determinism discipline this requires, enforced project-wide**: no `pow()` in `sim/`
+  (not guaranteed bit-identical across platforms/architectures — an integer-exponent
+  `_int_pow` via exponentiation-by-squaring is used instead, see `BuildingStats.
+  apply_growth`), no unseeded `randf()`/`randi()` (every roll threads a shared
+  `MatchState.rng` down from the top), and hex-based movement (section 4) removes
+  continuous float positions as a drift source entirely. `tests/test_determinism.gd`/
+  `test_lockstep_determinism.gd` and `sim/deterministic_math` guard this directly.
+  This project hit a real cross-machine desync once already (HQ upgrade cost, before
+  `_int_pow` existed) — the discipline above is a direct response to that, not
+  theoretical caution.
+- **Desync detection, not prevention-by-authority**: every `DESYNC_CHECK_INTERVAL_TICKS`
+  the host aggregates every peer's per-section state checksum
+  (`MatchState.section_checksums()`); a mismatch names which section diverged and halts
+  play rather than letting a silent drift compound, with each peer's state/command-log
+  snapshot around that tick collected for debugging (`NetManager.send_desync_dump`).
+  There is no snapshot-resync — a desync is a bug to fix, not a steady-state event to
+  paper over.
+- **The host is a player, not a server**: `NetManager.host()` runs a listen-server (host
+  is also `p0`); its only privileged roles are assigning lobby `owner_id`s and
+  aggregating checksums, not owning authoritative game state.
+- This scale (12-18 bases, squad-based unit counts, not thousands of individually
+  simulated units) is exactly where lockstep's tiny-action-stream-instead-of-full-
+  snapshots tradeoff wins outright — the case against lockstep (state-snapshot
+  bandwidth stops mattering; determinism becomes the whole cost) doesn't apply here.
 
 ## Open / Unresolved Items
 - Whether a squad's `path`/`edgeProgress` needs a separate "facing" stored for

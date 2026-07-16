@@ -121,7 +121,20 @@ func leave() -> void:
 func start_match(world_seed: int) -> void:
 	if not is_host:
 		return
+	_compact_owner_ids()
 	_receive_match_start.rpc(world_seed, roster.size(), roster)
+
+## Reassigns owner_ids to a contiguous "p0".."p(N-1)" run (ordered by peer id,
+## so the host — always peer id 1 — stays "p0"). Belt-and-suspenders against
+## world gen (base_site_selector.gd) and _build_owner_visuals (main.gd), which
+## both derive owner ids by looping range(player_count): a disconnect earlier
+## in the lobby can leave a gap (host=p0, p1 leaves, p2 remains) that neither
+## loop would ever produce, silently stranding the p2 player with no base.
+func _compact_owner_ids() -> void:
+	var peer_ids := roster.keys()
+	peer_ids.sort()
+	for i in range(peer_ids.size()):
+		roster[peer_ids[i]]["owner_id"] = "p%d" % i
 
 ## Broadcasts this peer's commands for a future tick to every peer (host
 ## included, via call_local) — see lockstep_driver.gd for exec_tick/commands.
@@ -192,13 +205,24 @@ func _register_player(player_name: String, capital_name: String) -> void:
 	if not is_host:
 		return
 	var sender := multiplayer.get_remote_sender_id()
-	var index := roster.size()
 	roster[sender] = {
-		"owner_id": "p%d" % index,
+		"owner_id": "p%d" % _lowest_free_owner_index(),
 		"name": _dedupe(player_name, _others_field("name", sender)),
 		"capital_name": _dedupe(capital_name, _others_field("capital_name", sender)),
 	}
 	_sync_roster.rpc(roster)
+
+## Lowest "p<n>" suffix not already taken in the roster — unlike roster.size(),
+## this can't hand out a duplicate after an earlier disconnect leaves a gap
+## (e.g. host=p0, p1 leaves, p2 remains: size() is 2, which p2 already has).
+func _lowest_free_owner_index() -> int:
+	var taken: Dictionary = {}
+	for entry in roster.values():
+		taken[int(String(entry["owner_id"]).trim_prefix("p"))] = true
+	var index := 0
+	while taken.has(index):
+		index += 1
+	return index
 
 ## Client -> host, in response to editing the name/capital fields mid-lobby.
 @rpc("any_peer", "call_remote", "reliable")

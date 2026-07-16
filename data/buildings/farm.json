@@ -10,11 +10,11 @@
   "nonProductionUpgrade": {
     "baseStats": {
       "hp": 150,
-      "foodOutput": 5
+      "foodOutput": 3
     },
     "statGrowth": {
-      "hp": { "mode": "percent", "value": 10 },
-      "foodOutput": { "mode": "percent", "value": 8 }
+      "hp": { "mode": "percent", "value": 15 },
+      "foodOutput": { "mode": "percent", "value": 20 }
     },
     "baseCost": {
       "stone": 50

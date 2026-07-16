@@ -1,0 +1,15 @@
+/Users/bj/Documents/Coding/Hexis/README.md
+/Users/bj/Documents/Coding/Hexis/assets/fonts/OFL.txt
+/Users/bj/Documents/Coding/Hexis/game-design/00-overview.md
+/Users/bj/Documents/Coding/Hexis/game-design/01-map-and-terrain.md
+/Users/bj/Documents/Coding/Hexis/game-design/02-bases-and-buildings.md
+/Users/bj/Documents/Coding/Hexis/game-design/03-resources.md
+/Users/bj/Documents/Coding/Hexis/game-design/04-combat.md
+/Users/bj/Documents/Coding/Hexis/game-design/05-troop-stat-schema.md
+/Users/bj/Documents/Coding/Hexis/game-design/06-building-stats-and-defenses.md
+/Users/bj/Documents/Coding/Hexis/game-design/07-data-architecture.md
+/Users/bj/Documents/Coding/Hexis/game-design/08-troop-roster.md
+/Users/bj/Documents/Coding/Hexis/game-design/09-ui-and-controls.md
+/Users/bj/Documents/Coding/Hexis/game-design/10-tech-stack-and-build-order.md
+/Users/bj/Documents/Coding/Hexis/game-design/11-ui-style-guide.md
+/Users/bj/Documents/Coding/Hexis/notes.txt

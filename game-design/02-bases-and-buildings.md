@@ -481,10 +481,8 @@ multiple copies at the same base, same as Barracks — once that base is owned. 
 other buildings (if any) should join this fixed/unique category is a per-building
 design call to make as more Unique bases are authored.
 
-## Open / Unresolved Items
-- **Resolved: not every Unique base gets a specialty defensive building.** Sky Fortress
-  (and any future Unique base without one authored) simply relies on the two generic
-  defenses every base gets (Turret, Missile Launcher) — a specialty defense building is
-  a bonus some Unique bases have, not a requirement all of them need. This was never a
-  gap to fill, just an assumption to drop. Windy Peaks has since gained its own
-  specialty defense, Wind Spire (see Windy Peaks above).
+## Note: Specialty Defenses Are Optional
+Not every Unique base gets a specialty defensive building — Sky Fortress (and any
+future Unique base without one authored) simply relies on the two generic defenses
+every base gets (Turret, Missile Launcher). A specialty defense is a bonus some Unique
+bases have, not a requirement all of them need.

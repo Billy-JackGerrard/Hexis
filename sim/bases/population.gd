@@ -5,43 +5,20 @@
 class_name Population
 extends RefCounted
 
-## Evaluates a data/buildings/schema.json `growthRate` dict ({mode, value})
-## against a base stat at level N (level 1 = base_value, no growth applied).
-## Percent growth uses _int_pow, not pow() — see its doc comment: pow()'s
-## rounding isn't guaranteed identical across platforms, which is exactly the
-## kind of thing that silently desyncs a lockstepped sim.
-static func _grown_stat(base_value: float, growth: Dictionary, level: int) -> float:
-	if level <= 1 or growth.is_empty():
-		return base_value
-	var mode: String = growth.get("mode", "percent")
-	var value: float = float(growth.get("value", 0.0))
-	if mode == "flat":
-		return base_value + value * (level - 1)
-	return base_value * _int_pow(1.0 + value / 100.0, level - 1)
-
-## Deterministic integer-exponent power (exponentiation by squaring) — only
-## +/-/*// are guaranteed bit-identical across platforms under IEEE 754;
-## pow() is not. `exponent` must be >= 0 (every growthRate caller's is).
-static func _int_pow(base: float, exponent: int) -> float:
-	var result := 1.0
-	var b := base
-	var e := exponent
-	while e > 0:
-		if e & 1 == 1:
-			result *= b
-		b *= b
-		e >>= 1
-	return result
-
 ## Building's populationCapacity output at a given level, per its def's
 ## nonProductionUpgrade.baseStats/statGrowth (used for both HQ and House).
+## Growth math (BuildingStats.apply_growth) is shared with every other leveled
+## building stat — same deterministic _int_pow rather than pow(), see that
+## method's doc comment for why (pow()'s rounding isn't guaranteed identical
+## across platforms, which is exactly the kind of thing that silently desyncs
+## a lockstepped sim — this project hit that once already).
 static func _population_capacity(building_def: Dictionary, level: int) -> int:
 	var upgrade: Dictionary = building_def.get("nonProductionUpgrade", {})
 	var base_stats: Dictionary = upgrade.get("baseStats", {})
 	var stat_growth: Dictionary = upgrade.get("statGrowth", {})
 	var base_capacity: float = float(base_stats.get("populationCapacity", 0.0))
 	var growth: Dictionary = stat_growth.get("populationCapacity", {})
-	return int(round(_grown_stat(base_capacity, growth, level)))
+	return int(round(BuildingStats.apply_growth(base_capacity, growth, level)))
 
 ## populationCap = HQ's populationCapacity output at its own level (per
 ## hq.json) plus every House's populationCapacity output at its own level.

@@ -271,7 +271,7 @@ func _process(delta: float) -> void:
 ## a count of producing buildings grouped by (type, level). Also resizes the
 ## bar to fit however many lines the tallest column needs.
 func _refresh_breakdown(owned_bases: Array[BaseInstance]) -> void:
-	var summary := EconomySummary.compute(state, owner_id, owned_bases)
+	var summary := EconomySummary.compute(state, owner_id)
 	var totals: Dictionary = summary["production"]
 	var groups_by_type := _compute_producer_groups(owned_bases)
 	var auras: Dictionary = summary["auras"]

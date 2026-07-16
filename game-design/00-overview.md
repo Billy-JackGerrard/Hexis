@@ -6,7 +6,7 @@ A cartoon-style, 2.5D top-down/isometric strategy game. Each match lasts roughly
 
 ## Core Pillars
 - **Territory conquest**: grow your holdings by capturing bases, not building new ones.
-- **Positioning over micromanagement**: combat auto-resolves (units auto-attack nearest enemy in range); the player's only direct lever is movement, though the player can click on a squad, and click on an enemy troop or building; and the squad will attack that.
+- **Positioning over micromanagement**: combat auto-resolves (units auto-attack the nearest enemy in range); the player's direct levers are movement and focus-fire — clicking a squad then an enemy troop/building directs it to attack that target instead.
 - **Asymmetric bases**: each Unique base has its own building set and troop roster,
   making *which* bases you hold shape your strategy, not just how many.
 - **Logistics matter**: Food/Fuel deficits actively damage your forces, so an
@@ -61,7 +61,10 @@ A cartoon-style, 2.5D top-down/isometric strategy game. Each match lasts roughly
 - `07-data-architecture.md` — how it's all actually stored: buildings, walls, troop
   runtime state, ownership, map/terrain, resource ticking; also the simulation/
   rendering split that keeps the single-player build multiplayer-ready
-- `08-troop-roster.md` — units defined so far, filled in against the schema (in progress)
-- `09-ui-and-controls.md` — control scheme direction
+- `08-troop-roster.md` — every troop, filled in against the schema, plus a
+  roster-wide damage-modifier matchup matrix
+- `09-ui-and-controls.md` — control scheme direction, pause menu, alerts panel
 - `10-tech-stack-and-build-order.md` — engine choice (Godot), why, and the
-  backend-before-frontend build sequence
+  backend-before-frontend build log (sim core, multiplayer networking,
+  rendering, UI — status of each)
+- `11-ui-style-guide.md` — the reusable HUD look-and-feel layer (`ui_theme.gd`)

@@ -1,9 +1,8 @@
-# Troop Roster (In Progress)
+# Troop Roster
 
-This document tracks confirmed troop types and flags what's still undecided. Full
-stats (HP, damage, speed, splash radius, fuel use) are locked in for every troop
-except the Commander roster — see `data/troops/*.json` for authoritative values; this
-doc records design rationale, not the numbers themselves.
+Full stats (HP, damage, speed, splash radius, fuel use) are locked in for every troop,
+Commanders included — see `data/troops/*.json` for authoritative values; this doc
+records design rationale, not the numbers themselves.
 
 ## General Design Intent
 - A long roster with real differentiation: some units are fast/fragile, some are
@@ -26,7 +25,7 @@ doc records design rationale, not the numbers themselves.
 | Barracks | **Grenadier** | Anti-tank infantry, bonus damage vs. `Land`-domain targets (land vehicles specifically — does not apply to Air/Naval vehicles) |
 | Barracks | **Flamethrower** | Bonus damage vs. `Wood`-tagged targets (walls, docks, bridges, Wood Tower) |
 | Barracks | **Sniper** | Stealth unit; also a `detector` (spots other stealthed units at full vision range); `damage_types: [Piercing]` — bypasses target armor (not damage-received modifiers, which still apply normally); `can_target` omits `Structure` (**cannot target buildings/walls**), a deliberate exception to the usual default (see `05-troop-stat-schema.md`) |
-| Barracks | **Shielder** | Pure tank/meatshield: `can_target: []` (no attack at all), high HP plus a flat `armor` stat (damage reduction per hit, distinct from the multiplier-based damage-received modifiers), slow-moving |
+| Barracks | **Shielder** | Pure tank/meatshield: `canTarget: [Infantry]` only, and its own `damage` is a token 4 — high HP plus a flat `armor` stat (damage reduction per hit, distinct from the multiplier-based damage-received modifiers) is the real point, slow-moving |
 | Factory | **Ambulance** | Light support vehicle — mobile heal aura, Infantry-only (same effect family as Hospital's passive heal); a vehicle rather than infantry so it can keep pace with the army it's healing. Repair Truck (Camp Cosy's Supply Depot) is its Land-vehicle counterpart |
 | Factory | **Transport Truck** | Light vehicle, little/no attack — carries an infantry squad aboard for fast repositioning, letting cheap Food-upkeep infantry keep up with Fuel-upkeep armies. Can deploy its cargo **mid-battle**, not just while idle. `cargoCapacity: 1` = one squad (any size), not troop headcount |
 | Factory | **Light Tank** | Generic all-round light vehicle — no damage modifiers vs. anything; the baseline other tank types (Heavy Tank roster, etc.) get balanced against, same role Rifleman plays for infantry |
@@ -82,7 +81,7 @@ doc records design rationale, not the numbers themselves.
 | Building | Unit(s) | Notes |
 |---|---|---|
 | Port | Gunboat, HMS Cuddles | Kraken Point separately builds Port too (any water-adjacent base can) — not part of Shipyard's own unlock list. See Capital Base above |
-| Shipyard | **Destroyer** | Heavier warship — deliberately not just a stronger Gunboat: slower and pricier, but tankier and specializes with bonuses vs. `Land` (1.4x) and `Structure` (1.2x), a bombardment/shore-support role rather than a straight upgrade or an anti-ship specialist (that's Submarine's job). Gunboat remains the fast/cheap early pick. Kraken Point exclusive (not built at Ford Yard). Stats implemented, see `data/troops/destroyer.json` |
+| Shipyard | **Destroyer** | Heavier warship — deliberately not just a stronger Gunboat: slower and pricier, but tankier and specializes with bonuses vs. `Land` (1.4x) and `Structure` (1.2x), a bombardment/shore-support role rather than a straight upgrade or an anti-ship specialist (that's Submarine's job). Gunboat remains the fast/cheap early pick. Kraken Point exclusive (not built at Ford Yard). Fills the navy's "heaviest warship" niche on its own — Cruiser/Battleship as further tiers above it aren't needed. Stats implemented, see `data/troops/destroyer.json` |
 | Shipyard | **Submarine** | Stealth ambush ship — the naval sibling to Ghost Tank. `canTarget: [Naval]` only (pure ship-hunter). `stealth`/`revealRange`/`revealsOnAttack` same mechanism as Ghost Tank. Also built at Rivergate's Ford Yard. Stats implemented, see `data/troops/submarine.json` |
 | Shipyard | **Tank Carrier** (renamed from the roster's planned "Heavy Transport") | Bigger than HMS Cuddles, fully unarmed, `cargoCapacity: 2`, `cargoAllowedTags: [Land, Infantry]` — the first transport that can carry vehicle squads, not just Infantry. `canLaunchCargoMidCombat: true`. Kraken Point exclusive (not built at Ford Yard). Stats implemented, see `data/troops/tank_carrier.json` |
 | Shipyard | **Aircraft Carrier** | Naval capstone — highest HP/cost/slowest ship in the navy. Holds (doesn't produce) 2 Air squads fuel-free, and can **launch them mid-battle**. Its own weak armament is `canTarget: [Air]` only (point-defense flak) — cannot fire on ships/ground/structures, so always needs an escort fleet against anything but an air threat. Kraken Point exclusive. Stats implemented, see `data/troops/aircraft_carrier.json` |
@@ -151,39 +150,59 @@ common, Land vehicles → a couple of Unique bases, Air → one, one level deepe
 - **Exception — Glider** (Windy Peaks): unpowered, so it uses **no Fuel at all** and
   draws Food upkeep instead, same as ground infantry.
 
-## Still To Do
-- [x] Named infantry roster (Barracks): Rifleman, Grenadier, Flamethrower, Shielder, Sniper — full stats implemented, see `data/troops/`
-- [x] Anti-air vehicle/tank — **Rocket Tank** (Fort Irongrad Tank Plant / Winter Forge Frostworks), see `data/troops/rocket_tank.json`
-- [x] Full light/combat vehicle roster (Factory): Engineer, Tonk, Ambulance, Light Tank, Transport Truck, Basekiller — see `data/troops/`. Camp Cosy's Supply Depot additionally fields a dedicated support-vehicle roster (Repair Truck, Mule, Volt Truck alongside shared Engineer/Ambulance/Transport Truck)
-- [x] Basic navy roster (Port): Gunboat, HMS Cuddles — see `data/troops/`
-- [x] Wingfighter/Thunder (Sky Fortress) full stat sheet — see `data/troops/wingfighter.json`, `data/troops/thunder.json`
-- [x] Full Kraken Point Shipyard roster (ship tiers up to Aircraft Carrier) — Destroyer, Submarine, Tank Carrier, Aircraft Carrier; see `data/troops/destroyer.json`, `data/troops/submarine.json`, `data/troops/tank_carrier.json`, `data/troops/aircraft_carrier.json`. Cruiser/Battleship tier deliberately deferred
-- [x] Engineer combat stats — non-combat (`canTarget: []`), Land-domain vehicle, hp 60, cheap/fast to produce, level-1 Factory unlock; see `data/troops/engineer.json`
-- [x] Named Commander roster + each Commander's unique buff/ability — full basic/rare/best set implemented: **Vanguard** (basic), a Land-vehicle Commander whose aura gives its regiment's squads a 1.8x speed boost; **Nightfall** (rare), a stealthy Land-vehicle Commander whose aura extends its own Ghost-Tank-style stealth (revealRange 1, revealsOnAttack) to every squad in its regiment; and **Warden** (best), a tanky support Commander whose aura heals itself and its regiment once out of combat (`heal_out_of_combat`, gated like buildings' passive regen, unlike Ambulance/Repair Truck's always-on heal). All three scope their aura via `filter: "own_regiment"` (Warden: `"own_regiment_and_self"`) rather than proximity, capped at `maxSquadsLed: 4`. See `data/troops/commander_vanguard.json`, `data/troops/commander_nightfall.json`, `data/troops/commander_warden.json`
-- [x] Full stat sheet: HP, damage, speed, cost, splash radius, range for every unit — done for every non-Commander troop, see `data/troops/`
-- [ ] Rock-paper-scissors matchup matrix — per-unit damage modifiers are authored, but no consolidated summary matrix exists yet
-- [x] Heavy Tank roster + which types are Irongrad-only vs. shared with Winter Forge's
-      Frostworks — Juggernaut, Rocket Tank shared; Granite Crumbler, Chonky Irongrad-only;
-      Frost Tank Frostworks-only. See `data/troops/juggernaut.json`,
-      `data/troops/rocket_tank.json`, `data/troops/granite_crumbler.json`,
-      `data/troops/chonky.json`, `data/troops/frost_tank.json`
-- [x] Dedicated siege unit(s) — **Basekiller** (Factory), see `data/troops/basekiller.json`. Also introduced the `Defensive` reserved value (split out from `Structure`) for base-defenses-specific targeting/bonuses, and the "damage-modifier bonus = target-priority hint" rule (see `05-troop-stat-schema.md`/`04-combat.md`)
-- [x] Quad-bike (Treehouse) full stat sheet — see `data/troops/quad_bike.json`
-- [x] Aircraft fuel rework + Hangar docking, and the Cloudreach base/Covert Airfield
-      roster that closes its "nothing can dock yet" gap — Cargocopter, Repair Drone,
-      Kleptocopter, Shadowcopter; see `data/bases/cloudreach.json`,
-      `data/buildings/covert_airfield.json`, `data/troops/{cargocopter,repair_drone,
-      kleptocopter,shadowcopter}.json`
-- [x] Scrapyard base (heavy-armor sustainment specialist) — Salvage Works unlocks
-      Juggernaut, Repair Truck, Granite Crumbler, Repair Drone; see
-      `data/bases/scrapyard.json`, `data/buildings/salvage_works.json`
-- [x] Camp Kaboom base (heavy-artillery specialist, no infantry/light-vehicle roster
-      at all) — Demolition Plant unlocks Tank Obliterator and Earthshaker. Introduced
-      two new troop-schema fields: `lineAttack` (a straight-beam AoE shape,
-      piercing troops but blocked by the first building in its path — Tank
-      Obliterator's rail gun) and `minRange` (a minimum-engagement dead zone —
-      Earthshaker can no longer hit anything adjacent to it). See
-      `data/bases/camp_kaboom.json`, `data/buildings/demolition_plant.json`,
-      `data/troops/Tank Obliterator.json`, `data/troops/earthshaker.json`,
-      `sim/combat/combat_resolver.gd`'s `_apply_line_attack`/`_beam_hexes`, and
-      `sim/combat/combat_targeting.gd`'s `minRange` check in `candidates()`
+## Damage Modifier Matrix
+Consolidated from every combat troop's authored `damageDealtModifiers`/`canTarget`
+(`data/troops/*.json`) — the roster-wide rock-paper-scissors picture the per-building
+tables above only show one unit at a time. Non-combat troops (`canTarget: []`:
+Ambulance, Cargocopter, Disruptor, Engineer, Glider, Kleptocopter, Mule, Repair
+Drone/Truck, Tank Carrier, Transport Truck, Volt Truck) deal no damage and are
+omitted. A blank cell is a plain 1x hit, no modifier either way.
+
+| Attacker | Bonus vs. | Penalty vs. | Cannot target at all |
+|---|---|---|---|
+| Rifleman | Air 1.5x | | |
+| Grenadier | Land 2.0x | | Air |
+| Chonky | Infantry 1.5x | | |
+| Quad-bike | Infantry 1.4x | | Air, Naval |
+| Shielder | *(token 4 damage, not a real attacker)* | | Land, Air, Naval, Structure, Defensive |
+| Gunboat | Air 2.2x, Infantry 1.4x | | |
+| HMS Cuddles | Naval 1.2x | | Air, Structure, Defensive |
+| Destroyer | Land 1.4x, Structure 1.2x | Air 0.4x | |
+| Submarine | *(pure ship-hunter)* | | Infantry, Land, Air, Structure, Defensive |
+| Aircraft Carrier | *(point-defense flak only)* | | Infantry, Land, Naval, Structure, Defensive |
+| Rocket Tank | Air 2.0x, Naval 1.6x | Structure 0.7x | Infantry |
+| Granite Crumbler | Structure 2.0x, Defensive 1.6x | | Infantry |
+| Basekiller | Defensive 2.5x, Structure 1.8x | | Infantry |
+| Light Tank | Land 1.6x, Infantry 1.2x | | |
+| Amphibious Raider | Naval 1.4x | | Air, Structure, Defensive |
+| Wingfighter | | | |
+| Thunder | | Infantry 0.7x | |
+| Hot Air Balloon | Structure 1.5x, Defensive 1.5x | | Air |
+| Earthshaker | | Structure 0.6x, Defensive 0.8x | Air, Naval |
+| Tank Obliterator | | Structure 0.6x, Defensive 0.6x | Air, Naval |
+| Vanguard (Commander) | Land 1.2x | | |
+
+Read together: massed Infantry is the counter to canTarget-omission heavy armor
+(Rocket Tank/Granite Crumbler/Basekiller physically can't shoot back at it); Grenadier
+is the counter to Land vehicles; Rocket Tank is the counter to Air/Naval; siege units
+(Granite Crumbler/Basekiller/Hot Air Balloon) counter Structure/Defensive but undersell
+against troops; Tank Obliterator/Earthshaker trade building-cracking power for an
+explicit weakness there, making room for Basekiller/Granite Crumbler's niche instead.
+
+## Fuel/Maintenance Quick Reference
+- Land vehicles: free while stationary, consume Fuel while moving.
+- Aircraft: heavy Fuel consumption, **always paid while airborne** — no near-base
+  fuel-free rule. Fuel-free only while actually docked: aboard an Aircraft Carrier, or
+  landed inside a Hangar (a dedicated storage building, distinct from Iron Aviary/
+  Blazeworks — see `03-resources.md`). Docked aircraft are also hidden from enemy
+  vision/detection/targeting.
+- Ships: consume very little Fuel regardless of state.
+- **Exception — Glider** (Windy Peaks): unpowered, so it uses **no Fuel at all** and
+  draws Food upkeep instead, same as ground infantry.
+
+## Status
+Every troop in every table above has full stats implemented in `data/troops/*.json`
+— nothing in this roster is still a placeholder. `05-troop-stat-schema.md` covers the
+field-by-field *why*; `sim/combat/combat_resolver.gd`/`combat_targeting.gd`/
+`combat_math.gd` are where `damageDealtModifiers`/`canTarget`/`lineAttack`/`minRange`
+actually get read.

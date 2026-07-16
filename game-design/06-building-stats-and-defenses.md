@@ -124,8 +124,9 @@ project a passive effect:
   see `03-resources.md`'s Fuel rules, `04-combat.md`'s Cargo section, and
   `05-troop-stat-schema.md`'s Transport/Cargo fields. Deliberately one building type
   rather than a runway/helipad split — Air-domain already covers both fixed-wing and
-  rotary troops. As of this design pass, Hangar is not yet in any base's buildable
-  list (data/mechanics only so far — see `10-tech-stack-and-build-order.md`).
+  rotary troops. Wired into Capital's and several Unique bases' `buildableBuildings`
+  (see `data/bases/*.json`); Cloudreach's Covert Airfield + Hangar is what closed the
+  original "nothing can dock yet" gap.
 - Like other non-production buildings, Hospital/Ice Spire/House/Hangar have no inherent
   level cap — upgrades scale magnitude/radius/population-capacity/cargo-capacity,
   bottlenecked only by the HQ ceiling, using the same formula-based growth model as

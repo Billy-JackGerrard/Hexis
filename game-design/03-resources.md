@@ -35,8 +35,8 @@ Every player begins a match with: **Food 100, Stone 100, Steel 50, Wood 0, Fuel 
 Wood and Fuel start at zero deliberately — a bare starting Capital has no
 Forest-adjacent Lumber Mill or built Oil Rig yet, so there's nothing to have banked.
 Stored on the per-match `Player.resources` record (see `07-data-architecture.md`) —
-not on any account-level/meta-progression record (that's a separate, later system —
-see `ideas.txt`'s account-perks idea).
+not on any account-level/meta-progression record (an account-perks system is a
+separate, later idea, not designed yet).
 
 ## Consumption Rules
 - **Food**: consumption scales with base size (bigger base = more food required) and
@@ -61,9 +61,9 @@ see `ideas.txt`'s account-perks idea).
     both fixed-wing and rotary troops, so one Hangar stores either. Also doubles as
     Cargocopter's required landing hex for boarding/unloading Infantry cargo (see
     `04-combat.md`'s Cargo section and `05-troop-stat-schema.md`'s
-    `cargoRequiresBuildingDock`). Buildable at Sky Fortress only so far — see
-    `02-bases-and-buildings.md`'s Building Reference and
-    `10-tech-stack-and-build-order.md` for what's implemented vs. still deferred.
+    `cargoRequiresBuildingDock`). Buildable at a growing, hand-picked subset of bases
+    (Capital included) — see `02-bases-and-buildings.md`'s Building Reference; check
+    `data/bases/*.json` for the current list rather than trusting a hardcoded one here.
   - Ships consume very little Fuel regardless of state.
   - **Exception — Glider** (Windy Peaks' Wind Sanctuary): unpowered, so it uses **no
     Fuel at all** — it draws Food upkeep instead, like ground infantry, despite being

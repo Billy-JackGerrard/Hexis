@@ -175,7 +175,7 @@ func _refresh_stats() -> void:
 	_time_label.text = "Match time: %02d:%02d" % [total_seconds / 60, total_seconds % 60]
 
 	var owned_bases := _state.bases_owned_by(_local_owner_id)
-	var summary := EconomySummary.compute(_state, _local_owner_id, owned_bases)
+	var summary := EconomySummary.compute(_state, _local_owner_id)
 	var production: Dictionary = summary["production"]
 	var upkeep: Dictionary = summary["upkeep"]
 	var pool := _state.pool_for(_local_owner_id)

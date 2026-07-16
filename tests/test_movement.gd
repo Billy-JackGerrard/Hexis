@@ -231,9 +231,13 @@ func _test_regiment_lockstep() -> void:
 	_check(m2.current_hex.equals(HexCoord.new(0, 0)), "ad hoc-split member is untouched by resolve_regiment_tick")
 
 	# 4. Once the ad hoc-split member goes idle (arrives / path drains), it
-	# automatically rejoins the shared path on the next regiment tick.
-	MovementResolver.resolve_tick(2.0, [m2], grid2, _troop_defs)
-	_check(m2.path.is_empty(), "ad hoc order (sniper's speed %s, 2 hexes) fully resolved in 2.0s -> idle" % sniper_speed)
+	# automatically rejoins the shared path on the next regiment tick. Time
+	# needed derived from sniper_speed (2 plains hexes at cost 1.0 each), not
+	# hardcoded, so this doesn't silently under-run again the next time
+	# sniper's speed stat is rebalanced.
+	var m2_time_needed: float = 2.0 / sniper_speed + 0.01
+	MovementResolver.resolve_tick(m2_time_needed, [m2], grid2, _troop_defs)
+	_check(m2.path.is_empty(), "ad hoc order (sniper's speed %s, 2 hexes) fully resolved in %.2fs -> idle" % [sniper_speed, m2_time_needed])
 	MovementResolver.resolve_regiment_tick(1.0, cmd2, [m2], grid2, _troop_defs)
 	_check(m2.order.get("type") == "regiment_move", "idle member converts back to regiment_move")
 	_check(m2.current_hex.equals(cmd2.current_hex), "rejoined member mirrors the Commander's hex again")
