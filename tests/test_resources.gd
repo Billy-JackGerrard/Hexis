@@ -49,6 +49,9 @@ func _test_pool() -> void:
 	_check(pool.get_amount(ResourceType.Type.FOOD) == -50.0, "add() can drive a resource negative")
 	_check(pool.is_deficit(ResourceType.Type.FOOD), "negative Food reports as deficit")
 
+	pool.add(ResourceType.Type.FOOD, -10000.0)
+	_check(pool.get_amount(ResourceType.Type.FOOD) == Tuning.RESOURCE_DEFICIT_FLOOR, "add() floors Food at Tuning.RESOURCE_DEFICIT_FLOOR instead of running away")
+
 	pool.set_amount(ResourceType.Type.FOOD, 10.0)
 	_check(not pool.is_deficit(ResourceType.Type.FOOD), "set_amount back to positive clears deficit")
 
@@ -67,10 +70,11 @@ func _test_tick() -> void:
 	_check(deficits.has(ResourceType.Type.FUEL), "Fuel deficit reported")
 	_check(deficits.size() == 1, "only the deficient resource is reported")
 
-	# Stone/Steel/Wood never trigger the per-squad-drain deficit list, even negative.
+	# Stone/Steel/Wood floor at zero via add() (never a deficit state) and never
+	# trigger the per-squad-drain deficit list either way.
 	pool = ResourcePool.new()
 	deficits = ResourceTick.apply(pool, {}, {ResourceType.Type.STEEL: Tuning.STARTING_STEEL + 999.0})
-	_check(pool.get_amount(ResourceType.Type.STEEL) < 0.0, "Steel can still go negative")
+	_check(pool.get_amount(ResourceType.Type.STEEL) == 0.0, "Steel floors at zero, never goes negative")
 	_check(deficits.is_empty(), "Steel deficit never reported (not a deficit-drain resource)")
 
 	# A deficit that's fed enough production clears itself the following tick.

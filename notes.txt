@@ -39,13 +39,7 @@ Hex size (rendering) — client/hex_view.gd:9, flat-top hexes, HEX_SIZE = 32.0 (
 
 could have a box to put seed in?
 
-commander centre could contribute to squad cap
-
-
-infantry could have its own cap, separate to squad cap?
-actually nah, but do increase number of troops in a squad.
-this'll encourage more infantry production.
-
+commander centre could contribute to squad cap?
 
 
 
@@ -59,3 +53,10 @@ this would mean in the future we can add better, rare terrain/natural resources 
 if a quarry is on/next to a hill, bonus?
 terrain bonuses?
 oil fields?
+
+
+
+map needs to look 2.5d
+
+maybe add height differences on tiles? useful for hills etc
+there can be slopes but also cliffs etc. makes air troops more useful

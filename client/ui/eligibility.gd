@@ -17,6 +17,8 @@ static func build_reason(state: MatchState, base: BaseInstance, building_type: S
 	var required_level := int(def.get("unlockHqLevel", 1))
 	if base.hq_level < required_level:
 		return "Requires HQ level %d" % required_level
+	if state.pool_for(owner_id).is_deficit(ResourceType.Type.FOOD):
+		return "Food deficit"
 	var named_cost := BuildingStats.base_cost(def, material if material != "" else _first_material(def), state.building_defs)
 	var missing := _first_unaffordable(state.pool_for(owner_id), named_cost)
 	if missing != "":
@@ -77,6 +79,21 @@ static func first_upgradeable(state: MatchState, building_ids: Array, owner_id: 
 		if upgrade_reason(state, id, owner_id) == "":
 			return id
 	return ""
+
+## Reason the HQ's "Upgrade Buildings" button (client/hud/building_panel.gd)
+## can't do anything right now, or "" if at least one owned building (base or
+## standalone, ruins excluded) is upgradeable — same scope as
+## UpgradeBuildingsPanel's own listing. Used to grey the button out entirely
+## rather than opening a panel where every row is already muted.
+static func any_building_upgradeable_reason(state: MatchState, owner_id: String) -> String:
+	for base in state.bases_owned_by(owner_id):
+		for building in base.buildings:
+			if not building.is_ruin and upgrade_reason(state, building.id, owner_id) == "":
+				return ""
+	for building in state.standalone_buildings:
+		if building.owner_id == owner_id and not building.is_ruin and upgrade_reason(state, building.id, owner_id) == "":
+			return ""
+	return "No buildings can be upgraded"
 
 ## "Upgrade All" is atomic — reason a grouped row's Upgrade All can't fire
 ## right now, or "" if every member can be upgraded and the owner can afford
@@ -175,6 +192,8 @@ static func merge_reason(state: MatchState, squad: SquadInstance, donor: SquadIn
 ## "does any hex within STANDALONE_BUILD_RANGE accept it" scan (mirrors
 ## any_valid_hex, but over the Engineer's own reach and can_place_standalone).
 static func standalone_build_reason(state: MatchState, squad: SquadInstance, building_type: String, owner_id: String, material: String = "") -> String:
+	if state.pool_for(owner_id).is_deficit(ResourceType.Type.FOOD):
+		return "Food deficit"
 	var def: Dictionary = state.building_defs.get(building_type, {})
 	var named_cost := BuildingStats.base_cost(def, material if material != "" else _first_material(def), state.building_defs)
 	var missing := _first_unaffordable(state.pool_for(owner_id), named_cost)
@@ -203,6 +222,8 @@ static func _any_valid_standalone_hex(state: MatchState, squad: SquadInstance, b
 ## enforces. `base` must be the HQ's own base (its hq_level), not just any
 ## owner_id-owned base.
 static func hq_standalone_build_reason(state: MatchState, base: BaseInstance, building: BuildingInstance, building_type: String, owner_id: String, material: String = "") -> String:
+	if state.pool_for(owner_id).is_deficit(ResourceType.Type.FOOD):
+		return "Food deficit"
 	var def: Dictionary = state.building_defs.get(building_type, {})
 	var named_cost := BuildingStats.base_cost(def, material if material != "" else _first_material(def), state.building_defs)
 	var missing := _first_unaffordable(state.pool_for(owner_id), named_cost)

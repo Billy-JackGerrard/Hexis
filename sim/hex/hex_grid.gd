@@ -65,6 +65,37 @@ func get_infrastructure(coord: HexCoord) -> Terrain.Infrastructure:
 func get_infrastructure_material(coord: HexCoord) -> String:
 	return _infrastructure_material.get(coord.to_key(), "")
 
+## 6-bit edge-connectivity mask for `coord`: bit i (matching
+## HexCoord.DIRECTIONS[i]/HexCoord.neighbor's direction index) is set iff
+## that neighbor also satisfies `matches`. Always computed fresh from
+## current grid state, nothing cached — so placing/removing a River tile or
+## a Road on one hex automatically changes what its neighbors see next time
+## *they're* queried too, with no separate "connect these two hexes" step
+## and no risk of stale edge state. Client-side tile selection (which mesh +
+## rotation to draw) is the intended caller: `river_connection_mask`/
+## `road_connection_mask` below feed it directly.
+func connection_mask(coord: HexCoord, matches: Callable) -> int:
+	var mask := 0
+	for i in range(HexCoord.DIRECTIONS.size()):
+		if matches.call(HexCoord.neighbor(coord, i)):
+			mask |= 1 << i
+	return mask
+
+## connection_mask specialized to River terrain — the Kenney kit's
+## river-straight/corner/corner-sharp/end/crossing/intersectionA-H tiles
+## each correspond to one mask shape (by popcount + which bits, not just
+## popcount: a 1-bit mask's single set bit also tells a renderer which of
+## river-start ("source", edge points away from the map center/upstream) vs
+## river-end ("mouth", edge points toward center/downstream) applies).
+func river_connection_mask(coord: HexCoord) -> int:
+	return connection_mask(coord, func(n: HexCoord) -> bool: return get_terrain(n) == Terrain.Type.RIVER)
+
+## connection_mask specialized to Road infrastructure — same mask shapes,
+## rendered with the kit's path-straight/corner/corner-sharp/end/crossing/
+## intersectionA-H tiles instead of the river-* set.
+func road_connection_mask(coord: HexCoord) -> int:
+	return connection_mask(coord, func(n: HexCoord) -> bool: return get_infrastructure(n) == Terrain.Infrastructure.ROAD)
+
 ## Movement cost to cross from `from` into `to` for the given domain, or
 ## Terrain.INF if blocked by terrain/a wall/a standing building, after
 ## accounting for any Road/Bridge on `to` clearing a terrain block. Air

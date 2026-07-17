@@ -108,10 +108,19 @@ static func _roll_patch_size(rng: RandomNumberGenerator) -> int:
 
 ## Generates num_rivers(player_count) connected River paths, each running
 ## from an inland source to the coastline (a constrained random walk biased
-## outward). Returns the paths (not just mutating the grid) so callers/tests
-## can inspect connectivity directly. Balance-constraint validation (does a
-## river wall off a Capital?) happens later, in BaseSiteSelector — this
-## method has no knowledge of bases.
+## outward), always exactly 1 hex wide. Returns the primary paths (not just
+## mutating the grid) so callers/tests can inspect connectivity directly.
+## Balance-constraint validation (does a river wall off a Capital?) happens
+## later, in BaseSiteSelector — this method has no knowledge of bases.
+##
+## Each completed river has a Tuning.RIVER_SPLIT_CHANCE chance to fork a
+## second branch partway along its course (see _split_river), and while
+## walking, a river that steps adjacent to another river's tile has a
+## Tuning.RIVER_MERGE_CHANCE chance to flow into it and stop there instead
+## of running parallel (see _walk_river). Branches aren't included in the
+## returned array — they're grid mutations only, same as the primary path's
+## own tiles — since only the primary source-to-coast rivers are the
+## "num_rivers(player_count)" contract callers rely on.
 static func generate_rivers(grid: HexGrid, radius: int, world_seed: int, player_count: int) -> Array:
 	var rng := _substream(world_seed, "rivers")
 	var origin := HexCoord.new(0, 0)
@@ -150,24 +159,47 @@ static func generate_rivers(grid: HexGrid, radius: int, world_seed: int, player_
 		if too_close:
 			continue
 		sources.append(source)
-		var path := _walk_river(origin, radius, source, rng)
+		var path := _walk_river(origin, radius, source, rng, grid)
 		for hex in path:
 			grid.set_terrain(hex, Terrain.Type.RIVER)
 		paths.append(path)
+		if path.size() > 2 and rng.randf() < Tuning.RIVER_SPLIT_CHANCE:
+			_split_river(grid, origin, radius, path, rng)
 	return paths
+
+## Rolled once per completed river (Tuning.RIVER_SPLIT_CHANCE): picks a
+## random interior hex along `path` and peels a second branch off toward the
+## coast from there, giving the river a natural fork. The branch is walked
+## and committed straight to the grid — not returned as its own path, same
+## reasoning as generate_rivers' docstring (it's still real River terrain,
+## it just isn't one of the "num_rivers(player_count)" primary rivers).
+static func _split_river(grid: HexGrid, origin: HexCoord, radius: int, path: Array, rng: RandomNumberGenerator) -> void:
+	var split_index := rng.randi_range(1, path.size() - 2)
+	var split_hex: HexCoord = path[split_index]
+	var split_dist := HexCoord.distance(origin, split_hex)
+	var next_hex: HexCoord = path[split_index + 1]
+	var branch_candidates: Array[HexCoord] = []
+	for n in HexCoord.neighbors(split_hex):
+		if HexCoord.distance(origin, n) >= split_dist and n.to_key() != next_hex.to_key():
+			branch_candidates.append(n)
+	if branch_candidates.is_empty():
+		return
+	var branch_source: HexCoord = branch_candidates[rng.randi_range(0, branch_candidates.size() - 1)]
+	var branch_path := _walk_river(origin, radius, branch_source, rng, grid)
+	for hex in branch_path:
+		grid.set_terrain(hex, Terrain.Type.RIVER)
 
 ## Tuning.SUPER_RIVER_CHANCE roll for one additional River, distinct from the
 ## radial hill-to-coast rivers above: a single straight line from one edge of
 ## the map to the exact opposite edge (HexCoord.line between two boundary
 ## hexes in opposite directions), always passing through the origin, so it
 ## reads as a river crossing the whole map through the middle rather than
-## draining outward from a highland source. Intermittently widened to 2 hexes
-## along a lateral direction picked once per river (Tuning.SUPER_RIVER_WIDE_
-## SECTION_CHANCE per hex) for "many sections 2 hexes wide". Runs on its own
-## RNG substream, after the normal rivers, so it can freely overwrite them
-## (or biome tiles) where they cross, and never perturbs any other phase's
-## draws for the same seed. Returns the primary line path, or [] if the
-## chance roll fails.
+## draining outward from a highland source. Always exactly 1 hex wide, same
+## as every other river. Runs on its own RNG substream, after the normal
+## rivers, so it can freely overwrite them (or biome tiles) where they cross
+## — that crossing is itself a natural confluence point, same tile logic as
+## a normal merge — and never perturbs any other phase's draws for the same
+## seed. Returns the primary line path, or [] if the chance roll fails.
 static func generate_super_river(grid: HexGrid, radius: int, world_seed: int) -> Array:
 	var rng := _substream(world_seed, "super_river")
 	if rng.randf() >= Tuning.SUPER_RIVER_CHANCE:
@@ -181,19 +213,14 @@ static func generate_super_river(grid: HexGrid, radius: int, world_seed: int) ->
 	var path := HexCoord.line(from, to)
 	for hex in path:
 		grid.set_terrain(hex, Terrain.Type.RIVER)
-
-	# One consistent lateral side for the whole river (picked once, not per
-	# hex) so widened stretches read as a straight parallel bank rather than
-	# random bumps poking off either side.
-	var lateral_dir := (direction + 2) % 6 if rng.randf() < 0.5 else (direction + 4) % 6
-	for hex in path:
-		if rng.randf() < Tuning.SUPER_RIVER_WIDE_SECTION_CHANCE:
-			var wide_hex := HexCoord.neighbor(hex, lateral_dir)
-			if HexCoord.distance(origin, wide_hex) <= radius:
-				grid.set_terrain(wide_hex, Terrain.Type.RIVER)
 	return path
 
-static func _walk_river(origin: HexCoord, radius: int, source: HexCoord, rng: RandomNumberGenerator) -> Array:
+## `grid` is only consulted (never mutated here — callers commit `path`'s
+## own tiles themselves) to detect confluence: an outward step that's
+## already another river's tile has a Tuning.RIVER_MERGE_CHANCE chance to
+## be taken and end the walk there, rather than carving a parallel channel
+## next to it.
+static func _walk_river(origin: HexCoord, radius: int, source: HexCoord, rng: RandomNumberGenerator, grid: HexGrid) -> Array:
 	var path: Array[HexCoord] = [source]
 	var current := source
 	var steps := 0
@@ -207,6 +234,15 @@ static func _walk_river(origin: HexCoord, radius: int, source: HexCoord, rng: Ra
 				candidates.append(n)
 		if candidates.is_empty():
 			break
+
+		var river_candidates: Array[HexCoord] = []
+		for c in candidates:
+			if grid.get_terrain(c) == Terrain.Type.RIVER:
+				river_candidates.append(c)
+		if not river_candidates.is_empty() and rng.randf() < Tuning.RIVER_MERGE_CHANCE:
+			path.append(river_candidates[rng.randi_range(0, river_candidates.size() - 1)])
+			return path
+
 		var chosen: HexCoord
 		if rng.randf() < Tuning.RIVER_STRAIGHTNESS:
 			chosen = candidates[0]

@@ -1,7 +1,8 @@
 ## Minimap (build order item 7, 09-ui-and-controls.md's Minimap requirement
 ## — "needed given multi-base, multi-front play across a large hex map"):
-## corner-docked overview of every generated hex (Board.TERRAIN_COLORS reused
-## so the palette matches the main board exactly), every base (owner-tinted,
+## corner-docked overview of every generated hex (flat per-terrain-type
+## colors — the minimap is a schematic overview, not a scaled-down render of
+## the 3D terrain view), every base (owner-tinted,
 ## slightly larger), and every squad (owner-tinted dot). Click or
 ## click-drag recenters the camera on the corresponding world position —
 ## unlike every other client/ node this one is a real interactive Control
@@ -58,6 +59,13 @@ const BASE_RADIUS := 4.0
 const SQUAD_RADIUS := 2.0
 const VIEWPORT_COLOR := Color(1.0, 1.0, 1.0, 0.5)
 const EXPLORED_DARKEN := 0.5
+const TERRAIN_COLORS := {
+	Terrain.Type.PLAINS: Color(0.55, 0.75, 0.35),
+	Terrain.Type.FOREST: Color(0.20, 0.45, 0.20),
+	Terrain.Type.HILLS: Color(0.65, 0.55, 0.35),
+	Terrain.Type.RIVER: Color(0.35, 0.60, 0.85),
+	Terrain.Type.OCEAN: Color(0.15, 0.35, 0.65),
+}
 ## How long (seconds) after a hit the combat-flash dot stays lit — mirrors
 ## SquadInstance/BuildingInstance.time_since_damage's own reset-to-0-on-hit
 ## semantics, just read from the client side instead of driving a system.
@@ -128,7 +136,7 @@ func _draw() -> void:
 		for hex in hexes:
 			if pv == null or not pv.is_explored(hex):
 				continue
-			var color: Color = Board.TERRAIN_COLORS.get(state.grid.get_terrain(hex), Color.MAGENTA)
+			var color: Color = TERRAIN_COLORS.get(state.grid.get_terrain(hex), Color.MAGENTA)
 			if not pv.is_visible(hex):
 				color = color.darkened(EXPLORED_DARKEN)
 			draw_rect(Rect2(_world_to_local(HexView.axial_to_pixel(hex)), Vector2(2.0, 2.0)), color, true)

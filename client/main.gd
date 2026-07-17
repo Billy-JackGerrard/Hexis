@@ -39,7 +39,8 @@ var demo_hexes: Array[HexCoord] = []
 var owner_colors := {}
 var owner_names := {}
 
-var board: Board
+var terrain_view_3d: TerrainView3D
+var camera_3d: Camera3D
 var base_view: BaseView
 var squad_view: SquadView
 var projectile_view: ProjectileView
@@ -118,10 +119,11 @@ func _start_game() -> void:
 	var bounds := _map_bounds()
 
 	camera_controller = $Camera2D
+	camera_3d = $SubViewportContainer/SubViewport/Camera3D
 
-	board = Board.new()
-	add_child(board)
-	board.setup(state.grid, demo_hexes)
+	terrain_view_3d = TerrainView3D.new()
+	$SubViewportContainer/SubViewport.add_child(terrain_view_3d)
+	terrain_view_3d.setup(state.grid, demo_hexes)
 
 	base_view = BaseView.new()
 	add_child(base_view)
@@ -188,9 +190,30 @@ func _map_bounds() -> Array:
 	var margin := Vector2.ONE * HexView.HEX_SIZE * 3.0
 	return [bounds_min - margin, bounds_max + margin]
 
+## Keeps the 3D terrain layer's Camera3D tracking CameraController's 2D
+## pan/zoom every frame (poll, not signal — CameraController has no signals,
+## matching this file's existing idiom for BaseView/SquadView/etc.).
+## Position: same axial-pixel-to-world mapping TerrainView3D places meshes
+## with, so panning the 2D camera pans the 3D terrain in lockstep. Ortho
+## size: Camera2D.zoom is a magnification factor (bigger = more zoomed in),
+## Camera3D's ortho size is world-units-visible (bigger = more zoomed out) —
+## inversely related, and recomputed every frame (not just on a zoom-change
+## callback) because Camera2D's world-units-per-pixel is resize-invariant by
+## construction (always 1/zoom) while a naively-cached ortho size is not —
+## the window is resizable (project.godot's window/size/mode=3, maximized,
+## no fixed size).
+func _sync_camera_3d() -> void:
+	if camera_3d == null:
+		return
+	var pixel := camera_controller.position
+	camera_3d.position.x = pixel.x * TerrainView3D.WORLD_UNITS_PER_PIXEL
+	camera_3d.position.z = pixel.y * TerrainView3D.WORLD_UNITS_PER_PIXEL
+	camera_3d.size = get_viewport().get_visible_rect().size.y * TerrainView3D.WORLD_UNITS_PER_PIXEL / camera_controller.zoom.x
+
 func _process(delta: float) -> void:
 	if state == null:
 		return
+	_sync_camera_3d()
 	if _match_halted:
 		return
 	if lockstep_driver != null:

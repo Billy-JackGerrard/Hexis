@@ -122,7 +122,7 @@ func _test_rivers() -> void:
 
 	var all_contiguous := true
 	var all_start_inland := true
-	var all_end_at_coast := true
+	var all_end_at_coast_or_merged := true
 	for path in paths:
 		for i in range(path.size() - 1):
 			if HexCoord.distance(path[i], path[i + 1]) != 1:
@@ -130,11 +130,23 @@ func _test_rivers() -> void:
 		if not path.is_empty():
 			if HexCoord.distance(origin, path[0]) > radius - Tuning.RIVER_MIN_LENGTH:
 				all_start_inland = false
-			if HexCoord.distance(origin, path[-1]) < radius:
-				all_end_at_coast = false
+			var last: HexCoord = path[-1]
+			var reaches_coast := HexCoord.distance(origin, last) >= radius
+			# RIVER_MERGE_CHANCE can end a walk early by flowing into another
+			# river's tile instead of reaching the coast itself — still
+			# "reaches the coast" transitively, via the river it joined.
+			# Detected here the same way _walk_river detects it: the final
+			# hex has a River neighbor that isn't the path's own previous hex.
+			var merged := false
+			if not reaches_coast:
+				for n in HexCoord.neighbors(last):
+					if grid.get_terrain(n) == Terrain.Type.RIVER and (path.size() < 2 or n.to_key() != path[-2].to_key()):
+						merged = true
+			if not reaches_coast and not merged:
+				all_end_at_coast_or_merged = false
 	_check(all_contiguous, "every river path is an unbroken chain of adjacent hexes")
 	_check(all_start_inland, "every river starts well inland")
-	_check(all_end_at_coast, "every river reaches the coastline")
+	_check(all_end_at_coast_or_merged, "every river reaches the coastline, or merges into another river along the way")
 
 	var river_tiles_match := true
 	for path in paths:
@@ -143,9 +155,9 @@ func _test_rivers() -> void:
 				river_tiles_match = false
 	_check(river_tiles_match, "every path hex is actually River terrain on the grid")
 
-## Covers TerrainGenerator.generate_super_river's chance roll, full-map-
-## crossing shape, and 2-wide sections, across enough seeds to see both a
-## hit and a miss (Tuning.SUPER_RIVER_CHANCE is 0.5).
+## Covers TerrainGenerator.generate_super_river's chance roll and full-map-
+## crossing shape, across enough seeds to see both a hit and a miss
+## (Tuning.SUPER_RIVER_CHANCE is 0.5).
 func _test_super_river() -> void:
 	var radius := 24
 	var origin := HexCoord.new(0, 0)
@@ -155,7 +167,7 @@ func _test_super_river() -> void:
 	var all_cross_center := true
 	var all_span_full_diameter := true
 	var all_tiles_are_river := true
-	var any_widened := true
+	var all_one_hex_wide := true
 
 	for world_seed in range(40):
 		var grid := TerrainGenerator.generate_base_terrain(radius, 0)
@@ -178,16 +190,16 @@ func _test_super_river() -> void:
 		if path.size() != radius * 2 + 1:
 			all_span_full_diameter = false
 
+		# No other rivers exist on this grid (generate_super_river run in
+		# isolation), so any River neighbor off the path at all would mean
+		# a leftover widened section.
 		var path_keys: Dictionary = {}
 		for hex in path:
 			path_keys[hex.to_key()] = true
-		var widened := false
 		for hex in path:
 			for n in HexCoord.neighbors(hex):
 				if grid.get_terrain(n) == Terrain.Type.RIVER and not path_keys.has(n.to_key()):
-					widened = true
-		if not widened:
-			any_widened = false
+					all_one_hex_wide = false
 
 	_check(saw_hit, "the chance roll hits at least once across 40 seeds (fixture sanity check)")
 	_check(saw_miss, "the chance roll also misses at least once across 40 seeds (it's a 50% roll, not guaranteed)")
@@ -195,7 +207,7 @@ func _test_super_river() -> void:
 	_check(all_cross_center, "every rolled super river passes through/adjacent to the origin")
 	_check(all_span_full_diameter, "every rolled super river spans the full map diameter (edge to opposite edge)")
 	_check(all_tiles_are_river, "every super river path hex is actually River terrain on the grid")
-	_check(any_widened, "every rolled super river has at least one 2-hex-wide section")
+	_check(all_one_hex_wide, "every rolled super river is exactly 1 hex wide, no leftover widened sections")
 
 func _test_base_spacing() -> void:
 	var player_count := 2

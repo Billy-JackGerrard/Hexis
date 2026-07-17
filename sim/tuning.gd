@@ -70,11 +70,24 @@ const MAX_RIVER_SOURCE_ATTEMPTS_PER_RIVER: int = 20
 
 ## Chance a map additionally rolls a "super river" — a single straight River
 ## line running edge-to-edge through the map's center, on top of the normal
-## radial hill-to-coast rivers above.
+## radial hill-to-coast rivers above. Always exactly 1 hex wide, same as
+## every other river (the terrain kit's directional tiles assume a single-
+## width channel; a doubled-up hex has no matching mesh).
 const SUPER_RIVER_CHANCE: float = 0.5
-## Per-hex chance, along the super river's line, that this section also
-## widens to 2 hexes (a consistent lateral neighbor added alongside it).
-const SUPER_RIVER_WIDE_SECTION_CHANCE: float = 0.5
+
+## Rolled once per completed radial river (not per step, to avoid
+## compounding over a long walk): chance it forks into a second branch
+## partway along its course. The branch is walked independently to the
+## coast and committed straight to the grid.
+const RIVER_SPLIT_CHANCE: float = 0.12
+## Per-step chance, only checked when a river's next outward step is
+## already adjacent to another river's tile: chance it flows into that
+## tile and stops there instead of carving a separate parallel channel —
+## reads as two rivers merging into one. Being adjacent to another river at
+## all is already rare (MIN_RIVER_SOURCE_SPACING keeps sources apart), so
+## this can afford to be a fairly high per-encounter chance without rivers
+## merging constantly.
+const RIVER_MERGE_CHANCE: float = 0.35
 
 ## --- Base siting (sim/worldgen/base_site_selector.gd) ---
 
@@ -212,6 +225,12 @@ const STARTING_STONE: float = 100.0
 const STARTING_STEEL: float = 50.0
 const STARTING_WOOD: float = 0.0
 const STARTING_FUEL: float = 0.0
+
+## Floor for Food/Fuel's deficit tick (ResourcePool.add) — deficit still reads
+## as amount < 0.0 (see ResourceType.can_deficit_drain), so this only bounds
+## how deep the debt can run, it doesn't change when the deficit consequence
+## (troop starvation deaths, paused production) kicks in.
+const RESOURCE_DEFICIT_FLOOR: float = -100.0
 
 ## --- Troops (sim/troops/) ---
 

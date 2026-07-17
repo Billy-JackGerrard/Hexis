@@ -183,14 +183,45 @@ occupies a hex, and moves hex-to-hex:
   building-stopping rule (see `04-combat.md`), which is about the beam's own path
   once it's already firing, not whether the attacker can fire at all.
 
-## Rendering Notes (2.5D Cartoon Style)
-- **Resolved: Godot, 2D sprite-based, not true 3D** (see `10-tech-stack-and-build-order.md`
-  for the full engine decision/rationale). The isometric look is faked with `Sprite2D`
-  nodes drawn in isometric projection plus `Node2D`'s Y-sort depth ordering (draw order
-  by y-position) — the same approach genre precedents like Clash of Clans / Boom Beach
-  use, rather than a real 3D engine (Three.js/Unity/Godot 3D).
+## Rendering Notes
+- **Superseded: terrain is real 3D, not 2D sprite-based.** The original "2.5D
+  Cartoon Style" plan below (Sprite2D + Y-sort) was replaced once a 3D hex asset
+  pack (`assets/tiles/`, GLTF meshes) was adopted: terrain renders via
+  `client/terrain/terrain_view_3d.gd`, a `Node3D` populated with real meshes
+  and instanced into a `SubViewport`/`Camera3D` layer, composited behind the
+  rest of the client's existing 2D views (`base_view.gd`/`squad_view.gd`/HUD,
+  all untouched — they stay flat-color 2D placeholders drawn on top of the 3D
+  layer). Bases/squads/projectiles are not part of this change; they remain
+  the "faked 2.5D via Sprite2D + Y-sort" approach described below whenever
+  their own art lands.
+- Hex math (`sim/hex/`) is exactly as unaffected by this as the paragraph
+  below always intended it to be — `HexView.axial_to_pixel`'s pixel-space
+  output is what both the old 2D board and the new 3D terrain layer derive
+  their placement from (the 3D layer applies one additional fixed scale +
+  rotation calibration on top, documented in
+  `client/terrain/terrain_tile_resolver.gd`'s header).
+- **River/Road tile selection**: both are directional mesh sets (river:
+  `hex_river_A`-`L` + 2 crossing variants; road: `hex_road_A`-`M`) — which
+  variant + rotation renders at a given hex is resolved live from
+  `HexGrid.river_connection_mask`/`road_connection_mask` (which of a hex's 6
+  neighbors also have River terrain / Road infrastructure — computed fresh
+  from grid state every time, never cached, so placing a Road immediately
+  reads correctly from every affected neighbor's side too) via
+  `client/terrain/terrain_tile_resolver.gd`. Canonical per-mesh masks are
+  checked into `client/terrain/terrain_tile_defs.gd`, derived by
+  `tools/analyze_terrain_meshes.gd` (a color-based analysis of each mesh's
+  own geometry — re-run that tool by hand if the asset pack is ever
+  replaced).
+- **Base terrain**: Plains/Ocean map 1:1 to this pack's `hex_grass`/
+  `hex_water`. Forest/Hills currently also render as flat `hex_grass` — this
+  pack has no dedicated ground mesh for either (Forest/Hills are meant to be
+  conveyed via `decoration/nature/` props scattered on top of grass, not a
+  differently-colored tile), and that prop-scattering pass hasn't been done
+  yet. A Bridge (on a River hex) renders as a single fixed, non-directional
+  mesh regardless of the river's own shape there — a known cosmetic gap on a
+  river corner/crossing hex specifically, not yet solved.
 - **Resolved: hex tiles are NOT drawn via Godot's `TileMap` node**, including its
-  hexagonal tile-shape support. Terrain tiles are plain `Sprite2D` nodes, positioned by
+  hexagonal tile-shape support. Terrain tiles are plain nodes, positioned by
   a standalone hex-math module (axial/cube coordinates, per the standard Red Blob Games
   reference implementation — neighbors, distance, pathfinding) that has zero dependency
   on Godot's scene tree (see `sim/hex/` — implemented and unit-tested headlessly ahead of
@@ -201,6 +232,16 @@ occupies a hex, and moves hex-to-hex:
   game's procedurally generated map; and the map is small/bounded enough that `TileMap`'s
   main real benefit (off-screen culling) isn't needed. Hex math was never a
   rendering-library problem to begin with.
-- Forests/hills/props as 2D sprites layered on top of terrain tiles, not 3D geometry.
 - Fog of war as a shader/overlay pass (darkened/desaturated unexplored, grayed "explored
-  but not visible").
+  but not visible") — a 2D concern (`client/fog_of_war.gd`), unaffected by the
+  terrain layer's move to 3D since it composites over everything regardless.
+
+### Original 2.5D plan (superseded for terrain — see above; still the plan for bases/squads/projectiles)
+- **Godot, 2D sprite-based** (see `10-tech-stack-and-build-order.md` for the engine
+  decision/rationale). The isometric look is faked with `Sprite2D` nodes drawn in
+  isometric projection plus `Node2D`'s Y-sort depth ordering (draw order by
+  y-position) — the same approach genre precedents like Clash of Clans / Boom Beach
+  use, rather than a real 3D engine.
+- Forests/hills/props as 2D sprites layered on top of terrain tiles, not 3D geometry
+  — this line no longer applies to terrain itself (see above) but still describes
+  the plan for whatever isn't terrain.

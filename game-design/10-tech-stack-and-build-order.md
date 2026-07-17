@@ -85,9 +85,13 @@ Sibling to `sim/`, never the reverse.
   `LockstepDriver.advance()` in multiplayer).
 - `hex_view.gd` — axial↔pixel projection (flat-top); the one new-math piece
   this slice needed.
-- `board.gd` / `base_view.gd` / `squad_view.gd` / `projectile_view.gd` —
-  terrain, bases, squads, projectiles as flat-color placeholder shapes,
-  owner-tinted, read from sim state every frame.
+- `base_view.gd` / `squad_view.gd` / `projectile_view.gd` — bases, squads,
+  projectiles as flat-color placeholder shapes, owner-tinted, read from sim
+  state every frame.
+- `terrain/terrain_view_3d.gd` — real 3D terrain (see `01-map-and-terrain.md`'s
+  Rendering Notes; supersedes the flat-color `board.gd` placeholder this
+  section originally described), rendered into a `SubViewport`/`Camera3D`
+  layer composited behind the 2D views above.
 - `input_controller.gd` — click-to-move/attack-target, drag-select, control
   groups, click-precedence (enemy troop/structure vs. open ground).
 - `fog_of_war.gd`, `camera_controller.gd` (pan/zoom).

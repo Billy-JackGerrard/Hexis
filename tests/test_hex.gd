@@ -18,6 +18,8 @@ func _init() -> void:
 	_test_grid()
 	print("Infrastructure (Road/Bridge)")
 	_test_infrastructure()
+	print("Connection mask (River/Road tile-adjacency)")
+	_test_connection_mask()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -173,3 +175,54 @@ func _test_infrastructure() -> void:
 
 	grid.set_infrastructure(river_hex, Terrain.Infrastructure.NONE)
 	_check(grid.get_infrastructure_material(river_hex) == "", "demolishing the Bridge clears its material alongside the Infrastructure enum")
+
+func _test_connection_mask() -> void:
+	var grid := HexGrid.new()
+	var origin := HexCoord.new(0, 0)
+	for coord in HexCoord.range_within(origin, 2):
+		grid.set_terrain(coord, Terrain.Type.PLAINS)
+
+	_check(grid.river_connection_mask(origin) == 0, "no River neighbors, mask is 0")
+
+	# A straight 3-hex river through the origin: origin has exactly 2 River
+	# neighbors, on opposite sides (bits i and i+3, per HexCoord.DIRECTIONS'
+	# fixed winding order).
+	var upstream := HexCoord.neighbor(origin, 0)
+	var downstream := HexCoord.neighbor(origin, 3)
+	grid.set_terrain(upstream, Terrain.Type.RIVER)
+	grid.set_terrain(downstream, Terrain.Type.RIVER)
+	grid.set_terrain(origin, Terrain.Type.RIVER)
+	var mask := grid.river_connection_mask(origin)
+	_check(mask == (1 << 0 | 1 << 3), "straight river through origin sets bits 0 and 3")
+
+	# A river source (only one River neighbor) reads as a single set bit —
+	# this is the mask a renderer uses to tell a source (river-start, edge
+	# points away from an upstream neighbor that doesn't exist) apart from a
+	# river continuing further: same popcount as any other lone edge, the
+	# bit position is what a caller inspects.
+	var source_mask := grid.river_connection_mask(upstream)
+	_check(source_mask == (1 << 3), "river source hex has exactly one set bit, pointing back at its only River neighbor")
+
+	# Roads are tracked independently of terrain and use the same mask shape.
+	_check(grid.road_connection_mask(origin) == 0, "no Road neighbors yet, mask is 0")
+	var road_neighbor := HexCoord.neighbor(origin, 1)
+	grid.set_infrastructure(origin, Terrain.Infrastructure.ROAD)
+	grid.set_infrastructure(road_neighbor, Terrain.Infrastructure.ROAD)
+	_check(grid.road_connection_mask(origin) == (1 << 1), "Road placed on a neighbor connects live, no separate wiring step")
+	_check(grid.road_connection_mask(road_neighbor) == (1 << 4), "the other hex's mask reflects the same connection from its own side (opposite bit, same edge)")
+
+	# A third Road neighbor makes origin a 3-way junction. It's also adjacent
+	# to road_neighbor (hexes 60 degrees apart around a shared center are
+	# always mutually adjacent), so road_neighbor's own mask picks up that
+	# new edge too, live, with no separate "connect these two" step — this
+	# is the cascading behavior a player building a new Road tile next to
+	# two existing ones needs: every affected hex's mask is just recomputed
+	# from current neighbor state, whichever hex asks.
+	var third := HexCoord.neighbor(origin, 2)
+	grid.set_infrastructure(third, Terrain.Infrastructure.ROAD)
+	_check(grid.road_connection_mask(origin) == (1 << 1 | 1 << 2), "a third Road neighbor extends origin's mask into a 3-way junction")
+	_check(grid.road_connection_mask(road_neighbor) == (1 << 3 | 1 << 4), "road_neighbor's own mask also picks up the new edge to third, since it's adjacent to it too")
+
+	# A hex with no shared neighbors at all is genuinely unaffected.
+	var unrelated := HexCoord.neighbor(HexCoord.neighbor(origin, 3), 3)
+	_check(grid.road_connection_mask(unrelated) == 0, "a hex sharing no neighbors with the junction is untouched")

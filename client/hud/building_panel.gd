@@ -272,8 +272,10 @@ func _rebuild() -> void:
 		if building.building_type == "hq":
 			_content.add_child(HSeparator.new())
 			var upgrade_all_button := UITheme.action_button("Upgrade Buildings", "")
-			upgrade_all_button.pressed.connect(func(): upgrade_buildings_panel.open())
+			var upgrade_all_reason_fn := func(): return UIEligibility.any_building_upgradeable_reason(state, owner_id)
+			upgrade_all_button.pressed.connect(func(): _handle_press(upgrade_all_reason_fn, func(): upgrade_buildings_panel.open()))
 			_content.add_child(upgrade_all_button)
+			_option_updaters.append({"button": upgrade_all_button, "variation": "", "reason_fn": upgrade_all_reason_fn})
 			_content.add_child(HSeparator.new())
 			_build_build_menu(base, base_def)
 			_content.add_child(HSeparator.new())
