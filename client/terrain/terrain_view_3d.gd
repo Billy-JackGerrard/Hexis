@@ -39,6 +39,18 @@ const BASE_MESH_BY_TERRAIN := {
 	Terrain.Type.OCEAN: BASE_DIR + "hex_water.gltf",
 }
 
+## Forest/Hills reuse the grass mesh (no dedicated ground mesh in this pack —
+## see BASE_MESH_BY_TERRAIN above and game-design/01-map-and-terrain.md), so
+## they'd otherwise be visually identical to Plains. Multiplied onto the
+## grass texture's albedo (StandardMaterial3D.albedo_color multiplies, it
+## doesn't replace) so the hex pattern/shading stays, just recolored: Forest
+## darker/greener, Hills warmer/tan. A real ground mesh or decoration-prop
+## scatter is the eventual fix; this is the cheap code-only stopgap.
+const BASE_TERRAIN_TINTS := {
+	Terrain.Type.FOREST: Color(0.45, 0.75, 0.4),
+	Terrain.Type.HILLS: Color(0.85, 0.65, 0.35),
+}
+
 ## World units per HexView pixel, and the fixed placement rotation every
 ## instanced mesh gets before its own per-hex rotation_steps*60 — see
 ## TerrainTileResolver's header for the full derivation. WORLD_HEX_CIRCUMRADIUS
@@ -95,8 +107,11 @@ func _place_static(hex: HexCoord) -> void:
 	else:
 		mesh_path = BASE_MESH_BY_TERRAIN.get(terrain, BASE_MESH_BY_TERRAIN[Terrain.Type.PLAINS])
 	var node := _instance_mesh(mesh_path, hex, rotation_steps)
-	if node:
-		add_child(node)
+	if node == null:
+		return
+	if BASE_TERRAIN_TINTS.has(terrain):
+		_apply_tint(node, BASE_TERRAIN_TINTS[terrain])
+	add_child(node)
 
 ## Rebuilds the dynamic Road/Bridge mesh at `hex` to match its current
 ## Infrastructure (freeing any previous one first) — called both from
@@ -126,6 +141,23 @@ func _refresh_infrastructure(hex: HexCoord) -> void:
 	if node:
 		add_child(node)
 		_road_nodes[key] = node
+
+## Recolors every surface of every MeshInstance3D under `node` by multiplying
+## its material's albedo with `tint` (a duplicated per-surface material
+## override — the original imported material, shared across every grass
+## instance, is left untouched).
+func _apply_tint(node: Node, tint: Color) -> void:
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		for i in range(mesh_instance.mesh.get_surface_count()):
+			var mat := mesh_instance.mesh.surface_get_material(i)
+			if mat == null or not (mat is BaseMaterial3D):
+				continue
+			var tinted: BaseMaterial3D = mat.duplicate()
+			tinted.albedo_color = tint
+			mesh_instance.set_surface_override_material(i, tinted)
+	for child in node.get_children():
+		_apply_tint(child, tint)
 
 func _instance_mesh(path: String, hex: HexCoord, rotation_steps: int) -> Node3D:
 	var scene: PackedScene = load(path)

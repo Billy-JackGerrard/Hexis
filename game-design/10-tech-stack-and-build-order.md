@@ -90,8 +90,9 @@ Sibling to `sim/`, never the reverse.
   state every frame.
 - `terrain/terrain_view_3d.gd` — real 3D terrain (see `01-map-and-terrain.md`'s
   Rendering Notes; supersedes the flat-color `board.gd` placeholder this
-  section originally described), rendered into a `SubViewport`/`Camera3D`
-  layer composited behind the 2D views above.
+  section originally described), rendered by the root viewport's top-down
+  ortho `Camera3D` (in `main.tscn`) and composited behind the 2D views above —
+  no `SubViewport`; the viewport draws 3D then 2D on top.
 - `input_controller.gd` — click-to-move/attack-target, drag-select, control
   groups, click-precedence (enemy troop/structure vs. open ground).
 - `fog_of_war.gd`, `camera_controller.gd` (pan/zoom).

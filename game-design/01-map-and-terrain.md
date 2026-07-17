@@ -188,12 +188,20 @@ occupies a hex, and moves hex-to-hex:
   Cartoon Style" plan below (Sprite2D + Y-sort) was replaced once a 3D hex asset
   pack (`assets/tiles/`, GLTF meshes) was adopted: terrain renders via
   `client/terrain/terrain_view_3d.gd`, a `Node3D` populated with real meshes
-  and instanced into a `SubViewport`/`Camera3D` layer, composited behind the
-  rest of the client's existing 2D views (`base_view.gd`/`squad_view.gd`/HUD,
-  all untouched — they stay flat-color 2D placeholders drawn on top of the 3D
-  layer). Bases/squads/projectiles are not part of this change; they remain
-  the "faked 2.5D via Sprite2D + Y-sort" approach described below whenever
-  their own art lands.
+  added directly to the scene. No `SubViewport` is involved — the root Window
+  viewport renders its `World3D` (the `Camera3D` in `main.tscn` + these meshes)
+  first, then the 2D canvas (`base_view.gd`/`squad_view.gd`/HUD, all untouched
+  — flat-color 2D placeholders) composites on top automatically. A `Node3D`
+  under the `Node2D` scene root still renders into that shared `World3D`; only
+  the `Camera3D`/light/`WorldEnvironment` matter, not the parent type. The
+  `Camera3D` is orthographic and **top-down** — `main.gd`'s `_sync_camera_3d`
+  mirrors `CameraController`'s 2D pan/zoom into it every frame so terrain stays
+  pixel-locked to the 2D layer. Any camera tilt is deliberately avoided: a
+  tilted ortho camera foreshortens one screen axis and the flat 2D building/
+  squad layer can't match it, so the two would drift apart under pan/zoom.
+  Bases/squads/projectiles are not part of this change; they remain the "faked
+  2.5D via Sprite2D + Y-sort" approach described below whenever their own art
+  lands.
 - Hex math (`sim/hex/`) is exactly as unaffected by this as the paragraph
   below always intended it to be — `HexView.axial_to_pixel`'s pixel-space
   output is what both the old 2D board and the new 3D terrain layer derive

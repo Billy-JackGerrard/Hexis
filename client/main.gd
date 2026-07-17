@@ -119,10 +119,15 @@ func _start_game() -> void:
 	var bounds := _map_bounds()
 
 	camera_controller = $Camera2D
-	camera_3d = $SubViewportContainer/SubViewport/Camera3D
+	camera_3d = $Camera3D
 
+	# The root Window viewport renders its World3D (Camera3D + these meshes)
+	# first, then the 2D canvas (base/squad/HUD views) on top — so the 3D
+	# terrain composites behind the 2D layer with no SubViewport needed. A
+	# Node3D under a Node2D parent still renders into the viewport's shared
+	# World3D; only the Camera3D/light/environment matter, not the parent type.
 	terrain_view_3d = TerrainView3D.new()
-	$SubViewportContainer/SubViewport.add_child(terrain_view_3d)
+	add_child(terrain_view_3d)
 	terrain_view_3d.setup(state.grid, demo_hexes)
 
 	base_view = BaseView.new()
@@ -205,10 +210,11 @@ func _map_bounds() -> Array:
 func _sync_camera_3d() -> void:
 	if camera_3d == null:
 		return
+	var vp_size := get_viewport().get_visible_rect().size
 	var pixel := camera_controller.position
 	camera_3d.position.x = pixel.x * TerrainView3D.WORLD_UNITS_PER_PIXEL
 	camera_3d.position.z = pixel.y * TerrainView3D.WORLD_UNITS_PER_PIXEL
-	camera_3d.size = get_viewport().get_visible_rect().size.y * TerrainView3D.WORLD_UNITS_PER_PIXEL / camera_controller.zoom.x
+	camera_3d.size = vp_size.y * TerrainView3D.WORLD_UNITS_PER_PIXEL / camera_controller.zoom.x
 
 func _process(delta: float) -> void:
 	if state == null:
