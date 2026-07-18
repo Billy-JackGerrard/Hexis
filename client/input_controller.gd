@@ -40,6 +40,9 @@ var owner_id: String
 var squad_view: SquadView
 var camera_controller: CameraController
 var submitter: CommandSubmitter
+## Set by main.gd once the 3D camera exists — see _reprojected_hex's doc
+## comment for why hex-resolution needs it now that Camera3D is tilted.
+var camera_3d: Camera3D
 ## Set by main.gd once PauseMenu exists — see camera_controller.gd's own
 ## pause_menu field doc for why this is a polled flag rather than relying on
 ## PauseMenu's overlay Control to swallow the input.
@@ -140,12 +143,38 @@ const HOVER_STRUCTURE_COLOR := Color(1.0, 0.65, 0.15, 0.9)
 const HOVER_RADIUS := 14.0
 const WALL_CLICK_RADIUS := 10.0
 
-func setup(p_state: MatchState, p_owner_id: String, p_squad_view: SquadView, p_camera_controller: CameraController, p_submitter: CommandSubmitter) -> void:
+func setup(p_state: MatchState, p_owner_id: String, p_squad_view: SquadView, p_camera_controller: CameraController, p_submitter: CommandSubmitter, p_camera_3d: Camera3D = null) -> void:
 	state = p_state
 	owner_id = p_owner_id
 	squad_view = p_squad_view
 	camera_controller = p_camera_controller
 	submitter = p_submitter
+	camera_3d = p_camera_3d
+
+## Which hex is under the mouse, accounting for Camera3D's tilt (see
+## main.gd's CAMERA_TILT_DEGREES) — terrain/buildings are real 3D now, so
+## the flat `HexView.pixel_to_axial(get_global_mouse_position())` math a
+## pure top-down camera allowed no longer points at the right tile once the
+## camera pitches. Ray-casts from the actual screen cursor through Camera3D
+## and intersects the ground (y=0) plane, then reuses HexView's existing
+## pixel<->axial convention on that ground point. `pos_hint` (a flat 2D
+## Camera2D-space position, e.g. release_pos) is the fallback when
+## camera_3d hasn't been wired in (defensive; every real call site sets it)
+## — squad/wall hit-testing intentionally keeps using flat 2D positions
+## directly instead of this, since squads/walls still render in the
+## untilted 2D layer.
+func _reprojected_hex(pos_hint: Vector2) -> HexCoord:
+	if camera_3d == null:
+		return HexView.pixel_to_axial(pos_hint)
+	var screen_pos := get_viewport().get_mouse_position()
+	var origin := camera_3d.project_ray_origin(screen_pos)
+	var normal := camera_3d.project_ray_normal(screen_pos)
+	if absf(normal.y) < 0.0001:
+		return HexView.pixel_to_axial(pos_hint)
+	var t := -origin.y / normal.y
+	var world := origin + normal * t
+	var pixel := Vector2(world.x, world.z) / TerrainView3D.WORLD_UNITS_PER_PIXEL
+	return HexView.pixel_to_axial(pixel)
 
 func _process(delta: float) -> void:
 	if pause_menu != null and pause_menu.is_open:
@@ -199,7 +228,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var release_pos := get_global_mouse_position()
 			if _right_press_pos.distance_to(release_pos) <= DRAG_THRESHOLD and not squad_view.selected_squad_ids.is_empty():
 				if not _try_attack_order(release_pos):
-					_issue_move_orders(HexView.pixel_to_axial(release_pos))
+					_issue_move_orders(_reprojected_hex(release_pos))
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -295,7 +324,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	# base + place_building, but otherwise commits/pings exactly like the base
 	# case below.
 	if pending_engineer_squad_id != "":
-		var hex := HexView.pixel_to_axial(release_pos)
+		var hex := _reprojected_hex(release_pos)
 		var result: BuildingPlacement.Result = submitter.submit("place_standalone_building", [pending_engineer_squad_id, pending_building_type, hex, pending_material, owner_id], owner_id, BuildingPlacement.Result.OK)
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
@@ -310,7 +339,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	# the HQ's own id instead — see CommandProcessor.place_standalone_building's
 	# two-path doc comment.
 	if pending_hq_building_id != "":
-		var hex := HexView.pixel_to_axial(release_pos)
+		var hex := _reprojected_hex(release_pos)
 		var result: BuildingPlacement.Result = submitter.submit("place_standalone_building", ["", pending_building_type, hex, pending_material, owner_id, pending_hq_building_id], owner_id, BuildingPlacement.Result.OK)
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
@@ -321,7 +350,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 			_failed_pings.append({"pos": release_pos, "remaining": FAILED_PING_DURATION})
 		return
 	if pending_building_type != "":
-		var hex := HexView.pixel_to_axial(release_pos)
+		var hex := _reprojected_hex(release_pos)
 		var result: BuildingPlacement.Result = submitter.submit("place_building", [pending_base_id, pending_building_type, hex, pending_material, owner_id], owner_id, BuildingPlacement.Result.OK)
 		if result == BuildingPlacement.Result.OK:
 			pending_building_type = ""
@@ -372,7 +401,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 	# Re-clicking the already-selected building instead toggles it closed.
 	# Clicking anywhere else clears both (click-away-to-close, same as case 4
 	# falling through below).
-	var found := _own_building_at(HexView.pixel_to_axial(release_pos))
+	var found := _own_building_at(_reprojected_hex(release_pos))
 	if not found.is_empty():
 		var base: BaseInstance = found["base"]
 		var building: BuildingInstance = found["building"]
@@ -388,7 +417,7 @@ func _on_left_release(event: InputEventMouseButton) -> void:
 
 	if squad_view.selected_squad_ids.is_empty():
 		return
-	_issue_move_orders(HexView.pixel_to_axial(release_pos))
+	_issue_move_orders(_reprojected_hex(release_pos))
 
 ## Case 2's attack order, factored out so right-click can issue it too
 ## (bypassing the friendly-squad-select/own-building-select precedence a
@@ -475,7 +504,7 @@ func select_squad(squad_id: String) -> void:
 ## already draws walls with) rather than by hex equality.
 func _target_at_pixel(pos: Vector2) -> CombatTarget:
 	var targets := CombatResolver.build_targets(state.squads, state.bases, state.troops_by_id, state.grid, state.troop_defs, state.building_defs, {}, state.standalone_buildings)
-	var hex := HexView.pixel_to_axial(pos)
+	var hex := _reprojected_hex(pos)
 	for target in targets:
 		if target.owner_id == owner_id or not target.is_alive():
 			continue
@@ -496,7 +525,7 @@ func _target_at_pixel(pos: Vector2) -> CombatTarget:
 ## mode, where any click should snap to its nearest edge) — [] only if
 ## somehow called with no grid.
 func _edge_at_pixel(pos: Vector2) -> Array:
-	var hex := HexView.pixel_to_axial(pos)
+	var hex := _reprojected_hex(pos)
 	var best_neighbor: HexCoord = null
 	var best_dist := INF
 	for direction in range(6):
@@ -537,7 +566,7 @@ func _own_building_at(hex: HexCoord) -> Dictionary:
 ## hex since the last check — see the field's own doc comment on why this
 ## isn't done unconditionally every frame.
 func _update_hover(pos: Vector2) -> void:
-	var hex := HexView.pixel_to_axial(pos)
+	var hex := _reprojected_hex(pos)
 	var key := hex.to_key()
 	if key == _hover_hex_key:
 		return

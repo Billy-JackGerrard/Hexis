@@ -19,10 +19,26 @@ extends Node2D
 
 const PLAYER_COUNT := 2 ## single-player only; multiplayer's is match_starting's player_count
 const LOCAL_PLAYER := "p0" ## single-player only; multiplayer's is net_manager.local_owner_id
+## Tilt angle lives on TerrainView3D (client/terrain/terrain_view_3d.gd)
+## so there's one source of truth instead of two consts that could drift
+## apart. A pitched ortho camera foreshortens the ground
+## plane's world-Z-to-screen-Y ratio by cos(tilt) and shifts the
+## screen-center ground point by height*tan(tilt) — both compensated in
+## _sync_camera_3d below (see its own doc comment) so the flat 2D layer
+## (labels, hover/selector highlights, the build-menu hex outline — all
+## still driven by CameraController's plain pan/zoom) lines back up with
+## the tilted 3D terrain/buildings at ground level. Height still parallax-
+## shifts under this (intentionally, for buildings — that's what reveals
+## their fronts instead of pure rooftops); only ground-level (h=0) content
+## is guaranteed to stay pixel-locked by the camera-level compensation
+## alone.
 
+## Trimmed to 4 (from a 6-slot palette) to match NetManager.MAX_PLAYERS and
+## the 3D asset pack's 4 owner-color mesh folders (blue/red/green/yellow, in
+## this order) — see client/buildings/building_mesh_defs.gd.
 const OWNER_COLOR_PALETTE: Array[Color] = [
 	Color(0.25, 0.55, 0.95), Color(0.9, 0.25, 0.25), Color(0.25, 0.75, 0.35),
-	Color(0.9, 0.75, 0.15), Color(0.65, 0.35, 0.85), Color(0.9, 0.55, 0.15),
+	Color(0.9, 0.75, 0.15),
 ]
 
 ## Set once per match: SP rolls it fresh (Godot's global RNG is already
@@ -40,6 +56,7 @@ var owner_colors := {}
 var owner_names := {}
 
 var terrain_view_3d: TerrainView3D
+var building_view_3d: BuildingView3D
 var camera_3d: Camera3D
 var base_view: BaseView
 var squad_view: SquadView
@@ -120,6 +137,12 @@ func _start_game() -> void:
 
 	camera_controller = $Camera2D
 	camera_3d = $Camera3D
+	# main.tscn's Camera3D transform is the exactly-top-down orientation this
+	# session's earlier pan/zoom-lock fix landed on (verified sub-pixel via
+	# scratchpad/project_test.gd); TerrainView3D.CAMERA_TILT_DEGREES tilts it
+	# from there. rotate_object_local sidesteps hand-deriving new Transform3D
+	# basis numbers directly (a previous session bug came from exactly that).
+	camera_3d.rotate_object_local(Vector3.RIGHT, deg_to_rad(TerrainView3D.CAMERA_TILT_DEGREES))
 
 	# The root Window viewport renders its World3D (Camera3D + these meshes)
 	# first, then the 2D canvas (base/squad/HUD views) on top — so the 3D
@@ -128,7 +151,11 @@ func _start_game() -> void:
 	# World3D; only the Camera3D/light/environment matter, not the parent type.
 	terrain_view_3d = TerrainView3D.new()
 	add_child(terrain_view_3d)
-	terrain_view_3d.setup(state.grid, demo_hexes)
+	terrain_view_3d.setup(state.grid, demo_hexes, _world_seed)
+
+	building_view_3d = BuildingView3D.new()
+	add_child(building_view_3d)
+	building_view_3d.setup(state, state.grid, state.bases, state.standalone_buildings, state.building_defs, state.detections, _local_owner_id)
 
 	base_view = BaseView.new()
 	add_child(base_view)
@@ -146,7 +173,7 @@ func _start_game() -> void:
 
 	input_controller = InputController.new()
 	add_child(input_controller)
-	input_controller.setup(state, _local_owner_id, squad_view, camera_controller, submitter)
+	input_controller.setup(state, _local_owner_id, squad_view, camera_controller, submitter, camera_3d)
 
 	build_preview = BuildPreview.new()
 	add_child(build_preview)
@@ -207,14 +234,41 @@ func _map_bounds() -> Array:
 ## construction (always 1/zoom) while a naively-cached ortho size is not —
 ## the window is resizable (project.godot's window/size/mode=3, maximized,
 ## no fixed size).
+##
+## Tilt alignment (TerrainView3D.CAMERA_TILT_DEGREES != 0): a pitched ortho
+## camera renders the ground plane as an *affine* transform of the flat
+## top-down mapping — X scale unchanged, Y (world-Z) scale foreshortened by
+## exactly cos(tilt), plus a screen-center shift (empirically an exact fit,
+## scratchpad/tilt_test3.gd). The 3D ortho camera CANNOT self-correct this:
+## its `size` scales both screen axes by one factor, so shrinking it to undo
+## the Z foreshortening equally shrinks X, and every flat 2D element drifts
+## horizontally more and more toward the screen edges (the "fog/labels/
+## selectors are off" bug — a `size *= cos` attempt did exactly this,
+## confirmed in scratchpad/tilt_test2.gd: it zeroed the Z error but left an
+## X error growing with distance). The fix puts the cos foreshortening where
+## it CAN be per-axis — on the flat layer's own Camera2D (zoom is a Vector2):
+##   - Camera3D.size uses the plain untilted formula (no cos) so its X scale
+##     equals Camera2D's X scale.
+##   - Camera3D.position.z is pulled back by height*tan(tilt) so the tilted
+##     forward ray lands its screen-center on the SAME ground pixel Camera2D
+##     centers on.
+##   - Camera2D.zoom.y = zoom.x * cos(tilt) compresses the whole flat overlay
+##     (fog, hex grid, labels, selection, build radius) vertically to match
+##     the tilted ground. CameraController does all its pan/zoom math on
+##     zoom.x and resets zoom uniformly on scroll, so re-applying zoom.y here
+##     every frame is safe (self-heals the frame after a scroll).
+## Real height still parallax-leans under the tilt (a building's roof leans
+## off its footprint) — intentional, it's the whole point of tilting.
 func _sync_camera_3d() -> void:
 	if camera_3d == null:
 		return
 	var vp_size := get_viewport().get_visible_rect().size
 	var pixel := camera_controller.position
+	var tilt_rad := deg_to_rad(TerrainView3D.CAMERA_TILT_DEGREES)
 	camera_3d.position.x = pixel.x * TerrainView3D.WORLD_UNITS_PER_PIXEL
-	camera_3d.position.z = pixel.y * TerrainView3D.WORLD_UNITS_PER_PIXEL
+	camera_3d.position.z = pixel.y * TerrainView3D.WORLD_UNITS_PER_PIXEL + camera_3d.position.y * tan(tilt_rad)
 	camera_3d.size = vp_size.y * TerrainView3D.WORLD_UNITS_PER_PIXEL / camera_controller.zoom.x
+	camera_controller.zoom.y = camera_controller.zoom.x * cos(tilt_rad)
 
 func _process(delta: float) -> void:
 	if state == null:

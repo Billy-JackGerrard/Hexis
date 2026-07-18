@@ -1,13 +1,16 @@
-## Placeholder rendering for base buildings: an owner-tinted rect per
-## building at its hex (no sprites/art yet, per the build order's Art
-## section — placeholder geometric shapes until the loop is validated).
-## Standalone buildings (Tower/Landmine/Road/Bridge/Dock — no owning base)
-## render as owner-tinted diamonds; Walls (edge-keyed via hex_a/hex_b, not
+## Building rendering: most building_types now get a real 3D mesh from
+## client/buildings/building_view_3d.gd, so this Node2D's own flat-rect/
+## diamond drawing is restricted to FLAT_SHAPE_TYPES (currently just Wall
+## and Landmine — see that const's comment). Every other building still
+## goes through here for its hover tooltip, base title, and 1-2 letter
+## BUILDING_LABELS tag (kept even without a flat shape — it still reads
+## well floating over the 3D mesh). Walls (edge-keyed via hex_a/hex_b, not
 ## a single hex) render as a thick line along their shared edge instead of
-## a rect. Ruins darken their tint. Stealthed buildings (e.g. Landmine)
-## only render for the local player or a detector that currently sees them.
-## Every shape also gets a 1-2 letter tag from BUILDING_LABELS so same-color
-## squares are distinguishable without art (Wall excepted — no room on a line).
+## a rect. Ruins darken their tint here (Wall/Landmine only — every other
+## ruined building_type renders as BuildingView3D's uniform rubble-heap
+## mesh instead, regardless of its original type). Stealthed buildings
+## (e.g. Landmine) only render for the local player or a detector that
+## currently sees them.
 ##
 ## Also draws a lightweight hover-only text overlay using ThemeDB's fallback
 ## font since this is a Node2D (world space), not a Control — Godot's
@@ -42,6 +45,13 @@ var local_owner_id: String = ""
 var _last_drawn_tick: int = -1
 var _last_hover_hex_key: String = ""
 
+## Every building_type except these two now gets a real mesh from
+## client/buildings/building_view_3d.gd — drawing the flat rect/diamond too
+## would double them up. Landmine stays flat (a visible 3D prop would leak a
+## hidden mine's presence past its stealth gate); Wall stays flat because a
+## real wall mesh needs its own corner/straight connection-mask resolver,
+## deferred as a follow-up (see BuildingView3D's header comment).
+const FLAT_SHAPE_TYPES := ["wall", "landmine"]
 const BUILDING_SIZE := 20.0
 const HQ_SIZE := 26.0
 const WALL_WIDTH := 4.0
@@ -205,13 +215,14 @@ func _draw_building(building: BuildingInstance, owner_id: String, color: Color, 
 		return
 
 	var center := HexView.axial_to_pixel(building.hex)
-	if is_standalone:
-		_draw_diamond(center, BUILDING_SIZE, color)
-	else:
-		var size: float = HQ_SIZE if building.building_type == "hq" else BUILDING_SIZE
-		var rect := Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size))
-		draw_rect(rect, color, true)
-		draw_rect(rect, Color.BLACK, false, 1.0)
+	if FLAT_SHAPE_TYPES.has(building.building_type):
+		if is_standalone:
+			_draw_diamond(center, BUILDING_SIZE, color)
+		else:
+			var size: float = HQ_SIZE if building.building_type == "hq" else BUILDING_SIZE
+			var rect := Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size))
+			draw_rect(rect, color, true)
+			draw_rect(rect, Color.BLACK, false, 1.0)
 	_draw_building_label(center, building.building_type)
 
 func _draw_building_label(center: Vector2, building_type: String) -> void:

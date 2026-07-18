@@ -35,7 +35,12 @@ signal desync_dump_received(tick: int, owner_id: String, dump_text: String)
 signal connection_failed(reason: String)
 
 const DEFAULT_PORT := 24545
-const MAX_PLAYERS := 6
+## Temporarily capped to 4 (down from a 6-slot design) to match the 3D asset
+## pack's 4 owner-color folders (blue/green/red/yellow) — building meshes
+## have no 5th/6th player color to render. Raise again once either more
+## color variants are added or a client-side tint-overlay fallback is built
+## for extra players.
+const MAX_PLAYERS := 4
 const HEX_ARG_PREFIX := "@hex:"
 ## ENet's own connect timeout is up to ~30s (silently dropped packets, no
 ## ICMP refusal on most setups) — way too long to sit on "Connecting..." when

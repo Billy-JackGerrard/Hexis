@@ -85,14 +85,28 @@ Sibling to `sim/`, never the reverse.
   `LockstepDriver.advance()` in multiplayer).
 - `hex_view.gd` — axial↔pixel projection (flat-top); the one new-math piece
   this slice needed.
-- `base_view.gd` / `squad_view.gd` / `projectile_view.gd` — bases, squads,
-  projectiles as flat-color placeholder shapes, owner-tinted, read from sim
-  state every frame.
+- `squad_view.gd` / `projectile_view.gd` — squads/projectiles as flat-color
+  placeholder shapes, owner-tinted, read from sim state every frame.
+- `base_view.gd` — building hover tooltips/base titles/1-2 letter labels for
+  every building; its own flat-rect/diamond shape drawing is now restricted
+  to Wall and Landmine (`FLAT_SHAPE_TYPES`) — everything else gets a real
+  mesh from `buildings/building_view_3d.gd` instead (see below), and drawing
+  both would double them up.
 - `terrain/terrain_view_3d.gd` — real 3D terrain (see `01-map-and-terrain.md`'s
   Rendering Notes; supersedes the flat-color `board.gd` placeholder this
   section originally described), rendered by the root viewport's top-down
   ortho `Camera3D` (in `main.tscn`) and composited behind the 2D views above —
-  no `SubViewport`; the viewport draws 3D then 2D on top.
+  no `SubViewport`; the viewport draws 3D then 2D on top. Includes per-hex
+  deterministic Forest/Hills decoration clusters and sparse Ocean/River/
+  Plains prop scatter (`RenderUtil.pick`/`roll`, `client/render_util.gd`).
+- `buildings/building_view_3d.gd` + `buildings/building_mesh_defs.gd` — real
+  3D buildings, poll-based like `terrain_view_3d.gd`. `building_mesh_defs.gd`
+  holds the building_type→mesh judgment-call table (this pack has far fewer
+  building models than this game has building types, so most reuse the
+  closest thematic mesh), a universal per-level scale bump, and a per-level
+  decoration-prop mechanism (more clutter around a building as it levels
+  up). Wall/Landmine/Road/Bridge are deliberately excluded — see
+  `01-map-and-terrain.md`'s Rendering Notes for why each stays where it is.
 - `input_controller.gd` — click-to-move/attack-target, drag-select, control
   groups, click-precedence (enemy troop/structure vs. open ground).
 - `fog_of_war.gd`, `camera_controller.gd` (pan/zoom).

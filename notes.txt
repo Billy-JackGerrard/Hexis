@@ -31,6 +31,8 @@ OTHER:
 possibly we could have cone gun mechanics? eg wind spire.
 
 
+new base idea:
+they make more infantry troops!
 
 
 Hex size (rendering) — client/hex_view.gd:9, flat-top hexes, HEX_SIZE = 32.0 (pixels, used as the axial↔pixel projection scale).
@@ -60,3 +62,28 @@ map needs to look 2.5d
 
 maybe add height differences on tiles? useful for hills etc
 there can be slopes but also cliffs etc. makes air troops more useful
+
+
+
+ASSETS
+
+TROOPS
+
+infantry
+https://itch.io/c/6033067/kaykit-character-packs
+
+tanks
+https://eno-games.itch.io/3d-sci-fi-military-vehicles
+
+ships
+https://atomicrealm.itch.io/sea-assets
+
+
+TERRAIN
+
+advanced forests
+https://kaylousberg.itch.io/kaykit-forest
+
+
+RESOURCES
+https://kaylousberg.itch.io/resource-bits

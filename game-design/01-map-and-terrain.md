@@ -190,18 +190,50 @@ occupies a hex, and moves hex-to-hex:
   `client/terrain/terrain_view_3d.gd`, a `Node3D` populated with real meshes
   added directly to the scene. No `SubViewport` is involved — the root Window
   viewport renders its `World3D` (the `Camera3D` in `main.tscn` + these meshes)
-  first, then the 2D canvas (`base_view.gd`/`squad_view.gd`/HUD, all untouched
-  — flat-color 2D placeholders) composites on top automatically. A `Node3D`
-  under the `Node2D` scene root still renders into that shared `World3D`; only
-  the `Camera3D`/light/`WorldEnvironment` matter, not the parent type. The
-  `Camera3D` is orthographic and **top-down** — `main.gd`'s `_sync_camera_3d`
-  mirrors `CameraController`'s 2D pan/zoom into it every frame so terrain stays
-  pixel-locked to the 2D layer. Any camera tilt is deliberately avoided: a
-  tilted ortho camera foreshortens one screen axis and the flat 2D building/
-  squad layer can't match it, so the two would drift apart under pan/zoom.
-  Bases/squads/projectiles are not part of this change; they remain the "faked
-  2.5D via Sprite2D + Y-sort" approach described below whenever their own art
-  lands.
+  first, then the 2D canvas (`squad_view.gd`/`projectile_view.gd`/HUD — still
+  flat-color 2D placeholders — plus whatever `base_view.gd` still draws
+  itself, see below) composites on top automatically. A `Node3D` under the
+  `Node2D` scene root still renders into that shared `World3D`; only the
+  `Camera3D`/light/`WorldEnvironment` matter, not the parent type. The
+  `Camera3D` is orthographic and pitched a fixed `CAMERA_TILT_DEGREES` (18°,
+  via `rotate_object_local` on the base top-down transform, applied once in
+  `_start_game`) off pure top-down, so buildings (real 3D now, see below)
+  show their fronts instead of just rooftops. A pitched ortho camera isn't
+  a free change, though: it renders the ground plane as an *affine* of the
+  flat top-down mapping — X scale unchanged, world-Z (screen-Y) scale
+  foreshortened by exactly `cos(tilt)`, plus a screen-center shift (an exact
+  fit, verified against `Camera3D.unproject_position` in
+  `scratchpad/tilt_test3.gd`, not checked in). The 3D ortho camera CANNOT
+  self-correct this: its `size` scales both screen axes by one factor, so
+  shrinking it to undo the Z foreshortening equally shrinks X, leaving every
+  flat 2D element (fog, hex grid, labels, selectors, build-menu radius)
+  drifting horizontally more and more toward screen edges — exactly the
+  "fog/labels are off" bug (a `size *= cos` attempt did this: it zeroed the
+  Z error but grew an X error with distance). The cos foreshortening has to
+  live where it can be per-axis: on the flat layer's own `Camera2D` (its
+  `zoom` is a `Vector2`). So `main.gd`'s `_sync_camera_3d`, every frame:
+  keeps `Camera3D.size` on the plain untilted formula (no cos) so its X
+  scale matches `Camera2D`'s; pulls `Camera3D.position.z` back by
+  `position.y * tan(tilt)` so the tilted forward ray centers on the same
+  ground pixel `Camera2D` does; and sets `Camera2D.zoom.y = zoom.x *
+  cos(tilt)` to compress the whole flat overlay vertically to match the
+  tilted ground. `CameraController` does all its pan/zoom math on `zoom.x`
+  and resets `zoom` uniformly on scroll, so re-applying `zoom.y` here every
+  frame is safe (self-heals the frame after a scroll). Real height still
+  parallax-leans under the tilt — a tall building's roof leans off its
+  footprint — but that's intentional, it's the whole reason to tilt; only
+  ground-level (y=0) content is guaranteed locked, not a mesh's full
+  silhouette. Hex click-targeting needed its own fix on top of the camera
+  compensation: `HexView.pixel_to_axial(get_global_mouse_position())`
+  assumed pure top-down, so `input_controller.gd`'s `_reprojected_hex`
+  ray-casts the actual screen cursor through `Camera3D` and intersects the
+  ground plane instead, for every call site that resolves "which hex was
+  clicked" (move/attack/build orders, own-building selection, hover).
+  Squad/wall hit-testing deliberately still uses the flat 2D position
+  directly — those stay 2D-rendered, unaffected by the tilt regardless.
+  Squads/projectiles/HUD are still the "faked 2.5D via Sprite2D + Y-sort"
+  approach described below whenever their own art lands — a deliberately
+  separate, not-yet-started follow-up.
 - Hex math (`sim/hex/`) is exactly as unaffected by this as the paragraph
   below always intended it to be — `HexView.axial_to_pixel`'s pixel-space
   output is what both the old 2D board and the new 3D terrain layer derive
@@ -221,13 +253,87 @@ occupies a hex, and moves hex-to-hex:
   own geometry — re-run that tool by hand if the asset pack is ever
   replaced).
 - **Base terrain**: Plains/Ocean map 1:1 to this pack's `hex_grass`/
-  `hex_water`. Forest/Hills currently also render as flat `hex_grass` — this
-  pack has no dedicated ground mesh for either (Forest/Hills are meant to be
-  conveyed via `decoration/nature/` props scattered on top of grass, not a
-  differently-colored tile), and that prop-scattering pass hasn't been done
-  yet. A Bridge (on a River hex) renders as a single fixed, non-directional
+  `hex_water`. A minority of Plains/Forest/Hills hexes (~40%,
+  `GROUND_VARIANT_CHANCE`) additionally swap their ground material to one of
+  the pack's seasonal atlas recolors (`hexagons_medieval_Fall.png`/
+  `_Summer.png` — same UV layout as the default atlas, genuinely different
+  color grading, not a multiply-tint) so the grass reads as mottled meadow
+  rather than one flat yellow-green; Winter's atlas is excluded (a literal
+  snow-white recolor, would read as random snow patches). Forest/Hills also
+  get a `decoration/nature/` cluster mesh on top of that ground plate — Hills
+  picks among 6 variants (`hills_{A,B,C}` + their `_trees` siblings) purely
+  per-hex; Forest instead tiers by depth into its contiguous patch
+  (`TerrainView3D._compute_forest_depth`, a multi-source BFS run once in
+  `setup()`  — edge hexes get sparse `trees_*_large`, one-deep get
+  `trees_*_medium`, two-or-more-deep get dense `trees_*_small`), so a forest
+  reads as one coherent stand thickening toward its center instead of
+  random-looking large/small trees sitting next to each other. All of this
+  per-hex picking goes through `RenderUtil.pick2d`/`roll2d` (a proper integer
+  spatial hash keyed on hex `(q, r)` + a decision-specific salt), not
+  Godot's generic string `hash()` — the naive string-keyed version visibly
+  clustered same-choice patches across neighboring hexes, since a generic
+  hash isn't guaranteed to fully decorrelate a mostly-identical formatted
+  key. A Bridge (on a River hex) renders as a single fixed, non-directional
   mesh regardless of the river's own shape there — a known cosmetic gap on a
-  river corner/crossing hex specifically, not yet solved.
+  river corner/crossing hex specifically, not yet solved. Decoration meshes
+  get NO per-instance tilt correction: they are real 3D objects placed at
+  their hex center on the real 3D ground tile, so the camera renders each
+  cluster over its own tile automatically, exactly as it does buildings —
+  a tall tree's crown reading higher on screen is honest perspective. (An
+  earlier attempt to "cancel" that with a `height * tan(tilt)` world-Z
+  offset was wrong: it physically shoved decoration off its own tile onto
+  the neighbor, which is what made Forest hexes look bare and Plains hexes
+  look forested — the offset was removed.)
+- **Sparse decoration scatter**: Ocean/Plains hexes each roll a small
+  per-hex chance (`RenderUtil.roll2d`, ~12%/8% respectively) for one prop
+  from `decoration/nature/`+`decoration/props/` — waterlilies/waterplants/an
+  occasional boat on Ocean, scattered rocks on Plains. A flowing River hex
+  rolls the same way (~20%) for shore plants along its edge; a River hex
+  that's a dead end instead — `river_connection_mask` popcount ≤ 1, a
+  source/mouth this pack has no dedicated spring/waterfall mesh for, so the
+  channel just stops flat against the hex edge — always (not rolled) gets 2
+  shore props, dressing the abrupt cut up as a marshy pond instead. None of
+  this is true geometric bank blending: this pack has no land/water
+  transition mesh (`hex_transition.gltf`'s blend behavior is unconfirmed and
+  unused; `tiles/coast/` is a separate land-vs-ocean system, still out of
+  scope), so it's a cheap visual mitigation, not a fix. A river's actual
+  *path* being mechanically straight in places is a separate, sim-side
+  worldgen concern (`sim/worldgen/`, not this rendering layer) — noted here
+  as a known follow-up, not yet addressed.
+- **Buildings are real 3D too**: `client/buildings/building_view_3d.gd`
+  (`BuildingView3D`, poll-based Node3D renderer, same pattern as
+  `TerrainView3D`) instances a mesh from `assets/buildings/{blue,green,red,
+  yellow,neutral}/` for every building_type that has one — the mapping is a
+  large judgment call, checked into `client/buildings/building_mesh_defs.gd`
+  since this pack has far fewer distinct building models than this game has
+  building types (most entries reuse the closest thematic mesh, several
+  tinted via `RenderUtil.apply_tint`). Wall (needs its own corner/straight
+  connection-mask resolver, not built yet) and Landmine (stealthed — a
+  visible 3D prop would leak a hidden mine past its detection gate) stay 2D,
+  drawn by `base_view.gd` as before; Road/Bridge are already 3D via
+  `TerrainView3D`'s own infrastructure poll. A building's level shows up
+  visually two ways: a small universal scale bump on every mesh, and — per
+  this doc's Harbour/Farm/Mine visual spec (`02-bases-and-buildings.md`) —
+  extra decoration props scattered around it as it levels up (Harbour's own
+  boat count uses that doc's exact `count == level` spec instead). Dock/
+  Harbour/Port/Shipyard (all water-adjacent by placement rule) offset their
+  mesh partway toward their water neighbor hex and face it, reading as a
+  pier extending into the water without needing new pier geometry.
+  Owner-color meshes only exist for 4 colors (`blue/green/red/yellow`);
+  `NetManager.MAX_PLAYERS`/`main.gd`'s `OWNER_COLOR_PALETTE` are temporarily
+  capped to 4 to match. `"neutral"`-owned buildings (unconquered Unique
+  bases, barbarian outposts) don't have their own building roster in this
+  pack's actual `neutral/` folder either (that only has bridges/walls/
+  fences/a couple of generic props) — they borrow one of the 4 real color
+  folders instead, picked deterministically per `building_type` so every
+  barbarian Tower matches, desaturated via `BuildingMeshDefs.NEUTRAL_TINT`
+  so it still reads as unclaimed. Every ruined building — any type,
+  captured or not — renders as the same `neutral/building_destroyed.gltf`
+  rubble mesh instead of its usual one; what it used to be stops mattering
+  once it's destroyed. `BuildingView3D`'s per-building signature includes
+  owner_id specifically so an HQ capture-flip (which changes `base.
+  owner_id`, not the `BuildingInstance` itself) still triggers every one of
+  that base's meshes to rebuild in the new owner's color.
 - **Resolved: hex tiles are NOT drawn via Godot's `TileMap` node**, including its
   hexagonal tile-shape support. Terrain tiles are plain nodes, positioned by
   a standalone hex-math module (axial/cube coordinates, per the standard Red Blob Games
