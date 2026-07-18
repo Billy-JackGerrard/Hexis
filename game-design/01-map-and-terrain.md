@@ -51,9 +51,22 @@ against the coast, the map edge or an existing patch, or because a river later s
 in two — is reverted to Plains. A one-to-three-hex wood reads as litter rather than
 terrain, and Forest's design role (blocking Land vehicles, concealing squads) needs
 enough contiguous area to be worth pathing around at all. The coverage budget is
-unchanged, so a higher size floor yields **fewer** forests, not more forest. Hills
-deliberately keeps its small bucket: a lone hill is a legible landmark now that
-elevation makes it physically stand up, where a lone tree isn't.
+unchanged, so a higher size floor yields **fewer** forests, not more forest.
+
+**Hills never generate small either**, on the same mechanism (`MIN_HILLS_PATCH_SIZE`,
+a lower floor than Forest's — a hill patch needs only enough interior to raise one
+plateau hex, not enough area to hide an army in). A lone hill was previously kept
+deliberately, on the reasoning that elevation makes it a legible landmark where a lone
+tree isn't; with elevation actually rendering that turned out backwards. Scattered 1-3
+hex bumps read as noise laid over the board, and a patch that small is *all rim*, so it
+never gets a plateau or a cliff face and none of the elevation rules are visible on it.
+
+Hills also skew harder toward large patches than Forest does, on a **reduced** coverage
+budget — the two together are what "less frequent but more grouped" means. On four
+sample seeds this moved ~47 patches averaging 11.6 hexes (with 1- and 2-hex specks
+throughout) to ~21 patches averaging 16.9, and total hill cover from ~7.6% of land to
+~5.0%. Cutting the budget matters as much as the size skew: holding it would have kept
+the same amount of high ground and merely repackaged it into chunkier lumps.
 
 | Terrain | Infantry | Land Vehicles | Naval | Air | Vision | Buildable? |
 |---|---|---|---|---|---|---|
@@ -352,6 +365,24 @@ occupies a hex, and moves hex-to-hex:
   rather than scattered single hexes; Winter's atlas is excluded (a literal
   snow-white recolor, would read as random snow patches). The two compose:
   broad seasonal regions, with per-surface grain inside them.
+  Two carve-outs keep a region from cutting features in half:
+  **River plates take the swap** (so a river's banks are the same ground as the
+  land they run through, instead of a green ribbon crossing an autumn region)
+  but restore the water from the default atlas via the shader's `preserve_water`
+  guard — channel and banks share one mesh surface, so the swap can't be applied
+  per-surface, and the Fall atlas recolors the pack's blues to teal, which reads
+  as a different liquid rather than as autumn. Coast/beach plates use the same
+  guard. Ocean is skipped outright — it's all water, with no land on it to match.
+  **Hills sample once per contiguous patch**, at the patch's pixel centroid,
+  rather than per hex. Flat land can afford a per-hex sample (the boundary
+  wanders and reads as a soft edge); a hill range can't, because its plates are
+  physically raised with lit side walls, so a boundary through one massif reads
+  as two different massifs jammed together along a hard seam. The noise period
+  (~26 hexes) is wider than a typical patch, so the centroid's region is also
+  almost always the one the surrounding land is in. The hill/mountain decoration
+  meshes get the same swap as their plate — they're grass-topped mounds drawn
+  from the same atlas and cover most of their hex, so left unswapped a range
+  stays default green on autumn ground.
 - **Biome decoration**: Forest/Hills get a `decoration/nature/` cluster mesh on
   top of the ground plate — Hills picks among 6 variants (`hills_{A,B,C}` +
   their `_trees` siblings) purely per-hex, swapping to the larger `mountain_*`
@@ -390,8 +421,13 @@ occupies a hex, and moves hex-to-hex:
   the things a player has to read quickly (squads, buildings, selection rings,
   order feedback) and made real obstacles harder to pick out. The boredom is a
   *surface* problem and is now solved on the surface — see the ground detail
-  shader below — leaving the board itself clear. A flowing River hex
-  rolls the same way (~20%) for shore plants along its edge; a River hex
+  shader below — leaving the board itself clear. A flowing River hex gets **nothing in the
+  channel** — it used to roll ~20% for a prop placed on the hex centre, i.e.
+  squarely mid-stream, which read as the river being strewn with obstacles.
+  All river dressing lives on the banks instead, and both the bank and channel
+  tables are reeds only: a boulder in open water says "obstacle", which is
+  actively misleading on a hex whose whole meaning is a movement rule (Naval
+  highway, ground block unless bridged). A River hex
   that's a dead end instead — `river_connection_mask` popcount ≤ 1, a
   source/mouth this pack has no dedicated spring/waterfall mesh for, so the
   channel just stops flat against the hex edge — always (not rolled) gets 2

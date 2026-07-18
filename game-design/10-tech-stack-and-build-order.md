@@ -41,7 +41,9 @@ rendering existed.
 - Base/building runtime state, placement rules (adjacency, Walls, Bridge
   foothold exception), HQ capture-flip, ruin/regen, population
   (`sim/bases/`).
-- Procedural map/terrain generation — biome clusters, rivers, hill elevation
+- Procedural map/terrain generation — biome clusters (per-biome patch-size
+  weights plus a shared minimum-patch-size prune, so neither Forest nor Hills
+  can finish as scattered 1-3 hex specks), rivers, hill elevation
   (rim/plateau heights plus randomized cliff faces, with a repair pass
   guaranteeing every raised hex stays reachable on foot), Capital/Unique
   base siting with spacing/terrain/uniqueness constraints, whole-pipeline
@@ -109,15 +111,24 @@ Sibling to `sim/`, never the reverse.
   scatter read as clutter across what is most of the board, so the flat-swatch
   surface is instead given grain by `terrain/ground_detail.gdshader`, a
   procedural world-space noise modulation over whichever seasonal atlas the
-  hex resolved to. Ocean/River plates are seated slightly below lowland
+  hex resolved to. River plates and Hills patches both take that seasonal
+  swap so they sit inside their surrounding region rather than crossing it —
+  rivers via a shader water guard that restores the channel's own colour,
+  Hills sampled once per patch so a region boundary can't split one massif.
+  See `01-map-and-terrain.md`'s Rendering Notes. Ocean/River plates are seated slightly below lowland
   (`WATER_SURFACE_DROP`) so shorelines read as an edge you look down over
   rather than a colour change; that offset is cosmetic only and never reaches
   `HexGrid` elevation.
   Renders elevation as physically raised ground: plates lifted by
   `WORLD_UNITS_PER_ELEVATION` per level, a scaled `hex_grass_bottom` column
-  filling the cliff face beneath, and the pack's slope mesh on any hex with a
-  neighbour one level down. Peak-height Hills swap their decoration to the
-  larger `mountain_*` clusters.
+  filling the cliff face beneath, and the pack's slope mesh on **rim hexes
+  only** — the first step up from lowland. Every step above that renders as a
+  flat terrace. Sloping any hex with a lower neighbour was tried first and made
+  525 of 544 raised hexes inclines, leaving a whole hill range as one
+  featureless ramp; restricting it to the rim gives ~286/258 and a readable
+  stepped silhouette. Ramp hexes also carry no decoration, since a cluster
+  planted on an incline covers the very slope it stands on. Peak-height Hills
+  swap their decoration to the larger `mountain_*` clusters.
 - `buildings/building_view_3d.gd` + `buildings/building_mesh_defs.gd` — real
   3D buildings, poll-based like `terrain_view_3d.gd`. `building_mesh_defs.gd`
   holds the building_type→mesh judgment-call table (this pack has far fewer

@@ -58,20 +58,10 @@ oil fields?
 
 
 
-map needs to look 2.5d
-
-maybe add height differences on tiles? useful for hills etc
-there can be slopes but also cliffs etc. makes air troops more useful
-
-
-
 TERRAIN
 need to make it better.
 make biomes - not just random, but split the map in 4
 
-
-
-hill slopes dont look much like a slope
 
 
 ASSETS

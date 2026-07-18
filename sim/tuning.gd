@@ -40,19 +40,32 @@ const BIOME_EDGE_BUFFER: int = 2
 ## majority tile even after rivers add a few more percent, per
 ## 01-map-and-terrain.md's "Plains ... majority of tiles".
 const FOREST_COVERAGE_FRACTION: float = 0.12
-const HILLS_COVERAGE_FRACTION: float = 0.08
+## Lowered from 0.08: hills now roll bigger patches (HILLS_PATCH_SIZE_WEIGHTS),
+## and holding the old budget would have kept the same total hill area while
+## making each range larger — i.e. the same amount of high ground in fewer,
+## chunkier lumps. Cutting the budget too is what makes hills genuinely rarer,
+## so a range reads as a landmark you navigate around rather than as the
+## background texture of the map.
+const HILLS_COVERAGE_FRACTION: float = 0.055
 
 ## Forest patches only ever roll medium or large (see FOREST_PATCH_SIZE_WEIGHTS)
 ## and anything that still ends up under this many hexes is reverted to Plains
-## by _prune_small_forests. A one-to-three-hex forest reads as scattered litter
+## by _prune_small_patches. A one-to-three-hex forest reads as scattered litter
 ## rather than as a wood you can hide an army in, and Forest's whole design role
 ## (blocking Land vehicles, hiding squads) needs enough contiguous area to be
 ## worth pathing around. The coverage budget above is unchanged, so bigger
 ## minimum patches automatically mean FEWER of them, not more forest overall.
-##
-## Hills deliberately keeps small patches: a lone hill is a legible landmark
-## now that elevation makes it physically stand up, where a lone tree isn't.
 const MIN_FOREST_PATCH_SIZE: int = 6
+
+## Same mechanism, same reason, for Hills. A lone hill was previously kept
+## deliberately (elevation makes it physically stand up, so it reads as a
+## landmark in a way a lone tree doesn't) — but with elevation actually
+## rendering, scattered 1-3 hex bumps read as noise across the board rather
+## than as terrain, and a patch that small is all rim, so it never gets a
+## plateau or a cliff face and none of the elevation rules show up on it.
+## Lower than MIN_FOREST_PATCH_SIZE because a hill patch needs only enough
+## interior to raise one plateau hex, not enough area to hide an army in.
+const MIN_HILLS_PATCH_SIZE: int = 4
 
 ## --- Elevation (TerrainGenerator.generate_elevation) ---
 ##
@@ -79,10 +92,20 @@ const MIN_RAMPS_PER_HILL_PATCH: int = 2
 const SMALL_PATCH_RANGE: Vector2i = Vector2i(4, 8)
 const MEDIUM_PATCH_RANGE: Vector2i = Vector2i(9, 16)
 const LARGE_PATCH_RANGE: Vector2i = Vector2i(17, 28)
-const PATCH_SIZE_WEIGHTS: Array[float] = [0.4, 0.4, 0.2] ## small, medium, large
-## Forest's own weights over the same three ranges — zero chance of small, so
-## every forest seed aims for a real wood. See MIN_FOREST_PATCH_SIZE.
+## Per-biome weights over the three ranges above, [small, medium, large]. There
+## is no shared default: every biome that grows patches states its own, because
+## how clustered that biome should be is a design call per biome.
+##
+## Forest — zero chance of small, so every forest seed aims for a real wood.
+## See MIN_FOREST_PATCH_SIZE.
 const FOREST_PATCH_SIZE_WEIGHTS: Array[float] = [0.0, 0.6, 0.4]
+## Hills' own weights, skewed harder toward large than Forest's: a hill range
+## should read as one massif with a plateau and cliff faces, and the elevation
+## pass only produces interior (peak) hexes once a patch is big enough to have
+## an inside. Combined with the reduced HILLS_COVERAGE_FRACTION this is what
+## "less frequent but more grouped" means numerically — fewer seeds, each
+## claiming more hexes.
+const HILLS_PATCH_SIZE_WEIGHTS: Array[float] = [0.0, 0.35, 0.65]
 
 ## Probability of skipping an otherwise-valid frontier neighbor during blob
 ## growth — produces organic, non-circular patch shapes instead of a perfect

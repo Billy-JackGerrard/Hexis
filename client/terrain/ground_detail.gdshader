@@ -20,6 +20,20 @@ render_mode cull_back, diffuse_burley, specular_disabled;
 uniform sampler2D albedo_texture : source_color, filter_nearest;
 uniform vec4 albedo_tint : source_color = vec4(1.0);
 
+// River plates carry the channel and its banks on ONE mesh surface with one
+// material, separated only by UV region, so the seasonal swap can't be applied
+// per-surface: swapping the whole plate matches the banks to the surrounding
+// land (the point) but also drags the water with it — the Fall atlas recolours
+// the pack's blues to teal, which reads as a different liquid, not as autumn.
+//
+// So the swap is applied and the water is then restored from the default atlas.
+// water_guard_texture is that default atlas; where ITS sample is blue-dominant
+// the pixel is water and keeps its original colour. Detecting on the default
+// rather than on the seasonal sample matters: Fall's teal is much weaker
+// evidence of "this is water" than the blue it replaced.
+uniform sampler2D water_guard_texture : source_color, filter_nearest;
+uniform bool preserve_water = false;
+
 // Coarse blotches (broad soil/grass variation) and a finer grain on top. Two
 // octaves at very different scales, rather than one: a single frequency reads
 // as either mush or static, never as ground.
@@ -59,6 +73,17 @@ void vertex() {
 
 void fragment() {
 	vec4 base = texture(albedo_texture, UV) * albedo_tint;
+
+	if (preserve_water) {
+		vec4 unswapped = texture(water_guard_texture, UV) * albedo_tint;
+		// smoothstep rather than a threshold: the atlas is filter_nearest, but
+		// UV interpolation across a triangle still lands samples on the
+		// shoreline boundary, and a hard cutoff there shimmers as the camera
+		// moves. The band is narrow enough that grass (blue is its LOWEST
+		// channel) never enters it.
+		float water = smoothstep(0.04, 0.12, unswapped.b - max(unswapped.r, unswapped.g));
+		base = mix(base, unswapped, water);
+	}
 
 	vec2 p = world_pos.xz;
 	// Centred on 0 so the noise darkens and lightens equally — a 0..1 range

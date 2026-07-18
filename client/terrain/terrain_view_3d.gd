@@ -159,8 +159,12 @@ const OCEAN_DECOR := [
 	NATURE_DIR + "waterplant_A.gltf", NATURE_DIR + "waterplant_B.gltf", NATURE_DIR + "waterplant_C.gltf",
 	PROPS_DIR + "boat.gltf",
 ]
+## River props are reeds only — no waterlilies and no rocks. Anything sitting
+## in open channel reads as something in the water's way, and a River hex is a
+## movement decision (Naval highway, ground block unless bridged), so that
+## reading is actively misleading. Reeds along the edge say "bank"; a boulder
+## mid-channel says "obstacle".
 const RIVER_DECOR := [
-	NATURE_DIR + "waterlily_A.gltf", NATURE_DIR + "waterlily_B.gltf",
 	NATURE_DIR + "waterplant_A.gltf", NATURE_DIR + "waterplant_B.gltf", NATURE_DIR + "waterplant_C.gltf",
 ]
 ## Plains carries NO scattered props at all. An earlier pass gave every Plains
@@ -178,14 +182,13 @@ const RIVER_DECOR := [
 ## Ocean/River keep their sparse rolls: those are a small minority of hexes, so
 ## a lily pad or a moored boat every few tiles reads as detail, not litter.
 const OCEAN_DECOR_CHANCE := 0.12
-const RIVER_DECOR_CHANCE := 0.20
 
 ## A river hex with only one (or zero) live neighbor connections is a
 ## dead end (source/mouth). The pack has no dedicated spring/waterfall mesh,
 ## so TerrainTileResolver falls back to the straight-through 2-connection
 ## mesh — the channel then visibly runs off the edge OPPOSITE the real
 ## connection, into a land neighbor, reading as an abrupt cut. Rather than
-## the normal RIVER_DECOR_CHANCE roll, force a cluster of shore props aimed
+## any per-hex roll, force a cluster of shore props aimed
 ## squarely at that dead-end edge to plug the channel mouth, so it reads as a
 ## marshy spring/pond instead of a mechanical stop.
 const RIVER_END_DECOR_COUNT := 3
@@ -204,15 +207,18 @@ const RIVER_END_EDGE_SPREAD := 0.55 ## world units the cluster fans out ALONG th
 ## Deliberately not rolled against a chance: a bank that appears on only some
 ## edges reads as an error rather than as variety. The variation comes from
 ## which props are picked and how they're jittered along the seam.
+## Reeds only, same reasoning as RIVER_DECOR: the rock_single_* props that used
+## to be in this table were the single biggest source of "the river is full of
+## obstacles" — scattered boulders along both banks of every river on the map
+## read as debris strewn through the channel rather than as a shoreline.
 const RIVER_BANK_DECOR := [
 	NATURE_DIR + "waterplant_A.gltf", NATURE_DIR + "waterplant_B.gltf", NATURE_DIR + "waterplant_C.gltf",
-	NATURE_DIR + "rock_single_A.gltf", NATURE_DIR + "rock_single_D.gltf",
 ]
 const RIVER_BANK_PROPS_PER_EDGE := 2
-const RIVER_BANK_EDGE_OFFSET := 0.62 ## world units from hex center toward the land edge — inside the hex, hugging the seam
+const RIVER_BANK_EDGE_OFFSET := 0.72 ## world units from hex center toward the land edge — hugs the seam; pushed further out than the old 0.62 so reeds line the bank rather than creeping into open channel
 const RIVER_BANK_EDGE_SPREAD := 0.7 ## world units the props fan out along the seam
 const RIVER_BANK_JITTER := 0.12 ## world units of per-prop wobble, so the bank isn't a ruler-straight line of props
-const RIVER_BANK_SCALE := 0.8 ## bank props read as undergrowth, not as full-size features
+const RIVER_BANK_SCALE := 0.7 ## bank props read as low undergrowth, not as features standing up out of the water
 
 ## A ramp's visible surface runs from the low neighbour's height at one edge up
 ## to this hex's own at the other, so anything standing on it belongs at the
@@ -262,6 +268,7 @@ const COAST_MESH_PREFIX := COAST_DIR + "hex_coast_"
 ## region, everything in between (the bulk of the field) stays default —
 ## thresholds picked to keep roughly the same ~20%/20%/60% split the old
 ## per-hex chance produced, just clustered instead of scattered.
+const GROUND_ATLAS_DEFAULT := BASE_DIR + "hexagons_medieval.png"
 const GROUND_NOISE_FREQUENCY := 0.0012 ## period ~830px, ~26 hexes across — large regional patches, not per-cluster speckle
 const GROUND_NOISE_FALL_THRESHOLD := 0.35
 const GROUND_NOISE_SUMMER_THRESHOLD := -0.35
@@ -274,8 +281,6 @@ const SALT_FOREST_MESH := 1
 const SALT_HILLS_MESH := 2
 const SALT_OCEAN_ROLL := 3
 const SALT_OCEAN_MESH := 4
-const SALT_RIVER_ROLL := 5
-const SALT_RIVER_MESH := 6
 const SALT_PLAINS_ROLL := 7
 const SALT_PLAINS_MESH := 8
 const SALT_DECOR_ROTATION := 9
@@ -316,6 +321,7 @@ var _known_infrastructure: Dictionary = {} ## hex key -> Terrain.Infrastructure
 var _road_nodes: Dictionary = {} ## hex key -> Node3D (the dynamic Road/Bridge instance at that hex, if any)
 var _forest_depth: Dictionary = {} ## hex key -> int, see _compute_forest_depth
 var _forest_species: Dictionary = {} ## hex key -> "A"/"B", see _compute_forest_patches
+var _hills_atlas: Dictionary = {} ## hex key -> atlas path, see _compute_hills_atlas
 var _ground_shader: Shader ## GROUND_DETAIL_SHADER, loaded once
 var _ground_materials: Dictionary = {} ## "<atlas path>|<tint>" -> ShaderMaterial, see _ground_material
 ## hex key -> world Y that decoration on that hex should sit at. Cached during
@@ -345,6 +351,7 @@ func setup(p_grid: HexGrid, p_hexes: Array[HexCoord], p_world_seed: int = 0) -> 
 	_ground_noise.fractal_octaves = 1
 	_compute_forest_depth()
 	_compute_forest_patches()
+	_compute_hills_atlas()
 	for hex in hexes:
 		_place_static(hex)
 		_known_infrastructure[hex.to_key()] = Terrain.Infrastructure.NONE
@@ -382,6 +389,49 @@ func _compute_forest_patches() -> void:
 		var species: String = RenderUtil.pick2d(canonical.q, canonical.r, SALT_FOREST_MESH, FOREST_SPECIES)
 		for coord in patch:
 			_forest_species[coord.to_key()] = species
+
+## Pins every hex of a Hills patch to ONE seasonal atlas, sampled once at the
+## patch's pixel centroid instead of per hex.
+##
+## Flat land can afford a per-hex sample: the region boundary wanders between
+## two swatches of ground and reads as a soft edge. A hill range can't. Its
+## plates are physically raised with lit side walls, so a boundary running
+## through the middle of one massif reads as two different massifs jammed
+## together — half the range green, half yellow, with a hard seam along a
+## silhouette the eye is already tracking. Sampling at the centroid also keeps
+## the range in the SAME region as the land around it, which is the point:
+## GROUND_NOISE_FREQUENCY's period (~26 hexes) is wider than a typical patch
+## (see Tuning.HILLS_PATCH_SIZE_WEIGHTS), so the centroid's region is almost
+## always the one the patch's neighbours are in too.
+##
+## Canonical-hex choice mirrors _compute_forest_patches: derived from patch
+## membership, never from iteration order, so every client agrees without
+## syncing anything.
+func _compute_hills_atlas() -> void:
+	_hills_atlas.clear()
+	var seen: Dictionary = {}
+	for hex in hexes:
+		var key := hex.to_key()
+		if seen.has(key) or grid.get_terrain(hex) != Terrain.Type.HILLS:
+			continue
+		var patch: Array[HexCoord] = []
+		var frontier: Array[HexCoord] = [hex]
+		seen[key] = true
+		var centroid := Vector2.ZERO
+		while not frontier.is_empty():
+			var current: HexCoord = frontier.pop_back()
+			patch.append(current)
+			centroid += HexView.axial_to_pixel(current)
+			for n in HexCoord.neighbors(current):
+				var nk := n.to_key()
+				if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.HILLS:
+					continue
+				seen[nk] = true
+				frontier.append(n)
+		centroid /= float(patch.size())
+		var atlas := _atlas_for_noise(_ground_noise.get_noise_2d(centroid.x, centroid.y))
+		for coord in patch:
+			_hills_atlas[coord.to_key()] = atlas
 
 ## Multi-source BFS distance transform: every Forest hex with at least one
 ## non-Forest (or off-grid) neighbor is depth 0; everything else is 1 +
@@ -446,22 +496,33 @@ static func hex_to_world(p_grid: HexGrid, hex: HexCoord) -> Vector3:
 	var pixel := HexView.axial_to_pixel(hex)
 	return Vector3(pixel.x * WORLD_UNITS_PER_PIXEL, surface_height(p_grid, hex), pixel.y * WORLD_UNITS_PER_PIXEL)
 
-## Direction index (into HexCoord.DIRECTIONS) of a neighbour exactly one
-## elevation level below `hex`, or -1 if there is none. That's what makes this
-## hex a ramp: it's the edge the ground actually slopes down across, and the
-## edge ground troops are able to climb (a two-level drop is a cliff, which
-## stays a sheer column — see Terrain.CLIFF_ELEVATION_DELTA).
+## Direction index (into HexCoord.DIRECTIONS) of the lowland neighbour this hex
+## ramps down to, or -1 if it isn't a ramp.
 ##
-## When several neighbours qualify, the lowest direction index wins rather than
-## a random pick: a hex can only tilt one way, and choosing deterministically
-## by index keeps the choice stable across clients without burning a salt.
+## ONLY the first step up from lowland is a ramp. Every step above that renders
+## as a flat plate with a vertical face — a terrace. The obvious rule ("any hex
+## with a neighbour one level below slopes toward it") was tried first and was
+## wrong: on a real map it made 525 of 544 raised hexes slopes and left only 19
+## flat, so an entire hill range was one continuous incline with no readable
+## step anywhere in it, and the decoration clusters ended up sitting on tilted
+## ground where they hid the very slope they were standing on. Restricting
+## ramps to the rim gives the shape hills actually need — a walk-up edge, then
+## stepped ground above it.
+##
+## Purely a rendering decision: the sim's cost model is unchanged either way, a
+## one-level step is climbable whether it's drawn as an incline or a low ledge
+## (see Terrain.elevation_step_cost).
+##
+## When several lowland neighbours qualify, the lowest direction index wins
+## rather than a random pick: a hex can only tilt one way, and choosing
+## deterministically by index keeps the choice stable across clients without
+## burning a salt.
 func _ramp_low_direction(hex: HexCoord) -> int:
-	var elevation := grid.get_elevation(hex)
-	if elevation <= 0:
+	if grid.get_elevation(hex) != Tuning.HILLS_RIM_ELEVATION:
 		return -1
 	for i in range(HexCoord.DIRECTIONS.size()):
 		var n := HexCoord.neighbor(hex, i)
-		if grid.has_hex(n) and grid.get_elevation(n) == elevation - 1:
+		if grid.has_hex(n) and grid.get_elevation(n) == 0:
 			return i
 	return -1
 
@@ -516,8 +577,12 @@ func _place_static(hex: HexCoord) -> void:
 		# Authored to rise exactly 1.0 above its own flat top; scaling on Y
 		# makes it bridge one WORLD_UNITS_PER_ELEVATION step instead.
 		node.scale.y = WORLD_UNITS_PER_ELEVATION
-	if not is_water:
-		_maybe_swap_ground_texture(node, hex)
+	if terrain != Terrain.Type.OCEAN:
+		# River and beach plates carry grass/sand AND water on one surface, so
+		# they need the shader's water guard; Ocean is skipped outright, since
+		# it's all water and there's nothing on it to match to the land.
+		var has_water_uv := terrain == Terrain.Type.RIVER or mesh_path.begins_with(COAST_MESH_PREFIX)
+		_maybe_swap_ground_texture(node, hex, has_water_uv)
 	add_child(node)
 	# Underside of what was just placed: a flat plate's body is 1.0 tall, a
 	# scaled ramp's reaches a full step below its seat.
@@ -532,7 +597,13 @@ func _place_static(hex: HexCoord) -> void:
 		# recessed — without this they hover at old sea level above their own hex.
 		decor_y -= WATER_SURFACE_DROP
 	_decor_y[hex.to_key()] = decor_y
-	_place_decoration(hex, terrain, river_mask)
+	# A ramp is the one hex whose SHAPE is the thing worth looking at — it's how
+	# the player reads "you can walk up here". A hill/mountain cluster planted on
+	# it sits square across the incline and hides it completely, so the slope is
+	# left bare. The rim reading as open grassy approach into rocky high ground
+	# is also just what a hill range looks like.
+	if not is_ramp:
+		_place_decoration(hex, terrain, river_mask)
 	if terrain == Terrain.Type.RIVER:
 		_place_river_banks(hex)
 
@@ -573,18 +644,30 @@ func _place_elevation_skirt(hex: HexCoord, fill_top: float) -> void:
 ## blobs rather than being skewed by axial coordinates. The detail shader then
 ## runs on whichever atlas was chosen, so the two compose: broad seasonal regions
 ## with per-surface grain inside them.
-func _maybe_swap_ground_texture(node: Node, hex: HexCoord) -> void:
+##
+## `preserve_water` forwards to the shader's water guard — set it for any mesh
+## whose UVs reach into the atlas's water swatches (river channels, coast
+## tiles), so the seasonal region colours the land without recolouring the
+## water running through it. See the shader's water_guard_texture comment.
+func _maybe_swap_ground_texture(node: Node, hex: HexCoord, preserve_water: bool = false) -> void:
 	var pixel := HexView.axial_to_pixel(hex)
-	var n := _ground_noise.get_noise_2d(pixel.x, pixel.y)
-	var atlas := BASE_DIR + "hexagons_medieval.png"
-	if n > GROUND_NOISE_FALL_THRESHOLD:
-		atlas = BASE_DIR + "hexagons_medieval_Fall.png"
-	elif n < GROUND_NOISE_SUMMER_THRESHOLD:
-		atlas = BASE_DIR + "hexagons_medieval_Summer.png"
+	# Hills are pinned per patch rather than per hex — see _compute_hills_atlas.
+	var atlas: String = _hills_atlas.get(hex.to_key(), "")
+	if atlas.is_empty():
+		atlas = _atlas_for_noise(_ground_noise.get_noise_2d(pixel.x, pixel.y))
 	var tex: Texture2D = load(atlas)
 	if tex == null:
 		return
-	_apply_ground_texture(node, tex)
+	_apply_ground_texture(node, tex, preserve_water)
+
+## Which seasonal atlas a _ground_noise sample falls into. Split out so the
+## per-hex path and _compute_hills_atlas's per-patch path can't drift apart.
+func _atlas_for_noise(n: float) -> String:
+	if n > GROUND_NOISE_FALL_THRESHOLD:
+		return BASE_DIR + "hexagons_medieval_Fall.png"
+	if n < GROUND_NOISE_SUMMER_THRESHOLD:
+		return BASE_DIR + "hexagons_medieval_Summer.png"
+	return GROUND_ATLAS_DEFAULT
 
 ## Replaces every surface's imported BaseMaterial3D with a ShaderMaterial
 ## running GROUND_DETAIL_SHADER over `tex`, carrying the original material's
@@ -594,7 +677,7 @@ func _maybe_swap_ground_texture(node: Node, hex: HexCoord) -> void:
 ## built per surface: there are only ever three of them (default/Fall/Summer),
 ## every plate on the map shares one, and the previous duplicate-per-surface
 ## approach allocated a fresh material for thousands of tiles.
-func _apply_ground_texture(node: Node, tex: Texture2D) -> void:
+func _apply_ground_texture(node: Node, tex: Texture2D, preserve_water: bool = false) -> void:
 	if node is MeshInstance3D:
 		var mesh_instance := node as MeshInstance3D
 		for i in range(mesh_instance.mesh.get_surface_count()):
@@ -602,12 +685,12 @@ func _apply_ground_texture(node: Node, tex: Texture2D) -> void:
 			if mat == null or not (mat is BaseMaterial3D):
 				continue
 			var tint: Color = (mat as BaseMaterial3D).albedo_color
-			mesh_instance.set_surface_override_material(i, _ground_material(tex, tint))
+			mesh_instance.set_surface_override_material(i, _ground_material(tex, tint, preserve_water))
 	for child in node.get_children():
-		_apply_ground_texture(child, tex)
+		_apply_ground_texture(child, tex, preserve_water)
 
-func _ground_material(tex: Texture2D, tint: Color) -> ShaderMaterial:
-	var key := "%s|%s" % [tex.resource_path, tint]
+func _ground_material(tex: Texture2D, tint: Color, preserve_water: bool) -> ShaderMaterial:
+	var key := "%s|%s|%s" % [tex.resource_path, tint, preserve_water]
 	if _ground_materials.has(key):
 		return _ground_materials[key]
 	if _ground_shader == null:
@@ -616,6 +699,9 @@ func _ground_material(tex: Texture2D, tint: Color) -> ShaderMaterial:
 	mat.shader = _ground_shader
 	mat.set_shader_parameter("albedo_texture", tex)
 	mat.set_shader_parameter("albedo_tint", tint)
+	mat.set_shader_parameter("preserve_water", preserve_water)
+	if preserve_water:
+		mat.set_shader_parameter("water_guard_texture", load(GROUND_ATLAS_DEFAULT))
 	_ground_materials[key] = mat
 	return mat
 
@@ -656,12 +742,16 @@ func _place_decoration(hex: HexCoord, terrain: Terrain.Type, river_mask: int) ->
 				return
 			mesh_path = RenderUtil.pick2d(hex.q, hex.r, SALT_OCEAN_MESH, OCEAN_DECOR)
 		Terrain.Type.RIVER:
+			# Dead ends still get their channel-mouth plug (see
+			# _place_river_end_decoration — it hides a real mesh artifact, not a
+			# decoration choice). Otherwise a flowing river gets NOTHING in the
+			# channel: the old per-hex roll dropped a prop on the hex centre,
+			# i.e. squarely mid-stream, which is exactly what read as the river
+			# being full of obstacles. All river dressing now lives on the banks
+			# instead — see _place_river_banks.
 			if TerrainTileResolver._popcount(river_mask) <= 1:
 				_place_river_end_decoration(hex, river_mask)
-				return
-			if RenderUtil.roll2d(hex.q, hex.r, SALT_RIVER_ROLL) >= RIVER_DECOR_CHANCE:
-				return
-			mesh_path = RenderUtil.pick2d(hex.q, hex.r, SALT_RIVER_MESH, RIVER_DECOR)
+			return
 		_:
 			# Plains included: it deliberately carries no props at all, only the
 			# ground detail shader. See OCEAN_DECOR_CHANCE's doc comment.
@@ -671,6 +761,14 @@ func _place_decoration(hex: HexCoord, terrain: Terrain.Type, river_mask: int) ->
 		return
 	if scale != 1.0:
 		node.scale = Vector3.ONE * scale
+	if terrain == Terrain.Type.HILLS:
+		# The hill/mountain meshes are grass-topped mounds drawn from the same
+		# atlas as the ground plates, and they cover most of their hex — so
+		# left unswapped they stay default green while the plate under them
+		# goes autumn, and the hill reads as belonging to a different map than
+		# the land around it. Swapping them is what actually makes a range sit
+		# inside its region. No water guard: nothing on these meshes is water.
+		_maybe_swap_ground_texture(node, hex)
 	add_child(node)
 
 ## World Y decoration on this hex should sit at — see _decor_y. Falls back to

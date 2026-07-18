@@ -32,12 +32,14 @@ static func generate_all(player_count: int, world_seed: int) -> HexGrid:
 	generate_biomes(grid, radius, world_seed)
 	generate_rivers(grid, radius, world_seed, player_count)
 	generate_super_river(grid, radius, world_seed)
-	# Re-run after the rivers: a channel carved through a wood can split it into
-	# two halves, either of which can be under the minimum even though the patch
-	# was fine when generate_biomes finished. Idempotent, so calling it twice
-	# costs one extra scan and keeps the no-tiny-forests property true of the
-	# finished map rather than only of the biome phase in isolation.
-	_prune_small_forests(grid)
+	# Re-run after the rivers: a channel carved through a wood or a hill range can
+	# split it into two halves, either of which can be under the minimum even
+	# though the patch was fine when generate_biomes finished. Idempotent, so
+	# calling it twice costs one extra scan and keeps the no-tiny-patches property
+	# true of the finished map rather than only of the biome phase in isolation.
+	# Must stay ahead of generate_elevation — it reads the final Hills layout.
+	_prune_small_patches(grid, Terrain.Type.HILLS, Tuning.MIN_HILLS_PATCH_SIZE)
+	_prune_small_patches(grid, Terrain.Type.FOREST, Tuning.MIN_FOREST_PATCH_SIZE)
 	generate_elevation(grid, world_seed)
 	return grid
 
@@ -57,22 +59,28 @@ static func generate_base_terrain(radius: int, fringe_width: int) -> HexGrid:
 ## (checked via current terrain == PLAINS).
 static func generate_biomes(grid: HexGrid, radius: int, world_seed: int) -> void:
 	var interior_area := 3 * radius * radius + 3 * radius + 1
-	_grow_biome(grid, radius, Terrain.Type.HILLS, int(interior_area * Tuning.HILLS_COVERAGE_FRACTION), _substream(world_seed, "biomes_hills"), Tuning.PATCH_SIZE_WEIGHTS)
+	_grow_biome(grid, radius, Terrain.Type.HILLS, int(interior_area * Tuning.HILLS_COVERAGE_FRACTION), _substream(world_seed, "biomes_hills"), Tuning.HILLS_PATCH_SIZE_WEIGHTS)
+	# Pruned before Forest grows, not after, so the hexes a stunted hill patch
+	# gives back are Plains again in time for a forest seed to claim them —
+	# otherwise the map ends up with small bald patches where the hills were.
+	_prune_small_patches(grid, Terrain.Type.HILLS, Tuning.MIN_HILLS_PATCH_SIZE)
 	_grow_biome(grid, radius, Terrain.Type.FOREST, int(interior_area * Tuning.FOREST_COVERAGE_FRACTION), _substream(world_seed, "biomes_forest"), Tuning.FOREST_PATCH_SIZE_WEIGHTS)
-	_prune_small_forests(grid)
+	_prune_small_patches(grid, Terrain.Type.FOREST, Tuning.MIN_FOREST_PATCH_SIZE)
 
-## Reverts any contiguous Forest patch smaller than Tuning.MIN_FOREST_PATCH_SIZE
-## back to Plains. FOREST_PATCH_SIZE_WEIGHTS already stops a forest from *aiming*
-## small, but _grow_patch returns short whenever its frontier runs out early —
-## against the coastline, the map edge, or a Hills patch already sitting where it
-## wanted to grow — so a seed that targeted 12 hexes can still finish as 2. This
-## is what actually guarantees the "no tiny forests" property; the weights alone
-## do not.
-static func _prune_small_forests(grid: HexGrid) -> void:
+## Reverts any contiguous `terrain` patch smaller than `min_size` back to
+## Plains. The per-biome size weights already stop a patch from *aiming* small,
+## but _grow_patch returns short whenever its frontier runs out early — against
+## the coastline, the map edge, or another biome already sitting where it wanted
+## to grow — so a seed that targeted 12 hexes can still finish as 2. This is what
+## actually guarantees the "no tiny patches" property; the weights alone do not.
+##
+## Used for both Forest and Hills; rivers can also split an already-grown patch
+## in two, which is why the Forest pass runs again after river carving.
+static func _prune_small_patches(grid: HexGrid, terrain: Terrain.Type, min_size: int) -> void:
 	var seen: Dictionary = {}
 	for key in grid.hex_keys():
 		var hex := HexCoord.from_key(key)
-		if seen.has(key) or grid.get_terrain(hex) != Terrain.Type.FOREST:
+		if seen.has(key) or grid.get_terrain(hex) != terrain:
 			continue
 		var patch: Array[HexCoord] = []
 		var frontier: Array[HexCoord] = [hex]
@@ -82,11 +90,11 @@ static func _prune_small_forests(grid: HexGrid) -> void:
 			patch.append(current)
 			for n in HexCoord.neighbors(current):
 				var nk := n.to_key()
-				if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.FOREST:
+				if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != terrain:
 					continue
 				seen[nk] = true
 				frontier.append(n)
-		if patch.size() < Tuning.MIN_FOREST_PATCH_SIZE:
+		if patch.size() < min_size:
 			for coord in patch:
 				grid.set_terrain(coord, Terrain.Type.PLAINS)
 
@@ -138,9 +146,10 @@ static func _grow_patch(grid: HexGrid, radius: int, seed_hex: HexCoord, terrain:
 				frontier.append(n)
 	return converted
 
-## `weights` is [small, medium, large] — per-biome, since Forest deliberately
-## zeroes out the small bucket (Tuning.FOREST_PATCH_SIZE_WEIGHTS) while Hills
-## still uses it.
+## `weights` is [small, medium, large] — per-biome. Both callers currently zero
+## out the small bucket (FOREST_PATCH_SIZE_WEIGHTS, HILLS_PATCH_SIZE_WEIGHTS)
+## and differ only in how hard they lean on large; the parameter stays because
+## the split is a per-biome judgment call, not a shared constant.
 static func _roll_patch_size(rng: RandomNumberGenerator, weights: Array[float]) -> int:
 	var roll := rng.randf()
 	var range_pick: Vector2i = Tuning.SMALL_PATCH_RANGE

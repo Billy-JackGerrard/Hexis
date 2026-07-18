@@ -847,20 +847,28 @@ func _test_elevation() -> void:
 	_check(mismatches == 0, "the same seed produces identical elevation — the pass is on its own deterministic RNG substream")
 
 
-## Forest deliberately never generates as scattered 1-3 hex specks — see
-## Tuning.MIN_FOREST_PATCH_SIZE. Asserted on generate_all (not just
-## generate_biomes) because rivers run afterwards and can split a healthy wood
-## into two undersized halves; the prune pass re-runs for exactly that reason.
+## Neither Forest nor Hills may generate as scattered 1-3 hex specks — see
+## Tuning.MIN_FOREST_PATCH_SIZE / MIN_HILLS_PATCH_SIZE. Asserted on generate_all
+## (not just generate_biomes) because rivers run afterwards and can split a
+## healthy patch into two undersized halves; the prune pass re-runs for exactly
+## that reason.
+##
+## The minimums are read from Tuning rather than written in as numbers, so
+## retuning how clustered a biome should be doesn't silently break this.
 func _test_forest_patch_sizes() -> void:
+	_check_patch_sizes(Terrain.Type.FOREST, Tuning.MIN_FOREST_PATCH_SIZE, "forest")
+	_check_patch_sizes(Terrain.Type.HILLS, Tuning.MIN_HILLS_PATCH_SIZE, "hill")
+
+func _check_patch_sizes(terrain: Terrain.Type, min_size: int, label: String) -> void:
 	var seeds := [3, 88, 4242, 777771]
-	var saw_forest := false
+	var saw_any := false
 	for world_seed in seeds:
 		var grid := TerrainGenerator.generate_all(2, world_seed)
 		var seen: Dictionary = {}
 		var smallest := -1
 		for key in grid.hex_keys():
 			var hex := HexCoord.from_key(key)
-			if seen.has(key) or grid.get_terrain(hex) != Terrain.Type.FOREST:
+			if seen.has(key) or grid.get_terrain(hex) != terrain:
 				continue
 			var size := 0
 			var frontier: Array[HexCoord] = [hex]
@@ -870,13 +878,13 @@ func _test_forest_patch_sizes() -> void:
 				size += 1
 				for n in HexCoord.neighbors(current):
 					var nk := n.to_key()
-					if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.FOREST:
+					if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != terrain:
 						continue
 					seen[nk] = true
 					frontier.append(n)
-			saw_forest = true
+			saw_any = true
 			if smallest < 0 or size < smallest:
 				smallest = size
 		if smallest >= 0:
-			_check(smallest >= Tuning.MIN_FOREST_PATCH_SIZE, "seed %d: smallest forest patch is %d hexes, at or above the %d minimum" % [world_seed, smallest, Tuning.MIN_FOREST_PATCH_SIZE])
-	_check(saw_forest, "forests still generate at all after the size floor and prune pass (the floor didn't just delete every wood)")
+			_check(smallest >= min_size, "seed %d: smallest %s patch is %d hexes, at or above the %d minimum" % [world_seed, label, smallest, min_size])
+	_check(saw_any, "%s patches still generate at all after the size floor and prune pass (the floor didn't just delete every one)" % label)
