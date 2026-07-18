@@ -32,6 +32,12 @@ static func generate_all(player_count: int, world_seed: int) -> HexGrid:
 	generate_biomes(grid, radius, world_seed)
 	generate_rivers(grid, radius, world_seed, player_count)
 	generate_super_river(grid, radius, world_seed)
+	# Re-run after the rivers: a channel carved through a wood can split it into
+	# two halves, either of which can be under the minimum even though the patch
+	# was fine when generate_biomes finished. Idempotent, so calling it twice
+	# costs one extra scan and keeps the no-tiny-forests property true of the
+	# finished map rather than only of the biome phase in isolation.
+	_prune_small_forests(grid)
 	generate_elevation(grid, world_seed)
 	return grid
 
@@ -51,10 +57,40 @@ static func generate_base_terrain(radius: int, fringe_width: int) -> HexGrid:
 ## (checked via current terrain == PLAINS).
 static func generate_biomes(grid: HexGrid, radius: int, world_seed: int) -> void:
 	var interior_area := 3 * radius * radius + 3 * radius + 1
-	_grow_biome(grid, radius, Terrain.Type.HILLS, int(interior_area * Tuning.HILLS_COVERAGE_FRACTION), _substream(world_seed, "biomes_hills"))
-	_grow_biome(grid, radius, Terrain.Type.FOREST, int(interior_area * Tuning.FOREST_COVERAGE_FRACTION), _substream(world_seed, "biomes_forest"))
+	_grow_biome(grid, radius, Terrain.Type.HILLS, int(interior_area * Tuning.HILLS_COVERAGE_FRACTION), _substream(world_seed, "biomes_hills"), Tuning.PATCH_SIZE_WEIGHTS)
+	_grow_biome(grid, radius, Terrain.Type.FOREST, int(interior_area * Tuning.FOREST_COVERAGE_FRACTION), _substream(world_seed, "biomes_forest"), Tuning.FOREST_PATCH_SIZE_WEIGHTS)
+	_prune_small_forests(grid)
 
-static func _grow_biome(grid: HexGrid, radius: int, terrain: Terrain.Type, budget: int, rng: RandomNumberGenerator) -> void:
+## Reverts any contiguous Forest patch smaller than Tuning.MIN_FOREST_PATCH_SIZE
+## back to Plains. FOREST_PATCH_SIZE_WEIGHTS already stops a forest from *aiming*
+## small, but _grow_patch returns short whenever its frontier runs out early —
+## against the coastline, the map edge, or a Hills patch already sitting where it
+## wanted to grow — so a seed that targeted 12 hexes can still finish as 2. This
+## is what actually guarantees the "no tiny forests" property; the weights alone
+## do not.
+static func _prune_small_forests(grid: HexGrid) -> void:
+	var seen: Dictionary = {}
+	for key in grid.hex_keys():
+		var hex := HexCoord.from_key(key)
+		if seen.has(key) or grid.get_terrain(hex) != Terrain.Type.FOREST:
+			continue
+		var patch: Array[HexCoord] = []
+		var frontier: Array[HexCoord] = [hex]
+		seen[key] = true
+		while not frontier.is_empty():
+			var current: HexCoord = frontier.pop_back()
+			patch.append(current)
+			for n in HexCoord.neighbors(current):
+				var nk := n.to_key()
+				if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.FOREST:
+					continue
+				seen[nk] = true
+				frontier.append(n)
+		if patch.size() < Tuning.MIN_FOREST_PATCH_SIZE:
+			for coord in patch:
+				grid.set_terrain(coord, Terrain.Type.PLAINS)
+
+static func _grow_biome(grid: HexGrid, radius: int, terrain: Terrain.Type, budget: int, rng: RandomNumberGenerator, size_weights: Array[float]) -> void:
 	var origin := HexCoord.new(0, 0)
 	var placed := 0
 	var seed_centers: Array[HexCoord] = []
@@ -72,7 +108,7 @@ static func _grow_biome(grid: HexGrid, radius: int, terrain: Terrain.Type, budge
 		if too_close:
 			continue
 		seed_centers.append(candidate)
-		var target_size := _roll_patch_size(rng)
+		var target_size := _roll_patch_size(rng, size_weights)
 		placed += _grow_patch(grid, radius, candidate, terrain, target_size, rng)
 
 ## Randomized flood-fill from `seed_hex`, converting up to `target_size`
@@ -102,12 +138,15 @@ static func _grow_patch(grid: HexGrid, radius: int, seed_hex: HexCoord, terrain:
 				frontier.append(n)
 	return converted
 
-static func _roll_patch_size(rng: RandomNumberGenerator) -> int:
+## `weights` is [small, medium, large] — per-biome, since Forest deliberately
+## zeroes out the small bucket (Tuning.FOREST_PATCH_SIZE_WEIGHTS) while Hills
+## still uses it.
+static func _roll_patch_size(rng: RandomNumberGenerator, weights: Array[float]) -> int:
 	var roll := rng.randf()
 	var range_pick: Vector2i = Tuning.SMALL_PATCH_RANGE
-	if roll > Tuning.PATCH_SIZE_WEIGHTS[0] + Tuning.PATCH_SIZE_WEIGHTS[1]:
+	if roll > weights[0] + weights[1]:
 		range_pick = Tuning.LARGE_PATCH_RANGE
-	elif roll > Tuning.PATCH_SIZE_WEIGHTS[0]:
+	elif roll > weights[0]:
 		range_pick = Tuning.MEDIUM_PATCH_RANGE
 	return rng.randi_range(range_pick.x, range_pick.y)
 

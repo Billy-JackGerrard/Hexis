@@ -101,9 +101,18 @@ Sibling to `sim/`, never the reverse.
   ortho `Camera3D` (in `main.tscn`) and composited behind the 2D views above —
   no `SubViewport`; the viewport draws 3D then 2D on top. Includes per-hex
   deterministic Forest/Hills decoration clusters and sparse Ocean/River prop
-  scatter (`RenderUtil.pick`/`roll`, `client/render_util.gd`), a multi-prop
-  off-centre scatter on every Plains hex, unconditional river banks along
-  river-to-land edges, and beach tiles on Ocean-adjacent lowland.
+  scatter (`RenderUtil.pick`/`roll`, `client/render_util.gd`), unconditional
+  river banks along river-to-land edges, and beach tiles on Ocean-adjacent
+  lowland. Forest tree *species* is picked per contiguous patch (one wood is
+  one kind of tree); only the density tier varies per hex, by depth into the
+  stand. **Plains deliberately carries no props at all** — an earlier per-hex
+  scatter read as clutter across what is most of the board, so the flat-swatch
+  surface is instead given grain by `terrain/ground_detail.gdshader`, a
+  procedural world-space noise modulation over whichever seasonal atlas the
+  hex resolved to. Ocean/River plates are seated slightly below lowland
+  (`WATER_SURFACE_DROP`) so shorelines read as an edge you look down over
+  rather than a colour change; that offset is cosmetic only and never reaches
+  `HexGrid` elevation.
   Renders elevation as physically raised ground: plates lifted by
   `WORLD_UNITS_PER_ELEVATION` per level, a scaled `hex_grass_bottom` column
   filling the cliff face beneath, and the pack's slope mesh on any hex with a

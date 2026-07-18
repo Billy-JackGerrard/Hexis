@@ -58,6 +58,27 @@ const GROUND_BOTTOM_MESH := BASE_DIR + "hex_grass_bottom.gltf"
 ## neighbour, physically connecting the two levels.
 const GROUND_SLOPE_MESH := BASE_DIR + "hex_grass_sloped_high.gltf"
 
+## Extra depth Ocean/River plates are seated at, below lowland ground. The pack
+## already models its water surface slightly recessed (the water mesh's top face
+## sits at -0.2 where a grass plate's is at 0.0), which is enough to stop them
+## z-fighting but not enough to read as water sitting *in* the land — the
+## coastline looked like a colour change rather than an edge. Dropping the plate
+## further makes the shoreline and river banks into visible lips you look down
+## over, which is also what makes the beach tiles' sand shelf read as sloping
+## into something.
+##
+## Deliberately small. Land plates only model their own top 1.0 unit, so past
+## roughly that the water surface would clear the bottom of the land beside it
+## and you would see under the coast at grazing angles. This is a purely visual
+## offset — HexGrid elevation for water stays 0, so no movement cost, cliff
+## check, or vision sightline is affected by it.
+const WATER_SURFACE_DROP := 0.3
+
+## Procedural surface-detail shader applied to every land ground plate — see
+## the shader file's own header for what it does and why the noise is evaluated
+## in world space. This is what replaced the Plains prop scatter.
+const GROUND_DETAIL_SHADER := "res://client/terrain/ground_detail.gdshader"
+
 ## Terrain.Type -> base mesh, for every hex that isn't River (River always
 ## replaces the base tile with a river_* mesh instead — see _static_mesh_for).
 ## Forest/Hills sit on top of this same grass ground plate (see
@@ -78,12 +99,16 @@ const BASE_MESH_BY_TERRAIN := {
 ## trees. Picking purely per-hex at random (the original approach) put a
 ## dense/small hex right next to a sparse/large one constantly — reads as
 ## noise, not a forest. Tiering by depth instead makes each contiguous
-## forest patch read as one coherent stand that thickens toward its center,
-## while the A/B pick within a tier still keeps neighbors from being
-## textbook-identical.
-const FOREST_MESHES_EDGE := [NATURE_DIR + "trees_A_large.gltf", NATURE_DIR + "trees_B_large.gltf"]
-const FOREST_MESHES_MID := [NATURE_DIR + "trees_A_medium.gltf", NATURE_DIR + "trees_B_medium.gltf"]
-const FOREST_MESHES_DEEP := [NATURE_DIR + "trees_A_small.gltf", NATURE_DIR + "trees_B_small.gltf"]
+## forest patch read as one coherent stand that thickens toward its center.
+##
+## SPECIES (the A/B axis) is chosen per *patch*, not per hex — see
+## _compute_forest_patches. A real wood is one kind of tree; mixing A and B
+## hex-by-hex within a single stand made it read as two different forests
+## overlapping rather than one, which is exactly the noise the depth tiering
+## was introduced to remove. Neighbouring but separate patches still differ,
+## since they get their own independent pick.
+const FOREST_SPECIES := ["A", "B"]
+const FOREST_MESH_BY_DEPTH := ["large", "medium", "small"] ## index = depth tier, see _compute_forest_depth
 
 ## Hills decoration clusters instanced on top of the grass ground plate,
 ## one per hex, chosen deterministically per-hex (RenderUtil.pick2d) so the
@@ -138,51 +163,22 @@ const RIVER_DECOR := [
 	NATURE_DIR + "waterlily_A.gltf", NATURE_DIR + "waterlily_B.gltf",
 	NATURE_DIR + "waterplant_A.gltf", NATURE_DIR + "waterplant_B.gltf", NATURE_DIR + "waterplant_C.gltf",
 ]
-## Plains is the majority terrain, so an empty grass plate is what the player
-## stares at most of the match. Every Plains hex now gets scatter rather than
-## the old sparse 8% single-rock roll, which left the map reading as a bare
-## board with an occasional pebble.
+## Plains carries NO scattered props at all. An earlier pass gave every Plains
+## hex one-to-three rocks/trees/stumps to fix "the majority terrain is a bare
+## plate" — and it did fix that, but the result read as clutter: Plains is most
+## of the map, so per-hex props strewed the whole board with small objects that
+## competed with the things the player actually has to read (squads, buildings,
+## selection rings, order feedback) and made real, meaningful obstacles harder
+## to pick out at a glance.
 ##
-## Three things make that survivable at full coverage instead of cluttered:
-## the props are drawn from a genuinely mixed table (lone trees, cut stumps,
-## grassy mounds, boulders — not five near-identical rocks); each one is
-## pushed out toward the hex's rim rather than sitting on the center, which is
-## where troop/building sprites and selection rings live; and the per-hex count
-## is itself rolled, so hexes vary between one prop and a small cluster.
-## hill_single_A/B/C are deliberately NOT in this table despite being the
-## obvious "small nature prop" candidates: the pack models them as miniature
-## hexagonal mounds with their own dirt-colored side walls, so scattered across
-## Plains they read as broken/half-sunk terrain tiles rather than as scenery —
-## verified on screen, they were indistinguishable from a tile-placement bug.
-## They belong on Hills, where HILLS_MESHES already covers that shape.
-const PLAINS_DECOR := [
-	NATURE_DIR + "rock_single_A.gltf", NATURE_DIR + "rock_single_B.gltf", NATURE_DIR + "rock_single_C.gltf",
-	NATURE_DIR + "rock_single_D.gltf", NATURE_DIR + "rock_single_E.gltf",
-	NATURE_DIR + "tree_single_A.gltf", NATURE_DIR + "tree_single_B.gltf",
-	NATURE_DIR + "tree_single_A_cut.gltf", NATURE_DIR + "tree_single_B_cut.gltf",
-	NATURE_DIR + "trees_A_small.gltf", NATURE_DIR + "trees_B_small.gltf",
-]
-
-## Ocean/River keep a sparse roll — open water wants to stay readable, and
-## these tables are small and repetitive enough that full coverage would
-## obviously tile.
+## The boredom that scatter was solving is a *surface* problem, so it's solved
+## on the surface instead — see GROUND_DETAIL_SHADER, which gives the plate
+## visible grain and colour break-up without putting anything on the board.
+##
+## Ocean/River keep their sparse rolls: those are a small minority of hexes, so
+## a lily pad or a moored boat every few tiles reads as detail, not litter.
 const OCEAN_DECOR_CHANCE := 0.12
 const RIVER_DECOR_CHANCE := 0.20
-
-## Props per Plains hex, picked per-hex from this inclusive range.
-const PLAINS_DECOR_MIN_COUNT := 1
-const PLAINS_DECOR_MAX_COUNT := 3
-
-## Where a scattered prop sits, as a fraction of the hex apothem (~1.0 world
-## unit) from the center. The floor is what keeps decor off the middle of the
-## tile — the ceiling keeps it from straddling the boundary onto a neighbour.
-const PLAINS_DECOR_MIN_RADIUS := 0.42
-const PLAINS_DECOR_MAX_RADIUS := 0.78
-
-## Per-prop scale jitter, so a cluster doesn't read as the same asset stamped
-## twice at the same size.
-const PLAINS_DECOR_MIN_SCALE := 0.7
-const PLAINS_DECOR_MAX_SCALE := 1.15
 
 ## A river hex with only one (or zero) live neighbor connections is a
 ## dead end (source/mouth). The pack has no dedicated spring/waterfall mesh,
@@ -240,7 +236,9 @@ const COAST_MESH_PREFIX := COAST_DIR + "hex_coast_"
 
 ## Ground texture variety: the base atlas (hexagons_medieval.png) is a flat
 ## color-swatch sheet, not a detailed grass texture — there's no visible
-## "grain" to add regardless of mesh choice. But the pack ships full
+## "grain" to add regardless of mesh choice — GROUND_DETAIL_SHADER supplies
+## that grain procedurally on top of whichever atlas this picks. But the pack
+## ships full
 ## seasonal recolors of that same atlas (same UV layout, different color
 ## grading), so swapping a hex's ground material to one of these for a
 ## region of hexes gives real (not just tinted) color variation — patches
@@ -264,7 +262,6 @@ const COAST_MESH_PREFIX := COAST_DIR + "hex_coast_"
 ## region, everything in between (the bulk of the field) stays default —
 ## thresholds picked to keep roughly the same ~20%/20%/60% split the old
 ## per-hex chance produced, just clustered instead of scattered.
-const GROUND_TEXTURE_VARIANTS := ["Fall", "Summer"]
 const GROUND_NOISE_FREQUENCY := 0.0012 ## period ~830px, ~26 hexes across — large regional patches, not per-cluster speckle
 const GROUND_NOISE_FALL_THRESHOLD := 0.35
 const GROUND_NOISE_SUMMER_THRESHOLD := -0.35
@@ -285,15 +282,9 @@ const SALT_DECOR_ROTATION := 9
 const SALT_RIVER_END_MESH := 12
 const SALT_RIVER_END_OFFSET := 13
 ## SALT_RIVER_END_* are each used as `+i` over RIVER_END_DECOR_COUNT
-## iterations, so 12-14 and 13-15 are all effectively consumed. New salts
-## start at 20 to stay clear of that, and the per-prop scatter salts below
-## are spaced 100 apart for the same reason (each is used as `+i` over up to
-## PLAINS_DECOR_MAX_COUNT iterations).
-const SALT_PLAINS_COUNT := 20
-const SALT_PLAINS_SCATTER_MESH := 100
-const SALT_PLAINS_SCATTER_ANGLE := 200
-const SALT_PLAINS_SCATTER_RADIUS := 300
-const SALT_PLAINS_SCATTER_SCALE := 400
+## iterations, so 12-14 and 13-15 are all effectively consumed. New salts start
+## at 500 to stay clear of that, spaced 100 apart because each is used as `+i`
+## over several iterations.
 const SALT_BANK_MESH := 500
 const SALT_BANK_JITTER := 600
 
@@ -324,12 +315,15 @@ var hexes: Array[HexCoord] = []
 var _known_infrastructure: Dictionary = {} ## hex key -> Terrain.Infrastructure
 var _road_nodes: Dictionary = {} ## hex key -> Node3D (the dynamic Road/Bridge instance at that hex, if any)
 var _forest_depth: Dictionary = {} ## hex key -> int, see _compute_forest_depth
+var _forest_species: Dictionary = {} ## hex key -> "A"/"B", see _compute_forest_patches
+var _ground_shader: Shader ## GROUND_DETAIL_SHADER, loaded once
+var _ground_materials: Dictionary = {} ## "<atlas path>|<tint>" -> ShaderMaterial, see _ground_material
 ## hex key -> world Y that decoration on that hex should sit at. Cached during
 ## _place_static rather than recomputed, because a ramp's decor height isn't
 ## derivable from elevation alone (see RAMP_DECOR_DROP) — it depends on which
 ## mesh the placement pass actually chose for the plate.
 var _decor_y: Dictionary = {}
-var _ground_noise: FastNoiseLite ## see GROUND_TEXTURE_VARIANTS' doc comment
+var _ground_noise: FastNoiseLite ## see GROUND_NOISE_FREQUENCY's doc comment
 
 func setup(p_grid: HexGrid, p_hexes: Array[HexCoord], p_world_seed: int = 0) -> void:
 	for child in get_children():
@@ -337,6 +331,7 @@ func setup(p_grid: HexGrid, p_hexes: Array[HexCoord], p_world_seed: int = 0) -> 
 	_known_infrastructure.clear()
 	_road_nodes.clear()
 	_decor_y.clear()
+	_ground_materials.clear()
 	grid = p_grid
 	hexes = p_hexes
 	_ground_noise = FastNoiseLite.new()
@@ -349,10 +344,44 @@ func setup(p_grid: HexGrid, p_hexes: Array[HexCoord], p_world_seed: int = 0) -> 
 	# layering) keeps only the smooth large-scale shape.
 	_ground_noise.fractal_octaves = 1
 	_compute_forest_depth()
+	_compute_forest_patches()
 	for hex in hexes:
 		_place_static(hex)
 		_known_infrastructure[hex.to_key()] = Terrain.Infrastructure.NONE
 		_refresh_infrastructure(hex)
+
+## Assigns every Forest hex the tree species of the contiguous patch it belongs
+## to (see FOREST_SPECIES) by flood-filling each patch and picking once from the
+## patch's own canonical hex — the lowest to_key() in it. Using a canonical
+## member rather than whichever hex the fill happened to start from makes the
+## choice independent of iteration order, so every client derives the same
+## species for the same patch with nothing synced over the network, exactly like
+## every other RenderUtil.*2d cosmetic decision.
+func _compute_forest_patches() -> void:
+	_forest_species.clear()
+	var seen: Dictionary = {}
+	for hex in hexes:
+		var key := hex.to_key()
+		if seen.has(key) or grid.get_terrain(hex) != Terrain.Type.FOREST:
+			continue
+		var patch: Array[HexCoord] = []
+		var frontier: Array[HexCoord] = [hex]
+		seen[key] = true
+		var canonical := hex
+		while not frontier.is_empty():
+			var current: HexCoord = frontier.pop_back()
+			patch.append(current)
+			if current.to_key() < canonical.to_key():
+				canonical = current
+			for n in HexCoord.neighbors(current):
+				var nk := n.to_key()
+				if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.FOREST:
+					continue
+				seen[nk] = true
+				frontier.append(n)
+		var species: String = RenderUtil.pick2d(canonical.q, canonical.r, SALT_FOREST_MESH, FOREST_SPECIES)
+		for coord in patch:
+			_forest_species[coord.to_key()] = species
 
 ## Multi-source BFS distance transform: every Forest hex with at least one
 ## non-Forest (or off-grid) neighbor is depth 0; everything else is 1 +
@@ -456,6 +485,9 @@ func _place_static(hex: HexCoord) -> void:
 	var rotation_steps := 0
 	var river_mask := 0
 	var plate_y := float(elevation) * WORLD_UNITS_PER_ELEVATION
+	var is_water := terrain == Terrain.Type.OCEAN or terrain == Terrain.Type.RIVER
+	if is_water:
+		plate_y -= WATER_SURFACE_DROP
 	if terrain == Terrain.Type.RIVER:
 		river_mask = grid.river_connection_mask(hex)
 		var result := TerrainTileResolver.resolve(river_mask, TerrainTileDefs.RIVER_MASKS)
@@ -484,7 +516,7 @@ func _place_static(hex: HexCoord) -> void:
 		# Authored to rise exactly 1.0 above its own flat top; scaling on Y
 		# makes it bridge one WORLD_UNITS_PER_ELEVATION step instead.
 		node.scale.y = WORLD_UNITS_PER_ELEVATION
-	if terrain != Terrain.Type.OCEAN and terrain != Terrain.Type.RIVER:
+	if not is_water:
 		_maybe_swap_ground_texture(node, hex)
 	add_child(node)
 	# Underside of what was just placed: a flat plate's body is 1.0 tall, a
@@ -493,8 +525,12 @@ func _place_static(hex: HexCoord) -> void:
 	# On a ramp the plate was seated a level down and slopes back up across the
 	# hex, so decor belongs at the mid-surface, not at either end of the slope.
 	var decor_y := surface_height(grid, hex)
-	if mesh_path == GROUND_SLOPE_MESH:
+	if is_ramp:
 		decor_y -= RAMP_DECOR_DROP
+	elif is_water:
+		# Lilies, reeds and bank props belong ON the water surface, which is now
+		# recessed — without this they hover at old sea level above their own hex.
+		decor_y -= WATER_SURFACE_DROP
 	_decor_y[hex.to_key()] = decor_y
 	_place_decoration(hex, terrain, river_mask)
 	if terrain == Terrain.Type.RIVER:
@@ -527,26 +563,37 @@ func _place_elevation_skirt(hex: HexCoord, fill_top: float) -> void:
 		# colour from its neighbour's for no readable reason.
 		add_child(block)
 
-## Swaps this hex's ground material to a seasonal atlas variant (see
-## GROUND_TEXTURE_VARIANTS) if it falls in the Fall or Summer tail of
-## _ground_noise — real color variation via a different source image, not a
-## multiply-tint. Sampled in world pixel space (not raw q/r) so patches read
-## as round biome blobs rather than being skewed by axial coordinates.
+## Applies the ground surface treatment to a land plate: the procedural detail
+## shader (GROUND_DETAIL_SHADER), pointed at either the default atlas or a
+## seasonal variant of it.
+##
+## The seasonal swap is real colour variation from a different source image, not
+## a multiply-tint, and is chosen from the Fall/Summer tails of _ground_noise —
+## sampled in world pixel space (not raw q/r) so the regions read as round biome
+## blobs rather than being skewed by axial coordinates. The detail shader then
+## runs on whichever atlas was chosen, so the two compose: broad seasonal regions
+## with per-surface grain inside them.
 func _maybe_swap_ground_texture(node: Node, hex: HexCoord) -> void:
 	var pixel := HexView.axial_to_pixel(hex)
 	var n := _ground_noise.get_noise_2d(pixel.x, pixel.y)
-	var variant: String
+	var atlas := BASE_DIR + "hexagons_medieval.png"
 	if n > GROUND_NOISE_FALL_THRESHOLD:
-		variant = "Fall"
+		atlas = BASE_DIR + "hexagons_medieval_Fall.png"
 	elif n < GROUND_NOISE_SUMMER_THRESHOLD:
-		variant = "Summer"
-	else:
-		return
-	var tex: Texture2D = load(BASE_DIR + "hexagons_medieval_" + variant + ".png")
+		atlas = BASE_DIR + "hexagons_medieval_Summer.png"
+	var tex: Texture2D = load(atlas)
 	if tex == null:
 		return
 	_apply_ground_texture(node, tex)
 
+## Replaces every surface's imported BaseMaterial3D with a ShaderMaterial
+## running GROUND_DETAIL_SHADER over `tex`, carrying the original material's
+## albedo_color across as a tint so per-surface colouring survives the swap.
+##
+## The ShaderMaterial is cached per texture (_ground_materials) rather than
+## built per surface: there are only ever three of them (default/Fall/Summer),
+## every plate on the map shares one, and the previous duplicate-per-surface
+## approach allocated a fresh material for thousands of tiles.
 func _apply_ground_texture(node: Node, tex: Texture2D) -> void:
 	if node is MeshInstance3D:
 		var mesh_instance := node as MeshInstance3D
@@ -554,11 +601,23 @@ func _apply_ground_texture(node: Node, tex: Texture2D) -> void:
 			var mat := mesh_instance.mesh.surface_get_material(i)
 			if mat == null or not (mat is BaseMaterial3D):
 				continue
-			var dup: BaseMaterial3D = mat.duplicate()
-			dup.albedo_texture = tex
-			mesh_instance.set_surface_override_material(i, dup)
+			var tint: Color = (mat as BaseMaterial3D).albedo_color
+			mesh_instance.set_surface_override_material(i, _ground_material(tex, tint))
 	for child in node.get_children():
 		_apply_ground_texture(child, tex)
+
+func _ground_material(tex: Texture2D, tint: Color) -> ShaderMaterial:
+	var key := "%s|%s" % [tex.resource_path, tint]
+	if _ground_materials.has(key):
+		return _ground_materials[key]
+	if _ground_shader == null:
+		_ground_shader = load(GROUND_DETAIL_SHADER)
+	var mat := ShaderMaterial.new()
+	mat.shader = _ground_shader
+	mat.set_shader_parameter("albedo_texture", tex)
+	mat.set_shader_parameter("albedo_tint", tint)
+	_ground_materials[key] = mat
+	return mat
 
 ## Adds a deterministic (per-hex, RenderUtil.*2d spatial hash — NOT a
 ## formatted-string hash, which visibly clustered same-variant patches
@@ -576,9 +635,12 @@ func _place_decoration(hex: HexCoord, terrain: Terrain.Type, river_mask: int) ->
 	var scale := 1.0
 	match terrain:
 		Terrain.Type.FOREST:
+			# Size from this hex's depth into the stand, species from the whole
+			# patch — one wood is one kind of tree, thickening toward its middle.
 			var depth: int = _forest_depth.get(hex.to_key(), 0)
-			var tier := FOREST_MESHES_EDGE if depth <= 0 else (FOREST_MESHES_MID if depth == 1 else FOREST_MESHES_DEEP)
-			mesh_path = RenderUtil.pick2d(hex.q, hex.r, SALT_FOREST_MESH, tier)
+			var tier: String = FOREST_MESH_BY_DEPTH[mini(depth, FOREST_MESH_BY_DEPTH.size() - 1)]
+			var species: String = _forest_species.get(hex.to_key(), FOREST_SPECIES[0])
+			mesh_path = "%strees_%s_%s.gltf" % [NATURE_DIR, species, tier]
 		Terrain.Type.HILLS:
 			# Rim hexes keep the modest mounds; the raised interior gets the
 			# pack's mountain meshes, so a range visibly climbs toward its
@@ -600,10 +662,9 @@ func _place_decoration(hex: HexCoord, terrain: Terrain.Type, river_mask: int) ->
 			if RenderUtil.roll2d(hex.q, hex.r, SALT_RIVER_ROLL) >= RIVER_DECOR_CHANCE:
 				return
 			mesh_path = RenderUtil.pick2d(hex.q, hex.r, SALT_RIVER_MESH, RIVER_DECOR)
-		Terrain.Type.PLAINS:
-			_place_plains_scatter(hex)
-			return
 		_:
+			# Plains included: it deliberately carries no props at all, only the
+			# ground detail shader. See OCEAN_DECOR_CHANCE's doc comment.
 			return
 	var node := _instance_decor(mesh_path, hex, RenderUtil.angle2d(hex.q, hex.r, SALT_DECOR_ROTATION), _hex_decor_y(hex))
 	if node == null:
@@ -616,35 +677,6 @@ func _place_decoration(hex: HexCoord, terrain: Terrain.Type, river_mask: int) ->
 ## the flat elevation height for a hex _place_static hasn't reached yet.
 func _hex_decor_y(hex: HexCoord) -> float:
 	return _decor_y.get(hex.to_key(), surface_height(grid, hex))
-
-## Scatters PLAINS_DECOR_MIN_COUNT..MAX_COUNT props around the rim of a Plains
-## hex — see PLAINS_DECOR for why Plains gets full coverage rather than the
-## sparse roll every other terrain uses.
-##
-## Every per-prop property (which mesh, angle, distance from center, scale)
-## draws from its own RenderUtil salt offset by the prop index, so two props on
-## the same hex don't land on top of each other and two hexes with the same
-## prop count don't produce the same arrangement. Angles are spread by an even
-## share of the circle plus a per-prop jitter rather than being fully random:
-## three independent random angles clump into one corner of the hex often
-## enough to look like a bug.
-func _place_plains_scatter(hex: HexCoord) -> void:
-	var span := PLAINS_DECOR_MAX_COUNT - PLAINS_DECOR_MIN_COUNT + 1
-	var count := PLAINS_DECOR_MIN_COUNT + int(RenderUtil.roll2d(hex.q, hex.r, SALT_PLAINS_COUNT) * span)
-	count = mini(count, PLAINS_DECOR_MAX_COUNT)
-	var base_angle := RenderUtil.angle2d(hex.q, hex.r, SALT_PLAINS_ROLL)
-	for i in range(count):
-		var mesh_path: String = RenderUtil.pick2d(hex.q, hex.r, SALT_PLAINS_SCATTER_MESH + i, PLAINS_DECOR)
-		var jitter := RenderUtil.roll2d(hex.q, hex.r, SALT_PLAINS_SCATTER_ANGLE + i) - 0.5
-		var angle := base_angle + TAU * (float(i) / float(count) + jitter / float(count))
-		var radius: float = lerp(PLAINS_DECOR_MIN_RADIUS, PLAINS_DECOR_MAX_RADIUS, RenderUtil.roll2d(hex.q, hex.r, SALT_PLAINS_SCATTER_RADIUS + i))
-		var offset := Vector2.RIGHT.rotated(angle) * radius
-		var node := _instance_decor(mesh_path, hex, RenderUtil.angle2d(hex.q, hex.r, SALT_DECOR_ROTATION + i), _hex_decor_y(hex))
-		if node == null:
-			continue
-		node.position += Vector3(offset.x, 0.0, offset.y)
-		node.scale = Vector3.ONE * lerp(PLAINS_DECOR_MIN_SCALE, PLAINS_DECOR_MAX_SCALE, RenderUtil.roll2d(hex.q, hex.r, SALT_PLAINS_SCATTER_SCALE + i))
-		add_child(node)
 
 ## Lays RIVER_BANK_PROPS_PER_EDGE shore props along each edge where this River
 ## hex meets land — see RIVER_BANK_DECOR for why. Props sit inside the river

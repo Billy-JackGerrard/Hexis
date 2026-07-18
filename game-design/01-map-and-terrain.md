@@ -45,6 +45,16 @@
 Terrain forms **biome clusters/patches** (varying sizes — small/medium/large), not
 scattered single tiles, e.g. a proper forest region rather than one random forest tile.
 
+**Forest never generates small.** It rolls medium or large only, and any patch that
+still finishes under `Tuning.MIN_FOREST_PATCH_SIZE` — because its growth ran out of room
+against the coast, the map edge or an existing patch, or because a river later split it
+in two — is reverted to Plains. A one-to-three-hex wood reads as litter rather than
+terrain, and Forest's design role (blocking Land vehicles, concealing squads) needs
+enough contiguous area to be worth pathing around at all. The coverage budget is
+unchanged, so a higher size floor yields **fewer** forests, not more forest. Hills
+deliberately keeps its small bucket: a lone hill is a legible landmark now that
+elevation makes it physically stand up, where a lone tree isn't.
+
 | Terrain | Infantry | Land Vehicles | Naval | Air | Vision | Buildable? |
 |---|---|---|---|---|---|---|
 | **Plains** | Normal | Normal | N/A | Normal | Normal | Yes (only buildable terrain, and majority of tiles) |
@@ -311,19 +321,48 @@ occupies a hex, and moves hex-to-hex:
   own geometry — re-run that tool by hand if the asset pack is ever
   replaced).
 - **Base terrain**: Plains/Ocean map 1:1 to this pack's `hex_grass`/
-  `hex_water`. A minority of Plains/Forest/Hills hexes (~40%,
-  `GROUND_VARIANT_CHANCE`) additionally swap their ground material to one of
-  the pack's seasonal atlas recolors (`hexagons_medieval_Fall.png`/
-  `_Summer.png` — same UV layout as the default atlas, genuinely different
-  color grading, not a multiply-tint) so the grass reads as mottled meadow
-  rather than one flat yellow-green; Winter's atlas is excluded (a literal
-  snow-white recolor, would read as random snow patches). Forest/Hills also
-  get a `decoration/nature/` cluster mesh on top of that ground plate — Hills
-  picks among 6 variants (`hills_{A,B,C}` + their `_trees` siblings) purely
-  per-hex; Forest instead tiers by depth into its contiguous patch
+  `hex_water`. Ocean/River plates are seated `WATER_SURFACE_DROP` below
+  lowland ground: the pack already recesses its water surface slightly, but
+  not enough to read as water sitting *in* the land, so the coastline looked
+  like a colour change rather than an edge. The extra drop turns shorelines
+  and river banks into visible lips you look down over, and gives the beach
+  tiles' sand shelf something to slope into. Purely visual — `HexGrid`
+  elevation for water stays 0, so no movement cost, cliff check or sightline
+  is affected. Kept small deliberately: land plates only model their own top
+  1.0 unit, so a deeper drop would let you see under the coast at grazing
+  angles.
+- **Ground surface**: every land plate is rendered with
+  `terrain/ground_detail.gdshader` rather than its imported material. The
+  pack's atlas is a flat colour-swatch sheet — each tile is one uniform fill
+  with no grain whatsoever — which left Plains, the majority of the board, as
+  a large area of dead colour. The shader samples that same atlas (so UVs, the
+  seasonal variant, and each tile's own painted details like river channels
+  and beach sand all still work) and modulates it with two octaves of value
+  noise evaluated in **world** space. World space matters: every hex shares
+  one small atlas region, so UV-space noise would stamp an identical pattern
+  on every tile and read as an obvious repeat, whereas world space makes the
+  grain continuous across tile boundaries. Its strengths are much higher than
+  "subtle detail" would suggest because the art is flat-shaded and fully
+  saturated — there is no shading gradient for a gentle modulation to ride on,
+  and at ~10% the variation was measurably present but visually invisible.
+  On top of that, a minority of hexes swap to one of the pack's seasonal atlas
+  recolors (`hexagons_medieval_Fall.png`/`_Summer.png` — same UV layout,
+  genuinely different colour grading, not a multiply-tint), chosen from the
+  tails of one low-frequency noise field so they form contiguous regions
+  rather than scattered single hexes; Winter's atlas is excluded (a literal
+  snow-white recolor, would read as random snow patches). The two compose:
+  broad seasonal regions, with per-surface grain inside them.
+- **Biome decoration**: Forest/Hills get a `decoration/nature/` cluster mesh on
+  top of the ground plate — Hills picks among 6 variants (`hills_{A,B,C}` +
+  their `_trees` siblings) purely per-hex, swapping to the larger `mountain_*`
+  set on plateau-height tiles. Forest separates its two axes: **species**
+  (`trees_A_*` vs `trees_B_*`) is picked once per contiguous patch, from that
+  patch's canonical member hex, because a real wood is one kind of tree and
+  mixing species hex-by-hex made a single stand read as two overlapping
+  forests; **density** tiers by depth into the patch
   (`TerrainView3D._compute_forest_depth`, a multi-source BFS run once in
-  `setup()`  — edge hexes get sparse `trees_*_large`, one-deep get
-  `trees_*_medium`, two-or-more-deep get dense `trees_*_small`), so a forest
+  `setup()` — edge hexes get sparse `*_large`, one-deep get `*_medium`,
+  two-or-more-deep get dense `*_small`), so a forest
   reads as one coherent stand thickening toward its center instead of
   random-looking large/small trees sitting next to each other. All of this
   per-hex picking goes through `RenderUtil.pick2d`/`roll2d` (a proper integer
@@ -342,10 +381,16 @@ occupies a hex, and moves hex-to-hex:
   offset was wrong: it physically shoved decoration off its own tile onto
   the neighbor, which is what made Forest hexes look bare and Plains hexes
   look forested — the offset was removed.)
-- **Sparse decoration scatter**: Ocean/Plains hexes each roll a small
-  per-hex chance (`RenderUtil.roll2d`, ~12%/8% respectively) for one prop
-  from `decoration/nature/`+`decoration/props/` — waterlilies/waterplants/an
-  occasional boat on Ocean, scattered rocks on Plains. A flowing River hex
+- **Sparse decoration scatter**: Ocean hexes roll a small per-hex chance
+  (`RenderUtil.roll2d`, ~12%) for one prop from `decoration/nature/`+
+  `decoration/props/` — waterlilies, waterplants, an occasional boat.
+  **Plains rolls nothing.** It briefly carried a one-to-three-prop scatter to
+  fix "the majority terrain is a bare plate", and that genuinely was the
+  problem, but props on most of the board read as clutter: they competed with
+  the things a player has to read quickly (squads, buildings, selection rings,
+  order feedback) and made real obstacles harder to pick out. The boredom is a
+  *surface* problem and is now solved on the surface — see the ground detail
+  shader below — leaving the board itself clear. A flowing River hex
   rolls the same way (~20%) for shore plants along its edge; a River hex
   that's a dead end instead — `river_connection_mask` popcount ≤ 1, a
   source/mouth this pack has no dedicated spring/waterfall mesh for, so the

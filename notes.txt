@@ -71,7 +71,7 @@ make biomes - not just random, but split the map in 4
 
 
 
-
+hill slopes dont look much like a slope
 
 
 ASSETS

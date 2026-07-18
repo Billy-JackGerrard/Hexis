@@ -29,6 +29,8 @@ func _init() -> void:
 	_test_rivers()
 	print("Super river")
 	_test_super_river()
+	print("Forest patch sizing (no tiny woods)")
+	_test_forest_patch_sizes()
 	print("Elevation (hill heights, cliffs, reachability)")
 	_test_elevation()
 	print("Base spacing")
@@ -843,3 +845,38 @@ func _test_elevation() -> void:
 		if a.get_elevation(HexCoord.from_key(key)) != b.get_elevation(HexCoord.from_key(key)):
 			mismatches += 1
 	_check(mismatches == 0, "the same seed produces identical elevation — the pass is on its own deterministic RNG substream")
+
+
+## Forest deliberately never generates as scattered 1-3 hex specks — see
+## Tuning.MIN_FOREST_PATCH_SIZE. Asserted on generate_all (not just
+## generate_biomes) because rivers run afterwards and can split a healthy wood
+## into two undersized halves; the prune pass re-runs for exactly that reason.
+func _test_forest_patch_sizes() -> void:
+	var seeds := [3, 88, 4242, 777771]
+	var saw_forest := false
+	for world_seed in seeds:
+		var grid := TerrainGenerator.generate_all(2, world_seed)
+		var seen: Dictionary = {}
+		var smallest := -1
+		for key in grid.hex_keys():
+			var hex := HexCoord.from_key(key)
+			if seen.has(key) or grid.get_terrain(hex) != Terrain.Type.FOREST:
+				continue
+			var size := 0
+			var frontier: Array[HexCoord] = [hex]
+			seen[key] = true
+			while not frontier.is_empty():
+				var current: HexCoord = frontier.pop_back()
+				size += 1
+				for n in HexCoord.neighbors(current):
+					var nk := n.to_key()
+					if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.FOREST:
+						continue
+					seen[nk] = true
+					frontier.append(n)
+			saw_forest = true
+			if smallest < 0 or size < smallest:
+				smallest = size
+		if smallest >= 0:
+			_check(smallest >= Tuning.MIN_FOREST_PATCH_SIZE, "seed %d: smallest forest patch is %d hexes, at or above the %d minimum" % [world_seed, smallest, Tuning.MIN_FOREST_PATCH_SIZE])
+	_check(saw_forest, "forests still generate at all after the size floor and prune pass (the floor didn't just delete every wood)")

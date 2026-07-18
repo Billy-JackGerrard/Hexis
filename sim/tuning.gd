@@ -42,6 +42,18 @@ const BIOME_EDGE_BUFFER: int = 2
 const FOREST_COVERAGE_FRACTION: float = 0.12
 const HILLS_COVERAGE_FRACTION: float = 0.08
 
+## Forest patches only ever roll medium or large (see FOREST_PATCH_SIZE_WEIGHTS)
+## and anything that still ends up under this many hexes is reverted to Plains
+## by _prune_small_forests. A one-to-three-hex forest reads as scattered litter
+## rather than as a wood you can hide an army in, and Forest's whole design role
+## (blocking Land vehicles, hiding squads) needs enough contiguous area to be
+## worth pathing around. The coverage budget above is unchanged, so bigger
+## minimum patches automatically mean FEWER of them, not more forest overall.
+##
+## Hills deliberately keeps small patches: a lone hill is a legible landmark
+## now that elevation makes it physically stand up, where a lone tree isn't.
+const MIN_FOREST_PATCH_SIZE: int = 6
+
 ## --- Elevation (TerrainGenerator.generate_elevation) ---
 ##
 ## Every Hills hex gets a height level; everything else stays at 0. A patch's
@@ -68,6 +80,9 @@ const SMALL_PATCH_RANGE: Vector2i = Vector2i(4, 8)
 const MEDIUM_PATCH_RANGE: Vector2i = Vector2i(9, 16)
 const LARGE_PATCH_RANGE: Vector2i = Vector2i(17, 28)
 const PATCH_SIZE_WEIGHTS: Array[float] = [0.4, 0.4, 0.2] ## small, medium, large
+## Forest's own weights over the same three ranges — zero chance of small, so
+## every forest seed aims for a real wood. See MIN_FOREST_PATCH_SIZE.
+const FOREST_PATCH_SIZE_WEIGHTS: Array[float] = [0.0, 0.6, 0.4]
 
 ## Probability of skipping an otherwise-valid frontier neighbor during blob
 ## growth — produces organic, non-circular patch shapes instead of a perfect
