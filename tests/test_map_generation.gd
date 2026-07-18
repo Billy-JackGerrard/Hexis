@@ -29,6 +29,8 @@ func _init() -> void:
 	_test_rivers()
 	print("Super river")
 	_test_super_river()
+	print("Elevation (hill heights, cliffs, reachability)")
+	_test_elevation()
 	print("Base spacing")
 	_test_base_spacing()
 	print("Expansion viability")
@@ -768,3 +770,76 @@ func _test_barbarian_outpost_placement() -> void:
 			if b1 == null or b2 == null or not b1.hex.equals(b2.hex) or b1.material != b2.material:
 				deterministic = false
 	_check(deterministic, "same seed produces the same outpost placement")
+
+## TerrainGenerator.generate_elevation. The two properties that actually matter
+## for play are opposed, so both are asserted across several seeds: cliffs have
+## to genuinely exist (otherwise the whole feature is a no-op and hills are just
+## slower plains), and yet no raised ground may ever be sealed off behind them
+## (otherwise worldgen can hand a player an objective no ground troop can reach).
+func _test_elevation() -> void:
+	var seeds := [1, 7, 12345, 999983]
+	var saw_a_cliff := false
+
+	for world_seed in seeds:
+		var grid := TerrainGenerator.generate_all(2, world_seed)
+
+		# Only Hills is raised; everything else stays lowland. Rivers run last
+		# before elevation precisely so a channel carved through a hill range
+		# is back at 0 rather than climbing.
+		var bad_terrain_elevation := 0
+		var flat_hills := 0
+		for key in grid.hex_keys():
+			var hex := HexCoord.from_key(key)
+			var elevation := grid.get_elevation(hex)
+			if grid.get_terrain(hex) == Terrain.Type.HILLS:
+				if elevation < Tuning.HILLS_RIM_ELEVATION:
+					flat_hills += 1
+			elif elevation != 0:
+				bad_terrain_elevation += 1
+		_check(bad_terrain_elevation == 0, "seed %d: no non-Hills hex is raised above lowland" % world_seed)
+		_check(flat_hills == 0, "seed %d: every Hills hex sits at least at rim height" % world_seed)
+
+		# Every raised hex must be climbable from lowland by *some* route.
+		var reached: Dictionary = {}
+		var frontier: Array[HexCoord] = []
+		for key in grid.hex_keys():
+			var hex := HexCoord.from_key(key)
+			if grid.get_elevation(hex) == 0:
+				reached[key] = true
+				frontier.append(hex)
+		while not frontier.is_empty():
+			var current: HexCoord = frontier.pop_back()
+			for n in HexCoord.neighbors(current):
+				var nk := n.to_key()
+				if reached.has(nk) or not grid.has_hex(n) or grid.is_cliff_edge(current, n):
+					continue
+				reached[nk] = true
+				frontier.append(n)
+		var stranded := 0
+		for key in grid.hex_keys():
+			if not reached.has(key):
+				stranded += 1
+		_check(stranded == 0, "seed %d: no hex is stranded behind cliffs — every plateau keeps a way up" % world_seed)
+
+		# ...but cliffs are still real. Counted across seeds rather than
+		# per-seed: a map that happens to roll only tiny hill patches can
+		# legitimately have none.
+		for key in grid.hex_keys():
+			var hex := HexCoord.from_key(key)
+			for n in HexCoord.neighbors(hex):
+				if grid.has_hex(n) and grid.is_cliff_edge(hex, n):
+					saw_a_cliff = true
+					break
+			if saw_a_cliff:
+				break
+
+	_check(saw_a_cliff, "generated maps actually contain cliff faces — elevation isn't a cosmetic no-op")
+
+	# Determinism, and independence from the phases before it.
+	var a := TerrainGenerator.generate_all(2, 4242)
+	var b := TerrainGenerator.generate_all(2, 4242)
+	var mismatches := 0
+	for key in a.hex_keys():
+		if a.get_elevation(HexCoord.from_key(key)) != b.get_elevation(HexCoord.from_key(key)):
+			mismatches += 1
+	_check(mismatches == 0, "the same seed produces identical elevation — the pass is on its own deterministic RNG substream")

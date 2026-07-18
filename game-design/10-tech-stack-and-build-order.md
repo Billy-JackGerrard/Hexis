@@ -24,7 +24,8 @@ landed in.
 No scene/rendering dependency; validated via `tests/test_*.gd` before any
 rendering existed.
 
-- Hex-grid axial/cube math, terrain costs, A*, wall-edge LOS blocking (`sim/hex/`).
+- Hex-grid axial/cube math, terrain costs, A*, wall-edge LOS blocking, per-hex
+  elevation with directional slope cost and one-way cliff blocking (`sim/hex/`).
 - Resource ticking — per-player pools, production/upkeep netting, deficit
   deaths (`sim/economy/`).
 - Troop/Squad/Regiment runtime state, squad/commander caps, production queues
@@ -40,7 +41,9 @@ rendering existed.
 - Base/building runtime state, placement rules (adjacency, Walls, Bridge
   foothold exception), HQ capture-flip, ruin/regen, population
   (`sim/bases/`).
-- Procedural map/terrain generation — biome clusters, rivers, Capital/Unique
+- Procedural map/terrain generation — biome clusters, rivers, hill elevation
+  (rim/plateau heights plus randomized cliff faces, with a repair pass
+  guaranteeing every raised hex stays reachable on foot), Capital/Unique
   base siting with spacing/terrain/uniqueness constraints, whole-pipeline
   retry with a fresh derived seed on a dead-end terrain roll
   (`sim/worldgen/`, `sim/map_generator.gd`).
@@ -97,8 +100,15 @@ Sibling to `sim/`, never the reverse.
   section originally described), rendered by the root viewport's top-down
   ortho `Camera3D` (in `main.tscn`) and composited behind the 2D views above —
   no `SubViewport`; the viewport draws 3D then 2D on top. Includes per-hex
-  deterministic Forest/Hills decoration clusters and sparse Ocean/River/
-  Plains prop scatter (`RenderUtil.pick`/`roll`, `client/render_util.gd`).
+  deterministic Forest/Hills decoration clusters and sparse Ocean/River prop
+  scatter (`RenderUtil.pick`/`roll`, `client/render_util.gd`), a multi-prop
+  off-centre scatter on every Plains hex, unconditional river banks along
+  river-to-land edges, and beach tiles on Ocean-adjacent lowland.
+  Renders elevation as physically raised ground: plates lifted by
+  `WORLD_UNITS_PER_ELEVATION` per level, a scaled `hex_grass_bottom` column
+  filling the cliff face beneath, and the pack's slope mesh on any hex with a
+  neighbour one level down. Peak-height Hills swap their decoration to the
+  larger `mountain_*` clusters.
 - `buildings/building_view_3d.gd` + `buildings/building_mesh_defs.gd` — real
   3D buildings, poll-based like `terrain_view_3d.gd`. `building_mesh_defs.gd`
   holds the building_type→mesh judgment-call table (this pack has far fewer

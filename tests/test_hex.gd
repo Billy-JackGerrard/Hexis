@@ -20,6 +20,8 @@ func _init() -> void:
 	_test_infrastructure()
 	print("Connection mask (River/Road tile-adjacency)")
 	_test_connection_mask()
+	print("Elevation (slopes and cliffs)")
+	_test_elevation()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -226,3 +228,56 @@ func _test_connection_mask() -> void:
 	# A hex with no shared neighbors at all is genuinely unaffected.
 	var unrelated := HexCoord.neighbor(HexCoord.neighbor(origin, 3), 3)
 	_check(grid.road_connection_mask(unrelated) == 0, "a hex sharing no neighbors with the junction is untouched")
+
+## Elevation is a separate axis from Terrain.Type: the *difference* between two
+## adjacent hexes decides whether an edge is a free descent, a slower climb, or
+## an unclimbable cliff. Crucially it's directional — the defining property of a
+## cliff is that you can drop off it but not scale it, so the way up a plateau
+## is a different edge somewhere else on its rim.
+func _test_elevation() -> void:
+	var grid := HexGrid.new()
+	var low := HexCoord.new(0, 0)
+	var slope := HexCoord.new(1, 0)
+	var peak := HexCoord.new(2, 0)
+	for hex in [low, slope, peak]:
+		grid.set_terrain(hex, Terrain.Type.PLAINS)
+	_check(grid.get_elevation(low) == 0, "a hex with no elevation set reads as lowland 0, so pre-elevation grids behave exactly as they did when the map was flat")
+
+	grid.set_elevation(slope, 1)
+	grid.set_elevation(peak, 2)
+
+	var flat_cost := Terrain.cost(Terrain.Type.PLAINS, Terrain.Domain.INFANTRY)
+
+	# One level up is a slope: passable, but slower by
+	# SLOPE_ASCENT_COST_PER_LEVEL on top of the terrain's own cost.
+	_check(grid.edge_cost(low, slope, Terrain.Domain.INFANTRY) == flat_cost + Terrain.SLOPE_ASCENT_COST_PER_LEVEL, "climbing one elevation level costs the terrain cost plus SLOPE_ASCENT_COST_PER_LEVEL")
+	_check(grid.edge_cost(slope, peak, Terrain.Domain.LAND) == flat_cost + Terrain.SLOPE_ASCENT_COST_PER_LEVEL, "Land vehicles pay the same ascent cost as Infantry")
+
+	# Descending is free — never a discount, since find_path's heuristic assumes
+	# a minimum step cost of 1.0 and would stop being admissible below it.
+	_check(grid.edge_cost(slope, low, Terrain.Domain.INFANTRY) == flat_cost, "descending a slope costs the plain terrain cost — no ascent penalty")
+	_check(grid.edge_cost(peak, slope, Terrain.Domain.INFANTRY) == flat_cost, "descending is never cheaper than flat ground, so the A* heuristic stays admissible")
+
+	# Two levels up is a cliff: blocked for ground domains, one way only.
+	_check(grid.edge_cost(low, peak, Terrain.Domain.INFANTRY) == Terrain.INF, "a two-level step up is a cliff face — Infantry cannot scale it")
+	_check(grid.edge_cost(low, peak, Terrain.Domain.LAND) == Terrain.INF, "a Land vehicle cannot scale a cliff either")
+	_check(grid.edge_cost(peak, low, Terrain.Domain.INFANTRY) == flat_cost, "the SAME edge is legal in the other direction — a cliff blocks the climb, not the drop")
+	_check(grid.is_cliff_edge(low, peak) and not grid.is_cliff_edge(peak, low), "is_cliff_edge is directional, matching that asymmetry")
+
+	# Air ignores elevation entirely, same as it ignores walls and buildings.
+	_check(grid.edge_cost(low, peak, Terrain.Domain.AIR) == Terrain.cost(Terrain.Type.PLAINS, Terrain.Domain.AIR), "Air flies over a cliff at its normal cost")
+
+	# A cliff is routed around, not through: pathing from the lowland to the
+	# peak has to detour via the one-level slope, which is exactly the
+	# "go up from a different direction" property cliffs exist to create.
+	var path := grid.find_path(low, peak, Terrain.Domain.INFANTRY)
+	_check(path.size() == 3 and path[1].equals(slope), "A* routes around the cliff face and up the slope instead, reaching the peak the long way")
+
+	# With no ramp at all, the peak is genuinely unreachable on foot.
+	var sealed_grid := HexGrid.new()
+	for hex in [low, slope, peak]:
+		sealed_grid.set_terrain(hex, Terrain.Type.PLAINS)
+	sealed_grid.set_elevation(slope, 2)
+	sealed_grid.set_elevation(peak, 2)
+	_check(sealed_grid.find_path(low, peak, Terrain.Domain.INFANTRY).is_empty(), "a plateau cliff-faced on every edge is unreachable on foot — which is why worldgen's repair pass guarantees a ramp")
+	_check(not sealed_grid.find_path(low, peak, Terrain.Domain.AIR).is_empty(), "...but Air still gets there, which is the point of cliffs existing")

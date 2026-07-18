@@ -151,18 +151,33 @@ func setup(p_state: MatchState, p_owner_id: String, p_squad_view: SquadView, p_c
 	submitter = p_submitter
 	camera_3d = p_camera_3d
 
+## How many times _reprojected_hex re-intersects the cursor ray after learning
+## the terrain height it landed on. Each pass fixes the parallax introduced by
+## the previous pass's height guess; two is enough for the map's total relief
+## (Tuning.HILLS_PEAK_ELEVATION levels) at the shallow CAMERA_TILT_DEGREES
+## pitch, and the loop exits early as soon as the answer stops changing.
+const HEIGHT_REPROJECT_PASSES := 2
+
 ## Which hex is under the mouse, accounting for Camera3D's tilt (see
 ## main.gd's CAMERA_TILT_DEGREES) — terrain/buildings are real 3D now, so
 ## the flat `HexView.pixel_to_axial(get_global_mouse_position())` math a
 ## pure top-down camera allowed no longer points at the right tile once the
 ## camera pitches. Ray-casts from the actual screen cursor through Camera3D
-## and intersects the ground (y=0) plane, then reuses HexView's existing
-## pixel<->axial convention on that ground point. `pos_hint` (a flat 2D
-## Camera2D-space position, e.g. release_pos) is the fallback when
-## camera_3d hasn't been wired in (defensive; every real call site sets it)
-## — squad/wall hit-testing intentionally keeps using flat 2D positions
-## directly instead of this, since squads/walls still render in the
-## untilted 2D layer.
+## and intersects the ground, then reuses HexView's existing pixel<->axial
+## convention on that ground point. `pos_hint` (a flat 2D Camera2D-space
+## position, e.g. release_pos) is the fallback when camera_3d hasn't been
+## wired in (defensive; every real call site sets it) — squad/wall
+## hit-testing intentionally keeps using flat 2D positions directly instead
+## of this, since squads/walls still render in the untilted 2D layer.
+##
+## The ground is no longer a single y=0 plane now that hills are physically
+## raised, and a tilted camera makes that matter: a ray aimed at a hilltop
+## crosses y=0 well past the hex the player is actually pointing at, so a
+## fixed y=0 intersection selects a hex "behind" every raised tile. Resolved
+## by iterating — intersect the current best guess's height, see which hex
+## that lands on, and re-intersect at *that* hex's height. Cheaper and far
+## simpler than adding physics colliders to every terrain tile, and it
+## converges immediately because the height field only has a few levels.
 func _reprojected_hex(pos_hint: Vector2) -> HexCoord:
 	if camera_3d == null:
 		return HexView.pixel_to_axial(pos_hint)
@@ -171,7 +186,21 @@ func _reprojected_hex(pos_hint: Vector2) -> HexCoord:
 	var normal := camera_3d.project_ray_normal(screen_pos)
 	if absf(normal.y) < 0.0001:
 		return HexView.pixel_to_axial(pos_hint)
-	var t := -origin.y / normal.y
+	var hex := _hex_at_ray_height(origin, normal, 0.0)
+	var grid: HexGrid = state.grid if state != null else null
+	if grid == null:
+		return hex
+	for _pass in range(HEIGHT_REPROJECT_PASSES):
+		var refined := _hex_at_ray_height(origin, normal, TerrainView3D.surface_height(grid, hex))
+		if refined.equals(hex):
+			break
+		hex = refined
+	return hex
+
+## The hex whose column the cursor ray passes through at world height
+## `plane_y` — one intersection pass of _reprojected_hex's refinement loop.
+func _hex_at_ray_height(origin: Vector3, normal: Vector3, plane_y: float) -> HexCoord:
+	var t := (plane_y - origin.y) / normal.y
 	var world := origin + normal * t
 	var pixel := Vector2(world.x, world.z) / TerrainView3D.WORLD_UNITS_PER_PIXEL
 	return HexView.pixel_to_axial(pixel)

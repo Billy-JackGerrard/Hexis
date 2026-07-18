@@ -28,8 +28,10 @@ func _init() -> void:
 	_test_building_stats_vision()
 	print("VisionSystem")
 	_test_vision_system()
-	print("Forest/Hills vision penalty / LOS blocking")
+	print("Forest vision penalty / LOS blocking")
 	_test_obstructing_terrain_vision()
+	print("Elevation vision (high ground / silhouette blocking)")
+	_test_elevation_vision()
 
 	if _failures == 0:
 		print("\nAll checks passed.")
@@ -69,12 +71,15 @@ func _disc_size(radius: int) -> int:
 func _test_terrain_vision_multiplier() -> void:
 	_check(Terrain.vision_multiplier(Terrain.Type.PLAINS) == 1.0, "Plains has no vision multiplier")
 	_check(Terrain.vision_multiplier(Terrain.Type.FOREST) == Terrain.FOREST_VISION_MULTIPLIER, "Forest halves vision")
-	_check(Terrain.vision_multiplier(Terrain.Type.HILLS) == Terrain.HILLS_VISION_MULTIPLIER, "Hills halves vision")
+	_check(Terrain.vision_multiplier(Terrain.Type.HILLS) == 1.0, "Hills no longer halves vision — height is its own axis now, and standing high helps rather than hurts (elevation_vision_bonus)")
 	_check(Terrain.vision_multiplier(Terrain.Type.RIVER) == 1.0, "River has no vision multiplier")
 	_check(Terrain.vision_multiplier(Terrain.Type.OCEAN) == 1.0, "Ocean has no vision multiplier")
 	_check(Terrain.vision_multiplier(Terrain.Type.FOREST, Terrain.Type.FOREST) == 1.0, "an exempt source ignores Forest's own-tile halving")
-	_check(Terrain.vision_multiplier(Terrain.Type.HILLS, Terrain.Type.HILLS) == 1.0, "an exempt source ignores Hills' own-tile halving")
-	_check(Terrain.vision_multiplier(Terrain.Type.HILLS, Terrain.Type.FOREST) == Terrain.HILLS_VISION_MULTIPLIER, "a Forest-exempt source still gets halved standing on Hills")
+
+	# Elevation replaces the old Hills own-tile penalty: a flat bonus per level,
+	# applied on top of (not scaled by) the terrain multiplier.
+	_check(Terrain.elevation_vision_bonus(0) == 0.0, "lowland grants no elevation vision bonus")
+	_check(Terrain.elevation_vision_bonus(2) == 2.0 * Terrain.ELEVATION_VISION_BONUS_PER_LEVEL, "the elevation vision bonus scales linearly with height")
 
 ## --- BuildingStats.vision_range / global_vision_bonus ----------------------
 
@@ -200,15 +205,15 @@ func _test_vision_system() -> void:
 	_check(VisionSystem.vision_for(visions7, "p3").visible_hexes.size() == _disc_size(tower_stone_vision), "standalone Tower (visionRange %d) reveals a radius-%d disc, keyed by its own owner_id, with no base or squads involved" % [tower_stone_vision, tower_stone_vision])
 	_check(not visions7.has("p1"), "standalone Tower's owner_id (p3) is independent of any base's owner_id")
 
-## --- Forest/Hills vision penalty / LOS blocking -----------------------------
-## Forest and Hills obstruct vision identically (own-tile halved, sightlines
-## through either lose range per hex crossed) — every check below runs once
-## per terrain via the same helper, parametrized by terrain/multiplier/LOS
-## penalty/exemption base.
+## --- Forest vision penalty / LOS blocking -----------------------------------
+## Forest obstructs vision by foliage: own-tile halved, and sightlines through
+## it lose range per hex crossed. Hills used to be parametrized through this
+## same helper as an identical obstruction — it no longer is. Elevation
+## obstructs geometrically instead, and is covered by
+## _test_elevation_vision below.
 
 func _test_obstructing_terrain_vision() -> void:
 	_test_obstructing_terrain(Terrain.Type.FOREST, Terrain.FOREST_VISION_MULTIPLIER, Terrain.FOREST_LOS_RANGE_PENALTY_PER_HEX, "treehouse", "Forest")
-	_test_obstructing_terrain(Terrain.Type.HILLS, Terrain.HILLS_VISION_MULTIPLIER, Terrain.HILLS_LOS_RANGE_PENALTY_PER_HEX, "windy_peaks", "Hills")
 
 func _test_obstructing_terrain(terrain: Terrain.Type, multiplier: float, los_penalty_per_hex: float, exempt_base_id: String, label: String) -> void:
 	var rifleman_vision: int = int(_troop_defs["rifleman"]["visionRange"])
@@ -261,3 +266,65 @@ func _test_obstructing_terrain(terrain: Terrain.Type, multiplier: float, los_pen
 	VisionSystem.resolve_tick([], [capital_base], [], mixed_grid, _troop_defs, _building_defs, visions4, _base_defs)
 	var capital_radius: int = int(hq_vision * multiplier)
 	_check(VisionSystem.vision_for(visions4, "p2").visible_hexes.size() == _disc_size(capital_radius), "the same HQ on %s on a non-exempt (Capital) base still gets halved to radius-%d" % [label, capital_radius])
+
+## --- Elevation vision -------------------------------------------------------
+## Elevation replaces the flat per-hex penalty Hills used to levy with real
+## geometry (VisionSystem._is_elevation_blocked): standing high extends how far
+## you see AND lets your sightline clear what's below you, while a ridge you're
+## looking up at silhouettes against your sightline and hides what's behind it.
+## Both directions matter — the whole point of the rework is that the same
+## ridge helps whoever holds it and hinders whoever doesn't.
+
+func _test_elevation_vision() -> void:
+	var rifleman_vision: int = int(_troop_defs["rifleman"]["visionRange"])
+
+	# 1. Standing on high ground extends the reveal radius by
+	# ELEVATION_VISION_BONUS_PER_LEVEL per level, over otherwise flat ground.
+	var peak_level := Tuning.HILLS_PEAK_ELEVATION
+	var bonus := Terrain.elevation_vision_bonus(peak_level)
+	var high_grid := _disc_grid(40, Terrain.Type.PLAINS)
+	high_grid.set_elevation(HexCoord.new(0, 0), peak_level)
+	var high_squad := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	var visions1: Dictionary = {}
+	VisionSystem.resolve_tick([high_squad], [], [], high_grid, _troop_defs, _building_defs, visions1)
+	var pv_high := VisionSystem.vision_for(visions1, "p1")
+	var high_radius := int(rifleman_vision + bonus)
+	_check(pv_high.is_visible(HexCoord.new(high_radius, 0)), "a squad on elevation %d sees out to radius %d (base %d + elevation bonus %s)" % [peak_level, high_radius, rifleman_vision, bonus])
+	_check(not pv_high.is_visible(HexCoord.new(high_radius + 1, 0)), "the elevation bonus is finite — nothing past radius %d is revealed" % high_radius)
+
+	# The same squad on flat ground sees strictly less far.
+	var flat_grid := _disc_grid(40, Terrain.Type.PLAINS)
+	var flat_squad := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	var visions2: Dictionary = {}
+	VisionSystem.resolve_tick([flat_squad], [], [], flat_grid, _troop_defs, _building_defs, visions2)
+	_check(not VisionSystem.vision_for(visions2, "p1").is_visible(HexCoord.new(high_radius, 0)), "the same squad on lowland does NOT reach radius %d — the extra range is the elevation, not the troop" % high_radius)
+
+	# 2. A ridge between two lowland hexes silhouettes against the sightline and
+	# hides the ground behind it, while ground short of the ridge stays visible.
+	var ridge_grid := _disc_grid(40, Terrain.Type.PLAINS)
+	ridge_grid.set_elevation(HexCoord.new(2, 0), peak_level)
+	var valley_squad := _make_squad("p1", "rifleman", HexCoord.new(0, 0))
+	var visions3: Dictionary = {}
+	VisionSystem.resolve_tick([valley_squad], [], [], ridge_grid, _troop_defs, _building_defs, visions3)
+	var pv_valley := VisionSystem.vision_for(visions3, "p1")
+	_check(pv_valley.is_visible(HexCoord.new(1, 0)), "a lowland viewer still sees the hex short of the ridge")
+	_check(pv_valley.is_visible(HexCoord.new(2, 0)), "a lowland viewer still sees the ridge itself — it blocks what's BEHIND it, not itself")
+	_check(not pv_valley.is_visible(HexCoord.new(4, 0)), "a lowland viewer cannot see past the ridge to the ground behind it")
+
+	# 3. Put that same viewer high enough and the sightline clears the ridge.
+	var overlook_grid := _disc_grid(40, Terrain.Type.PLAINS)
+	overlook_grid.set_elevation(HexCoord.new(2, 0), peak_level)
+	overlook_grid.set_elevation(HexCoord.new(0, 0), peak_level * 2)
+	var overlook_squad := _make_squad("p2", "rifleman", HexCoord.new(0, 0))
+	var visions4: Dictionary = {}
+	VisionSystem.resolve_tick([overlook_squad], [], [], overlook_grid, _troop_defs, _building_defs, visions4)
+	_check(VisionSystem.vision_for(visions4, "p2").is_visible(HexCoord.new(4, 0)), "a viewer above the ridge looks straight over it and sees the ground behind")
+
+	# 4. Two units on the same ridge see along it — equal height never blocks.
+	var ridgeline_grid := _disc_grid(40, Terrain.Type.PLAINS)
+	for q in range(0, 6):
+		ridgeline_grid.set_elevation(HexCoord.new(q, 0), peak_level)
+	var ridgeline_squad := _make_squad("p3", "rifleman", HexCoord.new(0, 0))
+	var visions5: Dictionary = {}
+	VisionSystem.resolve_tick([ridgeline_squad], [], [], ridgeline_grid, _troop_defs, _building_defs, visions5)
+	_check(VisionSystem.vision_for(visions5, "p3").is_visible(HexCoord.new(4, 0)), "a viewer on a ridgeline sees along it — an obstacle at the viewer's own height never silhouettes")

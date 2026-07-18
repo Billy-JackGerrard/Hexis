@@ -58,8 +58,29 @@ const ROAD_MASKS := {
 	"hex_road_M": 0b001000,
 }
 
-## Neither set has a dedicated 0-connection (isolated hex) mesh, and the
-## river set specifically has no 1-connection "source/end" mesh either (a
-## generated river's actual source hex always has exactly 1 connection) —
+## Beach/shoreline tiles (assets/tiles/coast/). Same encoding, but a set bit
+## means "this edge is a sand beach onto open water" rather than "a channel
+## runs through this edge" — TerrainView3D builds the live mask from Ocean
+## neighbors and hands it to the same resolver.
+##
+## This set is deliberately sparse: the pack ships only 2-, 3- and 6-edge
+## shapes, with no 1-, 4- or 5-edge mesh. That's fine, and is exactly what
+## TerrainTileResolver.resolve's superset fallback exists for — a hex with a
+## single Ocean neighbor renders hex_coast_E (the 2-edge shape) rotated so
+## both its real shoreline and one extra sand edge face outward. The extra
+## edge abuts land rather than water, which reads as the beach curling
+## slightly around the headland; that's a much cheaper cosmetic cost than
+## authoring the missing shapes, and it never hides a real shoreline.
+const COAST_MASKS := {
+	"hex_coast_E": 0b110000,
+	"hex_coast_A": 0b110001,
+	"hex_coast_B": 0b011001,
+	"hex_coast_C": 0b101010,
+	"hex_coast_D": 0b111111,
+}
+
+## No set has a dedicated 0-connection (isolated hex) mesh, and the river set
+## specifically has no 1-connection "source/end" mesh either (a generated
+## river's actual source hex always has exactly 1 connection) —
 ## TerrainTileResolver.resolve()'s best-effort superset fallback handles
-## both cases generically, no explicit fallback entry needed here.
+## every such case generically, no explicit fallback entry needed here.

@@ -89,16 +89,28 @@ func _poll_one(building: BuildingInstance, owner_id: String, seen: Dictionary) -
 	add_child(node)
 	_nodes[building.id] = node
 
+## See base_view.gd's identical-named function for why this checks live
+## vision (state.visions), not just stealth, for anyone else's buildings —
+## same fog-of-war rule ("base composition requires live vision" per
+## 01-map-and-terrain.md), same regression risk now that fog occlusion is
+## 3D-only rather than a 2D polygon every Node2D draw call used to sit under.
+## This gate currently only matters as defense-in-depth (the fog shader's
+## depth_test_disabled already visually hides an unexplored building's mesh
+## regardless of this check), but skipping mesh creation entirely for
+## not-currently-visible foreign buildings is strictly cheaper too.
 func _is_visible_to_local(building: BuildingInstance, owner_id: String) -> bool:
-	if not BuildingStats.stealth(building_defs.get(building.building_type, {}), building_defs):
-		return true
 	if owner_id == local_owner_id:
 		return true
-	return DetectionSystem.detected_hexes_for(detections, local_owner_id).has(building.hex.to_key())
+	if BuildingStats.stealth(building_defs.get(building.building_type, {}), building_defs):
+		return DetectionSystem.detected_hexes_for(detections, local_owner_id).has(building.hex.to_key())
+	var pv: PlayerVision = state.visions.get(local_owner_id)
+	return pv != null and pv.is_visible(building.hex)
 
 func _build_node(building: BuildingInstance, owner_id: String) -> Node3D:
-	var pixel := HexView.axial_to_pixel(building.hex)
-	var center := Vector3(pixel.x * TerrainView3D.WORLD_UNITS_PER_PIXEL, 0.0, pixel.y * TerrainView3D.WORLD_UNITS_PER_PIXEL)
+	# Seated on the hex's actual ground surface, not sea level — Windy Peaks
+	# builds onto raised Hills, and any building on a hill-adjacent tile would
+	# otherwise sink into (or float over) the terrain now that it has height.
+	var center := TerrainView3D.hex_to_world(state.grid, building.hex)
 
 	# Every ruined building — regardless of original type — renders as the
 	# same neutral rubble heap. "What it used to be" stopped mattering the
@@ -139,8 +151,7 @@ func _build_node(building: BuildingInstance, owner_id: String) -> Node3D:
 	if PIER_TYPES.has(building.building_type):
 		var water_hex := _water_neighbor(building.hex)
 		if water_hex != null:
-			var wpixel := HexView.axial_to_pixel(water_hex)
-			var wpos := Vector3(wpixel.x * TerrainView3D.WORLD_UNITS_PER_PIXEL, 0.0, wpixel.y * TerrainView3D.WORLD_UNITS_PER_PIXEL)
+			var wpos := TerrainView3D.hex_to_world(state.grid, water_hex)
 			var dir := wpos - center
 			facing = atan2(dir.x, dir.z)
 			pos = center.lerp(wpos, PIER_OFFSET_FRACTION)

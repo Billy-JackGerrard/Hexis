@@ -42,6 +42,28 @@ const BIOME_EDGE_BUFFER: int = 2
 const FOREST_COVERAGE_FRACTION: float = 0.12
 const HILLS_COVERAGE_FRACTION: float = 0.08
 
+## --- Elevation (TerrainGenerator.generate_elevation) ---
+##
+## Every Hills hex gets a height level; everything else stays at 0. A patch's
+## perimeter (Hills hexes touching non-Hills) is the ramp ring at
+## HILLS_RIM_ELEVATION and its interior is the plateau at HILLS_PEAK_ELEVATION,
+## so walking from lowland into the middle of a hill range is two single-level
+## slopes rather than one unclimbable wall.
+const HILLS_RIM_ELEVATION: int = 1
+const HILLS_PEAK_ELEVATION: int = 2
+
+## Chance a perimeter (rim) Hills hex is promoted straight to the peak height,
+## turning the edge it shares with the lowland outside into a
+## Terrain.CLIFF_ELEVATION_DELTA cliff face that ground troops must walk around.
+## The repair pass in generate_elevation guarantees this can never seal a
+## plateau off entirely — there is always at least one ramp left somewhere.
+const CLIFF_FACE_CHANCE: float = 0.45
+
+## Minimum rim hexes per Hills patch left at rim height no matter how the
+## CLIFF_FACE_CHANCE rolls land, so even a small patch keeps an obvious way up
+## rather than depending on the repair pass to claw one back.
+const MIN_RAMPS_PER_HILL_PATCH: int = 2
+
 const SMALL_PATCH_RANGE: Vector2i = Vector2i(4, 8)
 const MEDIUM_PATCH_RANGE: Vector2i = Vector2i(9, 16)
 const LARGE_PATCH_RANGE: Vector2i = Vector2i(17, 28)

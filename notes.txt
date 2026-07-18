@@ -65,6 +65,15 @@ there can be slopes but also cliffs etc. makes air troops more useful
 
 
 
+TERRAIN
+need to make it better.
+make biomes - not just random, but split the map in 4
+
+
+
+
+
+
 ASSETS
 
 TROOPS

@@ -67,22 +67,3 @@ static func roll2d(q: int, r: int, salt: int) -> float:
 
 static func angle2d(q: int, r: int, salt: int) -> float:
 	return roll2d(q, r, salt) * TAU
-
-## Makes every surface of every MeshInstance3D under `node` translucent at
-## `alpha` (a duplicated per-surface material override, same pattern as
-## apply_tint) — used for the fog-of-war haze layer over explored-but-not-
-## currently-visible hexes, where terrain/buildings should show through
-## faintly rather than being fully hidden the way unexplored fog is.
-static func apply_alpha(node: Node, alpha: float) -> void:
-	if node is MeshInstance3D:
-		var mesh_instance := node as MeshInstance3D
-		for i in range(mesh_instance.mesh.get_surface_count()):
-			var mat := mesh_instance.mesh.surface_get_material(i)
-			if mat == null or not (mat is BaseMaterial3D):
-				continue
-			var dup: BaseMaterial3D = mat.duplicate()
-			dup.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			dup.albedo_color.a = alpha
-			mesh_instance.set_surface_override_material(i, dup)
-	for child in node.get_children():
-		apply_alpha(child, alpha)

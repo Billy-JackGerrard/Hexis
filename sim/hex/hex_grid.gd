@@ -22,6 +22,15 @@ var _infrastructure: Dictionary = {}
 ## call so pathing doesn't need that array threaded through on top of
 ## building_blocked_hexes.
 var _infrastructure_material: Dictionary = {}
+## Integer height level per hex (0 = lowland, higher = raised ground), keyed
+## the same way as _terrain. Deliberately a separate axis from Terrain.Type
+## rather than extra Type enum values: a Hills hex can sit at any height, and
+## the *difference* between two adjacent hexes — not either one's terrain — is
+## what makes an edge a walkable slope or an impassable cliff (see
+## Terrain.elevation_step_cost). Absent means 0, so every grid built before
+## the elevation worldgen phase (and every test that skips it) behaves exactly
+## as it did when the map was uniformly flat.
+var _elevation: Dictionary = {}
 
 func set_terrain(coord: HexCoord, terrain: Terrain.Type) -> void:
 	_terrain[coord.to_key()] = terrain
@@ -29,8 +38,29 @@ func set_terrain(coord: HexCoord, terrain: Terrain.Type) -> void:
 func get_terrain(coord: HexCoord) -> Terrain.Type:
 	return _terrain.get(coord.to_key(), Terrain.Type.OCEAN)
 
+func set_elevation(coord: HexCoord, level: int) -> void:
+	_elevation[coord.to_key()] = level
+
+func get_elevation(coord: HexCoord) -> int:
+	return _elevation.get(coord.to_key(), 0)
+
+## True iff crossing from `a` into `b` is a cliff face for ground domains —
+## the height gain is too steep to climb (Terrain.CLIFF_ELEVATION_DELTA).
+## Directional by construction: a cliff blocks the ascent only, so dropping
+## down the same edge stays legal, and the way *up* onto that plateau is
+## whichever neighbouring edge the worldgen pass left as a ramp.
+func is_cliff_edge(a: HexCoord, b: HexCoord) -> bool:
+	return get_elevation(b) - get_elevation(a) >= Terrain.CLIFF_ELEVATION_DELTA
+
 func has_hex(coord: HexCoord) -> bool:
 	return _terrain.has(coord.to_key())
+
+## Every hex on the grid, as HexCoord.to_key strings — for whole-map passes
+## that would otherwise have to re-derive the map's extent (worldgen's
+## elevation phase, client setup). Insertion-ordered, which for a
+## TerrainGenerator-built grid is HexCoord.range_within's spiral order.
+func hex_keys() -> Array:
+	return _terrain.keys()
 
 static func _edge_key(a: HexCoord, b: HexCoord) -> String:
 	var ka := a.to_key()
@@ -117,7 +147,18 @@ func edge_cost(from: HexCoord, to: HexCoord, domain: Terrain.Domain, overrides: 
 		return Terrain.INF
 	if domain != Terrain.Domain.AIR and domain != Terrain.Domain.INFANTRY and building_blocked_hexes.has(to.to_key()):
 		return Terrain.INF
-	return Terrain.effective_cost(get_terrain(to), domain, get_infrastructure(to), overrides, get_infrastructure_material(to), is_heavy_land)
+	var base := Terrain.effective_cost(get_terrain(to), domain, get_infrastructure(to), overrides, get_infrastructure_material(to), is_heavy_land)
+	if base == Terrain.INF:
+		return Terrain.INF
+	# Elevation is applied on top of the finished terrain cost rather than
+	# inside effective_cost, which early-returns as soon as the terrain itself
+	# is passable and so can't scale a finite cost. Additive and never
+	# negative — find_path's HexCoord.distance heuristic assumes a minimum
+	# step cost of 1.0, so a downhill *discount* would make it inadmissible.
+	var step := Terrain.elevation_step_cost(get_elevation(from), get_elevation(to), domain)
+	if step == Terrain.INF:
+		return Terrain.INF
+	return base + step
 
 func passable_neighbors(coord: HexCoord, domain: Terrain.Domain, overrides: Dictionary = {}, building_blocked_hexes: Dictionary = {}, is_heavy_land: bool = false) -> Array[HexCoord]:
 	var result: Array[HexCoord] = []

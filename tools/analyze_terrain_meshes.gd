@@ -38,6 +38,7 @@ extends SceneTree
 const RIVER_DIR := "res://assets/tiles/rivers/"
 const RIVER_WATERLESS_DIR := "res://assets/tiles/rivers/waterless/"
 const ROAD_DIR := "res://assets/tiles/roads/"
+const COAST_DIR := "res://assets/tiles/coast/"
 
 const RIVER_NAMES := [
 	"hex_river_A", "hex_river_A_curvy", "hex_river_B", "hex_river_C", "hex_river_D",
@@ -50,6 +51,15 @@ const ROAD_NAMES := [
 	"hex_road_F", "hex_road_G", "hex_road_H", "hex_road_I", "hex_road_J",
 	"hex_road_K", "hex_road_L", "hex_road_M",
 ]
+## Beach/shoreline tiles. Same skirt-band vertex-color method as river/road —
+## these are land tiles whose water swatch sits on whichever edges face the
+## sea, so a set bit here means "this edge is a beach onto open water" rather
+## than "a channel connects through this edge". The resolver and mask algebra
+## don't care about that distinction; only the caller's choice of `matches`
+## predicate does (TerrainView3D matches Ocean neighbors).
+const COAST_NAMES := [
+	"hex_coast_A", "hex_coast_B", "hex_coast_C", "hex_coast_D", "hex_coast_E",
+]
 
 func _init() -> void:
 	print("=== River set ===")
@@ -58,6 +68,9 @@ func _init() -> void:
 	print("\n=== Road set ===")
 	var road_masks := _analyze_set(ROAD_DIR, ROAD_NAMES)
 	_report_collisions(road_masks)
+	print("\n=== Coast set ===")
+	var coast_masks := _analyze_set(COAST_DIR, COAST_NAMES)
+	_report_collisions(coast_masks)
 	quit(0)
 
 func _analyze_set(dir: String, names: Array) -> Dictionary:

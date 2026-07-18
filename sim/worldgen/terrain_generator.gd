@@ -18,16 +18,21 @@ static func num_rivers(player_count: int) -> int:
 	return Tuning.RIVER_BASE_COUNT + (player_count - 2) / 2
 
 ## Entry point: builds hexagon+fringe, then biomes, then rivers, then (maybe)
-## a super river, in that fixed order (biomes before rivers so a river can
-## flow through/skirt existing patches realistically — a river tile always
-## overwrites whatever biome was there, since it's generated last; the super
-## river runs last of all so it can freely cross normal rivers/biomes too).
+## a super river, then elevation, in that fixed order (biomes before rivers so
+## a river can flow through/skirt existing patches realistically — a river tile
+## always overwrites whatever biome was there, since it's generated last; the
+## super river runs last of all so it can freely cross normal rivers/biomes
+## too). Elevation runs dead last, after every terrain type is final, so it
+## only ever raises hexes that are still Hills — a river carved through a hill
+## range stays at lowland height, which is both what water does and what keeps
+## the channel from having to climb a cliff.
 static func generate_all(player_count: int, world_seed: int) -> HexGrid:
 	var radius := map_radius(player_count)
 	var grid := generate_base_terrain(radius, Tuning.OCEAN_FRINGE_WIDTH)
 	generate_biomes(grid, radius, world_seed)
 	generate_rivers(grid, radius, world_seed, player_count)
 	generate_super_river(grid, radius, world_seed)
+	generate_elevation(grid, world_seed)
 	return grid
 
 ## Hexagon of Plains out to `radius`, plus a `fringe_width`-wide Ocean ring
@@ -214,6 +219,147 @@ static func generate_super_river(grid: HexGrid, radius: int, world_seed: int) ->
 	for hex in path:
 		grid.set_terrain(hex, Terrain.Type.RIVER)
 	return path
+
+## Mutates `grid` in place, assigning every Hills hex a height level (see
+## HexGrid.set_elevation); every other terrain stays at lowland 0. Runs on its
+## own RNG substream so adding it doesn't perturb any earlier phase's draws for
+## an existing seed.
+##
+## Shape of a hill range: each contiguous Hills patch is split into a rim (any
+## Hills hex touching non-Hills) at Tuning.HILLS_RIM_ELEVATION and an interior
+## plateau at Tuning.HILLS_PEAK_ELEVATION, so the natural way in is two
+## single-level slopes. A Tuning.CLIFF_FACE_CHANCE share of rim hexes is then
+## promoted to peak height, which makes the edge they share with the lowland
+## outside a Terrain.CLIFF_ELEVATION_DELTA drop — a cliff ground troops must
+## path around rather than climb. That is the whole point of the pass: the same
+## patch is scalable from some directions and sheer from others.
+##
+## _repair_elevation_reachability afterwards is what makes that safe to
+## randomize. Rolling cliff faces independently can otherwise ring a plateau
+## (or strand a lone promoted hex) behind cliffs on every side, which would be
+## an unreachable island for ground domains; the repair pass walks out from
+## lowland and demotes whatever it couldn't reach until everything is climbable
+## from somewhere.
+static func generate_elevation(grid: HexGrid, world_seed: int) -> void:
+	var rng := _substream(world_seed, "elevation")
+	for patch in _hill_patches(grid):
+		_elevate_patch(grid, patch, rng)
+	_repair_elevation_reachability(grid)
+
+## Contiguous Hills components on the grid, each as an Array[HexCoord]. Flood
+## fill rather than a single global pass because rim/peak and the minimum ramp
+## count are both per-patch properties — two hill ranges that happen to touch
+## the same lowland hex are still separate climbs.
+static func _hill_patches(grid: HexGrid) -> Array:
+	var patches: Array = []
+	var seen: Dictionary = {}
+	for key in grid.hex_keys():
+		var hex := HexCoord.from_key(key)
+		if seen.has(key) or grid.get_terrain(hex) != Terrain.Type.HILLS:
+			continue
+		var patch: Array[HexCoord] = []
+		var frontier: Array[HexCoord] = [hex]
+		seen[key] = true
+		while not frontier.is_empty():
+			var current: HexCoord = frontier.pop_back()
+			patch.append(current)
+			for n in HexCoord.neighbors(current):
+				var nk := n.to_key()
+				if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.HILLS:
+					continue
+				seen[nk] = true
+				frontier.append(n)
+		patches.append(patch)
+	return patches
+
+## Rim/peak split plus cliff-face promotion for one patch — see
+## generate_elevation. Rim hexes are shuffled before promotion so the ramps
+## that survive Tuning.MIN_RAMPS_PER_HILL_PATCH aren't biased toward whichever
+## corner of the patch the flood fill happened to visit first.
+static func _elevate_patch(grid: HexGrid, patch: Array, rng: RandomNumberGenerator) -> void:
+	var rim: Array[HexCoord] = []
+	for hex in patch:
+		var is_rim := false
+		for n in HexCoord.neighbors(hex):
+			if not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.HILLS:
+				is_rim = true
+				break
+		grid.set_elevation(hex, Tuning.HILLS_RIM_ELEVATION if is_rim else Tuning.HILLS_PEAK_ELEVATION)
+		if is_rim:
+			rim.append(hex)
+
+	# Fisher-Yates on the caller's own rng, not Array.shuffle() — that draws
+	# from Godot's global RNG and would break lockstep determinism.
+	for i in range(rim.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp := rim[i]
+		rim[i] = rim[j]
+		rim[j] = tmp
+
+	var ramps_kept := 0
+	for i in range(rim.size()):
+		# "Could every remaining hex be promoted and still leave enough ramps?"
+		# — compares against the hexes not yet decided (rim.size() - i), NOT
+		# rim.size() - ramps_kept, which doesn't shrink as the loop consumes
+		# candidates and so never fires on a patch bigger than the minimum.
+		var remaining := rim.size() - i
+		var must_keep := ramps_kept + remaining <= Tuning.MIN_RAMPS_PER_HILL_PATCH
+		if not must_keep and rng.randf() < Tuning.CLIFF_FACE_CHANCE:
+			grid.set_elevation(rim[i], Tuning.HILLS_PEAK_ELEVATION)
+		else:
+			ramps_kept += 1
+
+## Guarantees every raised hex is reachable on foot from lowland, by walking
+## outward from every elevation-0 hex across edges that aren't cliffs and then
+## demoting anything the walk never arrived at. A demoted hex drops to one
+## level above its lowest already-reachable neighbour — the smallest change
+## that opens a way in — and the walk repeats until nothing is stranded.
+## Terminates because every pass either reaches a new hex or lowers at least
+## one hex's elevation toward 0.
+static func _repair_elevation_reachability(grid: HexGrid) -> void:
+	while true:
+		var reached := _lowland_reachable_keys(grid)
+		var best_key := ""
+		var best_target := 0
+		for key in grid.hex_keys():
+			if reached.has(key):
+				continue
+			var hex := HexCoord.from_key(key)
+			if grid.get_elevation(hex) <= 0:
+				continue
+			for n in HexCoord.neighbors(hex):
+				if not grid.has_hex(n) or not reached.has(n.to_key()):
+					continue
+				var target: int = grid.get_elevation(n) + Terrain.CLIFF_ELEVATION_DELTA - 1
+				if best_key == "" or target > best_target:
+					best_key = key
+					best_target = target
+		if best_key == "":
+			return
+		grid.set_elevation(HexCoord.from_key(best_key), best_target)
+
+## Keys of every hex a ground unit could stand on having walked from lowland,
+## considering elevation only (terrain passability is edge_cost's job — this is
+## purely "is the climb physically possible from somewhere").
+static func _lowland_reachable_keys(grid: HexGrid) -> Dictionary:
+	var reached: Dictionary = {}
+	var frontier: Array[HexCoord] = []
+	for key in grid.hex_keys():
+		var hex := HexCoord.from_key(key)
+		if grid.get_elevation(hex) == 0:
+			reached[key] = true
+			frontier.append(hex)
+	while not frontier.is_empty():
+		var current: HexCoord = frontier.pop_back()
+		for n in HexCoord.neighbors(current):
+			var nk := n.to_key()
+			if reached.has(nk) or not grid.has_hex(n):
+				continue
+			if grid.is_cliff_edge(current, n):
+				continue
+			reached[nk] = true
+			frontier.append(n)
+	return reached
 
 ## `grid` is only consulted (never mutated here — callers commit `path`'s
 ## own tiles themselves) to detect confluence: an outward step that's

@@ -9,7 +9,7 @@ class_name CameraController
 extends Camera2D
 
 const MIN_ZOOM := 0.85
-const MAX_ZOOM := 2.5
+const MAX_ZOOM := 4.0
 const ZOOM_STEP := 0.1
 const PAN_SPEED := 0.55 ## scales right-drag pan distance; 1.0 tracked the mouse 1:1 and felt too fast
 

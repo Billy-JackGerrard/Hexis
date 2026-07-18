@@ -49,13 +49,49 @@ scattered single tiles, e.g. a proper forest region rather than one random fores
 |---|---|---|---|---|---|---|
 | **Plains** | Normal | Normal | N/A | Normal | Normal | Yes (only buildable terrain, and majority of tiles) |
 | **Forest** | Normal | **Blocked** unless a Road is built through it | N/A | Normal | **Reduced** (own tile halved; also blocks sightlines passing through it) | No (except Treehouse's buildings — forest tiles) |
-| **Hills** | Slowed | Normal | N/A | Normal | **Reduced** (own tile halved; also blocks sightlines passing through it) | No (except Windy Peaks' buildings — hill tiles) |
+| **Hills** | Slowed | Normal | N/A | Normal | **Extended** (see Elevation — height grants bonus range and clears sightlines over lower ground) | No (except Windy Peaks' buildings — hill tiles) |
 | **River** | **Blocked** unless a Bridge is built | **Blocked** unless a Bridge is built | Fully passable | Normal | Normal | No |
 | **Ocean** | **Blocked** | **Blocked** | Fully passable | Normal | Normal | No |
 
 - **Resolved: "Coast" is not a distinct terrain type** — it was previously listed as
   its own row, but it's really just Plains at the edge of the map, directly adjacent to
   an Ocean or River tile. There's no separate shoreline tile type to generate or store.
+  (Coastal land tiles *render* a sand beach, resolved from an Ocean-neighbour mask —
+  purely a visual treatment of Plains/Forest, not a terrain type. Raised coastal tiles
+  are skipped: those are headlands dropping into the sea, not beaches.)
+
+### Elevation (slopes and cliffs)
+Height is a **separate axis from terrain type**, stored per hex on `HexGrid`
+(`sim/hex/hex_grid.gd`) and generated as the last worldgen phase
+(`TerrainGenerator.generate_elevation`). Only Hills is ever raised; everything else sits
+at lowland 0. Rivers run *before* elevation, so a channel carved through a hill range
+stays at lowland height — water flows down, and the channel never has to climb.
+
+Each contiguous Hills patch becomes a **rim** ring (any Hills hex touching non-Hills) at
+level 1 and an interior **plateau** at level 2, so walking from lowland into the middle
+of a range is two single-level climbs. A share of rim hexes is then promoted to plateau
+height, which turns the edge they share with the lowland outside into a two-level drop.
+
+What matters for play is the *difference* between adjacent hexes, not either one's own
+height:
+
+| Step | Effect on Infantry / Land | Air / Naval |
+|---|---|---|
+| Level, or downhill | Terrain cost only — descending is never *cheaper* than flat ground | Unaffected |
+| **Up one level (slope)** | Terrain cost **plus** a flat ascent penalty — hills take longer to climb | Unaffected |
+| **Up two levels (cliff)** | **Impassable.** No Road, Bridge or `terrainOverrides` flag clears it | Unaffected |
+
+Cliffs are **directional**: the same edge is legal downhill. So a plateau can be sheer
+on some sides and ramped on others — ground troops must walk around and come up from a
+different direction, which is exactly the tactical shape cliffs exist to create, and it
+makes Air genuinely more useful. Worldgen guarantees this is never a dead end: a repair
+pass walks out from lowland and demotes anything it could not reach, so **every raised
+hex is always climbable from somewhere**. That invariant is asserted per-seed in
+`tests/test_map_generation.gd`.
+
+Ascent cost is only ever *added*, never discounted below flat-ground cost — `find_path`'s
+heuristic is plain hex distance and would stop being admissible if any step could cost
+less than 1.0.
 - **"Water" adjacency is a single unified concept**: anywhere a building's
   `placementRequirement.adjacentTerrainRequired: "Water"` is checked (Port, Shipyard,
   Harbour, a non-Treehouse Lumber Mill's Forest-adjacency is separate — see below), it's
@@ -107,15 +143,24 @@ scattered single tiles, e.g. a proper forest region rather than one random fores
   shape, but current troop positions/base composition require live vision.
 - Plains are vision-neutral: purely economic/buildable terrain, with no vision edge
   that would make ambushes (e.g. landmines) unreliable on the tile type most squads
-  actually cross. Forests and Hills are both vision-obstructing, and identically so:
-  a troop/building standing on either sees at half its normal vision range, and any
-  sightline passing through a Forest or Hills hex (even when neither viewer nor
-  target is standing in it) loses additional range per hex crossed — both terrains
-  block sight, not just (for Forest) the things hiding inside it. Treehouse's own
-  buildings are exempt from both Forest penalties (their vision is never reduced by
-  Forest, on their own tile or along their sightlines) since they're built into the
-  forest rather than merely standing in it; Windy Peaks' own buildings get the same
-  exemption from Hills.
+  actually cross. **Forest** is vision-obstructing: a troop/building standing on one
+  sees at half its normal vision range, and any sightline passing through a Forest hex
+  (even when neither viewer nor target is standing in it) loses additional range per
+  hex crossed — the terrain blocks sight, not just the things hiding inside it.
+  Treehouse's own buildings are exempt from both Forest penalties (their vision is
+  never reduced by Forest, on their own tile or along their sightlines) since they're
+  built into the forest rather than merely standing in it.
+- **Hills no longer carry a vision penalty.** They previously did — halved own-tile
+  vision plus a flat per-hex sightline penalty, identical to Forest — on the reasoning
+  that "elevation blocks line of sight, it doesn't extend it". That was a workaround
+  for there being no height axis to reason with; now that Hills have real elevation
+  (below), the geometry does the job properly and in both directions: standing high
+  grants bonus range and lets your sightline pass over lower ground, while a ridge you
+  are looking *up* at silhouettes against your sightline and hides whatever is behind
+  it. The same ridge now helps whoever holds it and hinders whoever doesn't, which the
+  old flat penalty could not express (it punished a viewer standing on the ridge
+  exactly as hard as one in the valley below). Windy Peaks' Hills vision exemption is
+  consequently obsolete — its buildings simply get the elevation bonus instead.
 
 ## Movement & Positioning
 **Resolved: the game is fully hex-based — there is no continuous open-field
@@ -132,7 +177,11 @@ occupies a hex, and moves hex-to-hex:
   hex-math module referenced in Rendering Notes below), edge cost derived from the
   moving unit's Domain and the terrain table above (e.g. Hills cost more for Infantry
   only; Forest/River edges are infinite-cost — impassable — for the relevant Domain
-  unless a Road/Bridge is present, or the unit has a matching `terrainOverrides` flag).
+  unless a Road/Bridge is present, or the unit has a matching `terrainOverrides` flag),
+  **plus the elevation difference across the edge** (see Elevation above — an uphill
+  step costs extra, a two-level step is impassable in that direction only). This is the
+  one genuinely per-edge term: everything else in the cost depends only on the
+  destination hex.
   A path is computed once when a move/attack-target order is issued, and only
   recomputed if it becomes blocked mid-move (e.g. a Wall goes up on its route) or a
   new order is issued — not continuously re-planned every tick.
@@ -223,12 +272,21 @@ occupies a hex, and moves hex-to-hex:
   parallax-leans under the tilt — a tall building's roof leans off its
   footprint — but that's intentional, it's the whole reason to tilt; only
   ground-level (y=0) content is guaranteed locked, not a mesh's full
-  silhouette. Hex click-targeting needed its own fix on top of the camera
+  silhouette. **Elevated terrain is an accepted instance of that**: a raised
+  hex's ground is no longer at y=0, so the flat overlay (grid outlines,
+  selection rings) leans off it exactly the way a tall building's roof does.
+  That's the deliberate trade for hills reading as real height —
+  `TerrainView3D.WORLD_UNITS_PER_ELEVATION` can't grow without bound for this
+  reason. Hex click-targeting needed its own fix on top of the camera
   compensation: `HexView.pixel_to_axial(get_global_mouse_position())`
   assumed pure top-down, so `input_controller.gd`'s `_reprojected_hex`
   ray-casts the actual screen cursor through `Camera3D` and intersects the
-  ground plane instead, for every call site that resolves "which hex was
-  clicked" (move/attack/build orders, own-building selection, hover).
+  ground, for every call site that resolves "which hex was clicked"
+  (move/attack/build orders, own-building selection, hover). It intersects
+  *elevated* ground correctly by iterating: a single y=0 intersection selects
+  a hex "behind" every raised tile under the tilt, so it re-intersects at the
+  height of the hex it just landed on until the answer stops changing —
+  cheaper and simpler than putting physics colliders on every terrain tile.
   Squad/wall hit-testing deliberately still uses the flat 2D position
   directly — those stay 2D-rendered, unaffected by the tilt regardless.
   Squads/projectiles/HUD are still the "faked 2.5D via Sprite2D + Y-sort"
@@ -295,8 +353,19 @@ occupies a hex, and moves hex-to-hex:
   shore props, dressing the abrupt cut up as a marshy pond instead. None of
   this is true geometric bank blending: this pack has no land/water
   transition mesh (`hex_transition.gltf`'s blend behavior is unconfirmed and
-  unused; `tiles/coast/` is a separate land-vs-ocean system, still out of
-  scope), so it's a cheap visual mitigation, not a fix. A river's actual
+  unused), so it's a cheap visual mitigation, not a fix. On top of the rolled
+  decor, **every river-to-land edge now gets banks unconditionally** — shore
+  props laid along the seam itself rather than scattered on the hex, so the
+  hard line where the channel meets grass reads as a silted, reedy edge. Not
+  rolled against a chance: banks appearing on only some edges read as a bug
+  rather than as variety. **`tiles/coast/` is no longer out of scope** — those
+  meshes now render beaches on Ocean-adjacent lowland land, resolved through
+  the same `TerrainTileResolver` as river/road tiles against a new
+  `TerrainTileDefs.COAST_MASKS` (derived by `tools/analyze_terrain_meshes.gd`,
+  which now analyses the coast set too). That set is sparse — 2-, 3- and
+  6-edge shapes only — so a hex with a single Ocean neighbour falls back to
+  the resolver's superset match and renders one extra sand edge abutting land;
+  cheap, and it never hides a real shoreline. A river's actual
   *path* being mechanically straight in places is a separate, sim-side
   worldgen concern (`sim/worldgen/`, not this rendering layer) — noted here
   as a known follow-up, not yet addressed.

@@ -55,6 +55,7 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 			continue
 		var own_terrain := grid.get_terrain(squad.current_hex)
 		vision *= Terrain.vision_multiplier(own_terrain)
+		vision += Terrain.elevation_vision_bonus(grid.get_elevation(squad.current_hex))
 		vision += global_bonus_by_owner.get(squad.owner_id, 0.0)
 		_reveal(visions, squad.owner_id, squad.current_hex, vision, grid, NO_EXEMPT_TERRAIN, los_cache)
 
@@ -71,6 +72,7 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 				continue
 			var own_terrain := grid.get_terrain(building.hex)
 			vision *= Terrain.vision_multiplier(own_terrain, exempt_terrain)
+			vision += Terrain.elevation_vision_bonus(grid.get_elevation(building.hex))
 			vision += global_bonus_by_owner.get(base.owner_id, 0.0)
 			_reveal(visions, base.owner_id, building.hex, vision, grid, exempt_terrain, los_cache)
 
@@ -81,6 +83,7 @@ static func resolve_tick(squads: Array[SquadInstance], bases: Array[BaseInstance
 			continue
 		var own_terrain := grid.get_terrain(building.hex)
 		vision *= Terrain.vision_multiplier(own_terrain)
+		vision += Terrain.elevation_vision_bonus(grid.get_elevation(building.hex))
 		vision += global_bonus_by_owner.get(building.owner_id, 0.0)
 		_reveal(visions, building.owner_id, building.hex, vision, grid, NO_EXEMPT_TERRAIN, los_cache)
 
@@ -117,13 +120,14 @@ static func _global_vision_bonus_by_owner(bases: Array[BaseInstance], building_d
 	return result
 
 ## `vision_range` is the source's full budget after its own-tile terrain
-## penalty; each candidate hex is additionally re-checked against a
-## sightline-specific budget that subtracts FOREST_LOS_RANGE_PENALTY_PER_HEX/
-## HILLS_LOS_RANGE_PENALTY_PER_HEX per Forest/Hills hex the line from `center`
-## to it crosses (excluding both endpoints — standing in or looking directly
-## at one is covered by the own-tile multiplier/detection-hidden mechanics,
-## not this). `exempt_terrain` skips that per-hex check for one terrain
-## entirely (a Treehouse/Windy Peaks building's own vision).
+## penalty and elevation bonus; each candidate hex is additionally re-checked
+## against a sightline-specific budget that subtracts
+## FOREST_LOS_RANGE_PENALTY_PER_HEX per Forest hex the line from `center` to it
+## crosses (excluding both endpoints — standing in or looking directly at one
+## is covered by the own-tile multiplier/detection-hidden mechanics, not this),
+## and against the elevation silhouette test in _is_elevation_blocked.
+## `exempt_terrain` skips the per-hex foliage check for one terrain entirely
+## (a Treehouse building's own vision).
 static func _reveal(visions: Dictionary, owner_id: String, center: HexCoord, vision_range: float, grid: HexGrid, exempt_terrain: int, los_cache: Dictionary) -> void:
 	var pv := vision_for(visions, owner_id)
 	var cache_key := [center.to_key(), vision_range, exempt_terrain]
@@ -150,14 +154,19 @@ static func _compute_revealed_keys(center: HexCoord, vision_range: float, grid: 
 		var effective_range := vision_range - _los_penalty(center, coord, grid, exempt_terrain)
 		if HexCoord.distance(center, coord) > effective_range:
 			continue
+		if _is_elevation_blocked(center, coord, grid):
+			continue
 		result.append(coord.to_key())
 	return result
 
-## Forest/Hills hexes strictly between `center` and `target` on their hex line
-## (both endpoints excluded) — total range lost from a sightline "passing
-## through" obstructing terrain en route, not counting standing in or looking
-## straight at one. `exempt_terrain` (a Treehouse/Windy Peaks source) skips
-## the penalty for that one terrain only — the other still obstructs.
+## Forest hexes strictly between `center` and `target` on their hex line (both
+## endpoints excluded) — total range lost from a sightline "passing through"
+## foliage en route, not counting standing in or looking straight at one.
+## `exempt_terrain` (a Treehouse source) skips the penalty for that terrain.
+##
+## Hills are deliberately absent: they obstruct via _is_elevation_blocked
+## instead, which is a geometric test rather than a flat subtraction. See
+## Terrain's comment where HILLS_LOS_RANGE_PENALTY_PER_HEX used to be.
 static func _los_penalty(center: HexCoord, target: HexCoord, grid: HexGrid, exempt_terrain: int) -> float:
 	var path := HexCoord.line(center, target)
 	var penalty := 0.0
@@ -167,6 +176,32 @@ static func _los_penalty(center: HexCoord, target: HexCoord, grid: HexGrid, exem
 			continue
 		if terrain == Terrain.Type.FOREST:
 			penalty += Terrain.FOREST_LOS_RANGE_PENALTY_PER_HEX
-		elif terrain == Terrain.Type.HILLS:
-			penalty += Terrain.HILLS_LOS_RANGE_PENALTY_PER_HEX
 	return penalty
+
+## Silhouette test: does any hex strictly between `center` and `target` stand
+## tall enough to break the straight line drawn from the viewer's eye to the
+## target's? Eye heights at both ends come from Terrain.sightline_height (the
+## hex's own elevation plus a fixed eye offset), the obstacle's height from
+## Terrain.obstacle_height (ground level plus canopy), and the sightline's
+## height above each intermediate hex is a straight lerp between the two ends.
+##
+## This is what makes elevation cut both ways. A viewer on a peak looking down
+## has a sightline that starts high and stays above the intervening ridge, so
+## high ground genuinely sees further; the same viewer down in the valley has a
+## flat low sightline that the ridge silhouettes against, so the ground behind
+## it stays dark. A ridge between two units on the same ridge blocks neither.
+static func _is_elevation_blocked(center: HexCoord, target: HexCoord, grid: HexGrid) -> bool:
+	var path := HexCoord.line(center, target)
+	if path.size() <= 2:
+		return false
+	var from_height := Terrain.sightline_height(grid.get_elevation(center))
+	var to_height := Terrain.sightline_height(grid.get_elevation(target))
+	var steps := float(path.size() - 1)
+	for i in range(1, path.size() - 1):
+		var hex: HexCoord = path[i]
+		if not grid.has_hex(hex):
+			continue
+		var line_height: float = lerp(from_height, to_height, float(i) / steps)
+		if Terrain.obstacle_height(grid.get_terrain(hex), grid.get_elevation(hex)) > line_height:
+			return true
+	return false

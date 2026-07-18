@@ -204,6 +204,8 @@ func _draw_building(building: BuildingInstance, owner_id: String, color: Color, 
 	if building.building_type == "wall":
 		if building.hex_a == null or building.hex_b == null:
 			return
+		if not _wall_visible_to_local(building, owner_id):
+			return
 		var segment := HexView.edge_segment(building.hex_a, building.hex_b)
 		draw_line(segment[0], segment[1], color, WALL_WIDTH)
 		return
@@ -249,9 +251,31 @@ func _draw_diamond(center: Vector2, size: float, color: Color) -> void:
 	draw_colored_polygon(points, color)
 	draw_polyline(points + PackedVector2Array([points[0]]), Color.BLACK, 1.0)
 
+## Gates drawing (shape, label, title, tooltip — every call site above routes
+## through this) on live vision for anyone else's buildings: 01-map-and-
+## terrain.md's Fog of War section is explicit that "base composition
+## requires live vision" — explored-but-not-currently-visible only persists
+## terrain shape, not what's built on it. Previously this only checked
+## stealth, so every non-stealth foreign building (the vast majority) always
+## drew regardless of fog state; that was masked as long as the old 2D flat
+## FogOfWar polygon was a later sibling in the same Node2D canvas, painting
+## over it. Now that fog is 3D-only (see fog_of_war.gd's own doc comment on
+## why), nothing 2D covers this anymore, so the vision check has to be
+## explicit here instead of implicit via draw order.
 func _is_visible_to_local(building: BuildingInstance, owner_id: String) -> bool:
-	if not BuildingStats.stealth(building_defs.get(building.building_type, {}), building_defs):
-		return true
 	if owner_id == local_owner_id:
 		return true
-	return DetectionSystem.detected_hexes_for(detections, local_owner_id).has(building.hex.to_key())
+	if BuildingStats.stealth(building_defs.get(building.building_type, {}), building_defs):
+		return DetectionSystem.detected_hexes_for(detections, local_owner_id).has(building.hex.to_key())
+	var pv: PlayerVision = state.visions.get(local_owner_id)
+	return pv != null and pv.is_visible(building.hex)
+
+## Walls have no single hex (hex_a/hex_b, an edge) so they can't reuse
+## _is_visible_to_local's single-hex lookup — visible if either endpoint
+## currently is, same "you can see it if you can see any part of it" rule
+## edge_segment's own rendering already treats the two hexes symmetrically.
+func _wall_visible_to_local(building: BuildingInstance, owner_id: String) -> bool:
+	if owner_id == local_owner_id:
+		return true
+	var pv: PlayerVision = state.visions.get(local_owner_id)
+	return pv != null and (pv.is_visible(building.hex_a) or pv.is_visible(building.hex_b))
