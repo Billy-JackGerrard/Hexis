@@ -164,8 +164,15 @@ static func _mesh_basename(building_type: String, level: int, material: String) 
 const LEVEL_SCALE_STEP := 0.06
 const LEVEL_SCALE_MAX_STEPS := 6
 
+## Flat multiplier under the per-level growth above — buildings read too big
+## relative to squads/hex size at BASE_SCALE 1.0, so this shrinks every
+## building uniformly (a level-7 Farm still ends up bigger than a level-1 one,
+## just from a smaller starting point) rather than compressing the per-level
+## growth curve itself.
+const BASE_SCALE := 0.8
+
 static func level_scale(level: int) -> float:
-	return 1.0 + clampi(level - 1, 0, LEVEL_SCALE_MAX_STEPS) * LEVEL_SCALE_STEP
+	return BASE_SCALE * (1.0 + clampi(level - 1, 0, LEVEL_SCALE_MAX_STEPS) * LEVEL_SCALE_STEP)
 
 ## Small thematic prop scattered around a building, one extra instance per
 ## level above 1 (capped) — "as buildings level up, add more decor": a

@@ -90,8 +90,33 @@ Sibling to `sim/`, never the reverse.
   `LockstepDriver.advance()` in multiplayer).
 - `hex_view.gd` — axial↔pixel projection (flat-top); the one new-math piece
   this slice needed.
-- `squad_view.gd` / `projectile_view.gd` — squads/projectiles as flat-color
-  placeholder shapes, owner-tinted, read from sim state every frame.
+- `squad_view.gd` — 2D overlay only now (selection ring, dotted path preview,
+  attack-range ring, hover/selected info label); the squad's own body is real
+  3D via `squad_view_3d.gd` (poll-based like `terrain_view_3d.gd`/
+  `building_view_3d.gd`, but splits mesh identity from per-frame transform —
+  a squad's `troop_type`/`owner_id` rarely changes, so only that triggers a
+  mesh rebuild, while position/facing update every frame off `edge_progress`
+  the same way the old flat shape did). Y is its own separate progress from
+  XZ whenever an edge climbs a terrace with no visual ramp between the two
+  hexes (`_has_visual_ramp`, mirroring `terrain_view_3d.gd`'s own ramp
+  rule): it snaps at the hex-boundary midpoint instead of lerping, because a
+  straight Y lerp put a mid-climb squad's XZ over the far hex's footprint
+  before its Y caught up to that hex's real plateau height — rendered
+  inside the solid terrace, invisible for most of the climb. One mesh (or
+  small fixed composite) per `Terrain.Domain`, not per troop_type: this
+  asset pack is a generic medieval army kit with no per-troop-type models at
+  all, so Infantry is the pack's plain body mesh (`unit`) topped with a
+  `helmet` instanced as a sibling under it — a bare helmet with no body
+  under it was an earlier pass's placeholder and read as broken rather than
+  "soldier" — Land ("vehicle" — a cannon reads closer to that than a
+  foot-soldier mesh would) and Naval borrow the closest thematic piece
+  (cannon/ship), and Air — no aircraft mesh in the pack — borrows the
+  tallest, most vertically distinct prop available (a banner) plus a real
+  hover-height offset above the terrain so it reads as airborne rather than
+  as a strangely thin ground unit. Placeholder pending real per-troop art,
+  same as every other mesh mapping in this section.
+  `projectile_view.gd` stays a flat-color placeholder shape, owner-tinted,
+  read from sim state every frame — untouched by any of this.
 - `base_view.gd` — building hover tooltips/base titles/1-2 letter labels for
   every building; its own flat-rect/diamond shape drawing is now restricted
   to Wall and Landmine (`FLAT_SHAPE_TYPES`) — everything else gets a real
@@ -111,11 +136,26 @@ Sibling to `sim/`, never the reverse.
   scatter read as clutter across what is most of the board, so the flat-swatch
   surface is instead given grain by `terrain/ground_detail.gdshader`, a
   procedural world-space noise modulation over whichever seasonal atlas the
-  hex resolved to. River plates and Hills patches both take that seasonal
-  swap so they sit inside their surrounding region rather than crossing it —
-  rivers via a shader water guard that restores the channel's own colour,
-  Hills sampled once per patch so a region boundary can't split one massif.
-  See `01-map-and-terrain.md`'s Rendering Notes. Ocean/River plates are seated slightly below lowland
+  hex resolved to. Seasonal regions are fixed compass quadrants (North=Winter,
+  South=Summer, East=Fall, West=default), not randomly placed, with an
+  organic noise-warped boundary between them. River and coast plates take
+  that seasonal swap so they sit inside their surrounding region rather than
+  crossing it, via a shader water guard that restores the channel/water's own
+  colour regardless of season; Forest and Hills patches sample the swap once
+  per contiguous patch (at the patch centroid) so a region boundary can't
+  split one wood or massif in half — and that same patch atlas is copied
+  onto the patch's immediate lowland fringe too
+  (`_extend_biome_atlas_to_fringe`), since the centroid sample can land in a
+  different quadrant than a rim hex's own per-position sample would, which
+  otherwise moved the seam from inside the massif to its own boundary
+  instead of removing it. Ocean hexes touching land render a plain water
+  plate — an earlier version additionally drew the pack's
+  `hex_transition.gltf` there for a softer blend, but every such land hex
+  already unconditionally qualifies as a beach and was already drawing its
+  own dip toward the water on that same edge, so the transition mesh was a
+  second, independently-shaped dip against the first, and the seam between
+  the two didn't sync at oblique tilt. Removed; see `01-map-and-terrain.md`'s
+  Rendering Notes. Ocean/River plates are seated slightly below lowland
   (`WATER_SURFACE_DROP`) so shorelines read as an edge you look down over
   rather than a colour change; that offset is cosmetic only and never reaches
   `HexGrid` elevation.
@@ -139,7 +179,16 @@ Sibling to `sim/`, never the reverse.
   `01-map-and-terrain.md`'s Rendering Notes for why each stays where it is.
 - `input_controller.gd` — click-to-move/attack-target, drag-select, control
   groups, click-precedence (enemy troop/structure vs. open ground).
-- `fog_of_war.gd`, `camera_controller.gd` (pan/zoom).
+- `fog_of_war.gd` — explored-but-not-visible haze reads its own alpha AND
+  the opaque pass's depth buffer (`fog_cloud.gdshader`'s `hint_depth_texture`
+  sampler): wherever something was already drawn nearer than the low
+  occlusion sheet — a building, a tree, a hillside — the haze contribution
+  is zeroed at that pixel, so a scouted base stays legible instead of
+  getting dimmed as much as the bare ground around it. True unexplored fog
+  is untouched by this (still always fully opaque regardless of height).
+- `camera_controller.gd` (pan/zoom, plus a Shift-drag orbit: vertical drag
+  adjusts pitch, horizontal adjusts yaw — `Camera2D.rotation` keeps the flat
+  2D overlay spinning in lockstep with the 3D camera's yaw for free).
 - **Deferred: real art.** Placeholder shapes/colors until the core loop
   (movement, combat, base capture) is validated as fun — see the Art section
   below.

@@ -1,5 +1,13 @@
-## Placeholder rendering for squads: an owner-tinted circle per squad,
-## positioned by lerping current_hex -> path[0] over edge_progress — pure
+## 2D overlay for squads: selection ring, dotted path preview, attack-range
+## ring, and the hover/selected info label. The squad's own BODY is real 3D
+## now (see squad_view_3d.gd, same relationship BuildingView3D has to
+## BaseView) — this file used to also draw an owner-tinted domain shape
+## (circle/triangle/diamond) here, but drawing both would double them up, so
+## `_draw` no longer calls `_draw_squad_shape`; it's kept below only as the
+## one piece SquadView3D doesn't have its own equivalent of (a flat top-down
+## silhouette), in case a fallback is ever needed.
+##
+## Positioned by lerping current_hex -> path[0] over edge_progress — pure
 ## rendering-side interpolation of the sim's per-tick integer-hex position,
 ## same "counting up between ticks is visual only" principle as the resource
 ## tick (07-data-architecture.md section 7/8). Sim logic only ever reads
@@ -12,12 +20,10 @@
 ##
 ## Enemy squads only render while currently visible and not hidden by
 ## stealth/detection (see _is_renderable); docked/boarded squads never
-## render their own circle since their current_hex just mirrors their host.
+## render since their current_hex just mirrors their host.
 ##
-## Squad shape is domain-coded (circle: Land/Infantry, triangle: Air,
-## diamond: Naval) now that a real multi-base map mixes domains on screen.
-## Selected squads additionally get a dotted path preview along squad.path
-## and a faint attack-range ring, both placeholder art, no new sim state.
+## Selected squads get a dotted path preview along squad.path and a faint
+## attack-range ring, both placeholder art, no new sim state.
 ##
 ## A selected OR hovered squad also gets a "{troop name} N/cap" label (per
 ## 09-ui-and-controls.md) drawn via ThemeDB's fallback font — same
@@ -278,8 +284,6 @@ func _draw() -> void:
 		if not _is_renderable(squad):
 			continue
 		var pos := squad_pixel_position(squad)
-		var color: Color = owner_colors.get(squad.owner_id, Color.WHITE)
-		_draw_squad_shape(pos, _domain_of(squad), color)
 		var selected := is_selected(squad.id)
 		if selected:
 			draw_arc(pos, RADIUS + 3.0, 0.0, TAU, 24, SELECTION_COLOR, 2.0)

@@ -214,11 +214,17 @@ const RIVER_END_EDGE_SPREAD := 0.55 ## world units the cluster fans out ALONG th
 const RIVER_BANK_DECOR := [
 	NATURE_DIR + "waterplant_A.gltf", NATURE_DIR + "waterplant_B.gltf", NATURE_DIR + "waterplant_C.gltf",
 ]
-const RIVER_BANK_PROPS_PER_EDGE := 2
-const RIVER_BANK_EDGE_OFFSET := 0.72 ## world units from hex center toward the land edge — hugs the seam; pushed further out than the old 0.62 so reeds line the bank rather than creeping into open channel
+## Cut back after "not liking the reeds on the riverbanks" — at 2-per-edge and
+## offset 0.72 (close to the land-facing edge) every river-to-land seam grew a
+## near-continuous hedge that read as its own feature rather than as a light
+## fringe. Fewer props, and moved back toward the water (down from 0.72): they
+## were sitting close enough to the land edge to visually blend into the
+## neighbouring grass hex's own decor instead of reading as part of the river.
+const RIVER_BANK_PROPS_PER_EDGE := 1
+const RIVER_BANK_EDGE_OFFSET := 0.5 ## world units from hex center toward the land edge
 const RIVER_BANK_EDGE_SPREAD := 0.7 ## world units the props fan out along the seam
 const RIVER_BANK_JITTER := 0.12 ## world units of per-prop wobble, so the bank isn't a ruler-straight line of props
-const RIVER_BANK_SCALE := 0.7 ## bank props read as low undergrowth, not as features standing up out of the water
+const RIVER_BANK_SCALE := 0.55 ## smaller too, on top of fewer — a light fringe, not a hedge
 
 ## A ramp's visible surface runs from the low neighbour's height at one edge up
 ## to this hex's own at the other, so anything standing on it belongs at the
@@ -240,38 +246,69 @@ const RAMP_DECOR_DROP := WORLD_UNITS_PER_ELEVATION * 0.5
 ## there" carve-out.
 const COAST_MESH_PREFIX := COAST_DIR + "hex_coast_"
 
+## An earlier version blended the OCEAN side of a shoreline too, via the
+## pack's hex_transition.gltf seated on the water hex facing the land it
+## touched. Removed: every land hex touching Ocean at elevation 0 already
+## qualifies as a beach (_is_beach's ocean-connection check is unconditional),
+## so it already gets a COAST_MESH_PREFIX shelf mesh dipping toward the water
+## on that exact edge — the ocean-side piece was drawing a SECOND, separately
+## authored dip right against the first, and the two shapes don't share a
+## profile, so the seam between them showed as a visible crack/step at any
+## oblique tilt (reported as "the hex transition thing looks bad on the
+## ocean because it doesn't sync up") even after an earlier pass fixed the
+## literal Z-fight from placing it alongside the plain water plate. The only
+## land-Ocean edges with no coast mesh on the land side are raised (cliff)
+## hexes, per COAST_MESH_PREFIX's elevation-0 gate — and a sheer cliff base
+## meeting flush open water needs no sand blend; that's just what a rocky
+## coastline looks like. So every case is already covered by one mesh or the
+## other, and Ocean hexes now always render the plain BASE_MESH_BY_TERRAIN
+## water plate.
+
 ## Ground texture variety: the base atlas (hexagons_medieval.png) is a flat
 ## color-swatch sheet, not a detailed grass texture — there's no visible
 ## "grain" to add regardless of mesh choice — GROUND_DETAIL_SHADER supplies
 ## that grain procedurally on top of whichever atlas this picks. But the pack
-## ships full
-## seasonal recolors of that same atlas (same UV layout, different color
-## grading), so swapping a hex's ground material to one of these for a
-## region of hexes gives real (not just tinted) color variation — patches
-## of golden/richer-green grass among the default yellow-green, instead of
-## one uniform flat color. Winter's swatch is a pale near-white/blue
-## (literal snow) — excluded, would read as random snow patches rather than
-## natural variety. Applies to Plains/Forest/Hills (all share the hex_grass
-## ground plate); not Ocean/River (separate mesh/atlas region, don't want
-## autumn-tinted water).
+## ships full seasonal recolors of that same atlas (same UV layout, different
+## color grading), so swapping a hex's ground material to one of these for a
+## region of hexes gives real (not just tinted) color variation. Applies to
+## Plains/Forest/Hills (all share the hex_grass ground plate; Forest/Hills'
+## own decoration meshes take the same swap — see _compute_forest_patches/
+## _compute_hills_atlas) and, guarded, to River/coast (see _maybe_swap_ground_
+## texture's preserve_water); not Ocean, which has no land to match.
 ##
-## Picked from one continuous FastNoiseLite field (see _ground_noise, sampled
-## in world pixel space so blobs are round rather than skewed by axial q/r)
-## instead of an independent per-hex roll: a per-hex roll (the original
-## approach, RenderUtil.roll2d/pick2d against these same salts) scattered
-## single Fall/Summer hexes at random across the map with no relation to
-## neighbors — reads as noise, and had no reason to line up with the forest/
-## hills decoration clusters next to it (different RNG entirely). Sampling
-## one low-frequency field instead gives contiguous biome-like patches:
-## the high tail of the field (> GROUND_NOISE_FALL_THRESHOLD) is one Fall
-## region, the low tail (< GROUND_NOISE_SUMMER_THRESHOLD) is one Summer
-## region, everything in between (the bulk of the field) stays default —
-## thresholds picked to keep roughly the same ~20%/20%/60% split the old
-## per-hex chance produced, just clustered instead of scattered.
+## Regions are FIXED compass quadrants, not randomly placed: North is always
+## Winter, South always Summer, East always Fall, West stays the default
+## atlas (there is no "Spring" swatch in the pack — default already reads as
+## the fresh/green option, so it fills that slot for free). This is a
+## deliberate reversal of an earlier version that placed regions from noise
+## alone with Winter excluded outright (a literal snow-white recolor read as
+## a random patch of snow in the middle of nowhere with no reason to be
+## there). Pinning Winter to one fixed edge of the map is what makes it read
+## as "the cold end of the world" instead — expected, not random — which is
+## exactly what makes it safe to bring back in. Purely cosmetic either way:
+## nothing here is gameplay-visible (no stat, vision, or cost hook reads
+## season), and capitals are sited by random search
+## (worldgen/base_site_selector.gd's _shuffled_candidates) with no fixed
+## angular slot per player, so no player is systematically closer to one
+## quadrant than another.
+##
+## Quadrant boundaries are still organic, not pie-slice straight: the classify
+## angle is computed from the hex's position *plus* an offset drawn from
+## _ground_noise (a second, decorrelated sample of the same field — see
+## _region_angle), so the boundary meanders across the noise field's ~26-hex
+## period instead of cutting a straight line through the map center.
 const GROUND_ATLAS_DEFAULT := BASE_DIR + "hexagons_medieval.png"
-const GROUND_NOISE_FREQUENCY := 0.0012 ## period ~830px, ~26 hexes across — large regional patches, not per-cluster speckle
-const GROUND_NOISE_FALL_THRESHOLD := 0.35
-const GROUND_NOISE_SUMMER_THRESHOLD := -0.35
+const GROUND_ATLAS_WINTER := BASE_DIR + "hexagons_medieval_Winter.png" ## North
+const GROUND_ATLAS_SUMMER := BASE_DIR + "hexagons_medieval_Summer.png" ## South
+const GROUND_ATLAS_FALL := BASE_DIR + "hexagons_medieval_Fall.png" ## East
+## GROUND_ATLAS_DEFAULT doubles as West/"Spring".
+const GROUND_NOISE_FREQUENCY := 0.0012 ## period ~830px, ~26 hexes across — how far the quadrant boundary wanders, not a patch size anymore
+## Pixel-space offset (same space as HexView.axial_to_pixel) applied to the
+## angle sample's position before computing direction — see _region_angle.
+## A few hexes' worth (HexView.HEX_SIZE is 32px), so the boundary curves over
+## a human-noticeable stretch of ground without being large enough to flip a
+## hex all the way into the opposite quadrant near the map's own center.
+const GROUND_REGION_WARP_STRENGTH := 220.0
 
 ## Independent RenderUtil.*2d salts (see RenderUtil.spatial_hash) — each
 ## decision below (which mesh, whether to roll at all, rotation, ground
@@ -303,15 +340,18 @@ const SALT_BANK_JITTER := 600
 const WORLD_HEX_CIRCUMRADIUS: float = 2.0 / 1.7320508075688772 ## 2/sqrt(3), matches HexView.SQRT3
 const WORLD_UNITS_PER_PIXEL: float = WORLD_HEX_CIRCUMRADIUS / 32.0 ## HexView.HEX_SIZE
 
-## Single source of truth for the 3D camera's fixed pitch — main.gd reads
-## this rather than defining its own copy (main.gd's _sync_camera_3d doc
-## comment covers the ground-plane compensation this angle drives, which
-## keeps the flat 2D overlay layer — grid outlines, labels, selectors —
-## locked to the 3D ground at y=0). Decoration meshes need NO per-instance
-## compensation: they're real 3D objects sitting on real 3D ground tiles,
-## so the camera renders each cluster correctly over its own tile the same
-## way it does buildings. A tall tree's crown reading higher on screen is
-## honest perspective, not a misplacement.
+## Starting value for the 3D camera's pitch — CameraController.tilt_degrees
+## is seeded from this constant, then live-adjustable at runtime via
+## shift-drag (see camera_controller.gd's doc comment), so this is a tuned
+## default rather than the fixed value it once was. main.gd's _sync_camera_3d
+## doc comment covers the ground-plane compensation the CURRENT tilt drives,
+## which keeps the flat 2D overlay layer — grid outlines, labels, selectors —
+## locked to the 3D ground at y=0 regardless of what the live angle is.
+## Decoration meshes need NO per-instance compensation at any tilt: they're
+## real 3D objects sitting on real 3D ground tiles, so the camera renders each
+## cluster correctly over its own tile the same way it does buildings. A tall
+## tree's crown reading higher on screen is honest perspective, not a
+## misplacement.
 const CAMERA_TILT_DEGREES := 18.0
 
 var grid: HexGrid
@@ -321,7 +361,7 @@ var _known_infrastructure: Dictionary = {} ## hex key -> Terrain.Infrastructure
 var _road_nodes: Dictionary = {} ## hex key -> Node3D (the dynamic Road/Bridge instance at that hex, if any)
 var _forest_depth: Dictionary = {} ## hex key -> int, see _compute_forest_depth
 var _forest_species: Dictionary = {} ## hex key -> "A"/"B", see _compute_forest_patches
-var _hills_atlas: Dictionary = {} ## hex key -> atlas path, see _compute_hills_atlas
+var _biome_atlas: Dictionary = {} ## hex key -> atlas path, Forest/Hills only, see _compute_forest_patches/_compute_hills_atlas
 var _ground_shader: Shader ## GROUND_DETAIL_SHADER, loaded once
 var _ground_materials: Dictionary = {} ## "<atlas path>|<tint>" -> ShaderMaterial, see _ground_material
 ## hex key -> world Y that decoration on that hex should sit at. Cached during
@@ -350,45 +390,78 @@ func setup(p_grid: HexGrid, p_hexes: Array[HexCoord], p_world_seed: int = 0) -> 
 	# layering) keeps only the smooth large-scale shape.
 	_ground_noise.fractal_octaves = 1
 	_compute_forest_depth()
+	# Shared by both: Forest and Hills patches write into the same _biome_atlas
+	# map (each hex belongs to at most one terrain type, so there's no
+	# collision), reset once here rather than by whichever call happens to run
+	# first.
+	_biome_atlas.clear()
 	_compute_forest_patches()
 	_compute_hills_atlas()
+	_extend_biome_atlas_to_fringe()
 	for hex in hexes:
 		_place_static(hex)
 		_known_infrastructure[hex.to_key()] = Terrain.Infrastructure.NONE
 		_refresh_infrastructure(hex)
 
+## Flood-fills the contiguous same-terrain patch containing `start` (BFS/DFS
+## order doesn't matter here — nothing downstream cares), marking every member
+## in the shared `seen` dictionary as it goes so a caller scanning `hexes` in
+## order never re-walks a patch it already collected. Shared by
+## _compute_forest_patches and _compute_hills_atlas, which both need "every
+## hex belonging to the same contiguous blob of this terrain type".
+func _flood_fill_patch(start: HexCoord, terrain: Terrain.Type, seen: Dictionary) -> Array[HexCoord]:
+	var patch: Array[HexCoord] = []
+	var frontier: Array[HexCoord] = [start]
+	seen[start.to_key()] = true
+	while not frontier.is_empty():
+		var current: HexCoord = frontier.pop_back()
+		patch.append(current)
+		for n in HexCoord.neighbors(current):
+			var nk := n.to_key()
+			if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != terrain:
+				continue
+			seen[nk] = true
+			frontier.append(n)
+	return patch
+
+## Pixel-space centroid of `patch` — the point _atlas_for_position samples to
+## pin every hex in it to one shared seasonal atlas. See _compute_hills_atlas
+## for why a patch needs ONE shared sample instead of one per hex.
+func _patch_centroid(patch: Array[HexCoord]) -> Vector2:
+	var centroid := Vector2.ZERO
+	for coord in patch:
+		centroid += HexView.axial_to_pixel(coord)
+	return centroid / float(patch.size())
+
 ## Assigns every Forest hex the tree species of the contiguous patch it belongs
-## to (see FOREST_SPECIES) by flood-filling each patch and picking once from the
-## patch's own canonical hex — the lowest to_key() in it. Using a canonical
-## member rather than whichever hex the fill happened to start from makes the
-## choice independent of iteration order, so every client derives the same
-## species for the same patch with nothing synced over the network, exactly like
-## every other RenderUtil.*2d cosmetic decision.
+## to (see FOREST_SPECIES), picked once from the patch's own canonical hex —
+## the lowest to_key() in it. Using a canonical member rather than whichever hex
+## the fill happened to start from makes the choice independent of iteration
+## order, so every client derives the same species for the same patch with
+## nothing synced over the network, exactly like every other RenderUtil.*2d
+## cosmetic decision.
+##
+## Also assigns the patch's seasonal atlas (see _compute_hills_atlas for why a
+## patch needs one shared sample) in the same pass, since both need the same
+## flood fill — trees are drawn from the same atlas as the ground plate (see
+## FOREST_SPECIES's mesh materials), so left unswapped a wood stayed uniformly
+## default-green across an autumn or winter region the same way Hills did.
 func _compute_forest_patches() -> void:
 	_forest_species.clear()
 	var seen: Dictionary = {}
 	for hex in hexes:
-		var key := hex.to_key()
-		if seen.has(key) or grid.get_terrain(hex) != Terrain.Type.FOREST:
+		if seen.has(hex.to_key()) or grid.get_terrain(hex) != Terrain.Type.FOREST:
 			continue
-		var patch: Array[HexCoord] = []
-		var frontier: Array[HexCoord] = [hex]
-		seen[key] = true
+		var patch := _flood_fill_patch(hex, Terrain.Type.FOREST, seen)
 		var canonical := hex
-		while not frontier.is_empty():
-			var current: HexCoord = frontier.pop_back()
-			patch.append(current)
-			if current.to_key() < canonical.to_key():
-				canonical = current
-			for n in HexCoord.neighbors(current):
-				var nk := n.to_key()
-				if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.FOREST:
-					continue
-				seen[nk] = true
-				frontier.append(n)
+		for coord in patch:
+			if coord.to_key() < canonical.to_key():
+				canonical = coord
 		var species: String = RenderUtil.pick2d(canonical.q, canonical.r, SALT_FOREST_MESH, FOREST_SPECIES)
+		var atlas := _atlas_for_position(_patch_centroid(patch))
 		for coord in patch:
 			_forest_species[coord.to_key()] = species
+			_biome_atlas[coord.to_key()] = atlas
 
 ## Pins every hex of a Hills patch to ONE seasonal atlas, sampled once at the
 ## patch's pixel centroid instead of per hex.
@@ -403,35 +476,53 @@ func _compute_forest_patches() -> void:
 ## GROUND_NOISE_FREQUENCY's period (~26 hexes) is wider than a typical patch
 ## (see Tuning.HILLS_PATCH_SIZE_WEIGHTS), so the centroid's region is almost
 ## always the one the patch's neighbours are in too.
-##
-## Canonical-hex choice mirrors _compute_forest_patches: derived from patch
-## membership, never from iteration order, so every client agrees without
-## syncing anything.
 func _compute_hills_atlas() -> void:
-	_hills_atlas.clear()
 	var seen: Dictionary = {}
 	for hex in hexes:
-		var key := hex.to_key()
-		if seen.has(key) or grid.get_terrain(hex) != Terrain.Type.HILLS:
+		if seen.has(hex.to_key()) or grid.get_terrain(hex) != Terrain.Type.HILLS:
 			continue
-		var patch: Array[HexCoord] = []
-		var frontier: Array[HexCoord] = [hex]
-		seen[key] = true
-		var centroid := Vector2.ZERO
-		while not frontier.is_empty():
-			var current: HexCoord = frontier.pop_back()
-			patch.append(current)
-			centroid += HexView.axial_to_pixel(current)
-			for n in HexCoord.neighbors(current):
-				var nk := n.to_key()
-				if seen.has(nk) or not grid.has_hex(n) or grid.get_terrain(n) != Terrain.Type.HILLS:
-					continue
-				seen[nk] = true
-				frontier.append(n)
-		centroid /= float(patch.size())
-		var atlas := _atlas_for_noise(_ground_noise.get_noise_2d(centroid.x, centroid.y))
+		var patch := _flood_fill_patch(hex, Terrain.Type.HILLS, seen)
+		var atlas := _atlas_for_position(_patch_centroid(patch))
 		for coord in patch:
-			_hills_atlas[coord.to_key()] = atlas
+			_biome_atlas[coord.to_key()] = atlas
+
+## Copies each Forest/Hills patch's own pinned atlas onto its immediate
+## non-Forest/Hills neighbours (Plains, River, beach-Coast — anything that
+## would otherwise fall back to _maybe_swap_ground_texture's per-hex
+## _atlas_for_position sample). A patch is deliberately pinned to ONE atlas
+## sampled at its centroid (see _compute_hills_atlas) rather than per hex, so
+## it can't show a seam through its own middle — but that same centroid can
+## land in a different compass quadrant than a lowland hex sampling its OWN
+## position right at the patch's rim, especially for a large/elongated patch
+## whose edge sits well away from its centroid. The mismatch is exactly what
+## it sounds like from ground level: a ramp or cliff face in one season
+## butting straight up against flat ground in another, one hex over — the
+## rim patch's OWN colour is internally consistent, but the seam just moved
+## to the hills/lowland boundary instead of being inside the hills. Letting
+## the immediate lowland fringe borrow the patch's atlas removes that seam at
+## the cost of the outermost ring of lowland around a patch occasionally not
+## matching the compass quadrant its own position would otherwise pick —
+## a far smaller, far less visible tradeoff, since flat ground has none of
+## the raised geometry that makes a colour seam read as "wrong place."
+func _extend_biome_atlas_to_fringe() -> void:
+	var fringe: Dictionary = {}
+	for hex in hexes:
+		var key := hex.to_key()
+		var atlas: String = _biome_atlas.get(key, "")
+		if atlas.is_empty():
+			continue
+		for n in HexCoord.neighbors(hex):
+			var nk := n.to_key()
+			if _biome_atlas.has(nk) or fringe.has(nk):
+				continue
+			if not grid.has_hex(n):
+				continue
+			var nt := grid.get_terrain(n)
+			if nt == Terrain.Type.HILLS or nt == Terrain.Type.FOREST:
+				continue ## has (or will get) its own patch-pinned entry
+			fringe[nk] = atlas
+	for k in fringe:
+		_biome_atlas[k] = fringe[k]
 
 ## Multi-source BFS distance transform: every Forest hex with at least one
 ## non-Forest (or off-grid) neighbor is depth 0; everything else is 1 +
@@ -579,8 +670,8 @@ func _place_static(hex: HexCoord) -> void:
 		node.scale.y = WORLD_UNITS_PER_ELEVATION
 	if terrain != Terrain.Type.OCEAN:
 		# River and beach plates carry grass/sand AND water on one surface, so
-		# they need the shader's water guard; Ocean is skipped outright, since
-		# it's all water and there's nothing on it to match to the land.
+		# they need the shader's water guard; plain Ocean is skipped outright,
+		# since it's all water and there's nothing on it to match to the land.
 		var has_water_uv := terrain == Terrain.Type.RIVER or mesh_path.begins_with(COAST_MESH_PREFIX)
 		_maybe_swap_ground_texture(node, hex, has_water_uv)
 	add_child(node)
@@ -638,36 +729,60 @@ func _place_elevation_skirt(hex: HexCoord, fill_top: float) -> void:
 ## shader (GROUND_DETAIL_SHADER), pointed at either the default atlas or a
 ## seasonal variant of it.
 ##
-## The seasonal swap is real colour variation from a different source image, not
-## a multiply-tint, and is chosen from the Fall/Summer tails of _ground_noise —
-## sampled in world pixel space (not raw q/r) so the regions read as round biome
-## blobs rather than being skewed by axial coordinates. The detail shader then
-## runs on whichever atlas was chosen, so the two compose: broad seasonal regions
-## with per-surface grain inside them.
+## The seasonal swap is real colour variation from a different source image,
+## not a multiply-tint, and comes from a fixed compass quadrant (see
+## GROUND_ATLAS_DEFAULT's doc comment) rather than a random patch. The detail
+## shader then runs on whichever atlas was chosen, so the two compose: broad
+## seasonal regions with per-surface grain inside them.
 ##
 ## `preserve_water` forwards to the shader's water guard — set it for any mesh
 ## whose UVs reach into the atlas's water swatches (river channels, coast
 ## tiles), so the seasonal region colours the land without recolouring the
 ## water running through it. See the shader's water_guard_texture comment.
 func _maybe_swap_ground_texture(node: Node, hex: HexCoord, preserve_water: bool = false) -> void:
-	var pixel := HexView.axial_to_pixel(hex)
-	# Hills are pinned per patch rather than per hex — see _compute_hills_atlas.
-	var atlas: String = _hills_atlas.get(hex.to_key(), "")
+	# Forest/Hills are pinned per patch rather than per hex — see
+	# _compute_hills_atlas for why a lone hex sample isn't good enough for them.
+	var atlas: String = _biome_atlas.get(hex.to_key(), "")
 	if atlas.is_empty():
-		atlas = _atlas_for_noise(_ground_noise.get_noise_2d(pixel.x, pixel.y))
+		atlas = _atlas_for_position(HexView.axial_to_pixel(hex))
 	var tex: Texture2D = load(atlas)
 	if tex == null:
 		return
 	_apply_ground_texture(node, tex, preserve_water)
 
-## Which seasonal atlas a _ground_noise sample falls into. Split out so the
-## per-hex path and _compute_hills_atlas's per-patch path can't drift apart.
-func _atlas_for_noise(n: float) -> String:
-	if n > GROUND_NOISE_FALL_THRESHOLD:
-		return BASE_DIR + "hexagons_medieval_Fall.png"
-	if n < GROUND_NOISE_SUMMER_THRESHOLD:
-		return BASE_DIR + "hexagons_medieval_Summer.png"
-	return GROUND_ATLAS_DEFAULT
+## The compass-quadrant angle to classify `pixel` into a season — see
+## GROUND_ATLAS_DEFAULT's doc comment for the fixed N/E/S/W assignment.
+##
+## `pixel` is nudged by an offset drawn from _ground_noise before the angle is
+## taken, so the quadrant boundary is an organic curve wandering across the
+## noise field's period rather than a straight line through the map's own
+## center. The offset is built from two samples of the SAME field at very
+## different sample points (not two independent noise fields) — cheap, and
+## the two samples are already effectively decorrelated since they land in
+## unrelated cells of the field.
+func _region_angle(pixel: Vector2) -> float:
+	var warp_x := _ground_noise.get_noise_2d(pixel.x, pixel.y)
+	var warp_y := _ground_noise.get_noise_2d(pixel.y + 4096.0, pixel.x - 4096.0)
+	var warped := pixel + Vector2(warp_x, warp_y) * GROUND_REGION_WARP_STRENGTH
+	return warped.angle()
+
+## Which fixed seasonal atlas `pixel` falls into. Pixel space is HexView's
+## (same space as HexView.axial_to_pixel and this file's hex_to_world), where
+## +X is East/-X is West (matches the world X axis unchanged) and +Y is
+## South/-Y is North (world Z, per main.tscn's Camera3D basis: local up maps
+## to world -Z, i.e. "up on screen" is -Z, so +Y-pixel/+Z-world is down-screen/
+## South). Vector2.angle() is atan2(y, x), so East sits at 0, South at +PI/2,
+## West at ±PI, North at -PI/2 — each quadrant a PI/2 wedge centered on its
+## own cardinal.
+func _atlas_for_position(pixel: Vector2) -> String:
+	var angle := _region_angle(pixel)
+	if absf(angle) <= PI / 4.0:
+		return GROUND_ATLAS_FALL # East
+	if angle > PI / 4.0 and angle < 3.0 * PI / 4.0:
+		return GROUND_ATLAS_SUMMER # South
+	if angle < -PI / 4.0 and angle > -3.0 * PI / 4.0:
+		return GROUND_ATLAS_WINTER # North
+	return GROUND_ATLAS_DEFAULT # West ("Spring")
 
 ## Replaces every surface's imported BaseMaterial3D with a ShaderMaterial
 ## running GROUND_DETAIL_SHADER over `tex`, carrying the original material's
@@ -761,13 +876,14 @@ func _place_decoration(hex: HexCoord, terrain: Terrain.Type, river_mask: int) ->
 		return
 	if scale != 1.0:
 		node.scale = Vector3.ONE * scale
-	if terrain == Terrain.Type.HILLS:
-		# The hill/mountain meshes are grass-topped mounds drawn from the same
-		# atlas as the ground plates, and they cover most of their hex — so
-		# left unswapped they stay default green while the plate under them
-		# goes autumn, and the hill reads as belonging to a different map than
-		# the land around it. Swapping them is what actually makes a range sit
-		# inside its region. No water guard: nothing on these meshes is water.
+	if terrain == Terrain.Type.HILLS or terrain == Terrain.Type.FOREST:
+		# Both the hill/mountain clusters and the tree meshes are drawn from the
+		# same atlas as the ground plate under them and cover most of their hex —
+		# so left unswapped they stay default green while the plate goes autumn/
+		# winter, and the whole patch reads as belonging to a different map than
+		# the land around it (a uniformly green wood sitting in a snowy region).
+		# Swapping them is what actually makes a patch sit inside its region.
+		# No water guard: nothing on these meshes is water.
 		_maybe_swap_ground_texture(node, hex)
 	add_child(node)
 
@@ -795,7 +911,11 @@ func _place_river_banks(hex: HexCoord) -> void:
 		for i in range(RIVER_BANK_PROPS_PER_EDGE):
 			var salt := dir * RIVER_BANK_PROPS_PER_EDGE + i
 			var mesh_path: String = RenderUtil.pick2d(hex.q, hex.r, SALT_BANK_MESH + salt, RIVER_BANK_DECOR)
-			var t := float(i) / float(maxi(RIVER_BANK_PROPS_PER_EDGE - 1, 1)) - 0.5 ## -0.5..0.5 across the edge
+			# -0.5..0.5 across the edge, centered regardless of count: at
+			# RIVER_BANK_PROPS_PER_EDGE == 1 the old `i / max(count-1,1) - 0.5`
+			# always evaluated to -0.5 (i is always 0), pinning the single prop
+			# to one end of the edge instead of its middle.
+			var t := (float(i) - float(RIVER_BANK_PROPS_PER_EDGE - 1) * 0.5) / float(maxi(RIVER_BANK_PROPS_PER_EDGE - 1, 1))
 			var wobble := (RenderUtil.roll2d(hex.q, hex.r, SALT_BANK_JITTER + salt) - 0.5) * 2.0 * RIVER_BANK_JITTER
 			var offset := edge_dir * (RIVER_BANK_EDGE_OFFSET + wobble) + along * t * RIVER_BANK_EDGE_SPREAD
 			var node := _instance_decor(mesh_path, hex, RenderUtil.angle2d(hex.q, hex.r, SALT_BANK_JITTER + salt), y)

@@ -19,9 +19,10 @@ extends Node2D
 
 const PLAYER_COUNT := 2 ## single-player only; multiplayer's is match_starting's player_count
 const LOCAL_PLAYER := "p0" ## single-player only; multiplayer's is net_manager.local_owner_id
-## Tilt angle lives on TerrainView3D (client/terrain/terrain_view_3d.gd)
-## so there's one source of truth instead of two consts that could drift
-## apart. A pitched ortho camera foreshortens the ground
+## Tilt angle's DEFAULT lives on TerrainView3D (client/terrain/terrain_view_3d.gd
+## — CameraController.tilt_degrees is seeded from it), but the live value is
+## CameraController.tilt_degrees, adjustable at runtime via shift-drag (see
+## camera_controller.gd). A pitched ortho camera foreshortens the ground
 ## plane's world-Z-to-screen-Y ratio by cos(tilt) and shifts the
 ## screen-center ground point by height*tan(tilt) — both compensated in
 ## _sync_camera_3d below (see its own doc comment) so the flat 2D layer
@@ -58,8 +59,10 @@ var owner_names := {}
 var terrain_view_3d: TerrainView3D
 var building_view_3d: BuildingView3D
 var camera_3d: Camera3D
+var _camera_3d_base_basis: Basis ## Camera3D's authored straight-down orientation, captured before any tilt is applied — see _sync_camera_3d
 var base_view: BaseView
 var squad_view: SquadView
+var squad_view_3d: SquadView3D
 var projectile_view: ProjectileView
 var input_controller: InputController
 var fog_of_war: FogOfWar
@@ -139,10 +142,13 @@ func _start_game() -> void:
 	camera_3d = $Camera3D
 	# main.tscn's Camera3D transform is the exactly-top-down orientation this
 	# session's earlier pan/zoom-lock fix landed on (verified sub-pixel via
-	# scratchpad/project_test.gd); TerrainView3D.CAMERA_TILT_DEGREES tilts it
-	# from there. rotate_object_local sidesteps hand-deriving new Transform3D
-	# basis numbers directly (a previous session bug came from exactly that).
-	camera_3d.rotate_object_local(Vector3.RIGHT, deg_to_rad(TerrainView3D.CAMERA_TILT_DEGREES))
+	# scratchpad/project_test.gd). Captured here, before any tilt is ever
+	# applied, so _sync_camera_3d can rebuild the tilt from this same known-good
+	# base every frame (see its own doc comment) instead of compounding
+	# rotate_object_local calls on top of whatever the previous frame left
+	# behind — the actual tilt angle is now live (CameraController.tilt_degrees,
+	# shift-drag adjustable), not a one-time constant.
+	_camera_3d_base_basis = camera_3d.transform.basis
 
 	# The root Window viewport renders its World3D (Camera3D + these meshes)
 	# first, then the 2D canvas (base/squad/HUD views) on top — so the 3D
@@ -164,6 +170,10 @@ func _start_game() -> void:
 	squad_view = SquadView.new()
 	add_child(squad_view)
 	squad_view.setup(state, state.squads, state.regiments, owner_colors, state.grid, state.troop_defs, state.visions, state.detections, _local_owner_id)
+
+	squad_view_3d = SquadView3D.new()
+	add_child(squad_view_3d)
+	squad_view_3d.setup(state, state.squads, state.grid, state.troop_defs, state.visions, state.detections, _local_owner_id)
 
 	projectile_view = ProjectileView.new()
 	add_child(projectile_view)
@@ -235,11 +245,15 @@ func _map_bounds() -> Array:
 ## the window is resizable (project.godot's window/size/mode=3, maximized,
 ## no fixed size).
 ##
-## Tilt alignment (TerrainView3D.CAMERA_TILT_DEGREES != 0): a pitched ortho
-## camera renders the ground plane as an *affine* transform of the flat
-## top-down mapping — X scale unchanged, Y (world-Z) scale foreshortened by
-## exactly cos(tilt), plus a screen-center shift (empirically an exact fit,
-## scratchpad/tilt_test3.gd). The 3D ortho camera CANNOT self-correct this:
+## Tilt alignment (camera_controller.tilt_degrees != 0, live-adjustable via
+## shift-drag — see camera_controller.gd): a pitched ortho camera renders the
+## ground plane as an *affine* transform of the flat top-down mapping — X
+## scale unchanged, Y (world-Z) scale foreshortened by exactly cos(tilt), plus
+## a screen-center shift (empirically an exact fit, scratchpad/tilt_test3.gd,
+## originally verified at one fixed angle but the derivation never assumed a
+## specific tilt value — it's recomputed from the live angle every frame
+## below, which is what makes the tilt safe to change at runtime instead of
+## only at startup). The 3D ortho camera CANNOT self-correct this:
 ## its `size` scales both screen axes by one factor, so shrinking it to undo
 ## the Z foreshortening equally shrinks X, and every flat 2D element drifts
 ## horizontally more and more toward the screen edges (the "fog/labels/
@@ -264,11 +278,37 @@ func _sync_camera_3d() -> void:
 		return
 	var vp_size := get_viewport().get_visible_rect().size
 	var pixel := camera_controller.position
-	var tilt_rad := deg_to_rad(TerrainView3D.CAMERA_TILT_DEGREES)
-	camera_3d.position.x = pixel.x * TerrainView3D.WORLD_UNITS_PER_PIXEL
-	camera_3d.position.z = pixel.y * TerrainView3D.WORLD_UNITS_PER_PIXEL + camera_3d.position.y * tan(tilt_rad)
+	var tilt_rad := deg_to_rad(camera_controller.tilt_degrees)
+	var yaw_rad := deg_to_rad(camera_controller.yaw_degrees)
+	# Rebuilt from the captured base orientation every frame (not compounded
+	# onto whatever rotation this node already has) so live-adjustable tilt/yaw
+	# can move freely without drifting off-axis. Yaw first, about the base
+	# orientation's own local Z (BACK) axis — for a straight-down camera,
+	# forward (-Z) points at the ground, so local Z is the world-vertical axis
+	# rotate_object_local(RIGHT, tilt) has always pitched around; rotating
+	# yaw around it FIRST just changes which horizontal direction "RIGHT" then
+	# points, so the tilt that follows pitches down toward whatever direction
+	# yaw picked instead of always toward world +Z.
+	camera_3d.transform.basis = _camera_3d_base_basis
+	camera_3d.rotate_object_local(Vector3.BACK, yaw_rad)
+	camera_3d.rotate_object_local(Vector3.RIGHT, tilt_rad)
+	# The pull-back that keeps the tilted camera's forward ray centered on the
+	# same ground point: BACK's horizontal (X/Z) component already points away
+	# from whatever direction the camera is tilted/yawed toward, with length
+	# sin(tilt) (BACK is unit length, its Y component is cos(tilt)) — scaling
+	# by height/cos(tilt) reduces to the old height*tan(tilt) case exactly
+	# when yaw is 0 (BACK.xz = (0, sin(tilt))), but now generalizes to any yaw.
+	var back := camera_3d.transform.basis.z
+	var height := camera_3d.position.y
+	var pullback := Vector2(back.x, back.z) * height / cos(tilt_rad)
+	camera_3d.position.x = pixel.x * TerrainView3D.WORLD_UNITS_PER_PIXEL + pullback.x
+	camera_3d.position.z = pixel.y * TerrainView3D.WORLD_UNITS_PER_PIXEL + pullback.y
 	camera_3d.size = vp_size.y * TerrainView3D.WORLD_UNITS_PER_PIXEL / camera_controller.zoom.x
 	camera_controller.zoom.y = camera_controller.zoom.x * cos(tilt_rad)
+	# Camera2D's own rotation — applied automatically to everything it looks
+	# at (fog, hex grid, selection, labels), no per-node awareness needed —
+	# keeps that flat layer spinning in lockstep with the 3D terrain's yaw.
+	camera_controller.rotation = -yaw_rad
 
 func _process(delta: float) -> void:
 	if state == null:

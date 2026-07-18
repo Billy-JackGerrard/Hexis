@@ -31,8 +31,23 @@ render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, depth_test_dis
 uniform sampler2D fog_state : hint_default_black, filter_linear, repeat_disable;
 uniform float time_scale : hint_range(0.0, 1.0) = 0.015;
 uniform float cloud_scale = 5.0;
-uniform float haze_alpha = 0.6;
+// Cut hard from 0.6 — "explored but not visible" is meant to be a light veil
+// over remembered terrain, not a haze thick enough to hide what's under it;
+// see BUILDING_DEPTH_FADE below for the other half of that same complaint
+// (a building poking up through the haze getting dimmed just as much as the
+// bare ground next to it).
+uniform float haze_alpha = 0.28;
 uniform float edge_jitter = 0.42;
+// Depth-buffer readback: lets this fragment tell whether the opaque pass
+// already drew something NEARER than this flat sheet at the same screen
+// pixel — i.e. a building, tree, or hill poking up through the low fog
+// plane. Only used to exempt HAZE (explored-but-not-visible) from covering
+// tall things; unexplored_amt is never touched by this, so the "unexplored
+// is always fully opaque" guarantee (see fragment()'s own comment) still
+// holds regardless of height — a true fog-of-war blackout still hides
+// everything, this only stops the light haze from dimming a remembered
+// base the player has already scouted.
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 
 float hash21(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -94,7 +109,19 @@ void fragment() {
 	// ...) puts a floor under it so haze is always clearly present, with the
 	// cloud pattern only modulating the remaining range on top of that floor.
 	float shaped = smoothstep(0.32, 0.68, cloud);
-	ALPHA = unexplored_amt + haze_amt * mix(0.55, 1.0, shaped) * haze_alpha;
+	// Depth exemption for haze only (see depth_tex's own doc comment above):
+	// this plane sits just FOG_SHEET_HEIGHT above bare ground everywhere, so
+	// under a normal flat tile the opaque pass's own depth at this pixel is
+	// always very slightly FARTHER than this fragment's (ground sits a hair
+	// behind the sheet) — tall_here stays 0 there. Only where something
+	// genuinely tall (a building, a tree, a hillside) was drawn well in front
+	// of that thin margin does scene_depth end up nearer than FRAGCOORD.z,
+	// flipping tall_here to 1 and zeroing the haze contribution right at that
+	// pixel, so a scouted base reads through the haze instead of being
+	// dimmed exactly as much as the bare ground beside it.
+	float scene_depth = texture(depth_tex, SCREEN_UV).r;
+	float tall_here = step(scene_depth, FRAGCOORD.z);
+	ALPHA = unexplored_amt + haze_amt * mix(0.55, 1.0, shaped) * haze_alpha * (1.0 - tall_here);
 	// Flat grey read as a plain tint rather than cloud — explored haze is
 	// meant to be "clouds too, just a lot more transparent" (same texture as
 	// unexplored, not a different-looking fog). ALBEDO now follows the same

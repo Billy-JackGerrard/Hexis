@@ -117,7 +117,7 @@ const PROP_SKIP_CHANCE := 0.15 ## small per-cell chance to skip entirely — nei
 const PROP_SCALE_MIN := 1.3
 const PROP_SCALE_MAX := 2.6
 const PROP_ALPHA := 0.82 ## each cloud stays slightly translucent rather than fully opaque, so overlapping instances visually MERGE — overlap regions build up toward solid while a single layer's own outer silhouette reads as a soft fringe rather than a hard cutout edge against its neighbors
-const EXPLORED_PROP_ALPHA := 0.22 ## flat, low target for explored-but-not-visible cells (see _cloud_alpha_target) — sparse drifting cloud puffs over remembered terrain instead of leaving that whole layer to the shader plane alone, and because prop cells sit on their own world-space grid (unrelated to the hex grid, unlike the flat shader plane's per-hex texture), scattering some here is what breaks the visible/explored boundary out of a hex-aligned line
+const EXPLORED_PROP_ALPHA := 0.1 ## flat, low target for explored-but-not-visible cells (see _cloud_alpha_target) — sparse drifting cloud puffs over remembered terrain instead of leaving that whole layer to the shader plane alone, and because prop cells sit on their own world-space grid (unrelated to the hex grid, unlike the flat shader plane's per-hex texture), scattering some here is what breaks the visible/explored boundary out of a hex-aligned line. Cut from 0.22 alongside fog_cloud.gdshader's haze_alpha — overlapping instances near a scouted base were stacking into something opaque enough to bury it, not read as a light veil.
 ## Cloud height ABOVE the ground beneath the prop (see _cell_world_xform's
 ## _terrain_height_at_pixel offset), not an absolute world Y. Has to clear the
 ## tallest thing that can stand on a tile — currently a peak-tier mountain
@@ -135,8 +135,24 @@ const SALT_PROP_SCALE := 204
 const SALT_PROP_ROTATION := 205
 const SALT_PROP_HEIGHT := 206
 const SALT_PROP_SKIP := 207
-const PROP_MARGIN_HEXES := 3.0 ## wider than the fog sheet's own MARGIN_HEXES since large, scaled-up cloud props can visually extend well past their cell center
-const PROP_CAM_REFRESH_PIXELS := 150.0 ## camera must move at least this many HexView pixels (unzoomed) before props are recomputed — avoids thrashing the buffer every frame while panning
+const PROP_MARGIN_HEXES := 4.0 ## wider than the fog sheet's own MARGIN_HEXES since large, scaled-up cloud props can visually extend well past their cell center
+## Camera must move at least this many HexView pixels (unzoomed) before props
+## are recomputed — avoids thrashing the buffer every frame while panning.
+##
+## MUST stay well under PROP_MARGIN_HEXES's own pixel budget, which is why this
+## is derived from it rather than an independent constant: the margin exists so
+## props just off-screen already exist before they scroll into view, but that
+## only holds if a repack is guaranteed to fire before the camera has moved far
+## enough to eat through the margin. A fixed 150px threshold against a 96px
+## margin (3 hexes) violated that outright — a fast continuous drag pans well
+## past 150px between input-processed frames, so the newly-revealed screen edge
+## was showing bare, prop-less ground for the several frames it took the
+## threshold to trip (reported as "I can see the tiles on the edge of my screen"
+## when panning quickly). Sized to a fraction of the margin instead, so however
+## PROP_MARGIN_HEXES gets tuned later, there's always real cushion left over
+## the moment a repack triggers, not a race against it.
+const PROP_CAM_REFRESH_MARGIN_FRACTION := 0.4
+const PROP_CAM_REFRESH_PIXELS := PROP_MARGIN_HEXES * HexView.HEX_SIZE * PROP_CAM_REFRESH_MARGIN_FRACTION
 const PROP_RENDER_PRIORITY := 10 ## must beat _material's -10 (see _build_mesh's doc comment) so props draw after — i.e. on top of — the fog plane instead of being painted over by it
 ## A cloud prop's mesh is roughly this many hexes in horizontal radius once
 ## scaled (cloud_big AABB ~1.8 world units half-extent * ~2x PROP_SCALE ≈ 100

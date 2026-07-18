@@ -5,6 +5,18 @@
 ## the *visible edge* of the viewport to the map extents, not just the camera
 ## center — clamping center alone let half the screen hang off the map at
 ## the near-max-zoom-out end of MIN_ZOOM.
+##
+## Shift held during a right-drag repurposes the SAME drag into a camera
+## orbit instead of a pan: vertical mouse movement adjusts tilt (pitch),
+## horizontal movement adjusts yaw (which compass direction the camera looks
+## down from). `tilt_degrees`/`yaw_degrees` are read by main.gd's
+## _sync_camera_3d every frame the same way zoom already is; that function's
+## 2D/3D alignment derivation is written generically in terms of both angles
+## (see its own doc comment) — Camera2D.rotation (this node's own built-in
+## rotation, applied automatically to everything it looks at, no per-node
+## changes needed anywhere else) is what keeps the flat 2D overlay layer
+## (fog, hex grid, selection, labels) rotating in lockstep with the 3D
+## terrain's yaw.
 class_name CameraController
 extends Camera2D
 
@@ -13,10 +25,32 @@ const MAX_ZOOM := 4.0
 const ZOOM_STEP := 0.1
 const PAN_SPEED := 0.55 ## scales right-drag pan distance; 1.0 tracked the mouse 1:1 and felt too fast
 
+## Degrees of tilt per pixel of vertical shift-drag. Roughly a full MIN..MAX
+## sweep over a comfortable ~250px drag, matching PAN_SPEED's "not 1:1, but
+## not glacial either" feel.
+const TILT_DRAG_SPEED := 0.16
+const TILT_MIN_DEGREES := 8.0 ## near-vertical top-down; below this the ray-picking/parallax math (input_controller.gd, terrain skirt columns) still works but reads as barely-tilted at all
+const TILT_MAX_DEGREES := 45.0 ## past this the tilt-compensated 2D overlay (fog/hex grid) starts needing more vertical screen room than a typical viewport has to spare
+
+## Degrees of yaw per pixel of horizontal shift-drag — same feel as
+## TILT_DRAG_SPEED, no min/max clamp (wraps freely; a full compass spin is a
+## normal thing to do, unlike tilt which has real degenerate ends).
+const YAW_DRAG_SPEED := 0.16
+
 var _panning := false
 var _bounds_min := Vector2.ZERO
 var _bounds_max := Vector2.ZERO
 var _has_bounds := false
+
+## Read every frame by main.gd's _sync_camera_3d; defaults to whatever
+## TerrainView3D.CAMERA_TILT_DEGREES was tuned to, then adjustable at runtime
+## via shift-drag (see _unhandled_input).
+var tilt_degrees: float = TerrainView3D.CAMERA_TILT_DEGREES
+## Compass azimuth the camera looks down from, 0 = the map's authored default
+## (North-up, matching every other angle convention in this codebase — see
+## terrain_view_3d.gd's _atlas_for_position). Live-adjustable via shift-drag,
+## same as tilt_degrees.
+var yaw_degrees: float = 0.0
 
 ## Set by main.gd once PauseMenu exists. While it's open, pan/zoom input is
 ## ignored — relying solely on PauseMenu's full-rect Control to swallow the
@@ -51,7 +85,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom_by(-ZOOM_STEP)
 	elif event is InputEventMouseMotion and _panning:
-		position = _clamped_position(position - event.relative / zoom * PAN_SPEED)
+		if event.shift_pressed:
+			# Dragging up (negative relative.y) tilts toward a steeper, more
+			# top-down view; dragging down tilts toward a shallower, more
+			# oblique one — matches "pull the horizon down/up" intuition.
+			tilt_degrees = clampf(tilt_degrees - event.relative.y * TILT_DRAG_SPEED, TILT_MIN_DEGREES, TILT_MAX_DEGREES)
+			# Horizontal shift-drag orbits instead: dragging right swings the
+			# camera to look down from further clockwise around the map (the
+			# ground appears to rotate the other way under your cursor, same
+			# "grab the world and turn it" feel PAN_SPEED's plain drag already
+			# has — just rotating instead of sliding).
+			yaw_degrees = wrapf(yaw_degrees + event.relative.x * YAW_DRAG_SPEED, 0.0, 360.0)
+		else:
+			position = _clamped_position(position - event.relative / zoom * PAN_SPEED)
 
 func _zoom_by(delta: float) -> void:
 	var new_zoom: float = clampf(zoom.x + delta, MIN_ZOOM, MAX_ZOOM)

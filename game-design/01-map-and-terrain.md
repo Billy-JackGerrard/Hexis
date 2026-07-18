@@ -267,9 +267,25 @@ occupies a hex, and moves hex-to-hex:
   itself, see below) composites on top automatically. A `Node3D` under the
   `Node2D` scene root still renders into that shared `World3D`; only the
   `Camera3D`/light/`WorldEnvironment` matter, not the parent type. The
-  `Camera3D` is orthographic and pitched a fixed `CAMERA_TILT_DEGREES` (18°,
-  via `rotate_object_local` on the base top-down transform, applied once in
-  `_start_game`) off pure top-down, so buildings (real 3D now, see below)
+  `Camera3D` is orthographic and pitched off pure top-down — starting from
+  `TerrainView3D.CAMERA_TILT_DEGREES` (18°) but now **live-adjustable at
+  runtime**, not a one-time constant: holding Shift during a right-drag pan
+  repurposes that same drag into a full orbit — vertical mouse movement
+  adjusts pitch (`CameraController.tilt_degrees`, clamped 8°-45°),
+  horizontal movement adjusts yaw (`CameraController.yaw_degrees`, free to
+  wrap all the way around). Yaw was initially left out on the theory that
+  the flat 2D overlay (fog, hex grid, labels, selection) would need to
+  become rotation-aware too — it doesn't: `Camera2D.rotation` is a native
+  Godot property applied automatically to everything that camera looks at,
+  so setting it to match the 3D camera's yaw every frame is the entire
+  fix, no per-node changes anywhere else. `main.gd`'s `_sync_camera_3d`
+  rebuilds `Camera3D`'s rotation from a captured base (untilted, unyawed)
+  orientation every frame rather than compounding onto whatever rotation it
+  already has — yaw first (about the base orientation's own local Z axis,
+  which for a straight-down camera IS the world-vertical axis, so this
+  just changes which horizontal direction "tilt toward" means), then pitch
+  about the now-yawed local right axis — so the live angles can move
+  freely without drifting off-axis, and buildings (real 3D now, see below)
   show their fronts instead of just rooftops. A pitched ortho camera isn't
   a free change, though: it renders the ground plane as an *affine* of the
   flat top-down mapping — X scale unchanged, world-Z (screen-Y) scale
@@ -285,13 +301,19 @@ occupies a hex, and moves hex-to-hex:
   live where it can be per-axis: on the flat layer's own `Camera2D` (its
   `zoom` is a `Vector2`). So `main.gd`'s `_sync_camera_3d`, every frame:
   keeps `Camera3D.size` on the plain untilted formula (no cos) so its X
-  scale matches `Camera2D`'s; pulls `Camera3D.position.z` back by
-  `position.y * tan(tilt)` so the tilted forward ray centers on the same
-  ground pixel `Camera2D` does; and sets `Camera2D.zoom.y = zoom.x *
-  cos(tilt)` to compress the whole flat overlay vertically to match the
-  tilted ground. `CameraController` does all its pan/zoom math on `zoom.x`
-  and resets `zoom` uniformly on scroll, so re-applying `zoom.y` here every
-  frame is safe (self-heals the frame after a scroll). Real height still
+  scale matches `Camera2D`'s; pulls `Camera3D.position.xz` back along the
+  camera's own (yawed) backward direction by `position.y / cos(tilt)` so
+  the tilted forward ray centers on the same ground pixel `Camera2D`
+  does — generalizing the original fixed-north-only `height * tan(tilt)`
+  offset once yaw meant "backward" could point anywhere; sets
+  `Camera2D.zoom.y = zoom.x * cos(tilt)` to compress the whole flat overlay
+  vertically to match the tilted ground; and sets `Camera2D.rotation =
+  -yaw` to spin that same overlay to match. All three read the CURRENT
+  `CameraController.tilt_degrees`/`yaw_degrees`, so this recompensates
+  automatically as the live angles change, not just once at startup.
+  `CameraController` does all its pan/zoom math on `zoom.x` and resets
+  `zoom` uniformly on scroll, so re-applying `zoom.y` here every frame is
+  safe (self-heals the frame after a scroll). Real height still
   parallax-leans under the tilt — a tall building's roof leans off its
   footprint — but that's intentional, it's the whole reason to tilt; only
   ground-level (y=0) content is guaranteed locked, not a mesh's full
@@ -358,13 +380,27 @@ occupies a hex, and moves hex-to-hex:
   "subtle detail" would suggest because the art is flat-shaded and fully
   saturated — there is no shading gradient for a gentle modulation to ride on,
   and at ~10% the variation was measurably present but visually invisible.
-  On top of that, a minority of hexes swap to one of the pack's seasonal atlas
-  recolors (`hexagons_medieval_Fall.png`/`_Summer.png` — same UV layout,
-  genuinely different colour grading, not a multiply-tint), chosen from the
-  tails of one low-frequency noise field so they form contiguous regions
-  rather than scattered single hexes; Winter's atlas is excluded (a literal
-  snow-white recolor, would read as random snow patches). The two compose:
-  broad seasonal regions, with per-surface grain inside them.
+  On top of that, every hex swaps to one of the pack's seasonal atlas recolors
+  (`hexagons_medieval_{Fall,Summer,Winter}.png` — same UV layout, genuinely
+  different colour grading, not a multiply-tint) or stays on the default. The
+  two compose: broad seasonal regions, with per-surface grain inside them.
+  Regions are **fixed compass quadrants**, not randomly placed: North is
+  always Winter, South always Summer, East always Fall, West stays the
+  default atlas (there's no shipped "Spring" swatch, so default fills that
+  slot — it already reads as the fresh/green option). This reverses an
+  earlier version that picked regions purely from noise with Winter excluded
+  outright, because a literal snow-white recolor landing at a random spot in
+  the middle of the map read as an unexplained patch of snow. Pinning it to
+  one fixed edge of the world is what makes it legible as "the cold end of
+  the map" instead of a bug — which is also what makes it safe to bring back
+  in at all. Purely cosmetic regardless: no stat, vision, or cost ever reads
+  season, and Capital sites are placed by random search with no fixed
+  angular slot per player, so no player sits systematically closer to one
+  quadrant than another. The boundary between quadrants is still organic, not
+  a pie-slice cut — the classifying angle is computed from each hex's
+  position plus an offset drawn from the same noise field used for ground
+  grain, so it meanders across the field's ~26-hex period instead of running
+  dead straight through the map center.
   Two carve-outs keep a region from cutting features in half:
   **River plates take the swap** (so a river's banks are the same ground as the
   land they run through, instead of a green ribbon crossing an autumn region)
@@ -379,10 +415,30 @@ occupies a hex, and moves hex-to-hex:
   physically raised with lit side walls, so a boundary through one massif reads
   as two different massifs jammed together along a hard seam. The noise period
   (~26 hexes) is wider than a typical patch, so the centroid's region is also
-  almost always the one the surrounding land is in. The hill/mountain decoration
-  meshes get the same swap as their plate — they're grass-topped mounds drawn
-  from the same atlas and cover most of their hex, so left unswapped a range
-  stays default green on autumn ground.
+  almost always the one the surrounding land is in.
+  **Forest does the same, per patch**, sharing the flood-fill pass that
+  already picks tree species (below) — a wood's trees are drawn from the same
+  atlas as the plate under them, so left unswapped a stand stayed uniformly
+  default green regardless of which region it stood in (a green wood in the
+  middle of a snowy quadrant). The hill/mountain and tree decoration meshes
+  both get the same swap as their plate — they cover most of their hex, so
+  left unswapped a cluster reads as belonging to a different map than the
+  ground it stands on.
+  **The patch-centroid sample can still disagree with its own rim**, though:
+  a large or elongated patch's centroid can land in a different compass
+  quadrant than a lowland hex sampling its own position right at the
+  patch's edge, so the internally-consistent patch colour meets a
+  differently-seasoned neighbour one hex outside it — the seam just moves
+  from inside the massif to the massif's own boundary instead of being
+  removed (reported as a hill or its ramp "not matching the region it's
+  in"). `TerrainView3D._extend_biome_atlas_to_fringe` closes this: every
+  Forest/Hills patch copies its own pinned atlas onto its immediate
+  non-Forest/Hills neighbours (anything that would otherwise fall back to a
+  per-hex sample), so the lowland ring touching a patch always matches it
+  exactly. The tradeoff lands on the smallest possible area — one hex deep,
+  and only next to a patch — and costs nothing visible, since flat ground
+  has none of the raised geometry that makes a colour seam read as "wrong
+  place" the way it does on a hillside.
 - **Biome decoration**: Forest/Hills get a `decoration/nature/` cluster mesh on
   top of the ground plate — Hills picks among 6 variants (`hills_{A,B,C}` +
   their `_trees` siblings) purely per-hex, swapping to the larger `mountain_*`
@@ -431,23 +487,40 @@ occupies a hex, and moves hex-to-hex:
   that's a dead end instead — `river_connection_mask` popcount ≤ 1, a
   source/mouth this pack has no dedicated spring/waterfall mesh for, so the
   channel just stops flat against the hex edge — always (not rolled) gets 2
-  shore props, dressing the abrupt cut up as a marshy pond instead. None of
-  this is true geometric bank blending: this pack has no land/water
-  transition mesh (`hex_transition.gltf`'s blend behavior is unconfirmed and
-  unused), so it's a cheap visual mitigation, not a fix. On top of the rolled
-  decor, **every river-to-land edge now gets banks unconditionally** — shore
-  props laid along the seam itself rather than scattered on the hex, so the
-  hard line where the channel meets grass reads as a silted, reedy edge. Not
-  rolled against a chance: banks appearing on only some edges read as a bug
-  rather than as variety. **`tiles/coast/` is no longer out of scope** — those
+  shore prop, dressing the abrupt cut up as a marshy pond instead. On top of
+  the rolled decor, **every river-to-land edge now gets one bank prop
+  unconditionally** — a shore prop laid along the seam itself rather than
+  scattered on the hex, so the hard line where the channel meets grass reads
+  as a silted, reedy edge. Not rolled against a chance: banks appearing on
+  only some edges read as a bug rather than as variety. Cut back from an
+  earlier 2-per-edge at a wider offset after it read as a near-continuous
+  hedge along every river — fewer, smaller, and closer to the waterline
+  instead, so the fringe reads as light bank growth rather than its own
+  feature. **`tiles/coast/` is no longer out of scope** — those
   meshes now render beaches on Ocean-adjacent lowland land, resolved through
   the same `TerrainTileResolver` as river/road tiles against a new
   `TerrainTileDefs.COAST_MASKS` (derived by `tools/analyze_terrain_meshes.gd`,
   which now analyses the coast set too). That set is sparse — 2-, 3- and
   6-edge shapes only — so a hex with a single Ocean neighbour falls back to
   the resolver's superset match and renders one extra sand edge abutting land;
-  cheap, and it never hides a real shoreline. A river's actual
-  *path* being mechanically straight in places is a separate, sim-side
+  cheap, and it never hides a real shoreline.
+  **The Ocean side of that same seam was briefly also covered**, via
+  `hex_transition.gltf` seated on the water hex facing whichever land it
+  touched — since removed. Every land hex touching Ocean at elevation 0
+  unconditionally qualifies as a beach (the coast gate above), so it was
+  already drawing its own dip toward the water on that exact edge; the
+  transition mesh was a second, independently authored dip drawn right
+  against the first, and the two don't share a profile, so the seam between
+  them showed as a visible crack at any oblique camera tilt — reported as
+  "the hex transition thing looks bad on the ocean because it doesn't sync
+  up" even after an earlier pass had already fixed the literal Z-fight from
+  placing it alongside the plain water plate. The only land-Ocean edges with
+  no coast mesh on the land side are raised (cliff) hexes, per the coast
+  gate's elevation-0 requirement — and a sheer rock face meeting flush open
+  water needs no sand blend; that already reads as a rocky coastline.
+  Every case was therefore already covered by one mesh or the other, so
+  Ocean hexes now always render the plain `hex_water` plate, full stop.
+  A river's actual *path* being mechanically straight in places is a separate, sim-side
   worldgen concern (`sim/worldgen/`, not this rendering layer) — noted here
   as a known follow-up, not yet addressed.
 - **Buildings are real 3D too**: `client/buildings/building_view_3d.gd`
@@ -461,7 +534,12 @@ occupies a hex, and moves hex-to-hex:
   connection-mask resolver, not built yet) and Landmine (stealthed — a
   visible 3D prop would leak a hidden mine past its detection gate) stay 2D,
   drawn by `base_view.gd` as before; Road/Bridge are already 3D via
-  `TerrainView3D`'s own infrastructure poll. A building's level shows up
+  `TerrainView3D`'s own infrastructure poll. Every building mesh also carries
+  a flat `BuildingMeshDefs.BASE_SCALE` (0.8) under its per-level growth —
+  buildings read oversized relative to squads/hex size at the pack's native
+  scale, so this shrinks all of them uniformly (a level-7 building is still
+  bigger than a level-1 one, just from a smaller starting point) rather than
+  compressing the per-level growth curve itself. A building's level shows up
   visually two ways: a small universal scale bump on every mesh, and — per
   this doc's Harbour/Farm/Mine visual spec (`02-bases-and-buildings.md`) —
   extra decoration props scattered around it as it levels up (Harbour's own
@@ -499,6 +577,47 @@ occupies a hex, and moves hex-to-hex:
 - Fog of war as a shader/overlay pass (darkened/desaturated unexplored, grayed "explored
   but not visible") — a 2D concern (`client/fog_of_war.gd`), unaffected by the
   terrain layer's move to 3D since it composites over everything regardless.
+  The visible cloud bank is a screen-bounded `MultiMesh` layer, repacked only
+  when the camera moves far enough (`PROP_CAM_REFRESH_PIXELS`) rather than
+  every frame — cheap, but only correct if that threshold stays well under the
+  off-screen buffer margin (`PROP_MARGIN_HEXES`) props are pre-placed within.
+  A fixed 150px threshold against a 96px margin (3 hexes) had that backwards:
+  a fast continuous pan outran the buffer before a repack fired, so the
+  newly-revealed screen edge briefly showed bare, cloud-less ground. Fixed by
+  deriving the threshold from the margin itself (a fraction of its pixel
+  budget) instead of two independently-tuned constants that could silently
+  drift back out of the required relationship.
+  **Explored-but-not-visible haze was too opaque and, worse, hid buildings
+  it had no business hiding**: `haze_alpha` and `EXPLORED_PROP_ALPHA` were
+  both cut, but the real fix is in `fog_cloud.gdshader` — the occlusion
+  plane sits `depth_test_disabled` (deliberately, so full unexplored fog
+  can't be defeated by something tall poking through it) which meant the
+  light haze case painted over EVERY pixel at that screen position
+  regardless of height, dimming a scouted base's rooftop exactly as much as
+  the bare ground beside it. The shader now reads the scene's own depth
+  buffer (`hint_depth_texture`) and compares it against this fragment's own
+  depth: wherever the opaque pass already drew something nearer than this
+  near-ground sheet — a building, a tree, a hillside — the haze
+  contribution (not the unexplored one) is suppressed at that pixel, so a
+  remembered base reads clearly through the veil while true fog-of-war
+  blackout is untouched.
+- **Squads climbing a cliff terrace could render inside solid ground and
+  disappear.** `SquadView3D._place` originally lerped world Y linearly
+  between two hexes' surface heights using `edgeProgress` — correct for a
+  real sloped ramp (see Elevation above: only the first step up from
+  lowland gets one), but every step above that is a flat plate with a sheer
+  face and nothing in between for a straight lerp to follow. Mid-climb, the
+  squad's XZ position was already over the FAR hex's footprint well before
+  `edgeProgress` reached 1, at a Y still short of that hex's real plateau
+  top — rendered inside the terrace block, hidden behind its own opaque
+  surface for most of the climb. Fixed by giving Y its own progress,
+  separate from XZ: for any edge with no visual ramp connecting the two
+  hexes (`SquadView3D._has_visual_ramp`, mirroring `TerrainView3D`'s own
+  ramp rule), Y snaps from one hex's height to the other's at the
+  hex-boundary midpoint instead of interpolating, so it's always standing
+  on one real surface or the other. XZ stays a plain lerp, so lateral
+  motion is still smooth; the height pop lands right at the moment they'd
+  otherwise be climbing through the cliff face, not mid-approach.
 
 ### Original 2.5D plan (superseded for terrain — see above; still the plan for bases/squads/projectiles)
 - **Godot, 2D sprite-based** (see `10-tech-stack-and-build-order.md` for the engine
