@@ -202,14 +202,26 @@ static func obstacle_height(terrain: Type, elevation: int) -> float:
 ## Air flies over everything and Naval only ever moves across lowland water,
 ## so both are exempt. Descending or staying level is free — see
 ## SLOPE_ASCENT_COST_PER_LEVEL for why this never returns a negative.
+##
+## Land vehicles can only ever climb via the one edge TerrainView3D actually
+## renders a ramp on — lowland straight up to Tuning.HILLS_RIM_ELEVATION (see
+## that class's _ramp_low_direction doc comment: every step above the rim is
+## a flat plate with a sheer face, not a slope). Every other upward step is
+## impassable to them regardless of CLIFF_ELEVATION_DELTA, which still governs
+## Infantry alone — a vehicle can't drive up a terrace it has no wheels/tracks
+## for, even a single climbable-on-foot level like rim-to-peak.
 static func elevation_step_cost(from_level: int, to_level: int, domain: Domain) -> float:
 	if domain == Domain.AIR or domain == Domain.NAVAL:
 		return 0.0
 	var delta := to_level - from_level
-	if delta >= CLIFF_ELEVATION_DELTA:
-		return INF
 	if delta <= 0:
 		return 0.0
+	if domain == Domain.LAND:
+		if from_level == 0 and to_level == Tuning.HILLS_RIM_ELEVATION:
+			return float(delta) * SLOPE_ASCENT_COST_PER_LEVEL
+		return INF
+	if delta >= CLIFF_ELEVATION_DELTA:
+		return INF
 	return float(delta) * SLOPE_ASCENT_COST_PER_LEVEL
 
 ## Received-damage multiplier for standing on this terrain — Hills give

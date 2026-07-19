@@ -99,10 +99,15 @@ Sibling to `sim/`, never the reverse.
   the same way the old flat shape did). Y is its own separate progress from
   XZ whenever an edge climbs a terrace with no visual ramp between the two
   hexes (`_has_visual_ramp`, mirroring `terrain_view_3d.gd`'s own ramp
-  rule): it snaps at the hex-boundary midpoint instead of lerping, because a
-  straight Y lerp put a mid-climb squad's XZ over the far hex's footprint
-  before its Y caught up to that hex's real plateau height — rendered
-  inside the solid terrace, invisible for most of the climb. One mesh (or
+  rule — Infantry-only in practice now, since Land vehicles are blocked
+  from these edges entirely, see `01-map-and-terrain.md`'s Elevation
+  section): XZ freezes at the shared edge for `CLIMB_WINDOW` while Y eases
+  across, reading as a quick climb over the ledge, then XZ resumes into the
+  new hex. A straight Y lerp originally put a mid-climb squad's XZ over the
+  far hex's footprint before its Y caught up to that hex's real plateau
+  height — rendered inside the solid terrace, invisible for most of the
+  climb; an instant snap at the midpoint fixed the disappearing but still
+  read as an unexplained teleport, which the climb window fixes. One mesh (or
   small fixed composite) per `Terrain.Domain`, not per troop_type: this
   asset pack is a generic medieval army kit with no per-troop-type models at
   all, so Infantry is the pack's plain body mesh (`unit`) topped with a

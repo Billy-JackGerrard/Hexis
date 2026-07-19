@@ -183,12 +183,20 @@ static func generate_rivers(grid: HexGrid, radius: int, world_seed: int, player_
 	var inset_radius: int = max(radius - Tuning.RIVER_MIN_LENGTH, 0)
 
 	# Rivers reading as starting in the highlands: draw sources directly from
-	# the Hills tiles already on the grid (runs after the biome pass above)
-	# within the same inland inset every source has to respect anyway, so
-	# nearly every river starts on Hills rather than only the ones lucky
-	# enough to land within a short snap radius of one.
+	# every Hills tile on the grid (runs after the biome pass above), not just
+	# ones within the inland inset — a Hills patch can legitimately seed
+	# anywhere up to Tuning.BIOME_EDGE_BUFFER off the coast, so restricting
+	# candidates to `inset_radius` could leave a map with real Hills, just
+	# none of them inland enough, and silently fall through to the random,
+	# not-on-Hills source below even though "always start on Hills" is the
+	# whole point. Scanning the whole grid means that fallback now only ever
+	# fires when there is truly no Hills tile anywhere (a hills-poor map, or
+	# a caller/test exercising this on bare terrain) — a slightly-short river
+	# starting near the coast on a real Hills tile beats a full-length one
+	# that doesn't start on Hills at all.
 	var hill_candidates: Array[HexCoord] = []
-	for hex in HexCoord.range_within(origin, inset_radius):
+	for key in grid.hex_keys():
+		var hex := HexCoord.from_key(key)
 		if grid.get_terrain(hex) == Terrain.Type.HILLS:
 			hill_candidates.append(hex)
 

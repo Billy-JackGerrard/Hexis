@@ -74,6 +74,22 @@ const GROUND_SLOPE_MESH := BASE_DIR + "hex_grass_sloped_high.gltf"
 ## check, or vision sightline is affected by it.
 const WATER_SURFACE_DROP := 0.3
 
+## Lightens the plain water plate on Ocean hexes near land, fading out over
+## SHALLOW_WATER_RINGS hexes — a "shallows" band around every coastline, so
+## the hard hex-shaped boundary between a flat, uniformly deep-blue Ocean
+## plate and the beach mesh's own lighter, gradient-into-water shelf isn't
+## a sudden colour jump right at the true hex edges. A single hard-edged
+## ring (the first version of this) made it WORSE, not better: one ring of
+## light tint next to untouched deep blue just moves the jagged colour
+## seam outward by one hex and adds a second, equally hard boundary between
+## the tinted ring and the water beyond it. Fading gradually across several
+## rings instead means neighbouring hexes' colours are always close to each
+## other, so no single edge stands out — a real distance-to-shore gradient
+## would do this per-pixel, but a few discrete rings is a cheap, good-enough
+## approximation of it at this map's hex size.
+const SHALLOW_WATER_TINT := Color(1.35, 1.45, 1.4, 1.0) ## at the shore (ring 0)
+const SHALLOW_WATER_RINGS := 4 ## rings out from shore before fading to no tint at all
+
 ## Procedural surface-detail shader applied to every land ground plate — see
 ## the shader file's own header for what it does and why the noise is evaluated
 ## in world space. This is what replaced the Plains prop scatter.
@@ -191,7 +207,21 @@ const OCEAN_DECOR_CHANCE := 0.12
 ## any per-hex roll, force a cluster of shore props aimed
 ## squarely at that dead-end edge to plug the channel mouth, so it reads as a
 ## marshy spring/pond instead of a mechanical stop.
-const RIVER_END_DECOR_COUNT := 3
+##
+## Waterlilies, not just RIVER_DECOR's thin reed blades: since every source
+## now starts on a Hills tile (see TerrainGenerator.generate_rivers), it sits
+## right next to that patch's own oversized rock/mountain decoration
+## (HILLS_DECOR_SCALE/PEAK_DECOR_SCALE) — thin, unscaled reeds at their
+## normal size were getting visually swallowed next to that, so the channel
+## still read as just stopping dead with nothing marking it. Round lily pads
+## read at a glance even next to a rock cluster, and RIVER_END_DECOR_SCALE
+## bumps the whole cluster up rather than relying on prop choice alone.
+const RIVER_SOURCE_DECOR := [
+	NATURE_DIR + "waterlily_A.gltf", NATURE_DIR + "waterlily_B.gltf",
+	NATURE_DIR + "waterplant_A.gltf", NATURE_DIR + "waterplant_B.gltf", NATURE_DIR + "waterplant_C.gltf",
+]
+const RIVER_END_DECOR_COUNT := 5 ## up from 3 — needs to read as a small pond, not a couple of stray reeds
+const RIVER_END_DECOR_SCALE := 1.8
 const RIVER_END_EDGE_OFFSET := 0.8 ## world units from hex center toward the dead-end edge (hex apothem is ~1.0 world unit) — puts the props over the channel mouth
 const RIVER_END_EDGE_SPREAD := 0.55 ## world units the cluster fans out ALONG the edge, so it covers the full channel width rather than a single point
 
@@ -360,6 +390,7 @@ var hexes: Array[HexCoord] = []
 var _known_infrastructure: Dictionary = {} ## hex key -> Terrain.Infrastructure
 var _road_nodes: Dictionary = {} ## hex key -> Node3D (the dynamic Road/Bridge instance at that hex, if any)
 var _forest_depth: Dictionary = {} ## hex key -> int, see _compute_forest_depth
+var _ocean_shore_dist: Dictionary = {} ## hex key -> int, Ocean hexes only, see _compute_ocean_shore_distance
 var _forest_species: Dictionary = {} ## hex key -> "A"/"B", see _compute_forest_patches
 var _biome_atlas: Dictionary = {} ## hex key -> atlas path, Forest/Hills only, see _compute_forest_patches/_compute_hills_atlas
 var _ground_shader: Shader ## GROUND_DETAIL_SHADER, loaded once
@@ -390,6 +421,7 @@ func setup(p_grid: HexGrid, p_hexes: Array[HexCoord], p_world_seed: int = 0) -> 
 	# layering) keeps only the smooth large-scale shape.
 	_ground_noise.fractal_octaves = 1
 	_compute_forest_depth()
+	_compute_ocean_shore_distance()
 	# Shared by both: Forest and Hills patches write into the same _biome_atlas
 	# map (each hex belongs to at most one terrain type, so there's no
 	# collision), reset once here rather than by whichever call happens to run
@@ -554,6 +586,36 @@ func _compute_forest_depth() -> void:
 		frontier = next_frontier
 		depth += 1
 
+## Multi-source BFS distance transform, same shape as _compute_forest_depth:
+## every Ocean hex touching land is shore-distance 0; everything else is 1 +
+## the minimum of its Ocean neighbours', capped at SHALLOW_WATER_RINGS (hexes
+## past that just never get an entry, since _place_static's lookup already
+## treats "no entry" as "no tint"). See SHALLOW_WATER_TINT.
+func _compute_ocean_shore_distance() -> void:
+	_ocean_shore_dist.clear()
+	var frontier: Array[HexCoord] = []
+	for hex in hexes:
+		if grid.get_terrain(hex) != Terrain.Type.OCEAN:
+			continue
+		var touches_land := false
+		for n in HexCoord.neighbors(hex):
+			if grid.has_hex(n) and grid.get_terrain(n) != Terrain.Type.OCEAN:
+				touches_land = true
+				break
+		if touches_land:
+			_ocean_shore_dist[hex.to_key()] = 0
+			frontier.append(hex)
+	var dist := 0
+	while not frontier.is_empty() and dist < SHALLOW_WATER_RINGS - 1:
+		var next_frontier: Array[HexCoord] = []
+		for hex in frontier:
+			for n in HexCoord.neighbors(hex):
+				if grid.has_hex(n) and grid.get_terrain(n) == Terrain.Type.OCEAN and not _ocean_shore_dist.has(n.to_key()):
+					_ocean_shore_dist[n.to_key()] = dist + 1
+					next_frontier.append(n)
+		frontier = next_frontier
+		dist += 1
+
 func _process(_delta: float) -> void:
 	if grid == null:
 		return
@@ -674,6 +736,9 @@ func _place_static(hex: HexCoord) -> void:
 		# since it's all water and there's nothing on it to match to the land.
 		var has_water_uv := terrain == Terrain.Type.RIVER or mesh_path.begins_with(COAST_MESH_PREFIX)
 		_maybe_swap_ground_texture(node, hex, has_water_uv)
+	elif _ocean_shore_dist.has(hex.to_key()):
+		var shore_t := float(_ocean_shore_dist[hex.to_key()]) / float(SHALLOW_WATER_RINGS - 1)
+		_apply_shallow_water_tint(node, SHALLOW_WATER_TINT.lerp(Color.WHITE, shore_t))
 	add_child(node)
 	# Underside of what was just placed: a flat plate's body is 1.0 tall, a
 	# scaled ramp's reaches a full step below its seat.
@@ -803,6 +868,24 @@ func _apply_ground_texture(node: Node, tex: Texture2D, preserve_water: bool = fa
 			mesh_instance.set_surface_override_material(i, _ground_material(tex, tint, preserve_water))
 	for child in node.get_children():
 		_apply_ground_texture(child, tex, preserve_water)
+
+## Tints a plain water plate — see SHALLOW_WATER_TINT. A simple per-surface
+## BaseMaterial3D duplicate rather than a cached ShaderMaterial like
+## _ground_material: `tint` varies continuously by shore distance (see the
+## caller), so there's no small fixed set of values worth caching, and only
+## the minority of Ocean hexes near land ever call this at all.
+func _apply_shallow_water_tint(node: Node, tint: Color) -> void:
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		for i in range(mesh_instance.mesh.get_surface_count()):
+			var mat := mesh_instance.mesh.surface_get_material(i)
+			if mat == null or not (mat is BaseMaterial3D):
+				continue
+			var tinted := (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
+			tinted.albedo_color = tint
+			mesh_instance.set_surface_override_material(i, tinted)
+	for child in node.get_children():
+		_apply_shallow_water_tint(child, tint)
 
 func _ground_material(tex: Texture2D, tint: Color, preserve_water: bool) -> ShaderMaterial:
 	var key := "%s|%s|%s" % [tex.resource_path, tint, preserve_water]
@@ -941,7 +1024,7 @@ func _place_river_end_decoration(hex: HexCoord, river_mask: int) -> void:
 		edge_dir = (HexView.axial_to_pixel(nb) - HexView.axial_to_pixel(hex)).normalized()
 		along = Vector2(-edge_dir.y, edge_dir.x)
 	for i in range(RIVER_END_DECOR_COUNT):
-		var mesh_path: String = RenderUtil.pick2d(hex.q, hex.r, SALT_RIVER_END_MESH + i, RIVER_DECOR)
+		var mesh_path: String = RenderUtil.pick2d(hex.q, hex.r, SALT_RIVER_END_MESH + i, RIVER_SOURCE_DECOR)
 		var offset: Vector2
 		if dead_dir >= 0:
 			var t := float(i) / float(maxi(RIVER_END_DECOR_COUNT - 1, 1)) - 0.5 ## -0.5..0.5 across the edge
@@ -952,6 +1035,7 @@ func _place_river_end_decoration(hex: HexCoord, river_mask: int) -> void:
 		if node == null:
 			continue
 		node.position += Vector3(offset.x, 0.0, offset.y)
+		node.scale = Vector3.ONE * RIVER_END_DECOR_SCALE
 		add_child(node)
 
 ## The dead-end edge direction (index into HexCoord.DIRECTIONS) of a river hex

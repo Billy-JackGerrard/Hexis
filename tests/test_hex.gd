@@ -243,20 +243,29 @@ func _test_elevation() -> void:
 		grid.set_terrain(hex, Terrain.Type.PLAINS)
 	_check(grid.get_elevation(low) == 0, "a hex with no elevation set reads as lowland 0, so pre-elevation grids behave exactly as they did when the map was flat")
 
-	grid.set_elevation(slope, 1)
-	grid.set_elevation(peak, 2)
+	grid.set_elevation(slope, Tuning.HILLS_RIM_ELEVATION)
+	grid.set_elevation(peak, Tuning.HILLS_PEAK_ELEVATION)
 
 	var flat_cost := Terrain.cost(Terrain.Type.PLAINS, Terrain.Domain.INFANTRY)
 
 	# One level up is a slope: passable, but slower by
 	# SLOPE_ASCENT_COST_PER_LEVEL on top of the terrain's own cost.
 	_check(grid.edge_cost(low, slope, Terrain.Domain.INFANTRY) == flat_cost + Terrain.SLOPE_ASCENT_COST_PER_LEVEL, "climbing one elevation level costs the terrain cost plus SLOPE_ASCENT_COST_PER_LEVEL")
-	_check(grid.edge_cost(slope, peak, Terrain.Domain.LAND) == flat_cost + Terrain.SLOPE_ASCENT_COST_PER_LEVEL, "Land vehicles pay the same ascent cost as Infantry")
+	# Land vehicles only ever climb via a rendered ramp — lowland straight up
+	# to HILLS_RIM_ELEVATION, the one edge TerrainView3D slopes — so they pay
+	# the same ascent cost as Infantry there...
+	_check(grid.edge_cost(low, slope, Terrain.Domain.LAND) == flat_cost + Terrain.SLOPE_ASCENT_COST_PER_LEVEL, "Land vehicles can climb the lowland-to-rim slope, same cost as Infantry")
+	# ...but rim-to-peak is a single elevation level too (climbable on foot,
+	# under CLIFF_ELEVATION_DELTA), with no ramp mesh rendered on it — a
+	# vehicle simply has no way to drive up it, unlike Infantry.
+	_check(grid.edge_cost(slope, peak, Terrain.Domain.INFANTRY) == flat_cost + Terrain.SLOPE_ASCENT_COST_PER_LEVEL, "Infantry can still climb rim-to-peak on foot, one level")
+	_check(grid.edge_cost(slope, peak, Terrain.Domain.LAND) == Terrain.INF, "Land vehicles cannot climb rim-to-peak — no ramp there, even though it's only one level")
 
 	# Descending is free — never a discount, since find_path's heuristic assumes
 	# a minimum step cost of 1.0 and would stop being admissible below it.
 	_check(grid.edge_cost(slope, low, Terrain.Domain.INFANTRY) == flat_cost, "descending a slope costs the plain terrain cost — no ascent penalty")
 	_check(grid.edge_cost(peak, slope, Terrain.Domain.INFANTRY) == flat_cost, "descending is never cheaper than flat ground, so the A* heuristic stays admissible")
+	_check(grid.edge_cost(peak, slope, Terrain.Domain.LAND) == flat_cost, "Land vehicles descend freely too — the ramp restriction only ever blocks climbing")
 
 	# Two levels up is a cliff: blocked for ground domains, one way only.
 	_check(grid.edge_cost(low, peak, Terrain.Domain.INFANTRY) == Terrain.INF, "a two-level step up is a cliff face — Infantry cannot scale it")
@@ -272,6 +281,13 @@ func _test_elevation() -> void:
 	# "go up from a different direction" property cliffs exist to create.
 	var path := grid.find_path(low, peak, Terrain.Domain.INFANTRY)
 	_check(path.size() == 3 and path[1].equals(slope), "A* routes around the cliff face and up the slope instead, reaching the peak the long way")
+
+	# A Land vehicle can reach the rim (via the ramp) but this fixture's peak
+	# has no ramp edge onto it at all, so it's genuinely unreachable for Land —
+	# unlike Infantry, which gets there via the same detour above.
+	_check(grid.find_path(low, peak, Terrain.Domain.LAND).is_empty(), "with no ramp onto the peak, a Land vehicle can't reach it even by detour")
+	var land_path := grid.find_path(low, slope, Terrain.Domain.LAND)
+	_check(land_path.size() == 2 and land_path[1].equals(slope), "a Land vehicle can still reach the rim directly, over its one ramp edge")
 
 	# With no ramp at all, the peak is genuinely unreachable on foot.
 	var sealed_grid := HexGrid.new()

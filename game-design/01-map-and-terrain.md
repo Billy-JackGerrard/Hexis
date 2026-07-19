@@ -72,7 +72,7 @@ the same amount of high ground and merely repackaged it into chunkier lumps.
 |---|---|---|---|---|---|---|
 | **Plains** | Normal | Normal | N/A | Normal | Normal | Yes (only buildable terrain, and majority of tiles) |
 | **Forest** | Normal | **Blocked** unless a Road is built through it | N/A | Normal | **Reduced** (own tile halved; also blocks sightlines passing through it) | No (except Treehouse's buildings — forest tiles) |
-| **Hills** | Slowed | Normal | N/A | Normal | **Extended** (see Elevation — height grants bonus range and clears sightlines over lower ground) | No (except Windy Peaks' buildings — hill tiles) |
+| **Hills** | Slowed | Normal on the flat, but see Elevation below — climbing is a separate, much stricter rule for vehicles | N/A | Normal | **Extended** (see Elevation — height grants bonus range and clears sightlines over lower ground) | No (except Windy Peaks' buildings — hill tiles) |
 | **River** | **Blocked** unless a Bridge is built | **Blocked** unless a Bridge is built | Fully passable | Normal | Normal | No |
 | **Ocean** | **Blocked** | **Blocked** | Fully passable | Normal | Normal | No |
 
@@ -98,19 +98,34 @@ height, which turns the edge they share with the lowland outside into a two-leve
 What matters for play is the *difference* between adjacent hexes, not either one's own
 height:
 
-| Step | Effect on Infantry / Land | Air / Naval |
-|---|---|---|
-| Level, or downhill | Terrain cost only — descending is never *cheaper* than flat ground | Unaffected |
-| **Up one level (slope)** | Terrain cost **plus** a flat ascent penalty — hills take longer to climb | Unaffected |
-| **Up two levels (cliff)** | **Impassable.** No Road, Bridge or `terrainOverrides` flag clears it | Unaffected |
+| Step | Effect on Infantry | Effect on Land Vehicles | Air / Naval |
+|---|---|---|---|
+| Level, or downhill | Terrain cost only — descending is never *cheaper* than flat ground | Same as Infantry — the ramp restriction below only ever blocks climbing | Unaffected |
+| **Up one level, on the rendered ramp** (lowland straight up to a Hills patch's rim) | Terrain cost **plus** a flat ascent penalty | Same ascent penalty as Infantry — this is the one edge a vehicle can climb at all | Unaffected |
+| **Up one level, anywhere else** (e.g. rim-to-peak) | Terrain cost plus the same ascent penalty — still just a slope on foot | **Impassable.** No Road, Bridge or `terrainOverrides` flag clears it — a vehicle has no way to drive up a terrace face even one level, ramp or not | Unaffected |
+| **Up two levels (cliff)** | **Impassable.** No Road, Bridge or `terrainOverrides` flag clears it | **Impassable**, same as Infantry | Unaffected |
 
 Cliffs are **directional**: the same edge is legal downhill. So a plateau can be sheer
 on some sides and ramped on others — ground troops must walk around and come up from a
 different direction, which is exactly the tactical shape cliffs exist to create, and it
-makes Air genuinely more useful. Worldgen guarantees this is never a dead end: a repair
-pass walks out from lowland and demotes anything it could not reach, so **every raised
-hex is always climbable from somewhere**. That invariant is asserted per-seed in
-`tests/test_map_generation.gd`.
+makes Air genuinely more useful. Worldgen guarantees this is never a dead end **for
+Infantry**: a repair pass walks out from lowland and demotes anything it could not
+reach, so every raised hex is always climbable on foot from somewhere — that invariant
+is asserted per-seed in `tests/test_map_generation.gd`, and is deliberately unaffected
+by the Land-vehicle ramp rule below (it's a foot-reachability guarantee only; a Land
+vehicle can be genuinely unable to reach an interior plateau if the map placed no ramp
+directly onto it, and that's expected — Infantry or Air get there instead).
+
+**Land vehicles can only ever climb via an actual rendered ramp** — the single edge
+`TerrainView3D` slopes, straight from lowland up to a Hills patch's rim (see Rendering
+Notes below: every step above the rim is a flat terrace with a sheer face, not a
+slope). This is stricter than the terrain-cost table above, which treats any one-level
+step as equally climbable regardless of domain — a vehicle simply has no way to drive
+up a terrace it has no rendered ramp for, even a single level that Infantry crosses on
+foot without a second thought (rim-to-peak, for instance). `Terrain.elevation_step_cost`
+is where this is enforced (`Domain.LAND` is checked against the exact
+`Tuning.HILLS_RIM_ELEVATION` edge before falling through to the ordinary cliff-delta
+rule everyone else uses).
 
 Ascent cost is only ever *added*, never discounted below flat-ground cost — `find_path`'s
 heuristic is plain hex distance and would stop being admissible if any step could cost
@@ -486,8 +501,20 @@ occupies a hex, and moves hex-to-hex:
   highway, ground block unless bridged). A River hex
   that's a dead end instead — `river_connection_mask` popcount ≤ 1, a
   source/mouth this pack has no dedicated spring/waterfall mesh for, so the
-  channel just stops flat against the hex edge — always (not rolled) gets 2
-  shore prop, dressing the abrupt cut up as a marshy pond instead. On top of
+  channel just stops flat against the hex edge — always (not rolled) gets a
+  cluster of `RIVER_END_DECOR_COUNT` (5) props, scaled up
+  (`RIVER_END_DECOR_SCALE`) and drawn from a dedicated waterlily-plus-reed
+  table (`RIVER_SOURCE_DECOR`) rather than the plain reed set, dressing the
+  abrupt cut up as a marshy pond instead. Every river source is now also
+  guaranteed to sit on a Hills tile (`TerrainGenerator.generate_rivers`
+  scans the WHOLE grid for Hills candidates, not just the ones already
+  within the inland inset a source has to respect — a Hills patch can
+  legitimately seed close enough to the coast to fall outside that inset,
+  which silently produced a handful of non-Hills sources before). That
+  neighbours the source with a Hills patch's own oversized rock/mountain
+  decoration, which was swallowing the original unscaled reed props
+  entirely — bigger, rounder lily pads plus the scale bump is what actually
+  keeps the pond legible next to that. On top of
   the rolled decor, **every river-to-land edge now gets one bank prop
   unconditionally** — a shore prop laid along the seam itself rather than
   scattered on the hex, so the hard line where the channel meets grass reads
@@ -520,6 +547,19 @@ occupies a hex, and moves hex-to-hex:
   water needs no sand blend; that already reads as a rocky coastline.
   Every case was therefore already covered by one mesh or the other, so
   Ocean hexes now always render the plain `hex_water` plate, full stop.
+  Its colour still isn't perfectly flat, though: Ocean hexes within
+  `SHALLOW_WATER_RINGS` (4) of any land get a lighter tint that fades back
+  to the plate's normal colour over those rings
+  (`TerrainView3D._compute_ocean_shore_distance`, a multi-source BFS from
+  every land-touching Ocean hex — the same shape as the Forest depth-tier
+  transform). A single hard-edged "shallows" ring was tried first and made
+  the coastline read WORSE: one ring of lighter water next to untouched
+  deep blue just moves the jagged hex-edge colour seam outward by one hex
+  and adds a second equally hard one at its outer edge. Fading gradually
+  over several rings means adjacent hexes' colours are always close to each
+  other, so no single edge stands out — the true hex geometry is still
+  there up close (this is still a hex grid, not a vector coastline), but
+  the colour no longer draws the eye to it from normal play distance.
   A river's actual *path* being mechanically straight in places is a separate, sim-side
   worldgen concern (`sim/worldgen/`, not this rendering layer) — noted here
   as a known follow-up, not yet addressed.
@@ -610,14 +650,19 @@ occupies a hex, and moves hex-to-hex:
   squad's XZ position was already over the FAR hex's footprint well before
   `edgeProgress` reached 1, at a Y still short of that hex's real plateau
   top — rendered inside the terrace block, hidden behind its own opaque
-  surface for most of the climb. Fixed by giving Y its own progress,
-  separate from XZ: for any edge with no visual ramp connecting the two
-  hexes (`SquadView3D._has_visual_ramp`, mirroring `TerrainView3D`'s own
-  ramp rule), Y snaps from one hex's height to the other's at the
-  hex-boundary midpoint instead of interpolating, so it's always standing
-  on one real surface or the other. XZ stays a plain lerp, so lateral
-  motion is still smooth; the height pop lands right at the moment they'd
-  otherwise be climbing through the cliff face, not mid-approach.
+  surface for most of the climb. Fixed in two stages: for any edge with no
+  visual ramp connecting the two hexes (`SquadView3D._has_visual_ramp`,
+  mirroring `TerrainView3D`'s own ramp rule — now Infantry-only in
+  practice, since Land vehicles are blocked from these edges entirely, see
+  Elevation above), XZ and Y get separate progress. XZ walks normally up to
+  the shared edge (`edgeProgress` 0.5 — the true midpoint between any two
+  adjacent hex centers), FREEZES there for a short window
+  (`SquadView3D.CLIMB_WINDOW`) while Y eases from one hex's height to the
+  other's, then XZ resumes into the new hex — reading as a quick climb over
+  the ledge rather than the instant vertical pop a first pass (snapping Y
+  at the midpoint with no window) landed on: that fixed the disappearing
+  but still visibly teleported, floating from one height to the other with
+  nothing explaining the motion.
 
 ### Original 2.5D plan (superseded for terrain — see above; still the plan for bases/squads/projectiles)
 - **Godot, 2D sprite-based** (see `10-tech-stack-and-build-order.md` for the engine

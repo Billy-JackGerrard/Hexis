@@ -163,6 +163,13 @@ func _mesh_path_for(name: String, owner_id: String) -> String:
 		return "%s%s/%s.gltf" % [UNITS_DIR, folder, name]
 	return "%s%s/%s_%s_full.gltf" % [UNITS_DIR, folder, name, folder]
 
+## Half-width, in edge_progress units, of the "climbing" window centered on
+## the shared edge (progress 0.5 — the midpoint of any two adjacent hexes'
+## centers sits exactly on the edge between them) — see _place. 0.15 means
+## 30% of the total edge crossing is spent climbing in place rather than
+## walking, on a terrace edge with no visual ramp.
+const CLIMB_WINDOW := 0.15
+
 ## Updates `root`'s transform for this tick — position (lerped the same way
 ## SquadView.squad_pixel_position is, but in world space with a real hex
 ## height) and a facing yaw toward wherever it's currently moving.
@@ -174,28 +181,46 @@ func _place(root: Node3D, squad: SquadInstance, domain: Terrain.Domain) -> void:
 	if not squad.path.is_empty():
 		var to := TerrainView3D.hex_to_world(grid, squad.path[0])
 		to.y = _ground_y(squad.path[0], domain)
-		var xz_t := squad.edge_progress
-		# Height uses a SEPARATE progress from XZ whenever this edge climbs a
-		# terrace with no visual ramp between the two hexes (see
+		var t := squad.edge_progress
+		var xz_t := t
+		var y_t := t
+		# XZ and Y get SEPARATE, piecewise progress whenever this edge climbs
+		# a terrace with no visual ramp between the two hexes (see
 		# _has_visual_ramp) — everywhere else (a real ramp, same-height
 		# ground, Air's hover) a plain lerp already tracks the real surface,
-		# since TerrainView3D only ever slopes the FIRST step up from lowland;
-		# every step above that is a flat plate with a sheer face (see
-		# terrain_view_3d.gd's _ramp_low_direction doc comment) — walkable by
-		# sim rule, but with no surface in between for a linear Y lerp to
-		# follow. Lerping Y anyway put mid-climb XZ positions (already over
-		# the FAR hex's footprint well before edge_progress reached 1) at a
-		# height still short of that hex's real plateau top, i.e. rendered
-		# *inside* the solid terrace block — hidden behind its own opaque
-		# top surface for most of the climb (reported as "troops disappear
-		# going up the slope"). Snapping Y at the hex-boundary midpoint
-		# instead keeps it always matching one real surface or the other; XZ
-		# stays a plain lerp so lateral motion is still smooth, and the
-		# height pop lands exactly at the moment they'd otherwise be
-		# climbing through the cliff face, not mid-approach.
-		var y_t := xz_t
+		# since TerrainView3D only ever slopes the FIRST step up from
+		# lowland; every step above that is a flat plate with a sheer face
+		# (see terrain_view_3d.gd's _ramp_low_direction doc comment) —
+		# walkable by sim rule (for Infantry; Land vehicles are blocked from
+		# this edge entirely, see Terrain.elevation_step_cost), but with no
+		# surface in between for a linear Y lerp to follow. Lerping Y
+		# straight through put mid-climb XZ positions (already over the FAR
+		# hex's footprint well before edge_progress reached 1) at a height
+		# still short of that hex's real plateau top — rendered *inside* the
+		# solid terrace block, hidden behind its own opaque top surface for
+		# most of the climb ("troops disappear going up the slope"). A plain
+		# instant snap at the midpoint fixed the disappearing but still
+		# teleported — visibly floating from one height to the other with no
+		# motion to explain it. This instead treats the edge itself as a
+		# short vertical climb: XZ walks normally up to the edge, FREEZES for
+		# a CLIMB_WINDOW-wide band centered on it while Y eases from one
+		# hex's height to the other's, then XZ resumes walking away from the
+		# edge into the new hex — reading as "climb the ledge," not a pop.
 		if domain != Terrain.Domain.AIR and from.y != to.y and not _has_visual_ramp(squad.current_hex, squad.path[0]):
-			y_t = 0.0 if xz_t < 0.5 else 1.0
+			var lo := 0.5 - CLIMB_WINDOW
+			var hi := 0.5 + CLIMB_WINDOW
+			if t <= lo:
+				xz_t = t
+				y_t = 0.0
+			elif t < hi:
+				xz_t = lo ## frozen at the edge for the whole climbing band
+				y_t = smoothstep(0.0, 1.0, (t - lo) / (hi - lo))
+			else:
+				# Rescaled so xz_t still reaches exactly 1.0 at t=1.0, having
+				# covered only (1.0 - lo) of the total XZ distance over the
+				# remaining (1.0 - hi) of progress.
+				xz_t = lo + (t - hi) * (1.0 - lo) / (1.0 - hi)
+				y_t = 1.0
 		pos = Vector3(lerpf(from.x, to.x, xz_t), lerpf(from.y, to.y, y_t), lerpf(from.z, to.z, xz_t))
 		var dir := to - from
 		if dir.length_squared() > 0.0001:
